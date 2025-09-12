@@ -1,6 +1,7 @@
 AS       = nasm
 
-BUILD = ./build
+BUILD 		= build
+PROJECT		= cock
 
 CPP_SOURCES  = $(shell find * -name '*.cpp')
 ASM_SOURCES  = $(shell find * -name '*.s')
@@ -9,46 +10,26 @@ ASM_SOURCES  = $(shell find * -name '*.s')
 OBJ_CPP = $(patsubst %.cpp,$(BUILD)/%.o,$(CPP_SOURCES))
 OBJ_ASM = $(patsubst %.s,$(BUILD)/%.o,$(ASM_SOURCES))
 OBJ     = $(OBJ_CPP) $(OBJ_ASM)
+BIN		= $(patsubst %.s,$(BUILD)/%.bin,$(ASM_SOURCES))
 
-all: $(BUILD)/cock.elf
+all: $(BUILD)/$(PROJECT).img
 
 # Ensure build dir exists
 $(BUILD):
 	mkdir -p $(BUILD)
 
-# Compile C++ sources
-$(BUILD)/%.o: %.cpp | $(BUILD)
+$(BUILD)/%.bin: %.s | $(BUILD)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CFLAGS) -c $< -o $@
+	$(AS) $< -f bin -o $@
 
-# Assemble .s files
-$(BUILD)/%.o: %.s | $(BUILD)
-	@mkdir -p $(dir $@)
-	$(AS) $< -o $@
+$(BUILD)/$(PROJECT).img: $(BIN) 
+	dd if=/dev/zero of=$@ bs=512 count=2880
+	mkfs.fat -F 12 -n "NBOS" $@
+	dd if=$(BUILD)/arch/i386/boot/entry.bin of=$@ conv=notrunc
+	mcopy -i $@ $(BUILD)/kernel/core/cock.bin "::cock.bin"
 
-# Link final ELF
-$(BUILD)/cock.elf: $(OBJ)
-	$(LD) $(LDFLAGS) $^ -o $@
-
-# Run in QEMU
-run: $(BUILD)/cock.elf
-	qemu-system-x86_64 -cdrom $< -serial stdio -display gtk
-
-debug: $(BUILD)/cock.elf
-	qemu-system-x86_64 -cdrom $< -S -s
-
-# Build ISO with GRUB
-$(BUILD)/cock.iso: $(BUILD)/cock.elf
-	mkdir -p iso/boot/grub
-	cp $(BUILD)/cock.elf iso/boot/
-	echo 'set timeout=0' > iso/boot/grub/grub.cfg
-	echo 'set default=0' >> iso/boot/grub/grub.cfg
-	echo 'menuentry "Microcock Kernel" { multiboot2 /boot/cock.elf; boot }' >> iso/boot/grub/grub.cfg
-	grub-mkrescue -o $(BUILD)/cock.iso iso
-
-purge:
-	rm -r build/*
+run: $(BUILD)/cock.img
+	qemu-system-i386 -fda $<
 
 clean:
-	rm -rf $(BUILD) iso
-
+	rm -r $(BUILD)
