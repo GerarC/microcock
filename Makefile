@@ -1,5 +1,7 @@
-AS       = nasm
-
+AS			= nasm -felf32
+CXX			= i686-elf-g++
+CPP_FLAGS 	= -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -D__is_libc -D__is_libk -Ikernel/libc/include
+LN_FLAGS  	= -ffreestanding -O2 -nostdlib 
 BUILD 		= build
 PROJECT		= cock
 
@@ -7,29 +9,35 @@ CPP_SOURCES  = $(shell find * -name '*.cpp')
 ASM_SOURCES  = $(shell find * -name '*.s')
 
 # Convert to objects in build/
-OBJ_CPP = $(patsubst %.cpp,$(BUILD)/%.o,$(CPP_SOURCES))
-OBJ_ASM = $(patsubst %.s,$(BUILD)/%.o,$(ASM_SOURCES))
-OBJ     = $(OBJ_CPP) $(OBJ_ASM)
-BIN		= $(patsubst %.s,$(BUILD)/%.bin,$(ASM_SOURCES))
+OBJ_CPP		= $(patsubst %.cpp,$(BUILD)/%.occ,$(CPP_SOURCES))
+OBJ_ASM		= $(patsubst %.s,$(BUILD)/%.os,$(ASM_SOURCES))
+OBJ    		= $(OBJ_CPP) $(OBJ_ASM)
+LINKER_I686 = kernel/arch/i386/linker.ld
 
-all: $(BUILD)/$(PROJECT).img
+all: $(BUILD)/$(PROJECT).bin
 
 # Ensure build dir exists
 $(BUILD):
 	mkdir -p $(BUILD)
 
-$(BUILD)/%.bin: %.s | $(BUILD)
+
+$(BUILD)/%.os: %.s | $(BUILD)
 	@mkdir -p $(dir $@)
-	$(AS) $< -f bin -o $@
+	$(AS) $< -o $@
 
-$(BUILD)/$(PROJECT).img: $(BIN) 
-	dd if=/dev/zero of=$@ bs=512 count=2880
-	mkfs.fat -F 12 -n "NBOS" $@
-	dd if=$(BUILD)/arch/i386/boot/entry.bin of=$@ conv=notrunc
-	mcopy -i $@ $(BUILD)/kernel/core/cock.bin "::cock.bin"
+$(BUILD)/%.occ: %.cpp | $(BUILD)
+	@mkdir -p $(dir $@)
+	$(CXX) -c $< -o $@ $(CPP_FLAGS)
 
-run: $(BUILD)/cock.img
-	qemu-system-i386 -fda $<
+$(BUILD)/$(PROJECT).bin: $(OBJ) 
+	$(CXX) -T $(LINKER_I686) -o $@ $(LN_FLAGS) $(OBJ) -lgcc
+
+$(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin
+	sh kernel/arch/i386/make_iso.sh
+	
+
+run: $(BUILD)/$(PROJECT).iso
+	qemu-system-i386 -cdrom $<
 
 clean:
 	rm -r $(BUILD)
