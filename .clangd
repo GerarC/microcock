@@ -1,0 +1,12 @@
+CompileFlags:
+  Add: 
+    - -Ikernel/include
+    - -Ilibc/include
+    - -Iinclude
+    - -ffreestanding
+    - -fno-exceptions
+    - -fno-rtti
+    - -D__is_kernel
+    - -D__is_libc
+    - -D__is_libk
+
