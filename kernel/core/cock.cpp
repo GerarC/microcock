@@ -10,5 +10,10 @@
 extern "C" void cock_main(void) {
 	vga_instance.init();
 	puts("Welcome to microcock");
-    printf("Numero: %i", 123);
+    puts("SEIC");
+    puts("Semillero de Linux");
+    while (1) {
+	    puts("Welcome to microcock");
+        for(int i = 0; i < 1000000000; i++);
+    }
 }
