@@ -1,10 +1,18 @@
-#include <kernel/driver/vga.hpp>
+#include <cock/driver/vga.hpp>
 #include <string.h>
+
+VGA vga_instance;
 
 VGA::VGA()
 	: row(0), column(0),
 	  color(vga_entry_color(VGAColor::GREEN, VGAColor::BLACK)),
 	  buffer(reinterpret_cast<vchar *>(VGA_ADDRESS)) {};
+
+void VGA::init(){
+    row = column = 0;
+    color = vga_entry_color(VGAColor::GREEN, VGAColor::BLACK);
+    buffer = reinterpret_cast<vchar *>(VGA_ADDRESS);
+}
 
 void VGA::setColor(VGAColor fg, VGAColor bg) {
 	color = vga_entry_color(fg, bg);

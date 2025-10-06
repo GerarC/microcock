@@ -1,0 +1,163 @@
+[
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Icock/include",
+      "-o",
+      "build/cock/driver/vga.occ",
+      "cock/driver/vga.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/cock/driver/vga.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/cock/driver/vga.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Icock/include",
+      "-o",
+      "build/cock/core/cock.occ",
+      "cock/core/cock.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/cock/core/cock.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/cock/core/cock.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Icock/include",
+      "-o",
+      "build/libc/stdio/putchar.occ",
+      "libc/stdio/putchar.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/libc/stdio/putchar.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/libc/stdio/putchar.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Icock/include",
+      "-o",
+      "build/libc/stdio/printf.occ",
+      "libc/stdio/printf.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/libc/stdio/printf.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/libc/stdio/printf.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Icock/include",
+      "-o",
+      "build/libc/stdio/puts.occ",
+      "libc/stdio/puts.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/libc/stdio/puts.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/libc/stdio/puts.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Icock/include",
+      "-o",
+      "build/libc/string/strlen.occ",
+      "libc/string/strlen.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/libc/string/strlen.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/libc/string/strlen.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Icock/include",
+      "-o",
+      "build/libc/stdlib/abort.occ",
+      "libc/stdlib/abort.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/libc/stdlib/abort.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/libc/stdlib/abort.occ"
+  }
+]

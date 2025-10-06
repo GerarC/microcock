@@ -11,5 +11,5 @@ __attribute__((__noreturn__)) void abort(void) {
 	printf("abort()\n");
 #endif /* ifdef MACR */
 	while (1) {}
-	__builtin_unreacheable();
+	__builtin_unreachable();
 }
