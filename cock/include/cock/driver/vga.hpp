@@ -7,6 +7,7 @@
 typedef uint8_t vcolor;
 typedef uint16_t vchar;
 
+
 enum class VGAColor : vcolor {
 	BLACK = 0,
 	BLUE = 1,
@@ -39,6 +40,7 @@ class VGA {
     void write(const char *data, size_t size);
     void writeString(const char *data);
     void clear();
+    void init();
 
   private:
 	size_t row;
@@ -52,5 +54,7 @@ class VGA {
 	vcolor vga_entry_color(VGAColor fg, VGAColor bg);
 	vchar vga_entry(unsigned char uc, vcolor color);
 };
+
+extern VGA vga_instance;
 
 #endif // !VGA_H
