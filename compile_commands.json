@@ -13,14 +13,14 @@
       "-D__is_libc",
       "-D__is_libk",
       "-Ilibc/include",
-      "-Icock/include",
+      "-Ikernel/include",
       "-o",
-      "build/cock/driver/vga.occ",
-      "cock/driver/vga.cpp"
+      "build/kernel/driver/vga.occ",
+      "kernel/driver/vga.cpp"
     ],
     "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/driver/vga.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/driver/vga.occ"
+    "file": "/home/gerarc/Workspace/microcock/kernel/driver/vga.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/kernel/driver/vga.occ"
   },
   {
     "arguments": [
@@ -36,14 +36,14 @@
       "-D__is_libc",
       "-D__is_libk",
       "-Ilibc/include",
-      "-Icock/include",
+      "-Ikernel/include",
       "-o",
-      "build/cock/core/cock.occ",
-      "cock/core/cock.cpp"
+      "build/kernel/core/cock.occ",
+      "kernel/core/cock.cpp"
     ],
     "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/core/cock.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/core/cock.occ"
+    "file": "/home/gerarc/Workspace/microcock/kernel/core/cock.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/kernel/core/cock.occ"
   },
   {
     "arguments": [
@@ -59,7 +59,7 @@
       "-D__is_libc",
       "-D__is_libk",
       "-Ilibc/include",
-      "-Icock/include",
+      "-Ikernel/include",
       "-o",
       "build/libc/stdio/putchar.occ",
       "libc/stdio/putchar.cpp"
@@ -82,7 +82,7 @@
       "-D__is_libc",
       "-D__is_libk",
       "-Ilibc/include",
-      "-Icock/include",
+      "-Ikernel/include",
       "-o",
       "build/libc/stdio/printf.occ",
       "libc/stdio/printf.cpp"
@@ -105,7 +105,7 @@
       "-D__is_libc",
       "-D__is_libk",
       "-Ilibc/include",
-      "-Icock/include",
+      "-Ikernel/include",
       "-o",
       "build/libc/stdio/puts.occ",
       "libc/stdio/puts.cpp"
@@ -128,7 +128,7 @@
       "-D__is_libc",
       "-D__is_libk",
       "-Ilibc/include",
-      "-Icock/include",
+      "-Ikernel/include",
       "-o",
       "build/libc/string/strlen.occ",
       "libc/string/strlen.cpp"
@@ -151,7 +151,76 @@
       "-D__is_libc",
       "-D__is_libk",
       "-Ilibc/include",
-      "-Icock/include",
+      "-Ikernel/include",
+      "-o",
+      "build/libc/string/memcmp.occ",
+      "libc/string/memcmp.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/libc/string/memcmp.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/libc/string/memcmp.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ikernel/include",
+      "-o",
+      "build/libc/string/memmove.occ",
+      "libc/string/memmove.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/libc/string/memmove.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/libc/string/memmove.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ikernel/include",
+      "-o",
+      "build/libc/string/memset.occ",
+      "libc/string/memset.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/libc/string/memset.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/libc/string/memset.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ikernel/include",
       "-o",
       "build/libc/stdlib/abort.occ",
       "libc/stdlib/abort.cpp"

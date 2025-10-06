@@ -1,18 +1,20 @@
 AS			= nasm -felf32
 CXX			= i686-elf-g++
-CPP_FLAGS 	= -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -D__is_kernel -D__is_libc -D__is_libk -Ilibc/include -Icock/include
+CPP_FLAGS 	= -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -D__is_kernel -D__is_libc -D__is_libk -Ilibc/include -Ikernel/include
 LN_FLAGS  	= -ffreestanding -O2 -nostdlib 
 BUILD 		= build
 PROJECT		= cock
 
 CPP_SOURCES  = $(shell find * -name '*.cpp')
 ASM_SOURCES  = $(shell find * -name '*.s')
+CRTBEGIN_OBJ:=$(shell $(CXX) $(CPP_FLAGS) -print-file-name=crtbegin.o)
+CRTEND_OBJ:=$(shell $(CXX) $(CPP_FLAGS) -print-file-name=crtend.o)
 
 # Convert to objects in build/
 OBJ_CPP		= $(patsubst %.cpp,$(BUILD)/%.occ,$(CPP_SOURCES))
 OBJ_ASM		= $(patsubst %.s,$(BUILD)/%.os,$(ASM_SOURCES))
-OBJ    		= $(OBJ_CPP) $(OBJ_ASM)
-LINKER_I686 = cock/arch/i386/linker.ld
+OBJ    		= $(OBJ_CPP) $(OBJ_ASM) $(CRTBEGIN_OBJ) $(CRTEND_OBJ)
+LINKER_I686 = kernel/arch/i386/linker.ld
 
 all: $(BUILD)/$(PROJECT).bin
 
@@ -33,7 +35,7 @@ $(BUILD)/$(PROJECT).bin: $(OBJ)
 	$(CXX) -T $(LINKER_I686) -o $@ $(LN_FLAGS) $(OBJ) -lgcc
 
 $(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin
-	sh cock/arch/i386/make_iso.sh
+	sh kernel/arch/i386/make_iso.sh
 	
 
 run: $(BUILD)/$(PROJECT).iso
