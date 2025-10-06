@@ -12,8 +12,4 @@ extern "C" void cock_main(void) {
 	puts("Welcome to microcock");
     puts("SEIC");
     puts("Semillero de Linux");
-    while (1) {
-	    puts("Welcome to microcock");
-        for(int i = 0; i < 1000000000; i++);
-    }
 }
