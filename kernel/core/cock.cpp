@@ -8,7 +8,7 @@
 #error "You are not using a  cross-compiler"
 #endif
 
-#define VERSION 1
+#define VERSION 0
 
 extern "C" void cock_main(void) {
     init_gdt();

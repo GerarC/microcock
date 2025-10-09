@@ -2,7 +2,7 @@
 #define GDT_HPP
 #include <stdint.h>
 
-#define GDT_ITEM_NUM 5
+constexpr int GDT_ITEM_NUM = 5;
 
 typedef struct _gdt_entry_t {
 	uint16_t limit;
@@ -15,12 +15,11 @@ typedef struct _gdt_entry_t {
 
 typedef struct _gdt_pointer_t {
 	uint16_t limit;
-	unsigned int base;
+	uintptr_t base;
 } __attribute__((packed)) GdtPointer;
 
 void init_gdt();
 void set_gdt_gate(uint32_t num, uint32_t base, uint32_t limit, uint8_t access,
-				uint8_t gran);
+				  uint8_t gran);
 
 #endif // !GDT_HPP
-

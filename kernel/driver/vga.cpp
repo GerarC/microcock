@@ -1,17 +1,26 @@
 #include <cock/driver/vga.hpp>
 #include <string.h>
 
+constexpr VGAColor DEFAULT_BG_COLOR = VGAColor::BLACK;
+constexpr VGAColor DEFAULT_FG_COLOR = VGAColor::GREEN;
+constexpr char INITIAL_ROW = 0;
+constexpr char INITIAL_COL = 0;
+constexpr char NEWLINE = '\n';
+constexpr char EMPTY = ' ';
+constexpr size_t STEP = 1;
+
 VGA vga_instance;
 
 VGA::VGA()
-	: row(0), column(0),
-	  color(vga_entry_color(VGAColor::GREEN, VGAColor::BLACK)),
+	: row(INITIAL_ROW), column(INITIAL_COL),
+	  color(vga_entry_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR)),
 	  buffer(reinterpret_cast<vchar *>(VGA_ADDRESS)) {};
 
-void VGA::init(){
-    row = column = 0;
-    color = vga_entry_color(VGAColor::GREEN, VGAColor::BLACK);
-    buffer = reinterpret_cast<vchar *>(VGA_ADDRESS);
+void VGA::init() {
+	row = INITIAL_ROW;
+	column = INITIAL_COL;
+	color = vga_entry_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
+	buffer = reinterpret_cast<vchar *>(VGA_ADDRESS);
 }
 
 void VGA::setColor(VGAColor fg, VGAColor bg) {
@@ -24,13 +33,13 @@ void VGA::putEntryAt(unsigned char c, vcolor color, size_t x, size_t y) {
 }
 
 void VGA::putChar(char c) {
-	if (c == '\n') {
+	if (c == NEWLINE) {
 		newline();
 		return;
 	}
 	putEntryAt(c, color, column, row);
 	if (++column == VGA_WIDTH) {
-		column = 0;
+		column = INITIAL_COL;
 		newline();
 	}
 }
@@ -46,29 +55,29 @@ void VGA::clear() {
 	for (size_t x = 0; x < VGA_WIDTH; x++) {
 		for (size_t y = 0; y < VGA_HEIGHT; y++) {
 			const size_t index = y * VGA_WIDTH + x;
-			buffer[index] = vga_entry(' ', color);
+			buffer[index] = vga_entry(EMPTY, color);
 		}
 	}
-	row = 0;
-	column = 0;
+	row = INITIAL_ROW;
+	column = INITIAL_COL;
 }
 
 void VGA::newline() {
-	column = 0;
+	column = INITIAL_COL;
 	if (++row == VGA_HEIGHT) {
 		scroll();
-		row = VGA_HEIGHT - 1;
+		row = VGA_HEIGHT - STEP;
 	}
 }
 
 void VGA::scroll() {
 	for (size_t y = 1; y < VGA_HEIGHT; y++) {
 		for (size_t x = 0; x < VGA_WIDTH; x++) {
-			buffer[(y - 1) * VGA_WIDTH + x] = buffer[y * VGA_WIDTH + x];
+			buffer[(y - STEP) * VGA_WIDTH + x] = buffer[y * VGA_WIDTH + x];
 		}
 	}
 	for (size_t x = 0; x < VGA_WIDTH; x++) {
-		buffer[(VGA_HEIGHT - 1) * VGA_WIDTH + x] = vga_entry(' ', color);
+		buffer[(VGA_HEIGHT - STEP) * VGA_WIDTH + x] = vga_entry(EMPTY, color);
 	}
 }
 
