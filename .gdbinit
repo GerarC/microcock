@@ -12,7 +12,7 @@ layout src
 layout regs
 
 # Break at kernel entry
-break main_cock
+break cock_main
 
 # Convenience: show first VGA line (hex 16-bit words)
 define vga_line

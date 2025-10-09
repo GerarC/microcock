@@ -1,6 +1,6 @@
 AS			= nasm -felf32
 CXX			= i686-elf-g++
-CPP_FLAGS 	= -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -D__is_kernel -D__is_libc -D__is_libk -Ilibc/include -Ikernel/include
+CPP_FLAGS 	= -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -D__is_cock_kernel -D__is_libc -D__is_libk -Ilibc/include -Ikernel/include -fstack-protector-all
 LN_FLAGS  	= -ffreestanding -O2 -nostdlib 
 BUILD 		= build
 PROJECT		= cock
