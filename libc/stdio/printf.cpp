@@ -21,7 +21,7 @@ static int print(const char *data) {
 }
 
 typedef struct _stream_t {
-	size_t length;
+	size_t capacity;
 	size_t index;
 	char *buffer;
 	StreamWriteBufferFunction write_all;
@@ -35,14 +35,14 @@ typedef struct _stream_t {
  * */
 static int print_stream_buffer(Stream *stream) {
 	// Sets the final character as \0
-	stream->buffer[stream->length] = '\0';
+	stream->buffer[stream->capacity - 1] = '\0';
 	// writes the buffer and return 1 on failure
     size_t written = (size_t)stream->write_all(stream->buffer);
 	if (written != strlen(stream->buffer))
 		return 1;
 
 	// Clears the buffer
-	memset(stream->buffer, 0, stream->length);
+	memset(stream->buffer, 0, stream->capacity);
 	stream->index = 0;
 	return 0;
 }
@@ -54,7 +54,7 @@ static int push_to_buffer(Stream *stream, char c) {
 	stream->buffer[stream->index++] = c;
 
 	// if buffer is full, flushes it.
-	if (stream->index == stream->length - 2) {
+	if (stream->index == stream->capacity - 2) {
 		int error = print_stream_buffer(stream);
 		if (error != 0) return error;
 	}

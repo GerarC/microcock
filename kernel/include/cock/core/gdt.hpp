@@ -15,7 +15,7 @@ typedef struct _gdt_entry_t {
 
 typedef struct _gdt_pointer_t {
 	uint16_t limit;
-	GdtEntry* base;
+	unsigned int base;
 } __attribute__((packed)) GdtPointer;
 
 void init_gdt();
