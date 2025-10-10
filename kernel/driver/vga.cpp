@@ -1,6 +1,8 @@
 #include <cock/driver/vga.hpp>
 #include <string.h>
 
+namespace driver {
+
 constexpr VGAColor DEFAULT_BG_COLOR = VGAColor::BLACK;
 constexpr VGAColor DEFAULT_FG_COLOR = VGAColor::GREEN;
 constexpr char INITIAL_ROW = 0;
@@ -88,3 +90,5 @@ vcolor VGA::vga_entry_color(VGAColor fg, VGAColor bg) {
 vchar VGA::vga_entry(unsigned char uc, vcolor color) {
 	return static_cast<vchar>(uc) | static_cast<vchar>(color) << 8;
 }
+
+} // namespace driver
