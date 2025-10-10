@@ -16,12 +16,84 @@
       "-Ikernel/include",
       "-fstack-protector-all",
       "-o",
+      "build/kernel/arch/i386/init.occ",
+      "kernel/arch/i386/init.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/kernel/arch/i386/init.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/kernel/arch/i386/init.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ikernel/include",
+      "-fstack-protector-all",
+      "-o",
+      "build/kernel/arch/i386/gdt/gdt.occ",
+      "kernel/arch/i386/gdt/gdt.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/kernel/arch/i386/gdt/gdt.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/kernel/arch/i386/gdt/gdt.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ikernel/include",
+      "-fstack-protector-all",
+      "-o",
       "build/kernel/driver/vga.occ",
       "kernel/driver/vga.cpp"
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "file": "/home/gerarc/Workspace/microcock/kernel/driver/vga.cpp",
     "output": "/home/gerarc/Workspace/microcock/build/kernel/driver/vga.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ikernel/include",
+      "-fstack-protector-all",
+      "-o",
+      "build/kernel/utils/cxx_stubs.occ",
+      "kernel/utils/cxx_stubs.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/kernel/utils/cxx_stubs.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/kernel/utils/cxx_stubs.occ"
   },
   {
     "arguments": [
@@ -70,30 +142,6 @@
     "directory": "/home/gerarc/Workspace/microcock",
     "file": "/home/gerarc/Workspace/microcock/kernel/utils/ssp.cpp",
     "output": "/home/gerarc/Workspace/microcock/build/kernel/utils/ssp.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
-      "-ffreestanding",
-      "-O2",
-      "-Wall",
-      "-Wextra",
-      "-fno-exceptions",
-      "-fno-rtti",
-      "-D__is_cock_kernel",
-      "-D__is_libc",
-      "-D__is_libk",
-      "-Ilibc/include",
-      "-Ikernel/include",
-      "-fstack-protector-all",
-      "-o",
-      "build/kernel/core/gdt.occ",
-      "kernel/core/gdt.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/kernel/core/gdt.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/kernel/core/gdt.occ"
   },
   {
     "arguments": [
