@@ -7,6 +7,7 @@
 typedef uint8_t vcolor;
 typedef uint16_t vchar;
 
+namespace driver {
 
 enum class VGAColor : vcolor {
 	BLACK = 0,
@@ -35,12 +36,12 @@ class VGA {
 	VGA();
 
 	void setColor(VGAColor fg, VGAColor bg);
-    void putEntryAt(unsigned char c, vcolor color, size_t x, size_t y);
-    void putChar(char c);
-    void write(const char *data, size_t size);
-    void writeString(const char *data);
-    void clear();
-    void init();
+	void putEntryAt(unsigned char c, vcolor color, size_t x, size_t y);
+	void putChar(char c);
+	void write(const char *data, size_t size);
+	void writeString(const char *data);
+	void clear();
+	void init();
 
   private:
 	size_t row;
@@ -48,13 +49,15 @@ class VGA {
 	vcolor color;
 	vchar volatile *buffer;
 
-    void newline();
-    void scroll();
+	void newline();
+	void scroll();
 
 	vcolor vga_entry_color(VGAColor fg, VGAColor bg);
 	vchar vga_entry(unsigned char uc, vcolor color);
 };
 
 extern VGA vga_instance;
+
+} // namespace driver
 
 #endif // !VGA_H

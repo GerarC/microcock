@@ -2,7 +2,6 @@
 #define SSP_HPP
 
 #include <stdint.h>
-#include <stdlib.h>
 
 #if UINT32_MAX == UINTPTR_MAX
 #define STACK_CHK_GUARD 0xE2DEE396
