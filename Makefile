@@ -1,6 +1,11 @@
 AS			= nasm -felf32
 CXX			= i686-elf-g++
-CPP_FLAGS 	= -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -D__is_cock_kernel -D__is_libc -D__is_libk -Ilibc/include -Ikernel/include -fstack-protector-all -fno-use-cxa-atexit -mno-sse -mno-sse2 -mno-mmx -mno-80387 -MMD -MP
+CPP_FLAGS   = -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti \
+              -D__is_cock_kernel -D__is_libc -D__is_libk \
+              -Ilibc/include -Ikernel/include \
+              -fstack-protector-all -fno-use-cxa-atexit \
+              -mno-sse -mno-sse2 -mno-mmx -mno-80387 \
+              -MMD -MP
 LN_FLAGS  	= -ffreestanding -O2 -nostdlib -lgcc
 BUILD 		= build
 PROJECT		= cock
@@ -21,33 +26,38 @@ all: $(BUILD)/$(PROJECT).bin
 
 # Ensure build dir exists
 $(BUILD):
-	mkdir -p $(BUILD)
+	@echo "[BLD]  creating $@"
+	@mkdir -p $(BUILD)
 
 
 $(BUILD)/%.os: %.s | $(BUILD)
-	@echo "[AS]  $<"
+	@echo "[AS ]  $<"
 	@mkdir -p $(dir $@)
-	$(AS) $< -o $@
+	@$(AS) $< -o $@
 
 $(BUILD)/%.occ: %.cpp | $(BUILD)
 	@echo "[CXX]  $<"
 	@mkdir -p $(dir $@)
-	$(CXX) -c $< -o $@ $(CPP_FLAGS)
+	@$(CXX) -c $< -o $@ $(CPP_FLAGS)
 
 $(BUILD)/$(PROJECT).bin: $(OBJ) 
-	$(CXX) -T $(LINKER_I686) -o $@ $(LN_FLAGS) $(OBJ)
+	@echo "[LD ]  $@: $(OBJ)"
+	@$(CXX) -T $(LINKER_I686) -o $@ $(LN_FLAGS) $(OBJ)
 
 $(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin
-	sh kernel/arch/x86/make_iso.sh
+	@echo "[ISO] creating ISO"
+	@sh kernel/arch/x86/make_iso.sh
 
 iso: $(BUILD)/$(PROJECT).iso
 
 run: $(BUILD)/$(PROJECT).iso
-	qemu-system-i386 -cdrom $<
+	@echo "[RUN] Launching QEMU"
+	@qemu-system-i386 -cdrom $<
 
 
 clean:
-	rm -fr $(BUILD)
+	@echo "[CLN] Cleaning builder folder" 
+	@rm -fr $(BUILD)
 
 .PHONY: all clean iso run
  
