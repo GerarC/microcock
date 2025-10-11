@@ -3,14 +3,16 @@
 #include "./gdt/gdt.hpp"
 #include "./interrupt/idt/idt.hpp"
 
-using namespace arch::x86;
+namespace cock::arch::x86 {
+
+using cock::driver::vga_instance;
 
 GDT gdt;
 IDT idt;
 
 void init_video(){
-    driver::vga_instance.init();
-    driver::vga_instance.clear();
+    vga_instance.init();
+    vga_instance.clear();
 }
 
 extern "C" void arch_init(){
@@ -18,3 +20,6 @@ extern "C" void arch_init(){
     gdt.init();
     idt.init();
 }
+    
+}
+

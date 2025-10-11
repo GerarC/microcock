@@ -1,8 +1,8 @@
 #include "pic.hpp"
 
-#include "../../utils/functs.hpp"
+#include "../utils/functs.hpp"
 
-namespace arch::x86 {
+namespace cock::arch::x86 {
 
 using utils::out_port_b;
 

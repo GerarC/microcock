@@ -9,12 +9,16 @@
 
 #define VERSION 0
 
+namespace cock {
+
 extern "C" void cock_main(void) {
     arch_init();
     puts("GDT is initialized");;
     printf("Welcome to microcock V%d\n", VERSION);
     puts("Semillero de Linux");
     puts("SEIC");
+}
+
 }
 
 // TODO: Create initialized header

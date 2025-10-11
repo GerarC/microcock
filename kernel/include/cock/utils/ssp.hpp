@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+
 #if UINT32_MAX == UINTPTR_MAX
 #define STACK_CHK_GUARD 0xE2DEE396
 #else

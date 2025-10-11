@@ -1,13 +1,17 @@
-#ifndef ISR_HPP
-#define ISR_HPP
+#ifndef IRQ_HPP
+#define IRQ_HPP
 
-#include "../../utils/functs.hpp"
+#include "../utils/functs.hpp"
+#include <stddef.h>
 
-using arch::x86::utils::InterruptRegisters;
+namespace cock::arch::x86 {
+using utils::InterruptRegisters;
+
+constexpr size_t IRQ_NUM = 16;
 
 extern "C" __attribute__((interrupt)) void
 irq_handler(InterruptRegisters *regs);
 
+} // namespace cock::arch::x86
 
-#endif // !ISR_HPP
-#define ISR_HPP
+#endif // !IRQ_HPP

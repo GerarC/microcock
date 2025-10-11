@@ -79,35 +79,6 @@
       "-mno-mmx",
       "-mno-80387",
       "-o",
-      "build/kernel/arch/x86/utils/functs.occ",
-      "kernel/arch/x86/utils/functs.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/kernel/arch/x86/utils/functs.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/kernel/arch/x86/utils/functs.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
-      "-ffreestanding",
-      "-O2",
-      "-Wall",
-      "-Wextra",
-      "-fno-exceptions",
-      "-fno-rtti",
-      "-D__is_cock_kernel",
-      "-D__is_libc",
-      "-D__is_libk",
-      "-Ilibc/include",
-      "-Ikernel/include",
-      "-fstack-protector-all",
-      "-fno-use-cxa-atexit",
-      "-mno-sse",
-      "-mno-sse2",
-      "-mno-mmx",
-      "-mno-80387",
-      "-o",
       "build/kernel/arch/x86/interrupt/irq/irq.occ",
       "kernel/arch/x86/interrupt/irq/irq.cpp"
     ],
@@ -172,6 +143,35 @@
     "directory": "/home/gerarc/Workspace/microcock",
     "file": "/home/gerarc/Workspace/microcock/kernel/arch/x86/interrupt/idt/idt.cpp",
     "output": "/home/gerarc/Workspace/microcock/build/kernel/arch/x86/interrupt/idt/idt.occ"
+  },
+  {
+    "arguments": [
+      "/sbin/i686-elf-g++",
+      "-c",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ikernel/include",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-o",
+      "build/kernel/arch/x86/interrupt/utils/functs.occ",
+      "kernel/arch/x86/interrupt/utils/functs.cpp"
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "file": "/home/gerarc/Workspace/microcock/kernel/arch/x86/interrupt/utils/functs.cpp",
+    "output": "/home/gerarc/Workspace/microcock/build/kernel/arch/x86/interrupt/utils/functs.occ"
   },
   {
     "arguments": [

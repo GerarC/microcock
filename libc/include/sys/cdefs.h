@@ -1,5 +1,5 @@
 #ifndef SYS_CDEFS_H
-#define SYS_CDEFS_H 1 1
+#define SYS_CDEFS_H 1
 
 #define __cock_libc 1
 

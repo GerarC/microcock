@@ -4,7 +4,7 @@ typedef long unsigned int addr_t;
 
 extern "C" void gdt_flush(uintptr_t); // flush
 
-namespace arch::x86 {
+namespace cock::arch::x86 {
 
 GDT::GDT(){}
 
