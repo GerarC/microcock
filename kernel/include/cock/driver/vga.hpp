@@ -4,10 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+namespace cock::driver {
+
 typedef uint8_t vcolor;
 typedef uint16_t vchar;
 
-namespace driver {
 
 enum class VGAColor : vcolor {
 	BLACK = 0,
@@ -52,8 +53,8 @@ class VGA {
 	void newline();
 	void scroll();
 
-	vcolor vga_entry_color(VGAColor fg, VGAColor bg);
-	vchar vga_entry(unsigned char uc, vcolor color);
+	static constexpr vcolor vga_entry_color(VGAColor fg, VGAColor bg);
+	static constexpr vchar vga_entry(unsigned char uc, vcolor color);
 };
 
 extern VGA vga_instance;

@@ -18,7 +18,7 @@ constexpr size_t STEP = 1;
 
 constexpr int DEFAULT_INDEX = 0;
 constexpr int SUCCESS = 0;
-constexpr int ERROR = 0;
+constexpr int ERROR = -1;
 constexpr int EMPTY = 0;
 
 // TYPES
@@ -62,10 +62,10 @@ static int print(const char *data) {
  * */
 static int print_stream_buffer(Stream *stream) {
 	// Sets the final character as \0
-	stream->buffer[stream->capacity - STEP] = END_OF_STRING;
+	stream->buffer[stream->index] = END_OF_STRING;
 	// writes the buffer and return 1 on failure
 	size_t written = (size_t)stream->write_all(stream->buffer);
-	if (written != strlen(stream->buffer)) return ERROR;
+	if (written != stream->index) return ERROR;
 
 	// Clears the buffer
 	memset(stream->buffer, EMPTY, stream->capacity);

@@ -1,8 +1,10 @@
 #ifndef IDT_HPP
 #define IDT_HPP
 #include <stdint.h>
+#include "../isr/isr.hpp"
+#include "../irq/irq.hpp"
 
-namespace arch::x86 {
+namespace cock::arch::x86 {
 class IDT {
   public:
 	typedef struct __attribute__((packed)) _idt_entry_t {
