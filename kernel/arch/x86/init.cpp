@@ -10,13 +10,14 @@ using cock::driver::vga_instance;
 GDT gdt;
 IDT idt;
 
-void init_video(){
-    vga_instance.init();
-    vga_instance.clear();
+extern "C" void arch_video_init(){
+    static driver::VGA vga;
+    vga_instance = & vga;
+    vga_instance->init();
+    vga_instance->clear();
 }
 
-extern "C" void arch_init(){
-    init_video();
+extern "C" void arch_core_init(){
     gdt.init();
     idt.init();
 }

@@ -2,7 +2,7 @@ AS			= nasm -felf32
 CXX			= i686-elf-g++
 CPP_FLAGS   = -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti \
               -D__is_cock_kernel -D__is_libc -D__is_libk \
-              -Ilibc/include -Ikernel/include \
+              -Ilibc/include -Ilibcxx/include -Ikernel/include \
               -fstack-protector-all -fno-use-cxa-atexit \
               -mno-sse -mno-sse2 -mno-mmx -mno-80387 \
               -MMD -MP
@@ -26,27 +26,32 @@ all: $(BUILD)/$(PROJECT).bin
 
 # Ensure build dir exists
 $(BUILD):
-	@echo "[BLD]  creating $@"
+	@echo "[BLD] creating $@"
 	@mkdir -p $(BUILD)
 
 
 $(BUILD)/%.os: %.s | $(BUILD)
-	@echo "[AS ]  $<"
+	@echo "[AS ] $<"
 	@mkdir -p $(dir $@)
 	@$(AS) $< -o $@
 
 $(BUILD)/%.occ: %.cpp | $(BUILD)
-	@echo "[CXX]  $<"
+	@echo "[CXX] $<"
 	@mkdir -p $(dir $@)
 	@$(CXX) -c $< -o $@ $(CPP_FLAGS)
 
 $(BUILD)/$(PROJECT).bin: $(OBJ) 
-	@echo "[LD ]  $@: $(OBJ)"
+	@echo "[LD ] $@: $(OBJ)"
 	@$(CXX) -T $(LINKER_I686) -o $@ $(LN_FLAGS) $(OBJ)
 
 $(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin
 	@echo "[ISO] creating ISO"
-	@sh kernel/arch/x86/make_iso.sh
+	@mkdir -p build/isodir/boot/grub
+	@cp $< build/isodir/boot/$(PROJECT).bin
+	@echo menuentry "cock" { > build/isodir/boot/grub/grub.cfg
+	@echo "    multiboot /boot/$(PROJECT).bin" >> build/isodir/boot/grub/grub.cfg
+	@echo } >> build/isodir/boot/grub/grub.cfg
+	@grub-mkrescue -o build/cock.iso build/isodir
 
 iso: $(BUILD)/$(PROJECT).iso
 

@@ -28,6 +28,7 @@ typedef enum _spec_type_e {
 	SPEC_DIGIT = 'd',
 	SPEC_UNSIGNED = 'u',
 	SPEC_HEX = 'x',
+	SPEC_POINTER = 'p',
 	SPEC_OCTAL = 'o',
 	SPEC_CHAR = 'c',
 	SPEC_STRING = 's'
@@ -177,6 +178,7 @@ int vprintf(Stream *stream, const char *format, va_list args) {
 			}
 			case SPEC_UNSIGNED:
 			case SPEC_HEX:
+            case SPEC_POINTER:
 			case SPEC_OCTAL: {
 				unsigned int val = va_arg(args, unsigned int);
 				push_int_to_buffer(stream, val, int_flag_to_base(spec),
