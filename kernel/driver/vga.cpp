@@ -11,7 +11,7 @@ constexpr char NEWLINE = '\n';
 constexpr char EMPTY = ' ';
 constexpr size_t STEP = 1;
 
-VGA vga_instance;
+VGA* vga_instance = nullptr;
 
 VGA::VGA()
 	: row(INITIAL_ROW), column(INITIAL_COL),

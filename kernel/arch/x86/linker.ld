@@ -1,24 +1,54 @@
-ENTRY (_start)
+ENTRY(_start)
 
-SECTIONS{
-    . = 2M;
+SECTIONS {
+    /* Cargar en 1 MiB — multiboot / GRUB espera esto */
+    . = 0x00100000;
 
-    .text BLOCK(4K) : ALIGN(4K){
-        *(.multiboot)
-        *(.text)
+    .text ALIGN(4K) : {
+        KEEP(*(.multiboot))
+        KEEP(*(.multiboot_header))
+        *(.text*)
     }
 
-    .rodata BLOCK(4K) : ALIGN(4K){
-        *(.rodata)
+    .init_array ALIGN(8) : {
+        __init_array_start = .;
+        KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*)))
+        KEEP(*(.init_array))
+        __init_array_end = .;
     }
 
-    .data BLOCK(4K) : ALIGN(4K){
-        *(.data)
+    .ctors ALIGN(8) : {
+        __ctors_start = .;
+        KEEP(*(SORT_BY_INIT_PRIORITY(.ctors.*)))
+        KEEP(*(.ctors))
+        __ctors_end = .;
     }
 
-    .bss BLOCK(4K) : ALIGN(4K){
+    .dtors ALIGN(8) : {
+        __dtors_start = .;
+        KEEP(*(SORT_BY_INIT_PRIORITY(.dtors.*)))
+        KEEP(*(.dtors))
+        __dtors_end = .;
+    }
+
+    .rodata ALIGN(4K) : {
+        *(.rodata*)
+    }
+
+    .data ALIGN(4K) : {
+        *(.data*)
+    }
+
+    .bss ALIGN(4K) : {
+        __bss_start = .;
         *(COMMON)
-        *(.bss)
+        *(.bss*)
+        __bss_end = .;
     }
 
+    /DISCARD/ : {
+        *(.comment)
+        *(.note*)
+    }
 }
+

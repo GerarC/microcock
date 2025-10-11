@@ -57,7 +57,7 @@ class VGA {
 	static constexpr vchar vga_entry(unsigned char uc, vcolor color);
 };
 
-extern VGA vga_instance;
+extern VGA *vga_instance;
 
 } // namespace driver
 

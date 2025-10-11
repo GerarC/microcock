@@ -26,8 +26,8 @@ global _start:function (_start.end - _start)
 _start:
     ; set the stack in the top
     mov esp, stack_top
-    extern cock_main
-    call cock_main
+    extern init_cock
+    call init_cock
 
     cli             ; disables interrupts
 
