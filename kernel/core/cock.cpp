@@ -13,5 +13,3 @@ extern "C" void cock_main(void) {
 }
 
 }
-
-// TODO: Create initialized header

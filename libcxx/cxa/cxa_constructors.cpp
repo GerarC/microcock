@@ -23,7 +23,7 @@ static inline int is_valid_text_address(void *p) {
 extern "C" void call_global_constructors() {
 	const char *using_ctors_message = USING_INIT_ARRAY_MESSAGE;
 	CtorPtr start = __init_array_start;
-	CtorPtr end = __init_array_start;
+	CtorPtr end = __init_array_end;
 
 	if (start == end) {
 		using_ctors_message = USING_CTORS_MESSAGE;
