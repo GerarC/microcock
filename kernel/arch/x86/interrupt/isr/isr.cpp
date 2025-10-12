@@ -5,6 +5,7 @@
 	;                                                                          \
 	;
 
+namespace cock::arch::x86 {
 constexpr const char *EXCEPTION_MESSAGES[] = {"Division by Zero",
 											  "Debug",
 											  "Non Maskable Interrupt",
@@ -40,10 +41,12 @@ constexpr const char *EXCEPTION_MESSAGES[] = {"Division by Zero",
 
 extern "C" __attribute__((interrupt)) void
 isr_handler(InterruptRegisters *regs) {
-	if (regs->int_no < 32) {
+	if (regs->int_no < ISR_NUM) {
 		puts(EXCEPTION_MESSAGES[regs->int_no]);
 		puts("System Exception Halted");
 		for (ETERNAL)
 			;
 	}
 }
+
+} // namespace cock::arch::x86

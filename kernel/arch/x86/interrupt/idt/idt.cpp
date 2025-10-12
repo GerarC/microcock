@@ -4,15 +4,13 @@
 #include <stdint.h>
 #include <string.h>
 
-constexpr size_t ISR_NUM = 32;
-constexpr size_t IRQ_NUM = 16;
 extern "C" void *irq_stub_table[];
 extern "C" void *isr_stub_table[];
 extern "C" void *isr_stub_128;
 extern "C" void *isr_stub_177;
 
 extern "C" void idt_flush(uintptr_t);
-namespace arch::x86 {
+namespace cock::arch::x86 {
 
 
 /** Initializing PICs
