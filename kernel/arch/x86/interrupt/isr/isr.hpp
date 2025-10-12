@@ -1,13 +1,19 @@
 #ifndef ISR_HPP
 #define ISR_HPP
 
-#include "../../utils/functs.hpp"
+#include "../utils/functs.hpp"
 
-using arch::x86::utils::InterruptRegisters;
+
+
+namespace cock::arch::x86 {
+
+using utils::InterruptRegisters;
+
+constexpr int ISR_NUM = 32;
 
 extern "C" __attribute__((interrupt)) void
 isr_handler(InterruptRegisters *regs);
 
+}
 
 #endif // !ISR_HPP
-#define ISR_HPP

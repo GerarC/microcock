@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-namespace arch::x86 {
+namespace cock::arch::x86 {
 
 constexpr int CASCADE_IRQ = 2;
 

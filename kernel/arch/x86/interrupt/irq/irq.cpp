@@ -1,11 +1,15 @@
 #include "irq.hpp"
 #include "../pic/pic.hpp"
+#include <cock/utils/panic.hpp>
+
+namespace cock::arch::x86 {
+
+using utils::InterruptRegisters;
 
 typedef void (*IrqRoutine)(InterruptRegisters *reg);
 
-using arch::x86::PIC1;
-using arch::x86::PIC2;
-using arch::x86::utils::out_port_b;
+using utils::out_port_b;
+using cock::utils::panic;
 
 IrqRoutine irq_routines[16] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -19,6 +23,7 @@ void irq_uninstall_handler(int irq) { irq_routines[irq] = 0; }
 
 extern "C" __attribute__((interrupt)) void
 irq_handler(InterruptRegisters *regs) {
+	if (regs->int_no < 32 || regs->int_no > 48) panic("Invalid Interrupt Number.");
 	IrqRoutine handler;
 
 	int handler_index = regs->int_no - 32;
@@ -31,3 +36,5 @@ irq_handler(InterruptRegisters *regs) {
 		out_port_b((uint16_t)PIC1::COMMAND, 0x20);
 	}
 }
+
+} // namespace cock::arch::x86

@@ -2,7 +2,7 @@
 #define GDT_HPP
 #include <stdint.h>
 
-namespace arch::x86 {
+namespace cock::arch::x86 {
 class GDT {
   public:
 	typedef struct __attribute__((packed)) _gdt_entry_t {

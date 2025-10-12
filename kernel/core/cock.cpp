@@ -1,20 +1,15 @@
-#include <cock/core/arch.hpp>
+#include <cock/core/cock.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 
-#if defined(__linux__)
-#error "You are not using a  cross-compiler"
-#endif
-
-#define VERSION 0
+namespace cock {
 
 extern "C" void cock_main(void) {
-    arch_init();
     puts("GDT is initialized");;
-    printf("Welcome to microcock V%d\n", VERSION);
+    puts("Welcome to microcock V1");
     puts("Semillero de Linux");
     puts("SEIC");
 }
 
-// TODO: Create initialized header
+}

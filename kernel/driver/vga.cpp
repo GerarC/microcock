@@ -1,7 +1,7 @@
 #include <cock/driver/vga.hpp>
 #include <string.h>
 
-namespace driver {
+namespace cock::driver {
 
 constexpr VGAColor DEFAULT_BG_COLOR = VGAColor::BLACK;
 constexpr VGAColor DEFAULT_FG_COLOR = VGAColor::GREEN;
@@ -11,7 +11,7 @@ constexpr char NEWLINE = '\n';
 constexpr char EMPTY = ' ';
 constexpr size_t STEP = 1;
 
-VGA vga_instance;
+VGA* vga_instance = nullptr;
 
 VGA::VGA()
 	: row(INITIAL_ROW), column(INITIAL_COL),
@@ -54,8 +54,8 @@ void VGA::write(const char *data, size_t size) {
 void VGA::writeString(const char *data) { write(data, strlen(data)); }
 
 void VGA::clear() {
-	for (size_t x = 0; x < VGA_WIDTH; x++) {
-		for (size_t y = 0; y < VGA_HEIGHT; y++) {
+	for (size_t y = 0; y < VGA_HEIGHT; y++) {
+		for (size_t x = 0; x < VGA_WIDTH; x++) {
 			const size_t index = y * VGA_WIDTH + x;
 			buffer[index] = vga_entry(EMPTY, color);
 		}
@@ -83,12 +83,12 @@ void VGA::scroll() {
 	}
 }
 
-vcolor VGA::vga_entry_color(VGAColor fg, VGAColor bg) {
+constexpr vcolor VGA::vga_entry_color(VGAColor fg, VGAColor bg) {
 	return static_cast<vcolor>(fg) | (static_cast<vcolor>(bg) << 4);
 }
 
-vchar VGA::vga_entry(unsigned char uc, vcolor color) {
+constexpr vchar VGA::vga_entry(unsigned char uc, vcolor color) {
 	return static_cast<vchar>(uc) | static_cast<vchar>(color) << 8;
 }
 
-} // namespace driver
+} // namespace cock::driver
