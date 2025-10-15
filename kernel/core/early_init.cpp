@@ -15,9 +15,6 @@ extern "C" void init_cock(void) {
 	arch_core_init();
 
 	cock_main();
-
-	while (1)
-		__asm__ volatile("cli; hlt");
 }
 
 } // namespace cock
