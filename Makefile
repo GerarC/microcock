@@ -10,10 +10,24 @@ LN_FLAGS  	= -ffreestanding -O2 -nostdlib -lgcc
 BUILD 		= build
 PROJECT		= cock
 
+VERSION_MAJOR := 0
+VERSION_MINOR := 0
+VERSION_PATCH := 2
+VERSION_STAGE := "\"Pre-alfa\""
+GIT_HASH := "\"$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)\""
+BUILD_DATE := "\"$(shell date +%Y-%m-%d)\""
+
+CPP_FLAGS += -DCOCK_VERSION_MAJOR=$(VERSION_MAJOR)
+CPP_FLAGS += -DCOCK_VERSION_MINOR=$(VERSION_MINOR)
+CPP_FLAGS += -DCOCK_VERSION_PATCH=$(VERSION_PATCH)
+CPP_FLAGS += -DCOCK_VERSION_STAGE=$(VERSION_STAGE)
+CPP_FLAGS += -DCOCK_GIT_HASH=$(GIT_HASH)
+CPP_FLAGS += -DCOCK_BUILD_DATE=$(BUILD_DATE)
+
 CPP_SOURCES  = $(shell find * -name '*.cpp')
 ASM_SOURCES  = $(shell find * -name '*.s')
-CRTBEGIN_OBJ:=$(shell $(CXX) $(CPP_FLAGS) -print-file-name=crtbegin.o)
-CRTEND_OBJ:=$(shell $(CXX) $(CPP_FLAGS) -print-file-name=crtend.o)
+CRTBEGIN_OBJ:= $(shell $(CXX) $(CPP_FLAGS) -print-file-name=crtbegin.o)
+CRTEND_OBJ	:= $(shell $(CXX) $(CPP_FLAGS) -print-file-name=crtend.o)
 
 # Convert to objects in build/
 OBJ_CPP		= $(patsubst %.cpp,$(BUILD)/%.occ,$(CPP_SOURCES))
