@@ -3,17 +3,14 @@
 
 #include "../utils/functs.hpp"
 
-
-
 namespace cock::arch::x86 {
 
 using utils::InterruptRegisters;
 
 constexpr int ISR_NUM = 32;
 
-extern "C" __attribute__((interrupt)) void
-isr_handler(InterruptRegisters *regs);
+extern "C" void isr_handler(InterruptRegisters *regs);
 
-}
+} // namespace cock::arch::x86
 
 #endif // !ISR_HPP

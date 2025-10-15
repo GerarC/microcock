@@ -1,5 +1,4 @@
 #include <limits.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -148,19 +147,24 @@ static int int_flag_to_base(SpecType flag) {
 	}
 }
 
-int vprintf(Stream *stream, const char *format, va_list args) {
+int vprintf(const char *format, va_list args) {
+	char buffer[MAX_STRING_SIZE];
+	Stream stream = {.capacity = sizeof(buffer),
+					 .index = DEFAULT_INDEX,
+					 .buffer = buffer,
+					 .write_all = print};
 	for (size_t i = 0; format[i] != END_OF_STRING; i++) {
 		char current = format[i];
 
 		// Any char
 		if (current != SPEC_DELIMITER) {
-			push_to_buffer(stream, current);
+			push_to_buffer(&stream, current);
 			continue;
 		}
 
 		// %%
 		if (format[i + STEP] == SPEC_DELIMITER) {
-			push_to_buffer(stream, SPEC_DELIMITER);
+			push_to_buffer(&stream, SPEC_DELIMITER);
 			i++;
 			continue;
 		}
@@ -172,48 +176,43 @@ int vprintf(Stream *stream, const char *format, va_list args) {
 			case SPEC_DIGIT: {
 				int val = va_arg(args, int);
 				is_signed = 1;
-				push_int_to_buffer(stream, val, int_flag_to_base(spec),
+				push_int_to_buffer(&stream, val, int_flag_to_base(spec),
 								   is_signed);
 				break;
 			}
 			case SPEC_UNSIGNED:
 			case SPEC_HEX:
-            case SPEC_POINTER:
+			case SPEC_POINTER:
 			case SPEC_OCTAL: {
 				unsigned int val = va_arg(args, unsigned int);
-				push_int_to_buffer(stream, val, int_flag_to_base(spec),
+				push_int_to_buffer(&stream, val, int_flag_to_base(spec),
 								   is_signed);
 				break;
 			}
 			case SPEC_CHAR: {
 				int c = va_arg(args, int);
-				push_to_buffer(stream, (char)c);
+				push_to_buffer(&stream, (char)c);
 				break;
 			}
 			case SPEC_STRING: {
 				const char *str = va_arg(args, const char *);
-				push_all_to_buffer(stream, str ? str : NULL_STRING_MESSAGE);
+				push_all_to_buffer(&stream, str ? str : NULL_STRING_MESSAGE);
 				break;
 			}
 			default:
-				push_to_buffer(stream, SPEC_DELIMITER);
-				push_to_buffer(stream, spec);
+				push_to_buffer(&stream, SPEC_DELIMITER);
+				push_to_buffer(&stream, spec);
 				break;
 		}
 	}
-	int r = print_stream_buffer(stream);
+	int r = print_stream_buffer(&stream);
 	return r;
 }
 
 int printf(const char *__restrict format, ...) {
 	va_list args;
 	va_start(args, format);
-	char buffer[MAX_STRING_SIZE];
-	Stream stream = {.capacity = sizeof(buffer),
-					 .index = DEFAULT_INDEX,
-					 .buffer = buffer,
-					 .write_all = print};
-	int result = vprintf(&stream, format, args);
+	int result = vprintf(format, args);
 	va_end(args);
 	return result;
 }
