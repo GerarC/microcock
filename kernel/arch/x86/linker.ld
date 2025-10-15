@@ -1,8 +1,7 @@
 ENTRY(_start)
 
 SECTIONS {
-    /* Cargar en 1 MiB — multiboot / GRUB espera esto */
-    . = 0x00100000;
+    . = 1M;
 
     .text ALIGN(4K) : {
         KEEP(*(.multiboot))
