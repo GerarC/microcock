@@ -9,7 +9,13 @@ gdt_flush:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    jmp 0x08:flush
+    jmp 0x08:.flush
 
-flush:
+.flush:
+    ret
+
+global tss_flush
+tss_flush:
+    mov ax, 0x2B ; 2B stands for the offset and basically index where TTS is placed
+    ltr ax
     ret
