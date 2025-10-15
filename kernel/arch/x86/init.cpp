@@ -2,6 +2,7 @@
 #include <cock/driver/vga.hpp>
 #include "./gdt/gdt.hpp"
 #include "./interrupt/idt/idt.hpp"
+#include "timer.hpp"
 
 namespace cock::arch::x86 {
 
@@ -9,6 +10,7 @@ using cock::driver::vga_instance;
 
 GDT gdt;
 IDT idt;
+Timer timer;
 
 extern "C" void arch_video_init(){
     static driver::VGA vga;
@@ -20,6 +22,7 @@ extern "C" void arch_video_init(){
 extern "C" void arch_core_init(){
     gdt.init();
     idt.init();
+    timer.init();
 }
     
 }

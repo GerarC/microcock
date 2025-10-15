@@ -16,7 +16,7 @@ VGA* vga_instance = nullptr;
 VGA::VGA()
 	: row(INITIAL_ROW), column(INITIAL_COL),
 	  color(vga_entry_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR)),
-	  buffer(reinterpret_cast<vchar *>(VGA_ADDRESS)) {};
+	  buffer(reinterpret_cast<vchar *>(VGA_ADDRESS)) {}
 
 void VGA::init() {
 	row = INITIAL_ROW;

@@ -13,6 +13,10 @@ typedef struct _interrupt_registers_t {
     uint32_t eip, cs, eflags, useresp, ss;
 } InterruptRegisters;
 
+
+void print_interrupt_registers(const InterruptRegisters *r);
+
+
 /**
  * Outputs a byte to the given port
  * */

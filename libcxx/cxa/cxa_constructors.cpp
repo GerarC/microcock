@@ -29,7 +29,7 @@ extern "C" void call_global_constructors() {
 		using_ctors_message = USING_CTORS_MESSAGE;
 		start = __ctors_start, end = __ctors_end;
 	}
-	puts(using_ctors_message);
+	// puts(using_ctors_message);
 	for (CtorPtr ctor = start; ctor < end; ctor++) {
 		if (is_valid_text_address((void *)(*ctor))) {
 			Ctor builder = *ctor;

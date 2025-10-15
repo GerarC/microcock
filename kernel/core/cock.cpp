@@ -11,6 +11,8 @@ extern "C" void cock_main(void) {
     printf("Build: %s (%s)\n", COCK_BUILD_DATE, COCK_GIT_HASH);
     puts("Semillero de Linux UdeA");
     puts("SEIC UdeA");
+
+    for(;;);
 }
 
 }
