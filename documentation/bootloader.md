@@ -43,13 +43,39 @@ section .text
 global _start:function (_start.end - _start)
 _start:
     mov esp, stack_top
-    extern init_cock
-    call cock_main
+    extern main_cock ; Here it imports the entry function for the kernel
+    call main_cock
 
-    cli             ; disables interrupts
-
+    cli
 .hang: hlt
     jmp .hang
 .end:
 ~~~
 <br/>
+
+
+To tell CPU where to look up for the information a linker script is needed. In this project this file is placed in *kernel/arch/x86/linker.ld*
+~~~ ld
+ENTRY(_start)
+SECTIONS {
+    . = 1M;
+    .text ALIGN(4K) : {
+        KEEP(*(.multiboot))
+        KEEP(*(.multiboot_header))
+        *(.text*)
+    }
+    .rodata ALIGN(4K) : {
+        *(.rodata*)
+    }
+    .data ALIGN(4K) : {
+        *(.data*)
+    }
+    .bss ALIGN(4K) : {
+        __bss_start = .;
+        *(COMMON)
+        *(.bss*)
+        __bss_end = .;
+    }
+}
+~~~
+This file say which is the entry point, the complete size of the kernel, the size, the alignment and the position of each section, and even pointers to the data.
