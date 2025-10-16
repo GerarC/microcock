@@ -5,6 +5,9 @@
 
 namespace cock::arch::x86::utils {
 
+/**
+ * Structure to capture Registers on Interruption triggering
+ * */
 typedef struct _interrupt_registers_t {
     uint32_t cr2;
     uint32_t ds;
@@ -21,6 +24,12 @@ void print_interrupt_registers(const InterruptRegisters *r);
  * Outputs a byte to the given port
  * */
 void out_port_b(uint16_t port, uint8_t value);
+
+
+/**
+ * Reads a byte from the given port
+ * */
+uint8_t in_port_b(uint16_t port);
 
 }
 
