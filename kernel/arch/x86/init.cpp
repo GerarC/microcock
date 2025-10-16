@@ -2,7 +2,7 @@
 #include <cock/driver/vga.hpp>
 #include "./gdt/gdt.hpp"
 #include "./interrupt/idt/idt.hpp"
-#include "timer.hpp"
+#include "timer/timer.hpp"
 
 namespace cock::arch::x86 {
 

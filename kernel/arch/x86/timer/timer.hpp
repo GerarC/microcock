@@ -1,8 +1,7 @@
 #ifndef TIMER_HPP
 #define TIMER_HPP
 
-#include "interrupt/idt/idt.hpp"
-#include "interrupt/utils/functs.hpp"
+#include "../utils/helpers.hpp"
 #include <stdint.h>
 
 namespace cock::arch::x86 {
