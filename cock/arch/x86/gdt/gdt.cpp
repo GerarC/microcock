@@ -1,5 +1,5 @@
 #include "cock/utils/logger.hpp"
-#include <cock/arch/x86/gdt/gdt.hpp>
+#include <cock/arch/x86/gdt.hpp>
 #include <stddef.h>
 #include <string.h>
 

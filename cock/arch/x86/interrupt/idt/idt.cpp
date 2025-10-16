@@ -1,6 +1,6 @@
 #include "cock/utils/logger.hpp"
-#include <cock/arch/x86/interrupt/idt/idt.hpp>
-#include <cock/arch/x86/interrupt/pic/pic.hpp>
+#include <cock/arch/x86/interrupt/idt.hpp>
+#include <cock/arch/x86/interrupt/pic.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>

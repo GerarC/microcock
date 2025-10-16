@@ -1,6 +1,6 @@
 #include "cock/utils/logger.hpp"
-#include <cock/arch/x86/interrupt/irq/irq.hpp>
-#include <cock/arch/x86/keyboard/keyboard.hpp>
+#include <cock/arch/x86/interrupt/irq.hpp>
+#include <cock/arch/x86/keyboard.hpp>
 #include <stdio.h>
 
 namespace cock::arch::x86 {

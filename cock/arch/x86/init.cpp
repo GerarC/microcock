@@ -1,7 +1,7 @@
-#include <cock/arch/x86/gdt/gdt.hpp>
-#include <cock/arch/x86/interrupt/idt/idt.hpp>
-#include <cock/arch/x86/keyboard/keyboard.hpp>
-#include <cock/arch/x86/timer/timer.hpp>
+#include <cock/arch/x86/gdt.hpp>
+#include <cock/arch/x86/interrupt/idt.hpp>
+#include <cock/arch/x86/keyboard.hpp>
+#include <cock/arch/x86/timer.hpp>
 #include <cock/core/arch.hpp>
 #include <cock/driver/vga.hpp>
 

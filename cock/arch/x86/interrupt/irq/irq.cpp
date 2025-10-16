@@ -1,5 +1,5 @@
-#include <cock/arch/x86/interrupt/irq/irq.hpp>
-#include <cock/arch/x86/interrupt/pic/pic.hpp>
+#include <cock/arch/x86/interrupt/irq.hpp>
+#include <cock/arch/x86/interrupt/pic.hpp>
 #include <cock/utils/panic.hpp>
 namespace cock::arch::x86 {
 

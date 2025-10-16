@@ -1,4 +1,4 @@
-#include <cock/arch/x86/interrupt/pic/pic.hpp>
+#include <cock/arch/x86/interrupt/pic.hpp>
 #include <cock/arch/x86/utils/helpers.hpp>
 
 namespace cock::arch::x86 {

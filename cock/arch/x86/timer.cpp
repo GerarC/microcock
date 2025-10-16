@@ -1,6 +1,6 @@
 #include "cock/utils/logger.hpp"
-#include <cock/arch/x86/interrupt/irq/irq.hpp>
-#include <cock/arch/x86/timer/timer.hpp>
+#include <cock/arch/x86/interrupt/irq.hpp>
+#include <cock/arch/x86/timer.hpp>
 
 namespace cock::arch::x86 {
 
