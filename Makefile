@@ -12,7 +12,7 @@ PROJECT		= cock
 
 VERSION_MAJOR := 0
 VERSION_MINOR := 0
-VERSION_PATCH := 2
+VERSION_PATCH := 3
 VERSION_STAGE := "\"Pre-alfa\""
 GIT_HASH := "\"$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)\""
 BUILD_DATE := "\"$(shell date +%Y-%m-%d)\""

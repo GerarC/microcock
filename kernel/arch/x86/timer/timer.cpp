@@ -6,8 +6,8 @@ namespace cock::arch::x86 {
 using utils::out_port_b;
 
 constexpr uint32_t INITIAL_TICKS = 0;
-constexpr uint32_t IRQ0_INDEX = 32;
-constexpr uint32_t BASE_FREQUENCY = 1193180;
+constexpr uint32_t IRQ0_INDEX = 0x20;
+constexpr uint32_t BASE_FREQUENCY = 0x1234DC; //1193180
 
 volatile uint64_t Timer::ticks = INITIAL_TICKS;
 
