@@ -1,8 +1,12 @@
-#include "cock/utils/panic.hpp"
-#include <stdio.h>
 #include <stdlib.h>
 
-#define ETERNAL ;;
+#if defined(__is_libk)
+#include "cock/utils/panic.hpp"
+#else
+#include <stdio.h>
+#endif
+
+#define FOR_ETERNAL for (;;)
 
 using cock::utils::panic;
 
@@ -14,6 +18,6 @@ __attribute__((__noreturn__)) void abort(void) {
 	printf("abort()\n");
 #endif
 	asm volatile("hlt");
-	for (ETERNAL);
+	FOR_ETERNAL;
 	__builtin_unreachable();
 }
