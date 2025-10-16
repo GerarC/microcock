@@ -1,4 +1,4 @@
-#include "functs.hpp"
+#include "helpers.hpp"
 #include <stdio.h>
 
 namespace cock::arch::x86::utils {
@@ -21,7 +21,7 @@ void print_interrupt_registers(const InterruptRegisters *r) {
     printf("\n-- Segment / Control --\n");
     printf("CS: 0x%x  SS: 0x%x  DS: 0x%x\n", r->cs, r->ss, r->ds);
     printf("EFLAGS: 0x%x  USERESP: 0x%x\n", r->eflags, r->useresp);
-    printf("EIP: 0x%x\n", r->eip);
+    printf("EI: 0x%x\n", r->eip);
     printf("=============================\n");
 }
 

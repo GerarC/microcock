@@ -1,7 +1,7 @@
 #ifndef IRQ_HPP
 #define IRQ_HPP
 
-#include "../utils/functs.hpp"
+#include "../../utils/helpers.hpp"
 #include <stddef.h>
 
 namespace cock::arch::x86 {

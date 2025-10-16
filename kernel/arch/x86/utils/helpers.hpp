@@ -1,5 +1,5 @@
-#ifndef FUNCTS_HPP
-#define FUNCTS_HPP
+#ifndef HELPERS_HPP
+#define HELPERS_HPP
 
 #include <stdint.h>
 
@@ -24,4 +24,4 @@ void out_port_b(uint16_t port, uint8_t value);
 
 }
 
-#endif // !FUNCTS_HPP
+#endif // !HELPERS_HPP

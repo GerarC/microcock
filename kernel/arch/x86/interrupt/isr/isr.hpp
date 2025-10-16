@@ -1,7 +1,7 @@
 #ifndef ISR_HPP
 #define ISR_HPP
 
-#include "../utils/functs.hpp"
+#include "../../utils/helpers.hpp"
 
 namespace cock::arch::x86 {
 

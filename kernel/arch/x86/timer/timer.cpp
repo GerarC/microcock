@@ -1,6 +1,5 @@
 #include "timer.hpp"
-#include "interrupt/irq/irq.hpp"
-#include "interrupt/utils/functs.hpp"
+#include "../interrupt/irq/irq.hpp"
 
 namespace cock::arch::x86 {
 
