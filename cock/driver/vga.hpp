@@ -1,6 +1,7 @@
 #ifndef VGA_H
 #define VGA_H
 
+#include "cock/driver/video.hpp"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -29,7 +30,7 @@ enum class VGAColor : vcolor {
 	WHITE = 15,
 };
 
-class VGA {
+class VGA : Video{
   public:
 	static constexpr size_t VGA_WIDTH = 80;
 	static constexpr size_t VGA_HEIGHT = 25;
