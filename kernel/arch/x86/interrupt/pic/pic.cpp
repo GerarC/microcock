@@ -1,6 +1,6 @@
 #include "pic.hpp"
 
-#include "../utils/functs.hpp"
+#include "../../utils/helpers.hpp"
 
 namespace cock::arch::x86 {
 

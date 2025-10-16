@@ -3,7 +3,7 @@
 class TestGlobal {
 public:
     TestGlobal() {
-        printf("[constructor] TestGlobal initialized!\n");
+        // printf("[constructor] TestGlobal initialized!\n");
     }
 };
 
