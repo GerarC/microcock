@@ -39,8 +39,7 @@ constexpr const char *EXCEPTION_MESSAGES[] = {"Division by Zero",
 											  "Reserved",
 											  "Reserved"};
 
-extern "C" __attribute__((interrupt)) void
-isr_handler(InterruptRegisters *regs) {
+extern "C" void isr_handler(InterruptRegisters *regs) {
 	if (regs->int_no < ISR_NUM) {
 		puts(EXCEPTION_MESSAGES[regs->int_no]);
 		puts("System Exception Halted");

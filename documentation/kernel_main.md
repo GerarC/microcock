@@ -7,7 +7,7 @@ at the moment it just print some messages through an custom implementation of pr
 *core/cock.c*
 ~~~ c 
 extern "C" void cock_main(void) {
-    puts("GDT is initialized");
+    puts("Hello Worldo!");
 }
 ~~~
 

@@ -1,34 +1,43 @@
 #include "irq.hpp"
 #include "../pic/pic.hpp"
 #include <cock/utils/panic.hpp>
-
 namespace cock::arch::x86 {
 
 using utils::InterruptRegisters;
 
-typedef void (*IrqRoutine)(InterruptRegisters *reg);
+constexpr int BASE_ROUTINE_INDEX = 32;
+constexpr int MAX_ROUTINE_INDEX = BASE_ROUTINE_INDEX + IRQ_NUM;
+constexpr const char *INVALID_INTERRUPT_MESSAGE =
+	"Invalid Interrupt Number %u.";
 
-using utils::out_port_b;
+volatile uint64_t irq_counter = 0;
+
 using cock::utils::panic;
+using utils::out_port_b;
 
-IrqRoutine irq_routines[16] = {
+IrqRoutine irq_routines[IRQ_NUM] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-void irq_install_handler(int irq, IrqRoutine handler) {
-	irq_routines[irq] = handler;
+void validate_irq(int irq) {
+	if (irq < BASE_ROUTINE_INDEX || irq > MAX_ROUTINE_INDEX)
+		panic(INVALID_INTERRUPT_MESSAGE, irq);
 }
 
-void irq_uninstall_handler(int irq) { irq_routines[irq] = 0; }
+void irq_install_handler(int irq, IrqRoutine handler) {
+	irq_routines[irq - BASE_ROUTINE_INDEX] = handler;
+}
 
-extern "C" __attribute__((interrupt)) void
-irq_handler(InterruptRegisters *regs) {
-	if (regs->int_no < 32 || regs->int_no > 48) panic("Invalid Interrupt Number.");
+void irq_uninstall_handler(int irq) {
+	irq_routines[irq - BASE_ROUTINE_INDEX] = 0;
+}
+
+extern "C" void irq_handler(InterruptRegisters *regs) {
 	IrqRoutine handler;
 
-	int handler_index = regs->int_no - 32;
+	size_t handler_index = regs->int_no - BASE_ROUTINE_INDEX;
 
-	if (handler_index < 16) {
+	if (handler_index < IRQ_NUM) {
 		handler = irq_routines[handler_index];
 
 		if (handler) handler(regs);
