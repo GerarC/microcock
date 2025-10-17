@@ -60,27 +60,27 @@ static int print(const char *data) {
  *      - 0 on success
  *      - non-0 on failure
  * */
-static int print_stream_buffer(Stream *stream) {
+static int print_stream_buffer(Stream &stream) {
 	// Sets the final character as \0
-	stream->buffer[stream->index] = END_OF_STRING;
+	stream.buffer[stream.index] = END_OF_STRING;
 	// writes the buffer and return 1 on failure
-	size_t written = (size_t)stream->write_all(stream->buffer);
-	if (written != stream->index) return ERROR;
+	size_t written = (size_t)stream.write_all(stream.buffer);
+	if (written != stream.index) return ERROR;
 
 	// Clears the buffer
-	memset(stream->buffer, EMPTY, stream->capacity);
-	stream->index = DEFAULT_INDEX;
+	memset(stream.buffer, EMPTY, stream.capacity);
+	stream.index = DEFAULT_INDEX;
 	return SUCCESS;
 }
 
 /**
  * If not enough space is available and forwards the return code
  * */
-static int push_to_buffer(Stream *stream, char c) {
-	stream->buffer[stream->index++] = c;
+static int push_to_buffer(Stream &stream, char c) {
+	stream.buffer[stream.index++] = c;
 
 	// if buffer is full, flushes it.
-	if (stream->index == stream->capacity - 2) {
+	if (stream.index == stream.capacity - 2) {
 		int result = print_stream_buffer(stream);
 		if (result != SUCCESS) return result;
 	}
@@ -91,7 +91,7 @@ static int push_to_buffer(Stream *stream, char c) {
  * If there is few space after pushing the string or at the end,
  * it will push it to the buffer and try to flush it.
  * */
-static int push_all_to_buffer(Stream *stream, const char *str) {
+static int push_all_to_buffer(Stream &stream, const char *str) {
 	int result;
 	for (char c = *str; c != END_OF_STRING; c = *++str) {
 		result = push_to_buffer(stream, c);
@@ -104,7 +104,7 @@ static int push_all_to_buffer(Stream *stream, const char *str) {
  * Pushes an Integer into the buffer,
  * if there's is not enough space writes it and flushes the buffer
  * */
-static void push_int_to_buffer(Stream *stream, unsigned int val,
+static void push_int_to_buffer(Stream &stream, unsigned int val,
 							   unsigned int base, int is_signed) {
 	static char buffer[MAX_NUMBER_SIZE] = {EMPTY};
 	int i = MAX_NUMBER_SIZE - 1;
@@ -158,13 +158,13 @@ int vprintf(const char *format, va_list args) {
 
 		// Any char
 		if (current != SPEC_DELIMITER) {
-			push_to_buffer(&stream, current);
+			push_to_buffer(stream, current);
 			continue;
 		}
 
 		// %%
 		if (format[i + STEP] == SPEC_DELIMITER) {
-			push_to_buffer(&stream, SPEC_DELIMITER);
+			push_to_buffer(stream, SPEC_DELIMITER);
 			i++;
 			continue;
 		}
@@ -176,7 +176,7 @@ int vprintf(const char *format, va_list args) {
 			case SPEC_DIGIT: {
 				int val = va_arg(args, int);
 				is_signed = 1;
-				push_int_to_buffer(&stream, val, int_flag_to_base(spec),
+				push_int_to_buffer(stream, val, int_flag_to_base(spec),
 								   is_signed);
 				break;
 			}
@@ -185,27 +185,27 @@ int vprintf(const char *format, va_list args) {
 			case SPEC_POINTER:
 			case SPEC_OCTAL: {
 				unsigned int val = va_arg(args, unsigned int);
-				push_int_to_buffer(&stream, val, int_flag_to_base(spec),
+				push_int_to_buffer(stream, val, int_flag_to_base(spec),
 								   is_signed);
 				break;
 			}
 			case SPEC_CHAR: {
 				int c = va_arg(args, int);
-				push_to_buffer(&stream, (char)c);
+				push_to_buffer(stream, (char)c);
 				break;
 			}
 			case SPEC_STRING: {
 				const char *str = va_arg(args, const char *);
-				push_all_to_buffer(&stream, str ? str : NULL_STRING_MESSAGE);
+				push_all_to_buffer(stream, str ? str : NULL_STRING_MESSAGE);
 				break;
 			}
 			default:
-				push_to_buffer(&stream, SPEC_DELIMITER);
-				push_to_buffer(&stream, spec);
+				push_to_buffer(stream, SPEC_DELIMITER);
+				push_to_buffer(stream, spec);
 				break;
 		}
 	}
-	int r = print_stream_buffer(&stream);
+	int r = print_stream_buffer(stream);
 	return r;
 }
 
