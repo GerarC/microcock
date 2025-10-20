@@ -1,12 +1,37 @@
 ENTRY(_start)
 
 SECTIONS {
-    . = 1M;
+    . = 0x00100000;
 
-    .text ALIGN(4K) : {
+    .multiboot ALIGN(4K) : {
         KEEP(*(.multiboot))
         KEEP(*(.multiboot_header))
+
+    }
+
+    .boot ALIGN(4K) : {
+        *(.boot*)
+    }
+
+    . += 0xC0000000;
+
+    .text ALIGN(4K) : AT(ADDR(.text) - 0xC0000000) {
         *(.text*)
+    }
+
+    .rodata ALIGN(4K) : AT(ADDR(.rodata) - 0xC0000000) {
+        *(.rodata*)
+    }
+
+    .data ALIGN(4K) : AT(ADDR(.data) - 0xC0000000) {
+        *(.data*)
+    }
+
+    .bss ALIGN(4K) : AT(ADDR(.bss) - 0xC0000000) {
+        __bss_start = .;
+        *(COMMON)
+        *(.bss*)
+        __bss_end = .;
     }
 
     .init_array ALIGN(8) : {
@@ -30,24 +55,11 @@ SECTIONS {
         __dtors_end = .;
     }
 
-    .rodata ALIGN(4K) : {
-        *(.rodata*)
-    }
-
-    .data ALIGN(4K) : {
-        *(.data*)
-    }
-
-    .bss ALIGN(4K) : {
-        __bss_start = .;
-        *(COMMON)
-        *(.bss*)
-        __bss_end = .;
-    }
 
     /DISCARD/ : {
         *(.comment)
         *(.note*)
     }
+    _kernel_end = .;
 }
 
