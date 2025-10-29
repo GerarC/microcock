@@ -3,6 +3,7 @@ ENTRY(_start)
 SECTIONS {
     . = 0x00100000;
 
+    _kernel_start = .;
     .multiboot ALIGN(4K) : {
         KEEP(*(.multiboot))
         KEEP(*(.multiboot_header))

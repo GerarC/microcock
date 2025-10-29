@@ -31,6 +31,9 @@ void out_port_b(uint16_t port, uint8_t value);
  * */
 uint8_t in_port_b(uint16_t port);
 
+uint32_t ceil_div(uint32_t a, uint32_t b);
+
 }
+
 
 #endif // !HELPERS_HPP

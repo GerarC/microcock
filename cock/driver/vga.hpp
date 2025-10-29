@@ -1,7 +1,7 @@
 #ifndef VGA_H
 #define VGA_H
 
-#include "cock/driver/video.hpp"
+#include <cock/driver/video.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -34,7 +34,7 @@ class VGA : Video{
   public:
 	static constexpr size_t VGA_WIDTH = 80;
 	static constexpr size_t VGA_HEIGHT = 25;
-	static constexpr uintptr_t VGA_ADDRESS = 0xB8000;
+	static constexpr uintptr_t VGA_ADDRESS = 0xC00B8000;
 	VGA();
 
 	void setColor(VGAColor fg, VGAColor bg);
