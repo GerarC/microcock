@@ -12,8 +12,9 @@ global _start:function
 _start:
 
     ; set kernel in 0xC000000
-    mov eax, (initial_page_dir - 0xC0000000)
-    mov cr3, eax
+    mov ecx, initial_page_dir
+    sub ecx, 0xC0000000 
+    mov cr3, ecx
 
     mov ecx, cr4
     or ecx, 0x10
@@ -30,6 +31,7 @@ higher_half:
     ; set the stack in the top
     mov esp, stack_top
     push ebx
+    push eax
     xor ebp, ebp
 
     extern init_cock
@@ -38,8 +40,8 @@ higher_half:
     cli             ; disables interrupts
 
 ; If the program has nothing to do then this put kernel into an infinite loop
-.hang: hlt
-    jmp .hang
+hang: hlt
+    jmp hang
 
 ; Declaration of the multiboot header. This marks the whole program as a kernel.
 section .multiboot
@@ -66,12 +68,12 @@ section .data
 align 4096
 global initial_page_dir
 initial_page_dir:
-    dd 0x83 ; 10000011
-    times 768 - 1 dd 0
+    DD 10000011b
+    TIMES 768-1 DD 0
 
-    dd (0 << 22) | 0x83
-    dd (1 << 22) | 0x83
-    dd (2 << 22) | 0x83
-    dd (3 << 22) | 0x83
+    DD (0 << 22) | 10000011b
+    DD (1 << 22) | 10000011b
+    DD (2 << 22) | 10000011b
+    DD (3 << 22) | 10000011b
+    TIMES 256-4 DD 0
 
-    times 256 - 4 dd 0
