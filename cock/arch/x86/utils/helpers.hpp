@@ -1,0 +1,39 @@
+#ifndef HELPERS_HPP
+#define HELPERS_HPP
+
+#include <stdint.h>
+
+namespace cock::arch::x86::utils {
+
+/**
+ * Structure to capture Registers on Interruption triggering
+ * */
+typedef struct _interrupt_registers_t {
+    uint32_t cr2;
+    uint32_t ds;
+    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;
+    uint32_t int_no, err_code;
+    uint32_t eip, cs, eflags, useresp, ss;
+} InterruptRegisters;
+
+
+void print_interrupt_registers(const InterruptRegisters *r);
+
+
+/**
+ * Outputs a byte to the given port
+ * */
+void out_port_b(uint16_t port, uint8_t value);
+
+
+/**
+ * Reads a byte from the given port
+ * */
+uint8_t in_port_b(uint16_t port);
+
+uint32_t ceil_div(uint32_t a, uint32_t b);
+
+}
+
+
+#endif // !HELPERS_HPP
