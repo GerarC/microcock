@@ -113,40 +113,39 @@ Key Keyboard::getKey() {
 void Keyboard::handler(InterruptRegisters *regs) {
 	(void)regs;
 	Key key = Keyboard::getKey();
-	Logger::debug("Key(code=%x, pressed=%x)", key.code, key.pressed);
-
-	// if (key.pressed)
-        switch (key.code) {
-			case KeyCode::LeftShift:
-			case KeyCode::RightShift:
-				if (key.pressed) caps_on = true;
-				else caps_on = false;
-				break;
-			case KeyCode::CapsLock:
-				if (key.pressed) caps_lock = !caps_lock;
-				break;
-			case KeyCode::Escape:
-			case KeyCode::LeftCtrl:
-			case KeyCode::LeftAlt:
-			case KeyCode::F1:
-			case KeyCode::F2:
-			case KeyCode::F3:
-			case KeyCode::F4:
-			case KeyCode::F5:
-			case KeyCode::F6:
-			case KeyCode::F7:
-			case KeyCode::F8:
-			case KeyCode::F9:
-			case KeyCode::F10:
-			case KeyCode::F11:
-			case KeyCode::F12:
-				break;
-			default:
+	switch (key.code) {
+		case KeyCode::LeftShift:
+		case KeyCode::RightShift:
+			if (key.pressed) caps_on = true;
+			else caps_on = false;
+			break;
+		case KeyCode::CapsLock:
+			if (key.pressed) caps_lock = !caps_lock;
+			break;
+		case KeyCode::Escape:
+		case KeyCode::LeftCtrl:
+		case KeyCode::LeftAlt:
+		case KeyCode::F1:
+		case KeyCode::F2:
+		case KeyCode::F3:
+		case KeyCode::F4:
+		case KeyCode::F5:
+		case KeyCode::F6:
+		case KeyCode::F7:
+		case KeyCode::F8:
+		case KeyCode::F9:
+		case KeyCode::F10:
+		case KeyCode::F11:
+		case KeyCode::F12:
+			break;
+		default:
+			if (key.pressed) {
 				bool upper = caps_lock ^ caps_on;
 				putchar((upper ? uppercase
 							   : lowercase)[static_cast<size_t>(key.code)]);
 				break;
-		}
+			}
+	}
 }
 
 } // namespace cock::arch::x86
