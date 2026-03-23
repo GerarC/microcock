@@ -5,6 +5,8 @@
 
 namespace cock::arch::x86::utils {
 
+constexpr uintptr_t KERNEL_START = 0xC0000000;
+
 /**
  * Structure to capture Registers on Interruption triggering
  * */
