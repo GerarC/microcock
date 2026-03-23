@@ -78,6 +78,18 @@ clean:
 	@echo "[CLN] Cleaning builder folder" 
 	@rm -fr $(BUILD)
 
-.PHONY: all clean iso run
+help:
+	@echo "================================================================"
+	@echo " $(PROJECT) OS - Build System"
+	@echo "================================================================"
+	@echo "Available commands:"
+	@echo "  make 		- Compile the kernel and generate the binary file"
+	@echo "  make iso   - Build the bootable ISO image with GRUB"
+	@echo "  make run   - Build the ISO and launch it using QEMU"
+	@echo "  make clean - Remove the build directory and all compiled files"
+	@echo "  make help  - Show this help message"
+	@echo "================================================================"
+
+.PHONY: all clean iso run make
  
 -include $(OBJ_CPP:.occ=.d)

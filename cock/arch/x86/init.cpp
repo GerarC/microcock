@@ -33,17 +33,16 @@ extern "C" void init_cock(uint32_t magic, MBInfo *boot_info) {
 	video_init();
 	call_global_constructors();
 	core_init();
-	// Logger::trace("init_cock: magic=0x%x, boot_info=0x%x", magic, boot_info);
-	boot_info = reinterpret_cast<MBInfo *>(
-		reinterpret_cast<uintptr_t>(boot_info) + 0xC0000000);
-	Logger::info("boot_info = 0x%x", boot_info);
-	Logger::info("magic = 0x%x", magic);
-	Logger::info("first_mmap_addr = 0x%x", boot_info->mmap_address);
 
 	if (!boot_info) {
 		Logger::error("boot_info NULL!");
 		FOR_ETERNAL;
 	}
+
+	Logger::info("boot_info = 0x%x", boot_info);
+	Logger::info("magic = 0x%x", magic);
+	Logger::info("first_mmap_addr = 0x%x", boot_info->mmap_address);
+
 	mm.init(boot_info);
 
 	cock_main();

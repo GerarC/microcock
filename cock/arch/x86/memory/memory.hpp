@@ -6,7 +6,7 @@
 namespace cock::arch::x86 {
 
 static constexpr size_t PAGE_DIR_SIZE = 0x400;
-extern "C" uint32_t initial_page_dir[PAGE_DIR_SIZE];
+extern "C" uint32_t page_directory[PAGE_DIR_SIZE];
 
 class MemoryManager {
   public:

@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <string.h>
 
+extern "C" void flush_tlb();
+extern "C" void invalpg(void *addr);
+
 namespace cock::arch::x86 {
 using cock::utils::Logger;
 constexpr uint32_t PAGE_SIZE = 0x1000;
@@ -20,30 +23,38 @@ uint8_t MemoryManager::usedPageDirectories[NUM_PAGE_DIRS];
 
 void MemoryManager::init(MBInfo *boot_info) {
 	bootInfo = boot_info;
+	uint32_t physical_alloc_start = 0;
 
-	uint32_t mod1 = *reinterpret_cast<uint32_t *>((bootInfo->mods_address + 4));
-	uint32_t physical_alloc_start = (mod1 + 0xFFF) & ~0xFFF;
+	if ((bootInfo->flags & (1 << 3)) && bootInfo->mods_count > 0) {
+
+		uint32_t mods_virt = bootInfo->mods_address + KERNEL_START;
+
+		uint32_t mod1 = *reinterpret_cast<uint32_t *>(mods_virt + 4);
+		physical_alloc_start = (mod1 + 0xFFF) & ~0xFFF;
+
+	} else {
+		physical_alloc_start =
+			0x400000;
+	}
+
 	initMemory(physical_alloc_start);
 	Logger::trace("Memory Manager initializated");
 }
 
 void MemoryManager::initMemory(uint32_t physicalAllocStart) {
 	uint32_t mem_high = bootInfo->mem_upper * PAGE_DIR_SIZE;
-	initial_page_dir[0] = 0;
-	invalidatePage(0);
-	initial_page_dir[PAGE_DIR_SIZE - 1] =
-		static_cast<uint32_t>(reinterpret_cast<uintptr_t>(initial_page_dir) -
+	page_directory[PAGE_DIR_SIZE - 1] =
+		static_cast<uint32_t>(reinterpret_cast<uintptr_t>(page_directory) -
 							  KERNEL_START) |
 		PAGE_FLAG_PRESENT | PAGE_FLAG_WRITE;
+	flush_tlb();
 	invalidatePage(0xFFFFF000);
 
 	pmmInit(physicalAllocStart, mem_high);
-	memset(pageDirectories, 0, NUM_PAGE_DIRS * PAGE_SIZE);
-	memset(usedPageDirectories, 0, NUM_PAGE_DIRS);
 }
 
 void MemoryManager::invalidatePage(uint32_t virtual_address) {
-	asm volatile("invlpg %0" ::"m"(virtual_address));
+	asm volatile("invlpg (%0)" ::"r"(virtual_address) : "memory");
 }
 
 void MemoryManager::pmmInit(uint32_t mem_low, uint32_t mem_high) {
