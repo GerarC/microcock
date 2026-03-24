@@ -1,5 +1,5 @@
 #include "cock/arch/x86/boot/multiboot.hpp"
-#include "cock/arch/x86/memory/memory.hpp"
+#include "cock/arch/x86/memory/pmm.hpp"
 #include "cock/utils/logger.hpp"
 #include <cock/arch/x86/gdt/gdt.hpp>
 #include <cock/arch/x86/interrupt/idt/idt.hpp>
@@ -22,7 +22,7 @@ GDT gdt;
 IDT idt;
 Timer timer;
 Keyboard keyboard;
-MemoryManager mm;
+PhysicalMemoryManager mm;
 
 extern "C" void call_global_constructors();
 void video_init();

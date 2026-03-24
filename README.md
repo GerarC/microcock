@@ -10,3 +10,17 @@ This is the index of the components in order of creation
 4. **[Project Structure](documentation/project_structure.md):** before moving forward in kernel developing a proper project structure should be set up;
 5. **[GDT](documentation/gdt.md):** this table tells to the CPU where it has access or not when it loads a new value in segment registers.
 6. **[IDT](documentation/idt.md):** an IDT is a table where interrupts are save with their handlers. There are some types of interrupts and each one has a different way to work with.
+
+
+
+### References
+To create microcock I've reseach a lot of sites, videos and even AI models to learn ways to implement certain things,
+so this is the space where I put those references that really helped me to move this project forward:
+
+##### Sites
+- [Higher Half Bare Bones](https://wiki.osdev.org/Higher_Half_x86_Bare_Bones): Initial Paging and Higher half kernel were taken from this page
+
+##### Videos
+- [OliveStem OS course](https://www.youtube.com/playlist?list=PL2EF13wm-hWAglI8rRbdsCPq_wRpYvQQy): my man olive basically help me to have a path to follow. Interrupts, Keyboard, Multiboot, Memory management and other things at the beginnig where possible because of him.
+
+##### Books
