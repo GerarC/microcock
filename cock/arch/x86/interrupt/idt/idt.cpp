@@ -17,6 +17,9 @@ using cock::utils::Logger;
 
 IDT::IDT() {}
 
+__attribute__((aligned(0x10))) IDT::Entry IDT::entries[MAX_ENTRIES];
+IDT::Descriptor IDT::descriptor;
+
 void IDT::init() {
 	size_t entries_size = sizeof(Entry) * MAX_ENTRIES;
 	descriptor.limit = entries_size - 1;

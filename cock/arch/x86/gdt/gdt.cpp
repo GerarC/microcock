@@ -12,18 +12,22 @@ namespace cock::arch::x86 {
 
 using cock::utils::Logger;
 
+Entry GDT::entries[MAX_ENTRIES];
+TssEntry GDT::tss_entry;
+Pointer GDT::pointer;
+
 GDT::GDT() {}
 
 void GDT::init() {
 	pointer.limit = (sizeof(Entry) * MAX_ENTRIES - 1);
 	pointer.base = reinterpret_cast<uintptr_t>(&entries);
 
-	setGate(0, 0, 0, 0, 0);				   // NULL segment
-	setGate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF); // Kernel Code Segment
-	setGate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); // Kernel Data Segment
-	setGate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF); // User Code Segment
-	setGate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF); // User Data Segment
-	writeTSS(5, 0x10, 0x0);
+	GDT::setGate(0, 0, 0, 0, 0);				// NULL segment
+	GDT::setGate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF); // Kernel Code Segment
+	GDT::setGate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); // Kernel Data Segment
+	GDT::setGate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF); // User Code Segment
+	GDT::setGate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF); // User Data Segment
+	GDT::writeTSS(5, 0x10, 0x0);
 
 	gdt_flush(reinterpret_cast<uintptr_t>(&pointer));
 	tss_flush();
@@ -49,7 +53,7 @@ void GDT::writeTSS(uint32_t num, uint16_t ss0, uint32_t esp0) {
 	uint32_t base = reinterpret_cast<uint32_t>(&tss_entry);
 	uint32_t limit = base + tts_size;
 
-	setGate(num, base, limit, 0xE9, 0x00);
+	GDT::setGate(num, base, limit, 0xE9, 0x00);
 	memset(&tss_entry, 0, tts_size);
 	tss_entry.ss0 = ss0;
 	tss_entry.esp0 = esp0;
