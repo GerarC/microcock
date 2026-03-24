@@ -116,7 +116,7 @@ typedef struct {
 
 class Keyboard {
   public:
-	void init();
+	static void init();
 
   private:
 	static bool caps_on;

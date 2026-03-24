@@ -1,44 +1,12 @@
 [
   {
+    "file": "cock/arch/x86/init.cpp",
     "arguments": [
-      "/sbin/i686-elf-g++",
+      "i686-elf-g++",
       "-c",
-      "-ffreestanding",
-      "-O2",
-      "-Wall",
-      "-Wextra",
-      "-fno-exceptions",
-      "-fno-rtti",
-      "-D__is_cock_kernel",
-      "-D__is_libc",
-      "-D__is_libk",
-      "-Ilibc/include",
-      "-Ilibcxx/include",
-      "-I.",
-      "-fstack-protector-all",
-      "-fno-use-cxa-atexit",
-      "-mno-sse",
-      "-mno-sse2",
-      "-mno-mmx",
-      "-mno-80387",
-      "-DCOCK_VERSION_MAJOR=0",
-      "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
-      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "cock/arch/x86/init.cpp",
       "-o",
       "build/cock/arch/x86/init.occ",
-      "cock/arch/x86/init.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/arch/x86/init.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/arch/x86/init.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -57,24 +25,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/init.occ"
+  },
+  {
+    "file": "cock/arch/x86/memory/vmm.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/memory/vmm.cpp",
       "-o",
-      "build/cock/arch/x86/memory/memory.occ",
-      "cock/arch/x86/memory/memory.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/arch/x86/memory/memory.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/arch/x86/memory/memory.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
+      "build/cock/arch/x86/memory/vmm.occ",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -93,24 +63,64 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/memory/vmm.occ"
+  },
+  {
+    "file": "cock/arch/x86/memory/pmm.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/memory/pmm.cpp",
+      "-o",
+      "build/cock/arch/x86/memory/pmm.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/memory/pmm.occ"
+  },
+  {
+    "file": "cock/arch/x86/timer/timer.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/timer/timer.cpp",
       "-o",
       "build/cock/arch/x86/timer/timer.occ",
-      "cock/arch/x86/timer/timer.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/arch/x86/timer/timer.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/arch/x86/timer/timer.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -129,24 +139,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/timer/timer.occ"
+  },
+  {
+    "file": "cock/arch/x86/keyboard/keyboard.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/keyboard/keyboard.cpp",
       "-o",
       "build/cock/arch/x86/keyboard/keyboard.occ",
-      "cock/arch/x86/keyboard/keyboard.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/arch/x86/keyboard/keyboard.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/arch/x86/keyboard/keyboard.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -165,24 +177,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/keyboard/keyboard.occ"
+  },
+  {
+    "file": "cock/arch/x86/gdt/gdt.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/gdt/gdt.cpp",
       "-o",
       "build/cock/arch/x86/gdt/gdt.occ",
-      "cock/arch/x86/gdt/gdt.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/arch/x86/gdt/gdt.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/arch/x86/gdt/gdt.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -201,24 +215,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/gdt/gdt.occ"
+  },
+  {
+    "file": "cock/arch/x86/utils/helpers.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/utils/helpers.cpp",
       "-o",
       "build/cock/arch/x86/utils/helpers.occ",
-      "cock/arch/x86/utils/helpers.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/arch/x86/utils/helpers.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/arch/x86/utils/helpers.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -237,24 +253,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/utils/helpers.occ"
+  },
+  {
+    "file": "cock/arch/x86/interrupt/irq/irq.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/interrupt/irq/irq.cpp",
       "-o",
       "build/cock/arch/x86/interrupt/irq/irq.occ",
-      "cock/arch/x86/interrupt/irq/irq.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/arch/x86/interrupt/irq/irq.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/arch/x86/interrupt/irq/irq.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -273,24 +291,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/interrupt/irq/irq.occ"
+  },
+  {
+    "file": "cock/arch/x86/interrupt/isr/isr.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/interrupt/isr/isr.cpp",
       "-o",
       "build/cock/arch/x86/interrupt/isr/isr.occ",
-      "cock/arch/x86/interrupt/isr/isr.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/arch/x86/interrupt/isr/isr.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/arch/x86/interrupt/isr/isr.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -309,24 +329,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/interrupt/isr/isr.occ"
+  },
+  {
+    "file": "cock/arch/x86/interrupt/idt/idt.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/interrupt/idt/idt.cpp",
       "-o",
       "build/cock/arch/x86/interrupt/idt/idt.occ",
-      "cock/arch/x86/interrupt/idt/idt.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/arch/x86/interrupt/idt/idt.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/arch/x86/interrupt/idt/idt.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -345,24 +367,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/interrupt/idt/idt.occ"
+  },
+  {
+    "file": "cock/arch/x86/interrupt/pic/pic.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/interrupt/pic/pic.cpp",
       "-o",
       "build/cock/arch/x86/interrupt/pic/pic.occ",
-      "cock/arch/x86/interrupt/pic/pic.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/arch/x86/interrupt/pic/pic.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/arch/x86/interrupt/pic/pic.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -381,24 +405,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/interrupt/pic/pic.occ"
+  },
+  {
+    "file": "cock/driver/vga.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/driver/vga.cpp",
       "-o",
       "build/cock/driver/vga.occ",
-      "cock/driver/vga.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/driver/vga.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/driver/vga.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -417,24 +443,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/driver/vga.occ"
+  },
+  {
+    "file": "cock/utils/logger.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/utils/logger.cpp",
       "-o",
       "build/cock/utils/logger.occ",
-      "cock/utils/logger.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/utils/logger.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/utils/logger.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -453,24 +481,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/utils/logger.occ"
+  },
+  {
+    "file": "cock/utils/panic.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/utils/panic.cpp",
       "-o",
       "build/cock/utils/panic.occ",
-      "cock/utils/panic.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/utils/panic.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/utils/panic.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -489,24 +519,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/utils/panic.occ"
+  },
+  {
+    "file": "cock/utils/test_global.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/utils/test_global.cpp",
       "-o",
       "build/cock/utils/test_global.occ",
-      "cock/utils/test_global.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/utils/test_global.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/utils/test_global.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -525,24 +557,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/utils/test_global.occ"
+  },
+  {
+    "file": "cock/utils/ssp.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/utils/ssp.cpp",
       "-o",
       "build/cock/utils/ssp.occ",
-      "cock/utils/ssp.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/utils/ssp.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/utils/ssp.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -561,24 +595,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/utils/ssp.occ"
+  },
+  {
+    "file": "cock/core/memory/heap.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/core/memory/heap.cpp",
       "-o",
-      "build/cock/core/memory/vmm.occ",
-      "cock/core/memory/vmm.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/core/memory/vmm.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/core/memory/vmm.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
+      "build/cock/core/memory/heap.occ",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -597,24 +633,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/core/memory/heap.occ"
+  },
+  {
+    "file": "cock/core/cock.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/core/cock.cpp",
       "-o",
       "build/cock/core/cock.occ",
-      "cock/core/cock.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/cock/core/cock.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/cock/core/cock.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -633,24 +671,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/core/cock.occ"
+  },
+  {
+    "file": "libc/stdio/putchar.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libc/stdio/putchar.cpp",
       "-o",
       "build/libc/stdio/putchar.occ",
-      "libc/stdio/putchar.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libc/stdio/putchar.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libc/stdio/putchar.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -669,24 +709,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/libc/stdio/putchar.occ"
+  },
+  {
+    "file": "libc/stdio/printf.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libc/stdio/printf.cpp",
       "-o",
       "build/libc/stdio/printf.occ",
-      "libc/stdio/printf.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libc/stdio/printf.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libc/stdio/printf.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -705,24 +747,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/libc/stdio/printf.occ"
+  },
+  {
+    "file": "libc/stdio/puts.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libc/stdio/puts.cpp",
       "-o",
       "build/libc/stdio/puts.occ",
-      "libc/stdio/puts.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libc/stdio/puts.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libc/stdio/puts.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -741,24 +785,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/libc/stdio/puts.occ"
+  },
+  {
+    "file": "libc/string/strlen.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libc/string/strlen.cpp",
       "-o",
       "build/libc/string/strlen.occ",
-      "libc/string/strlen.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libc/string/strlen.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libc/string/strlen.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -777,24 +823,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/libc/string/strlen.occ"
+  },
+  {
+    "file": "libc/string/memcmp.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libc/string/memcmp.cpp",
       "-o",
       "build/libc/string/memcmp.occ",
-      "libc/string/memcmp.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libc/string/memcmp.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libc/string/memcmp.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -813,24 +861,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/libc/string/memcmp.occ"
+  },
+  {
+    "file": "libc/string/memcpy.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libc/string/memcpy.cpp",
       "-o",
       "build/libc/string/memcpy.occ",
-      "libc/string/memcpy.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libc/string/memcpy.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libc/string/memcpy.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -849,24 +899,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/libc/string/memcpy.occ"
+  },
+  {
+    "file": "libc/string/memmove.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libc/string/memmove.cpp",
       "-o",
       "build/libc/string/memmove.occ",
-      "libc/string/memmove.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libc/string/memmove.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libc/string/memmove.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -885,24 +937,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/libc/string/memmove.occ"
+  },
+  {
+    "file": "libc/string/memset.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libc/string/memset.cpp",
       "-o",
       "build/libc/string/memset.occ",
-      "libc/string/memset.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libc/string/memset.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libc/string/memset.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -921,24 +975,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/libc/string/memset.occ"
+  },
+  {
+    "file": "libc/stdlib/abort.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libc/stdlib/abort.cpp",
       "-o",
       "build/libc/stdlib/abort.occ",
-      "libc/stdlib/abort.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libc/stdlib/abort.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libc/stdlib/abort.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -957,24 +1013,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/libc/stdlib/abort.occ"
+  },
+  {
+    "file": "libcxx/cxa/cxa_constructors.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libcxx/cxa/cxa_constructors.cpp",
       "-o",
       "build/libcxx/cxa/cxa_constructors.occ",
-      "libcxx/cxa/cxa_constructors.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libcxx/cxa/cxa_constructors.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libcxx/cxa/cxa_constructors.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -993,24 +1051,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/libcxx/cxa/cxa_constructors.occ"
+  },
+  {
+    "file": "libcxx/cxa/cxa_guards.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libcxx/cxa/cxa_guards.cpp",
       "-o",
       "build/libcxx/cxa/cxa_guards.occ",
-      "libcxx/cxa/cxa_guards.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libcxx/cxa/cxa_guards.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libcxx/cxa/cxa_guards.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -1029,24 +1089,26 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/libcxx/cxa/cxa_guards.occ"
+  },
+  {
+    "file": "libcxx/cxa/cxa_atexit.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libcxx/cxa/cxa_atexit.cpp",
       "-o",
       "build/libcxx/cxa/cxa_atexit.occ",
-      "libcxx/cxa/cxa_atexit.cpp"
-    ],
-    "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libcxx/cxa/cxa_atexit.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libcxx/cxa/cxa_atexit.occ"
-  },
-  {
-    "arguments": [
-      "/sbin/i686-elf-g++",
-      "-c",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -1065,18 +1127,54 @@
       "-mno-sse2",
       "-mno-mmx",
       "-mno-80387",
+      "-MMD",
+      "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=3",
+      "-DCOCK_VERSION_PATCH=4",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"0d24a50\"",
-      "-DCOCK_BUILD_DATE=\"2025-10-31\"",
-      "-o",
-      "build/libcxx/memory/new.occ",
-      "libcxx/memory/new.cpp"
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
-    "file": "/home/gerarc/Workspace/microcock/libcxx/memory/new.cpp",
-    "output": "/home/gerarc/Workspace/microcock/build/libcxx/memory/new.occ"
+    "output": "build/libcxx/cxa/cxa_atexit.occ"
+  },
+  {
+    "file": "libcxx/memory/new.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "libcxx/memory/new.cpp",
+      "-o",
+      "build/libcxx/memory/new.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"8a161f2\"",
+      "-DCOCK_BUILD_DATE=\"2026-03-23\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/libcxx/memory/new.occ"
   }
 ]

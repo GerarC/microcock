@@ -22,14 +22,14 @@ class IDT {
 
   public:
 	IDT();
-	void init();
+	static void init();
 
   private:
 	static constexpr int MAX_ENTRIES = 256;
-	__attribute__((aligned(0x10))) Entry entries[MAX_ENTRIES];
-	Descriptor descriptor;
+	static __attribute__((aligned(0x10))) Entry entries[MAX_ENTRIES];
+	static Descriptor descriptor;
 
-	void setGate(uint32_t num, uint32_t base, uint32_t selector, uint8_t flags);
+	static void setGate(uint32_t num, uint32_t base, uint32_t selector, uint8_t flags);
 };
 
 } // namespace cock::arch::x86
