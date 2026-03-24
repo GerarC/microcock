@@ -44,7 +44,7 @@ constexpr const char *EXCEPTION_MESSAGES[] = {"Division by Zero",
 
 extern "C" void isr_handler(InterruptRegisters *regs) {
 	if (regs->int_no < ISR_NUM) {
-        Logger::error(EXCEPTION_MESSAGES[regs->int_no]);
+        Logger::error("Exception{ .idx: %d, .type: %s}", regs->int_no, EXCEPTION_MESSAGES[regs->int_no]);
 
 		FOR_ETERNAL;
 	}

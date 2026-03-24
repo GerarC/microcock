@@ -35,6 +35,12 @@ uint8_t in_port_b(uint16_t port);
 
 uint32_t ceil_div(uint32_t a, uint32_t b);
 
+static inline uint32_t read_cr2() {
+    uint32_t val;
+    asm volatile("mov %%cr2, %0" : "=r"(val));
+    return val;
+}
+
 }
 
 

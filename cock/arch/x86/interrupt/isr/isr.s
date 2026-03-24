@@ -5,7 +5,6 @@ extern isr_handler
 %macro isr_err_stub 1
 isr_stub_%1:
     cli
-    push dword 0
     push dword %1
     jmp isr_common_stub
     iret 
@@ -14,6 +13,7 @@ isr_stub_%1:
 %macro isr_no_err_stub 1
 isr_stub_%1:
     cli
+    push dword 0
     push dword %1
     jmp isr_common_stub
 %endmacro
@@ -22,6 +22,8 @@ isr_common_stub:
     pusha
 
     mov eax, ds 
+    push eax
+    mov eax, cr2
     push eax
 
     mov ax, 0x10
@@ -34,7 +36,7 @@ isr_common_stub:
 
     call isr_handler
 
-    add esp, 4
+    add esp, 8
 
     pop ebx
     mov ds, bx

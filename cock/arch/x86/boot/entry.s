@@ -6,12 +6,12 @@ MBFLAGS     equ MBALIGN | MEMINFO | MBGFX   ; this is Multiboot 'flag' field
 MAGIC       equ 0x1BADB002          ; 'magic number' lets to the bootloader find the header
 CHECKSUM    equ -(MAGIC + MBFLAGS)  ; this is the checksum of above
 
-; Section of the kernel. You have complete use of computer resources
+; Section of the kernel. 
 section .boot
 global _start:function 
 _start:
     mov esi, eax    ; save magic
-    mov edi, ebx    ; save boot_info
+    mov ebp, ebx    ; save boot_info
 
     ; =========================
     ; Setup page table (identity)
@@ -77,7 +77,13 @@ _start:
     mov eax, page_table_high
     sub eax, 0xC0000000
     or eax, 0x3
-    mov [ebx + 768*4], eax   ; 0xC0000000
+    mov [ebx + 768 * 4], eax   ; 0xC0000000
+
+
+    mov eax, page_directory
+    sub eax, 0xC0000000
+    or eax, 0x3
+    mov[ebx + 1023 * 4], eax
 
     ; =========================
     ; Load CR3
@@ -109,6 +115,7 @@ higher_half:
     ; set the stack in the top
     mov esp, stack_top
 
+    mov edi, ebp
     add edi, 0xC0000000
     push edi    ; boot_info
     push esi    ; magic
@@ -133,10 +140,10 @@ align 4
     dd 0, 0, 0, 0, 0
 
     ;; Graphic vals
-    dd 0
-    dd 800  ; width
-    dd 600  ; height
-    dd 32   ; depth
+    dd 0x0000
+    dd 0x0320   ; 800 width
+    dd 0x0258   ; 600 height
+    dd 0x0020   ; 32 depth
 
 ; As multiboot standard has no  definition of the stack pointer. The next section is to allocate a small stack
 section .bss
