@@ -31,6 +31,6 @@ void print_interrupt_registers(const InterruptRegisters *r) {
 	printf("=============================\n");
 }
 
-uint32_t ceil_div(uint32_t a, uint32_t b) { return ((a + b) - 1 / b); }
+uint32_t ceil_div(uint32_t a, uint32_t b) { return ((a + b - 1) / b); }
 
 } // namespace cock::arch::x86::utils

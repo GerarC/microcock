@@ -6,13 +6,15 @@ CPP_FLAGS   = -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti \
               -fstack-protector-all -fno-use-cxa-atexit \
               -mno-sse -mno-sse2 -mno-mmx -mno-80387 \
               -MMD -MP
+TEST_FLAGS  = -DCOCK_TEST_MODE
+
 LN_FLAGS  	= -ffreestanding -O2 -nostdlib -lgcc
 BUILD 		= build
 PROJECT		= cock
 
 VERSION_MAJOR := 0
 VERSION_MINOR := 0
-VERSION_PATCH := 3
+VERSION_PATCH := 4
 VERSION_STAGE := "\"Pre-alfa\""
 GIT_HASH := "\"$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)\""
 BUILD_DATE := "\"$(shell date +%Y-%m-%d)\""
@@ -24,8 +26,14 @@ CPP_FLAGS += -DCOCK_VERSION_STAGE=$(VERSION_STAGE)
 CPP_FLAGS += -DCOCK_GIT_HASH=$(GIT_HASH)
 CPP_FLAGS += -DCOCK_BUILD_DATE=$(BUILD_DATE)
 
-CPP_SOURCES  = $(shell find * -name '*.cpp')
-ASM_SOURCES  = $(shell find * -name '*.s')
+CPP_SOURCES  = $(shell find cock libc libcxx -name '*.cpp')
+ASM_SOURCES  = $(shell find cock libc libcxx -name '*.s')
+
+ifdef TEST_BUILD
+CPP_FLAGS += $(TEST_FLAGS)
+CPP_SOURCES += $(shell find test -name '*.cpp')
+endif
+
 CRTBEGIN_OBJ:= $(shell $(CXX) $(CPP_FLAGS) -print-file-name=crtbegin.o)
 CRTEND_OBJ	:= $(shell $(CXX) $(CPP_FLAGS) -print-file-name=crtend.o)
 
@@ -73,11 +81,28 @@ run: $(BUILD)/$(PROJECT).iso
 	@echo "[RUN] Launching QEMU"
 	@qemu-system-i386 -cdrom $<
 
+test: clean
+	@echo "[TST] Compiling and running in TEST MODE..."
+	@$(MAKE) run TEST_BUILD=1
+	@$(MAKE) clean
 
 clean:
 	@echo "[CLN] Cleaning builder folder" 
 	@rm -fr $(BUILD)
 
-.PHONY: all clean iso run
+help:
+	@echo "================================================================"
+	@echo " $(PROJECT) OS - Build System"
+	@echo "================================================================"
+	@echo "Available commands:"
+	@echo "  make 		- Compile the kernel and generate the binary file"
+	@echo "  make iso   - Build the bootable ISO image with GRUB"
+	@echo "  make run   - Build the ISO and launch it using QEMU"
+	@echo "  make test  - Clean, compile with test flags, and run in QEMU"
+	@echo "  make clean - Remove the build directory and all compiled files"
+	@echo "  make help  - Show this help message"
+	@echo "================================================================"
+
+.PHONY: all clean iso run test make
  
 -include $(OBJ_CPP:.occ=.d)

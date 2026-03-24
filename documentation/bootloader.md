@@ -9,9 +9,10 @@ The first code in *entry.s* does is to declare the needed information and consta
 ~~~ nasm
 MBALIGN     equ 1 << 0              ; align loaded modules on page boundaries
 MEMINFO     equ 1 << 1              ; provide memory map
-MBFLAGS     equ MBALIGN | MEMINFO   ; this is Multiboot 'flag' field
-MAGIC       equ 0x1BADB002          ; 'magic number' allows to the bootloader find the header
-CHECKSUM    equ -(MAGIC + MBFLAGS)  ; this checksum validates the above information
+MBGFX       equ 0                   ;  Use graphics
+MBFLAGS     equ MBALIGN | MEMINFO | MBGFX   ; this is Multiboot 'flag' field
+MAGIC       equ 0x1BADB002          ; 'magic number' lets to the bootloader find the header
+CHECKSUM    equ -(MAGIC + MBFLAGS)  ; this is the checksum of above
 ~~~
 <br/>
 
