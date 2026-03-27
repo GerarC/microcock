@@ -1,5 +1,5 @@
-#ifndef GDT_HPP
-#define GDT_HPP
+#ifndef ARCH_X86_GDT_HPP
+#define ARCH_X86_GDT_HPP
 #include <stdint.h>
 
 namespace cock::arch::x86 {
@@ -50,17 +50,17 @@ typedef struct __attribute__((packed)) _task_state_segement_entry {
 class GDT {
   public:
 	GDT();
-	void init();
+	static void init();
 
   private:
 	static constexpr int MAX_ENTRIES = 6;
-	Entry entries[MAX_ENTRIES];
-    TssEntry tss_entry;
-	Pointer pointer;
+	static Entry entries[MAX_ENTRIES];
+    static TssEntry tss_entry;
+	static Pointer pointer;
 
-	void setGate(uint32_t num, uint32_t base, uint32_t limit, uint8_t access,
+	static void setGate(uint32_t num, uint32_t base, uint32_t limit, uint8_t access,
 				 uint8_t gran);
-	void writeTSS(uint32_t num, uint16_t ss0, uint32_t esp0);
+	static void writeTSS(uint32_t num, uint16_t ss0, uint32_t esp0);
 };
 
 } // namespace cock::arch::x86

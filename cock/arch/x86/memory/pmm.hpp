@@ -1,5 +1,5 @@
-#ifndef MEMORY_HPP
-#define MEMORY_HPP
+#ifndef ARCH_X86_MEMORY_HPP
+#define ARCH_X86_MEMORY_HPP
 #include <cock/arch/x86/boot/multiboot.hpp>
 #include <cock/arch/x86/memory/paging.hpp>
 #include <stddef.h>
@@ -14,7 +14,8 @@ static constexpr uint32_t TABLE_MASK = 0xFFF;
 static constexpr uint32_t PAGE_DIRECTORY_IDX_OFFSET = 0x16;
 static constexpr uint32_t PAGE_TABLE_IDX_OFFSET = 0x0C;
 static constexpr uint32_t NULL_PTR = 0x0;
-static constexpr uint32_t MAX_PAGE_ADDRESS = 0xFFFFFFFF;
+static constexpr uint32_t LAST_ADDRESS = 0xFFFFFFFF;
+static constexpr uint32_t PAGE_SIZE = 0x1000;
 
 class PhysicalMemoryManager {
   public:
