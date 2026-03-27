@@ -1,5 +1,5 @@
-#ifndef TIMER_HPP
-#define TIMER_HPP
+#ifndef ARCH_X86_TIMER_HPP
+#define ARCH_X86_TIMER_HPP
 
 #include <cock/arch/x86/utils/helpers.hpp>
 #include <stdint.h>
@@ -18,7 +18,7 @@ class Timer {
   public:
 	static constexpr uint32_t FREQUENCY = 100;
 	static uint64_t getTicks();
-	void init();
+	static void init();
 
   private:
 	static volatile uint64_t ticks;

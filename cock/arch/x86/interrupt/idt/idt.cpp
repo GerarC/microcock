@@ -1,4 +1,4 @@
-#include "cock/utils/logger.hpp"
+#include <cock/utils/logger.hpp>
 #include <cock/arch/x86/interrupt/idt/idt.hpp>
 #include <cock/arch/x86/interrupt/pic/pic.hpp>
 #include <stddef.h>
@@ -16,6 +16,9 @@ namespace cock::arch::x86 {
 using cock::utils::Logger;
 
 IDT::IDT() {}
+
+__attribute__((aligned(0x10))) IDT::Entry IDT::entries[MAX_ENTRIES];
+IDT::Descriptor IDT::descriptor;
 
 void IDT::init() {
 	size_t entries_size = sizeof(Entry) * MAX_ENTRIES;
@@ -36,7 +39,7 @@ void IDT::init() {
 	setGate(177, reinterpret_cast<uint32_t>(&isr_stub_177), 0x08, 0x8E);
 
 	idt_flush(reinterpret_cast<uintptr_t>(&descriptor));
-	Logger::trace("IDT Initialized");
+	Logger::debug("IDT Initialized");
 }
 
 void IDT::setGate(uint32_t num, uint32_t base, uint32_t selector,

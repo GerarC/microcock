@@ -1,5 +1,5 @@
-#ifndef ISR_HPP
-#define ISR_HPP
+#ifndef ARCH_X86_ISR_HPP
+#define ARCH_X86_ISR_HPP
 
 #include <cock/arch/x86/utils/helpers.hpp>
 
