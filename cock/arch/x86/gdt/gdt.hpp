@@ -1,5 +1,5 @@
-#ifndef GDT_HPP
-#define GDT_HPP
+#ifndef ARCH_X86_GDT_HPP
+#define ARCH_X86_GDT_HPP
 #include <stdint.h>
 
 namespace cock::arch::x86 {

@@ -1,6 +1,6 @@
-#include "cock/arch/x86/boot/multiboot.hpp"
-#include "cock/arch/x86/memory/pmm.hpp"
-#include "cock/utils/logger.hpp"
+#include <cock/arch/x86/boot/multiboot.hpp>
+#include <cock/arch/x86/memory/pmm.hpp>
+#include <cock/utils/logger.hpp>
 #include <cock/arch/x86/gdt/gdt.hpp>
 #include <cock/arch/x86/interrupt/idt/idt.hpp>
 #include <cock/arch/x86/keyboard/keyboard.hpp>

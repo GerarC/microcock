@@ -1,5 +1,5 @@
-#ifndef HELPERS_HPP
-#define HELPERS_HPP
+#ifndef ARCH_X86_HELPERS_HPP
+#define ARCH_X86_HELPERS_HPP
 
 #include <stdint.h>
 

@@ -1,8 +1,9 @@
-#ifndef IRQ_HPP
-#define IRQ_HPP
+#ifndef ARCH_X86_IRQ_HPP
+#define ARCH_X86_IRQ_HPP
 
 #include <cock/arch/x86/utils/helpers.hpp>
 #include <stddef.h>
+#include <stdint.h>
 
 namespace cock::arch::x86 {
 using utils::InterruptRegisters;
@@ -14,7 +15,7 @@ constexpr size_t IRQ_NUM = 16;
 extern "C" {
 void irq_install_handler(int irq, IrqRoutine handler);
 void irq_uninstall_handler(int irq);
-void irq_handler(InterruptRegisters *regs);
+uintptr_t irq_handler(uintptr_t current_esp);
 }
 
 } // namespace cock::arch::x86
