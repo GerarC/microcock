@@ -1,6 +1,6 @@
-#include "cock/arch/x86/boot/multiboot.hpp"
-#include "cock/arch/x86/memory/pmm.hpp"
-#include "cock/utils/logger.hpp"
+#include <cock/arch/x86/boot/multiboot.hpp>
+#include <cock/arch/x86/memory/pmm.hpp>
+#include <cock/utils/logger.hpp>
 #include <cock/arch/x86/gdt/gdt.hpp>
 #include <cock/arch/x86/interrupt/idt/idt.hpp>
 #include <cock/arch/x86/keyboard/keyboard.hpp>
@@ -18,33 +18,17 @@ namespace cock::arch::x86 {
 using cock::driver::vga_instance;
 using cock::utils::Logger;
 
-GDT gdt;
-IDT idt;
-Timer timer;
-Keyboard keyboard;
-PhysicalMemoryManager mm;
 
 extern "C" void call_global_constructors();
 void video_init();
-void core_init();
+void core_init(MBInfo* boot_info);
 
 extern "C" void init_cock(uint32_t magic, MBInfo *boot_info) {
 
 	video_init();
 	call_global_constructors();
-	core_init();
-
-	if (!boot_info) {
-		Logger::error("boot_info NULL!");
-		FOR_ETERNAL;
-	}
-
-	Logger::info("boot_info = 0x%x", boot_info);
-	Logger::info("magic = 0x%x", magic);
-	Logger::info("first_mmap_addr = 0x%x", boot_info->mmap_address);
-
-	mm.init(boot_info);
-
+	core_init(boot_info);
+	Logger::trace("magic = 0x%x", magic);
 	cock_main();
 }
 
@@ -55,11 +39,18 @@ void video_init() {
 	vga_instance->clear();
 }
 
-void core_init() {
-	gdt.init();
-	idt.init();
-	timer.init();
-	keyboard.init();
+void core_init(MBInfo* boot_info) {
+    GDT::init();
+    IDT::init();
+    Timer::init();
+    Keyboard::init();
+
+	if (!boot_info) {
+		Logger::error("boot_info NULL!");
+		FOR_ETERNAL;
+	}
+
+    PhysicalMemoryManager::init(boot_info);
 }
 
 } // namespace cock::arch::x86

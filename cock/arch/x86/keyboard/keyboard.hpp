@@ -1,5 +1,5 @@
-#ifndef KEYBOARD_HPP
-#define KEYBOARD_HPP
+#ifndef ARCH_X86_KEYBOARD_HPP
+#define ARCH_X86_KEYBOARD_HPP
 #include <cock/arch/x86/utils/helpers.hpp>
 #include <stdint.h>
 
@@ -116,7 +116,7 @@ typedef struct {
 
 class Keyboard {
   public:
-	void init();
+	static void init();
 
   private:
 	static bool caps_on;

@@ -82,7 +82,7 @@ run: $(BUILD)/$(PROJECT).iso
 	@qemu-system-i386 -cdrom $<
 
 test: clean
-	@echo "[TST] Compiling and running in TEST MODE..."
+	@echo "[TST] Compiling and running in TEST MODE"
 	@$(MAKE) run TEST_BUILD=1
 	@$(MAKE) clean
 
@@ -92,10 +92,10 @@ clean:
 
 help:
 	@echo "================================================================"
-	@echo " $(PROJECT) OS - Build System"
+	@echo " Micro$(PROJECT) - Build System"
 	@echo "================================================================"
 	@echo "Available commands:"
-	@echo "  make 		- Compile the kernel and generate the binary file"
+	@echo "  make       - Compile the kernel and generate the binary file"
 	@echo "  make iso   - Build the bootable ISO image with GRUB"
 	@echo "  make run   - Build the ISO and launch it using QEMU"
 	@echo "  make test  - Clean, compile with test flags, and run in QEMU"
