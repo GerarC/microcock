@@ -1,5 +1,5 @@
-#ifndef MEMORY_HPP
-#define MEMORY_HPP
+#ifndef ARCH_X86_MEMORY_HPP
+#define ARCH_X86_MEMORY_HPP
 #include <cock/arch/x86/boot/multiboot.hpp>
 #include <cock/arch/x86/memory/paging.hpp>
 #include <stddef.h>

@@ -1,5 +1,5 @@
-#ifndef IDT_HPP
-#define IDT_HPP
+#ifndef ARCH_X86_IDT_HPP
+#define ARCH_X86_IDT_HPP
 #include <cock/arch/x86/interrupt/irq/irq.hpp>
 #include <cock/arch/x86/interrupt/isr/isr.hpp>
 #include <stdint.h>

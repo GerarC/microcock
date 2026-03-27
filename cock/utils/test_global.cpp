@@ -1,5 +1,4 @@
-#include "cock/utils/logger.hpp"
-#include <stdio.h>
+#include <cock/utils/logger.hpp>
 
 namespace cock::test {
 

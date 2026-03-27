@@ -1,6 +1,5 @@
-#include "cock/utils/logger.hpp"
+#include <cock/utils/logger.hpp>
 #include <cock/arch/x86/interrupt/isr/isr.hpp>
-#include <stdio.h>
 
 #define FOR_ETERNAL for (;;)
 

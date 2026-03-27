@@ -1,4 +1,4 @@
-#include "cock/utils/logger.hpp"
+#include <cock/utils/logger.hpp>
 #include <cock/arch/x86/gdt/gdt.hpp>
 #include <stddef.h>
 #include <string.h>
@@ -32,7 +32,7 @@ void GDT::init() {
 	gdt_flush(reinterpret_cast<uintptr_t>(&pointer));
 	tss_flush();
 
-	Logger::trace("GTD Initialized");
+	Logger::debug("GTD Initialized");
 }
 
 void GDT::setGate(uint32_t num, uint32_t base, uint32_t limit, uint8_t access,

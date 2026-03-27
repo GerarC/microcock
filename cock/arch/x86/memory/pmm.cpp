@@ -39,7 +39,7 @@ void PhysicalMemoryManager::init(MBInfo *boot_info) {
 	}
 
 	initMemory(physical_alloc_start);
-	Logger::trace("Physical Memory Manager initializated");
+	Logger::debug("Physical Memory Manager initializated");
 }
 
 void PhysicalMemoryManager::initMemory(uint32_t physicalAllocStart) {

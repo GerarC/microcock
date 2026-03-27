@@ -26,8 +26,11 @@ irq_common_stub:
     push esp
 
     call irq_handler
+    
+    ;; Change of context
+    mov esp, eax
 
-    add esp, 8 
+    add esp, 4
     pop ebx
     mov ds, bx
     mov es, bx
