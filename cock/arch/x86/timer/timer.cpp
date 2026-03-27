@@ -1,4 +1,4 @@
-#include "cock/utils/logger.hpp"
+#include <cock/utils/logger.hpp>
 #include <cock/arch/x86/interrupt/irq/irq.hpp>
 #include <cock/arch/x86/timer/timer.hpp>
 
@@ -33,7 +33,7 @@ void Timer::init() {
 	out_port_b(static_cast<uint16_t>(Output::CHANNEL0),
 			   static_cast<uint8_t>((divisor >> 8) & 0xFF));
 
-    Logger::trace("Timer Initialized");
+    Logger::debug("Timer Initialized");
 }
 
 } // namespace cock::arch::x86

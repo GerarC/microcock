@@ -1,7 +1,7 @@
 #include <stdlib.h>
 
 #if defined(__is_libk)
-#include "cock/utils/panic.hpp"
+#include <cock/utils/panic.hpp>
 #else
 #include <stdio.h>
 #endif
