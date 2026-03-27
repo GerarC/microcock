@@ -1,5 +1,5 @@
-#ifndef PIC_HPP
-#define PIC_HPP
+#ifndef ARCH_X86_PIC_HPP
+#define ARCH_X86_PIC_HPP
 
 #include <stddef.h>
 #include <stdint.h>

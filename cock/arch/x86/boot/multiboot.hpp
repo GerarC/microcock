@@ -1,5 +1,5 @@
-#ifndef MULTIBOOT_HPP
-#define MULTIBOOT_HPP
+#ifndef ARCH_X86_MULTIBOOT_HPP
+#define ARCH_X86_MULTIBOOT_HPP
 
 #include <stdint.h>
 namespace cock::arch::x86 {
