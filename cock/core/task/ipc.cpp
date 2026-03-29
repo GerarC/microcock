@@ -1,15 +1,20 @@
-#include "cock/core/task/scheduler.hpp"
-#include "cock/core/task/task_manager.hpp"
-#include "cock/core/task/thread.hpp"
+#include <cock/core/hal/utils.hpp>
 #include <cock/core/task/ipc.hpp>
+#include <cock/core/task/scheduler.hpp>
+#include <cock/core/task/task_manager.hpp>
+#include <cock/core/task/thread.hpp>
 
 namespace cock::core::task {
 
 void IPC::send(uint32_t to_pid, Message message) {
+	hal::block_interruptions();
 	Thread *target = TaskManager::getThreadByPID(to_pid);
 	Thread *sender = Scheduler::getCurrentThread();
 
-	if (!target || target->getState() == ThreadState::DEAD) return;
+	if (!target || target->getState() == ThreadState::DEAD) {
+		hal::unblock_interruptions();
+		return;
+	}
 	message.sender_pid = sender->getId();
 	message.target_pid = target->getId();
 	target->receiveMessage(message);
@@ -18,15 +23,25 @@ void IPC::send(uint32_t to_pid, Message message) {
 		target->setState(ThreadState::READY);
 		Scheduler::addThread(target);
 	}
+	hal::unblock_interruptions();
 }
 
 void IPC::receive(Message *message) {
 	Thread *target = Scheduler::getCurrentThread();
-	while (!target->hasMessages()) {
+
+	while (true) {
+		hal::block_interruptions();
+
+		if (target->hasMessages()) {
+			target->getNextMessage(*message);
+			hal::unblock_interruptions();
+			return;
+		}
+
 		target->setState(ThreadState::WAITING_MSG);
+		hal::unblock_interruptions();
 		Thread::yield();
 	}
-    target->getNextMessage(*message);
 }
 
 } // namespace cock::core::task
