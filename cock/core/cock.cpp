@@ -1,3 +1,4 @@
+#include <cock/core/task/task_manager.hpp>
 #include <cock/core/hal/utils.hpp>
 #include <cock/core/cock.hpp>
 #include <cock/core/task/scheduler.hpp>
@@ -18,12 +19,15 @@ using core::task::Scheduler;
 using core::task::Thread;
 using core::task::ThreadPriority;
 using core::task::ThreadResult;
+using core::task::TaskManager;
 using utils::Logger;
 using utils::LogLevel;
 
 ThreadResult kernel_idle() {
-	while (true)
+	while (true){
+        TaskManager::buryDeadThreads();
 		core::hal::halt();
+    }
 	return ThreadResult::success();
 }
 
@@ -34,15 +38,18 @@ extern "C" void cock_main(void) {
 	puts("Semillero de Linux UdeA");
 	puts("SEIC UdeA");
 
-	Scheduler::init();
 
 #ifdef COCK_TEST_MODE
 	Logger::warn("Setting Test mode.");
 	test::run_all_tests();
 	Logger::info("All test where executed.");
-	__asm__ volatile("cli; hlt");
+	FOR_ETERNAL;
 #endif
-	Thread *idle_thread = new Thread(0, kernel_idle, ThreadPriority::IDLE);
+
+    TaskManager::init();
+	Scheduler::init();
+
+	Thread *idle_thread = new Thread(kernel_idle, ThreadPriority::IDLE);
 	Scheduler::addThread(idle_thread);
 
 	Scheduler::yield();

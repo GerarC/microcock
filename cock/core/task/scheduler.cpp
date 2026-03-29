@@ -1,3 +1,4 @@
+#include "cock/core/task/task_manager.hpp"
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/thread.hpp>
@@ -21,7 +22,7 @@ void Scheduler::init() {
 	currentThread = nullptr;
 	currentTicks = 0;
 	ticksSinceLastBoost = 0;
-    initialized = true;
+	initialized = true;
 	Logger::debug("Scheduler Initialized with MLFQ");
 }
 
@@ -43,6 +44,7 @@ void Scheduler::exitCurrentThread(ThreadResult result) {
 					  currentThread->getId());
 
 	currentThread->setState(ThreadState::DEAD);
+	TaskManager::notifyThreadDeath(currentThread->getId());
 
 	Scheduler::yield();
 }
@@ -67,7 +69,7 @@ void Scheduler::boostPriorities() {
 }
 
 uintptr_t Scheduler::schedule(uintptr_t current_stack_pointer) {
-    if(!initialized) return current_stack_pointer;
+	if (!initialized) return current_stack_pointer;
 	ticksSinceLastBoost++;
 
 	if (ticksSinceLastBoost >= BOOST_TICKS) {
@@ -88,21 +90,21 @@ uintptr_t Scheduler::schedule(uintptr_t current_stack_pointer) {
 			}
 			currentThread->setState(ThreadState::READY);
 			addThread(currentThread);
-		} else if(currentThread->getState() == ThreadState::READY){
-            addThread(currentThread);
-        }
+		} else if (currentThread->getState() == ThreadState::READY) {
+			addThread(currentThread);
+		}
 	}
 
-    currentThread = nullptr;
-    for (int priority = PRIORITY_NUMBER -1; priority >= 0; priority--){
-        if(readyQueues[priority].popFront(currentThread)) break;
-    }
+	currentThread = nullptr;
+	for (int priority = PRIORITY_NUMBER - 1; priority >= 0; priority--) {
+		if (readyQueues[priority].popFront(currentThread)) break;
+	}
 
-    if(!currentThread) utils::panic("No runnable threads! System Halted.");
+	if (!currentThread) utils::panic("No runnable threads! System Halted.");
 
-    currentThread->setState(ThreadState::RUNNING);
-    currentTicks = 0;
-    return currentThread->getStackPointer();
+	currentThread->setState(ThreadState::RUNNING);
+	currentTicks = 0;
+	return currentThread->getStackPointer();
 }
 
 } // namespace cock::core::task
