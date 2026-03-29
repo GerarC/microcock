@@ -104,6 +104,10 @@ uintptr_t Scheduler::schedule(uintptr_t current_stack_pointer) {
 
 	currentThread->setState(ThreadState::RUNNING);
 	currentTicks = 0;
+
+	hal::set_kernel_stack(currentThread->getKernelStackTop());
+	hal::switch_address_space(currentThread->getAddressSpace());
+
 	return currentThread->getStackPointer();
 }
 

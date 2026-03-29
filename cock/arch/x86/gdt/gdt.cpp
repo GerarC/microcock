@@ -13,7 +13,7 @@ namespace cock::arch::x86 {
 using cock::utils::Logger;
 
 Entry GDT::entries[MAX_ENTRIES];
-TssEntry GDT::tss_entry;
+TssEntry GDT::tssEntry;
 Pointer GDT::pointer;
 
 GDT::GDT() {}
@@ -49,22 +49,29 @@ void GDT::setGate(uint32_t num, uint32_t base, uint32_t limit, uint8_t access,
 }
 
 void GDT::writeTSS(uint32_t num, uint16_t ss0, uint32_t esp0) {
-	size_t tts_size = sizeof(tss_entry);
-	uint32_t base = reinterpret_cast<uint32_t>(&tss_entry);
+	size_t tts_size = sizeof(tssEntry);
+	uint32_t base = reinterpret_cast<uint32_t>(&tssEntry);
 	uint32_t limit = base + tts_size;
 
 	GDT::setGate(num, base, limit, 0xE9, 0x00);
-	memset(&tss_entry, 0, tts_size);
-	tss_entry.ss0 = ss0;
-	tss_entry.esp0 = esp0;
+	memset(&tssEntry, 0, tts_size);
+	tssEntry.ss0 = ss0;
+	tssEntry.esp0 = esp0;
 
-	tss_entry.cs = 0x08 | 0x3;
+	tssEntry.cs = 0x08 | 0x3;
 
-	tss_entry.ss = 0x10 | 0x3;
-	tss_entry.es = 0x10 | 0x3;
-	tss_entry.ds = 0x10 | 0x3;
-	tss_entry.fs = 0x10 | 0x3;
-	tss_entry.gs = 0x10 | 0x3;
+	tssEntry.ss = 0x10 | 0x3;
+	tssEntry.es = 0x10 | 0x3;
+	tssEntry.ds = 0x10 | 0x3;
+	tssEntry.fs = 0x10 | 0x3;
+	tssEntry.gs = 0x10 | 0x3;
 }
+
+
+void GDT::setKernelStack(uint32_t stack_pointer){
+    tssEntry.esp0 = stack_pointer;
+
+}
+
 
 } // namespace cock::arch::x86
