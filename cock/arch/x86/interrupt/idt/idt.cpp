@@ -35,7 +35,7 @@ void IDT::init() {
 	for (size_t irq = 0; irq < IRQ_NUM; irq++)
 		setGate(ISR_NUM + irq, reinterpret_cast<uint32_t>(irq_stub_table[irq]),
 				0x08, 0x8E);
-	setGate(128, reinterpret_cast<uint32_t>(&isr_stub_128), 0x08, 0x8E);
+	setGate(128, reinterpret_cast<uint32_t>(&isr_stub_128), 0x08, 0xEE);
 	setGate(177, reinterpret_cast<uint32_t>(&isr_stub_177), 0x08, 0x8E);
 
 	idt_flush(reinterpret_cast<uintptr_t>(&descriptor));

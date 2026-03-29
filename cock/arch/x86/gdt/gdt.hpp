@@ -51,11 +51,12 @@ class GDT {
   public:
 	GDT();
 	static void init();
+    static void setKernelStack(uint32_t stack_pointer);
 
   private:
 	static constexpr int MAX_ENTRIES = 6;
 	static Entry entries[MAX_ENTRIES];
-    static TssEntry tss_entry;
+    static TssEntry tssEntry;
 	static Pointer pointer;
 
 	static void setGate(uint32_t num, uint32_t base, uint32_t limit, uint8_t access,

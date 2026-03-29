@@ -48,7 +48,7 @@ void TaskManager::notifyThreadDeath(uint32_t pid){
 
 void TaskManager::buryDeadThreads() {
 	uint32_t dead_pid;
-	while (freePIDs.popFront(dead_pid)) {
+	while (graveyard.popFront(dead_pid)) {
 		Thread *thread = registry[dead_pid];
 		delete thread;
 		freePIDs.append(dead_pid);

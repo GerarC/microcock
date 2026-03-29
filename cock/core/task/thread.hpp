@@ -1,12 +1,17 @@
 #ifndef CORE_THREAD_HPP
 #define CORE_THREAD_HPP
 
+#include "cock/core/hal/tasking.hpp"
 #include <cock/data_structure/ll.hpp>
 #include <cock/ipc/message.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
 namespace cock::core::task {
+
+constexpr size_t THREAD_STACK_SIZE = 0x1000;
+constexpr size_t USER_STACK_SIZE = 0x10000;
+constexpr size_t USER_PAGES = USER_STACK_SIZE / 0x1000;
 
 using cock::data_structure::LinkedList;
 using ipc::Message;
@@ -22,6 +27,8 @@ enum class ThreadPriority : uint8_t {
 enum class ThreadError { NONE = 0, GENERAL_FAULT = 1, TIMEOUT };
 
 enum class ThreadState { READY, RUNNING, BLOCKED, WAITING_MSG, DEAD };
+
+enum class ThreadType { KERNEL, USER };
 
 class ThreadResult {
   private:
@@ -48,14 +55,18 @@ class Thread {
 	uint32_t id;
 	ThreadState state;
 	ThreadPriority priority;
+	ThreadType type;
+	void *userStackBase;
 	uintptr_t stackPointer;
+	uintptr_t addressSpace;
 	// pointer to the real base given by the heap
 	void *stackBase;
 	LinkedList<Message> inbox;
+	void initBase(ThreadPriority priority, ThreadType type);
 
   public:
-	Thread(ThreadFunction entry_point,
-		   ThreadPriority priority = ThreadPriority::NORMAL);
+	Thread(ThreadFunction entry_point, ThreadPriority priority);
+	Thread(const void *code, size_t size, ThreadPriority priority);
 	~Thread();
 
 	uint32_t getId() const { return this->id; }
@@ -71,9 +82,22 @@ class Thread {
 		this->stackPointer = stackPointer;
 	}
 
+	uintptr_t getKernelStackTop() const {
+		return reinterpret_cast<uintptr_t>(stackBase) + THREAD_STACK_SIZE;
+	}
+
+	void *getUserStackBase() const { return userStackBase; }
+
+	void setEntryPoint(void *entry) {
+		hal::update_thread_entry(stackPointer, entry);
+	}
+
 	void receiveMessage(const Message &msg) { inbox.append(msg); }
 	bool getNextMessage(Message &out) { return inbox.popFront(out); }
 	bool hasMessages() const { return !inbox.isEmpty(); }
+
+	uintptr_t getAddressSpace() const { return addressSpace; }
+	void setUserStackBase(void *base) { userStackBase = base; }
 
 	static void wrapper(ThreadFunction userFunc);
 	static void yield();
