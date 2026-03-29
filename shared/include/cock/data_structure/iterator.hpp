@@ -1,9 +1,9 @@
 #ifndef COCK_ITERATOR_HPP
 #define COCK_ITERATOR_HPP
 
-#include <cock/utils/data_structure/node.hpp>
+#include <cock/data_structure/node.hpp>
 
-namespace cock::utils::data_structure {
+namespace cock::data_structure {
 
 template <typename TYPE> class Iterator {
   private:

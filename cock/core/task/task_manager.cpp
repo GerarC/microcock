@@ -1,6 +1,6 @@
-#include "cock/core/task/thread.hpp"
-#include "cock/utils/logger.hpp"
-#include "cock/utils/panic.hpp"
+#include <cock/core/task/thread.hpp>
+#include <cock/utils/logger.hpp>
+#include <cock/utils/panic.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <stdint.h>
 #include <string.h>
