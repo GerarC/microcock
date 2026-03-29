@@ -42,6 +42,6 @@ uintptr_t prepare_thread_stack(void *stack_base, size_t stack_size,
 	return context_ptr;
 }
 
-void yield() { __asm__ volatile("int $32"); }
+void yield() { __asm__ volatile("int $128"); }
 
 } // namespace cock::core::hal
