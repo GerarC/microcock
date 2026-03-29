@@ -2,13 +2,13 @@
 #define CORE_TASK_MANAGER_HPP
 
 #include <cock/core/task/thread.hpp>
-#include <cock/utils/data_structure/ll.hpp>
+#include <cock/data_structure/ll.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
 namespace cock::core::task {
 
-using utils::data_structure::LinkedList;
+using data_structure::LinkedList;
 
 class TaskManager {
   private:

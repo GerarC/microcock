@@ -2,7 +2,7 @@ AS			= nasm -felf32
 CXX			= i686-elf-g++
 CPP_FLAGS   = -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti \
               -D__is_cock_kernel -D__is_libc -D__is_libk \
-              -Ilibc/include -Ilibcxx/include -I. \
+              -Ilibc/include -Ilibcxx/include -Ishared/include -I. \
               -fstack-protector-all -fno-use-cxa-atexit \
               -mno-sse -mno-sse2 -mno-mmx -mno-80387 \
               -MMD -MP

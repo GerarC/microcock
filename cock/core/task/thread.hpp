@@ -1,10 +1,15 @@
 #ifndef CORE_THREAD_HPP
 #define CORE_THREAD_HPP
 
+#include <cock/data_structure/ll.hpp>
+#include <cock/ipc/message.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
 namespace cock::core::task {
+
+using cock::data_structure::LinkedList;
+using ipc::Message;
 
 enum class ThreadPriority : uint8_t {
 	IDLE = 0,
@@ -16,7 +21,7 @@ enum class ThreadPriority : uint8_t {
 
 enum class ThreadError { NONE = 0, GENERAL_FAULT = 1, TIMEOUT };
 
-enum class ThreadState { READY, RUNNING, BLOCKED, DEAD };
+enum class ThreadState { READY, RUNNING, BLOCKED, WAITING_MSG, DEAD };
 
 class ThreadResult {
   private:
@@ -46,13 +51,14 @@ class Thread {
 	uintptr_t stackPointer;
 	// pointer to the real base given by the heap
 	void *stackBase;
+	LinkedList<Message> inbox;
 
   public:
 	Thread(ThreadFunction entry_point,
 		   ThreadPriority priority = ThreadPriority::NORMAL);
 	~Thread();
 
-    uint32_t getId() const {return this->id;}
+	uint32_t getId() const { return this->id; }
 
 	ThreadState getState() const { return state; }
 	void setState(ThreadState state) { this->state = state; }
@@ -65,8 +71,12 @@ class Thread {
 		this->stackPointer = stackPointer;
 	}
 
+	void receiveMessage(const Message &msg) { inbox.append(msg); }
+	bool getNextMessage(Message &out) { return inbox.popFront(out); }
+	bool hasMessages() const { return !inbox.isEmpty(); }
+
 	static void wrapper(ThreadFunction userFunc);
-    static void yield();
+	static void yield();
 };
 
 } // namespace cock::core::task
