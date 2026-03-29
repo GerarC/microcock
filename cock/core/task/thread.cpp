@@ -1,9 +1,10 @@
+#include <cock/core/task/task_manager.hpp>
 #include <cock/core/hal/tasking.hpp>
-#include <cock/core/task/scheduler.hpp>
-#include <cock/utils/panic.hpp>
 #include <cock/core/memory/heap.hpp>
+#include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/thread.hpp>
 #include <cock/utils/logger.hpp>
+#include <cock/utils/panic.hpp>
 
 namespace cock::core::task {
 
@@ -13,14 +14,16 @@ using cock::utils::Logger;
 
 constexpr size_t THREAD_STACK_SIZE = 0x1000;
 
-Thread::Thread(uint32_t id, ThreadFunction entry_point, ThreadPriority priority)
-	: id(id), state(ThreadState::READY), priority(priority), stackPointer(0) {
+Thread::Thread(ThreadFunction entry_point, ThreadPriority priority)
+	: state(ThreadState::READY), priority(priority), stackPointer(0) {
+	this->id = TaskManager::allocatePID();
 	this->stackBase = kmalloc(THREAD_STACK_SIZE);
 	this->stackPointer =
 		hal::prepare_thread_stack(this->stackBase, THREAD_STACK_SIZE,
 								  reinterpret_cast<void *>(&Thread::wrapper),
 								  reinterpret_cast<void *>(entry_point));
 
+    TaskManager::registerThread(this);
 	Logger::trace("Thread %d created", id);
 }
 

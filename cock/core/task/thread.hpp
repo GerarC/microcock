@@ -48,7 +48,7 @@ class Thread {
 	void *stackBase;
 
   public:
-	Thread(uint32_t id, ThreadFunction entry_point,
+	Thread(ThreadFunction entry_point,
 		   ThreadPriority priority = ThreadPriority::NORMAL);
 	~Thread();
 
