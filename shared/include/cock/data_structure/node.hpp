@@ -1,5 +1,5 @@
-#ifndef COCK_NODE_HPP
-#define COCK_NODE_HPP
+#ifndef SHARED_COCK_NODE_HPP
+#define SHARED_COCK_NODE_HPP
 
 namespace cock::data_structure {
 
@@ -14,4 +14,4 @@ template <typename TYPE> class Node {
 
 } // namespace cock::data_structure
 
-#endif // !COCK_NODE_HPP
+#endif // !SHARED_COCK_NODE_HPP

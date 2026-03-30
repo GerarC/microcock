@@ -1,5 +1,5 @@
-#ifndef COCK_LINKED_LIST_HPP
-#define COCK_LINKED_LIST_HPP
+#ifndef SHARED_COCK_LINKED_LIST_HPP
+#define SHARED_COCK_LINKED_LIST_HPP
 
 #include <cock/data_structure/iterator.hpp>
 #include <cock/data_structure/node.hpp>
@@ -124,4 +124,4 @@ template <typename TYPE> class LinkedList {
 
 } // namespace cock::utils::data_structure
 
-#endif // !COCK_LINKED_LIST_HPP
+#endif // !SHARED_COCK_LINKED_LIST_HPP

@@ -1,18 +1,20 @@
-#include <cock/core/task/scheduler.hpp>
 #include <cock/arch/x86/interrupt/isr/isr.hpp>
+#include <cock/core/syscall/syscall_manager.hpp>
+#include <cock/core/task/scheduler.hpp>
+#include <cock/syscall/syscall_nums.hpp>
 #include <cock/utils/logger.hpp>
 #include <stdint.h>
 
 #define FOR_ETERNAL for (;;)
 
-
 namespace cock::arch::x86 {
 
-using cock::utils::Logger;
+using cock::core::syscall::SyscallManager;
 using cock::core::task::Scheduler;
+using cock::syscall::SyscallNum;
+using cock::utils::Logger;
 
-static constexpr uint32_t YIELD_INT = 0x80;
-
+static constexpr uint32_t SYSCALL_CODE = 0x80;
 
 constexpr const char *EXCEPTION_MESSAGES[] = {"Division by Zero",
 											  "Debug",
@@ -48,20 +50,36 @@ constexpr const char *EXCEPTION_MESSAGES[] = {"Division by Zero",
 											  "Reserved",
 											  "Reserved"};
 
-extern "C" uintptr_t isr_handler(uintptr_t current_esp){
-    InterruptRegisters *regs = reinterpret_cast<InterruptRegisters *>(current_esp);
+extern "C" uintptr_t isr_handler(uintptr_t current_esp) {
+	InterruptRegisters *regs =
+		reinterpret_cast<InterruptRegisters *>(current_esp);
 
-    if (regs->int_no == YIELD_INT) {
-        return Scheduler::schedule(current_esp);
-    }
+	if (regs->int_no == SYSCALL_CODE) {
+		uint32_t syscall_num = regs->eax;
+		uint32_t arg1 = regs->ebx;
+		uint32_t arg2 = regs->ecx;
+		uint32_t arg3 = regs->edx;
+		uintptr_t result =
+			SyscallManager::handle(syscall_num, arg1, arg2, arg3);
 
+		if (syscall_num == SyscallNum::SYS_EXIT ||
+			syscall_num == SyscallNum::SYS_SCHED_YIELD) {
+			return Scheduler::schedule(current_esp);
+		}
+
+		regs->eax = static_cast<uint32_t>(result);
+		return current_esp;
+	}
 	if (regs->int_no < ISR_NUM) {
 		Logger::error("Exception{ .idx: %d, .type: %s}", regs->int_no,
 					  EXCEPTION_MESSAGES[regs->int_no]);
+		uint32_t faulting_address = utils::read_cr2();
+		Logger::error("  -> Faulting Address (CR2): 0x%x", faulting_address);
+		Logger::error("  -> Error Code: 0x%x", regs->err_code);
 
 		FOR_ETERNAL;
 	}
-    return current_esp;
+	return current_esp;
 }
 
 } // namespace cock::arch::x86

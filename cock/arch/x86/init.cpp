@@ -26,8 +26,8 @@ void core_init(MBInfo* boot_info);
 extern "C" void init_cock(uint32_t magic, MBInfo *boot_info) {
 
 	video_init();
-	call_global_constructors();
 	core_init(boot_info);
+	call_global_constructors();
 	Logger::trace("magic = 0x%x", magic);
 	cock_main();
 }

@@ -1,5 +1,5 @@
-#ifndef COCK_ITERATOR_HPP
-#define COCK_ITERATOR_HPP
+#ifndef SHARED_COCK_ITERATOR_HPP
+#define SHARED_COCK_ITERATOR_HPP
 
 #include <cock/data_structure/node.hpp>
 
@@ -46,4 +46,4 @@ template <typename TYPE> class Iterator {
 
 } // namespace cock::utils::data_structure
 
-#endif // !COCK_ITERATOR_HPP
+#endif // !SHARED_COCK_ITERATOR_HPP

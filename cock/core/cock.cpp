@@ -33,6 +33,28 @@ ThreadResult kernel_idle() {
 	return ThreadResult::success();
 }
 
+void user_process_example(){
+	const char *message = "Hello from cock ring 3!!!\n";
+	size_t msg_len = strlen(message);
+
+	unsigned char shellcode[] = {
+		0xB8, 0x04, 0x00, 0x00, 0x00, 0xBB, 0x01, 0x00, 0x00, 0x00, 0xB9, 0x22,
+		0x00, 0x00, 0x40, 0xBA, (unsigned char)msg_len, 0x00, 0x00, 0x00, 0xCD, 0x80, 0xB8, 0x01,
+		0x00, 0x00, 0x00, 0xBB, 0x00, 0x00, 0x00, 0x00, 0xCD, 0x80};
+
+	Thread *user_thread =
+		new Thread(shellcode, sizeof(shellcode), ThreadPriority::NORMAL);
+
+	uintptr_t old_cr3 = core::hal::get_current_address_space();
+	core::hal::switch_address_space(user_thread->getAddressSpace());
+
+	memcpy(reinterpret_cast<void *>(0x40000022), message, msg_len);
+
+	core::hal::switch_address_space(old_cr3);
+
+	Scheduler::addThread(user_thread);
+}
+
 extern "C" void cock_main(void) {
 	Logger::init(LogLevel::DEBUG);
 	printf("Welcome to %s\n", core::VERSION_STRING);
@@ -53,15 +75,9 @@ extern "C" void cock_main(void) {
 	Thread *idle_thread = new Thread(kernel_idle, ThreadPriority::IDLE);
 	Scheduler::addThread(idle_thread);
 
+    user_process_example();
 
-	unsigned char shellcode[] = {0xCD, 0x80, 0xEB, 0xFC};
-
-	Thread *user_thread =
-		new Thread(shellcode, sizeof(shellcode), ThreadPriority::NORMAL);
-
-	Scheduler::addThread(user_thread);
-	Scheduler::yield();
-
+	core::hal::manual_timer();
 	Logger::fatal("Kernel panic: Returned to cock_main!");
 	FOR_ETERNAL;
 }

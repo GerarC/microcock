@@ -1,6 +1,7 @@
-#include "cock/arch/x86/gdt/gdt.hpp"
+#include <cock/arch/x86/gdt/gdt.hpp>
 #include <cock/arch/x86/utils/helpers.hpp>
 #include <cock/core/hal/tasking.hpp>
+#include <string.h>
 #include <stdint.h>
 
 namespace cock::core::hal {
@@ -54,20 +55,19 @@ uintptr_t prepare_user_thread_stack(void *kernel_stack_base,
 	uintptr_t kernel_stack_top =
 		reinterpret_cast<uintptr_t>(kernel_stack_base) + kernel_stack_size;
 	uintptr_t user_stack_top =
-		reinterpret_cast<uintptr_t>(user_stack_base) + user_stack_size;
-
+		reinterpret_cast<uintptr_t>(user_stack_base) + user_stack_size - 4;
 	uintptr_t context_ptr = kernel_stack_top - sizeof(InterruptRegisters);
 	InterruptRegisters *regs =
 		reinterpret_cast<InterruptRegisters *>(context_ptr);
+    memset(regs, 0, sizeof(InterruptRegisters));
 
 	regs->ds = USER_DATA;
-
-	regs->eip = reinterpret_cast<uint32_t>(entry_point);
+	regs->ss = USER_DATA;
 	regs->cs = USER_CODE;
+	regs->eip = reinterpret_cast<uint32_t>(entry_point);
 	regs->eflags = RESERVED_AND_INTERRUPT_ENABLED;
 
 	regs->useresp = user_stack_top;
-	regs->ss = USER_DATA;
 
 	regs->eax = reinterpret_cast<uint32_t>(user_arg);
 	regs->ebx = BLANK;
