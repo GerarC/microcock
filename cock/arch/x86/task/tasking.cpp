@@ -1,8 +1,8 @@
 #include <cock/arch/x86/gdt/gdt.hpp>
 #include <cock/arch/x86/utils/helpers.hpp>
 #include <cock/core/hal/tasking.hpp>
-#include <string.h>
 #include <stdint.h>
+#include <string.h>
 
 namespace cock::core::hal {
 
@@ -14,6 +14,7 @@ constexpr uint32_t KERNEL_DATA = 0x10;
 constexpr uint32_t KERNEL_CODE = 0x08;
 constexpr uint32_t USER_DATA = 0x23;
 constexpr uint32_t USER_CODE = 0x1B;
+constexpr uint32_t IO_PRIVILEGE_LEVEL_THREE = 0x3000;
 constexpr uint32_t RESERVED_AND_INTERRUPT_ENABLED = 0x202;
 constexpr uint32_t BLANK = 0x0;
 
@@ -26,7 +27,7 @@ uintptr_t prepare_thread_stack(void *stack_base, size_t stack_size,
 	InterruptRegisters *regs =
 		reinterpret_cast<InterruptRegisters *>(context_ptr);
 
-	// Simmulate an IRG
+	// Simmulate an IRQ
 	regs->ds = KERNEL_DATA;
 	regs->eip = reinterpret_cast<uint32_t>(wrapper_function);
 	regs->cs = KERNEL_CODE;
@@ -50,7 +51,7 @@ uintptr_t prepare_user_thread_stack(void *kernel_stack_base,
 									size_t kernel_stack_size,
 									void *user_stack_base,
 									size_t user_stack_size, void *entry_point,
-									void *user_arg) {
+									void *user_arg, bool is_driver) {
 
 	uintptr_t kernel_stack_top =
 		reinterpret_cast<uintptr_t>(kernel_stack_base) + kernel_stack_size;
@@ -59,13 +60,14 @@ uintptr_t prepare_user_thread_stack(void *kernel_stack_base,
 	uintptr_t context_ptr = kernel_stack_top - sizeof(InterruptRegisters);
 	InterruptRegisters *regs =
 		reinterpret_cast<InterruptRegisters *>(context_ptr);
-    memset(regs, 0, sizeof(InterruptRegisters));
+	memset(regs, 0, sizeof(InterruptRegisters));
 
 	regs->ds = USER_DATA;
 	regs->ss = USER_DATA;
 	regs->cs = USER_CODE;
 	regs->eip = reinterpret_cast<uint32_t>(entry_point);
 	regs->eflags = RESERVED_AND_INTERRUPT_ENABLED;
+	if (is_driver) regs->eflags |= IO_PRIVILEGE_LEVEL_THREE;
 
 	regs->useresp = user_stack_top;
 

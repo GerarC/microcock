@@ -67,7 +67,8 @@ class Thread {
 
   public:
 	Thread(ThreadFunction entry_point, ThreadPriority priority);
-	Thread(const void *code, size_t size, ThreadPriority priority);
+	Thread(const void *code, size_t size, ThreadPriority priority,
+		   bool is_driver = false);
 	~Thread();
 
 	uint32_t getId() const { return this->id; }
