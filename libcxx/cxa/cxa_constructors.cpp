@@ -18,9 +18,8 @@ extern "C" void (*__ctors_start[])();
 extern "C" void (*__ctors_end[])();
 
 static inline int is_valid_text_address(void *p) {
-	uintptr_t addr = (uintptr_t)p;
-	if (addr >= 0x00100000 && addr < 0x01000000) return 1;
-	return 0;
+    uintptr_t addr = (uintptr_t)p;
+    return (addr >= 0xC0100000 && addr < 0xC1000000); 
 }
 
 extern "C" void call_global_constructors() {

@@ -17,31 +17,34 @@ void IPC::send(uint32_t to_pid, Message message) {
 	}
 	message.sender_pid = sender->getId();
 	message.target_pid = target->getId();
+
 	target->receiveMessage(message);
 
 	if (target->getState() == ThreadState::WAITING_MSG) {
 		target->setState(ThreadState::READY);
 		Scheduler::addThread(target);
-	}
-	hal::unblock_interruptions();
+		hal::unblock_interruptions();
+		Thread::yield();
+	} else hal::unblock_interruptions();
 }
 
 void IPC::receive(Message *message) {
+	hal::block_interruptions();
 	Thread *target = Scheduler::getCurrentThread();
 
-	while (true) {
-		hal::block_interruptions();
-
-		if (target->hasMessages()) {
-			target->getNextMessage(*message);
-			hal::unblock_interruptions();
-			return;
-		}
-
-		target->setState(ThreadState::WAITING_MSG);
+	if (target->hasMessages()) {
+		target->getNextMessage(*message);
 		hal::unblock_interruptions();
-		Thread::yield();
+		return;
 	}
+
+	target->setState(ThreadState::WAITING_MSG);
+	hal::unblock_interruptions();
+	Thread::yield();
+
+	hal::block_interruptions();
+	target->getNextMessage(*message);
+	hal::unblock_interruptions();
 }
 
 } // namespace cock::core::task

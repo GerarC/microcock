@@ -48,7 +48,7 @@ void IDT::setGate(uint32_t num, uint32_t base, uint32_t selector,
 	entries[num].base_high = (base >> 0x10) & 0xFFFF;
 	entries[num].selector = selector;
 	entries[num].reserved = 0;
-	entries[num].flags = flags | 0x60;
+	entries[num].flags = flags;
 }
 
 } // namespace cock::arch::x86

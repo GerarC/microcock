@@ -58,13 +58,13 @@ void GDT::writeTSS(uint32_t num, uint16_t ss0, uint32_t esp0) {
 	tssEntry.ss0 = ss0;
 	tssEntry.esp0 = esp0;
 
-	tssEntry.cs = 0x08 | 0x3;
+	tssEntry.cs = 0x08;
 
-	tssEntry.ss = 0x10 | 0x3;
-	tssEntry.es = 0x10 | 0x3;
-	tssEntry.ds = 0x10 | 0x3;
-	tssEntry.fs = 0x10 | 0x3;
-	tssEntry.gs = 0x10 | 0x3;
+	tssEntry.ss = 0x10;
+	tssEntry.es = 0x10;
+	tssEntry.ds = 0x10;
+	tssEntry.fs = 0x10;
+	tssEntry.gs = 0x10;
 }
 
 

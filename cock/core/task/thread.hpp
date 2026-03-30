@@ -1,8 +1,8 @@
 #ifndef CORE_THREAD_HPP
 #define CORE_THREAD_HPP
 
-#include "cock/core/hal/tasking.hpp"
-#include <cock/data_structure/ll.hpp>
+#include <cock/core/hal/tasking.hpp>
+#include <cock/data_structure/ring_buffer.hpp>
 #include <cock/ipc/message.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -12,8 +12,9 @@ namespace cock::core::task {
 constexpr size_t THREAD_STACK_SIZE = 0x1000;
 constexpr size_t USER_STACK_SIZE = 0x10000;
 constexpr size_t USER_PAGES = USER_STACK_SIZE / 0x1000;
+constexpr size_t THREAD_MESSAGE_BUFFER_SIZE = 0x10;
 
-using cock::data_structure::LinkedList;
+using cock::data_structure::RingBuffer;
 using ipc::Message;
 
 enum class ThreadPriority : uint8_t {
@@ -61,7 +62,7 @@ class Thread {
 	uintptr_t addressSpace;
 	// pointer to the real base given by the heap
 	void *stackBase;
-	LinkedList<Message> inbox;
+	RingBuffer<Message, THREAD_MESSAGE_BUFFER_SIZE> inbox;
 	void initBase(ThreadPriority priority, ThreadType type);
 
   public:
@@ -92,8 +93,8 @@ class Thread {
 		hal::update_thread_entry(stackPointer, entry);
 	}
 
-	void receiveMessage(const Message &msg) { inbox.append(msg); }
-	bool getNextMessage(Message &out) { return inbox.popFront(out); }
+	void receiveMessage(const Message &msg) { inbox.push(msg); }
+	bool getNextMessage(Message &out) { return inbox.pop(out); }
 	bool hasMessages() const { return !inbox.isEmpty(); }
 
 	uintptr_t getAddressSpace() const { return addressSpace; }
