@@ -14,6 +14,7 @@ constexpr size_t USER_STACK_SIZE = 0x10000;
 constexpr size_t USER_PAGES = USER_STACK_SIZE / 0x1000;
 constexpr size_t THREAD_MESSAGE_BUFFER_SIZE = 0x10;
 
+using cock::core::hal::ArchThreadContext;
 using cock::data_structure::RingBuffer;
 using ipc::Message;
 
@@ -64,11 +65,11 @@ class Thread {
 	void *stackBase;
 	RingBuffer<Message, THREAD_MESSAGE_BUFFER_SIZE> inbox;
 	void initBase(ThreadPriority priority, ThreadType type);
+	ArchThreadContext archContext;
 
   public:
 	Thread(ThreadFunction entry_point, ThreadPriority priority);
-	Thread(const void *code, size_t size, ThreadPriority priority,
-		   bool is_driver = false);
+	Thread(const void *code, size_t size, ThreadPriority priority);
 	~Thread();
 
 	uint32_t getId() const { return this->id; }
@@ -82,6 +83,11 @@ class Thread {
 	uintptr_t getStackPointer() const { return stackPointer; }
 	void setStackPointer(uintptr_t stackPointer) {
 		this->stackPointer = stackPointer;
+	}
+
+	ArchThreadContext getArchContext() const { return archContext; }
+	void setArchContext(ArchThreadContext *context) {
+		this->archContext = context;
 	}
 
 	uintptr_t getKernelStackTop() const {

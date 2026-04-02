@@ -1,4 +1,4 @@
-#include "cock/core/task/task_manager.hpp"
+#include <cock/core/task/task_manager.hpp>
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/thread.hpp>
@@ -106,6 +106,7 @@ uintptr_t Scheduler::schedule(uintptr_t current_stack_pointer) {
 	currentTicks = 0;
 
 	hal::set_kernel_stack(currentThread->getKernelStackTop());
+	hal::apply_thread_context(currentThread->getArchContext());
 	hal::switch_address_space(currentThread->getAddressSpace());
 
 	return currentThread->getStackPointer();

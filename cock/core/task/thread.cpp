@@ -27,8 +27,7 @@ Thread::Thread(ThreadFunction entry_point, ThreadPriority priority) {
 	Logger::trace("Thread %d created", id);
 }
 
-Thread::Thread(const void *code, size_t size, ThreadPriority priority,
-			   bool is_driver) {
+Thread::Thread(const void *code, size_t size, ThreadPriority priority) {
 	initBase(priority, ThreadType::USER);
 	this->addressSpace = VirtualMemoryManager::createAddressSpace();
 
@@ -43,7 +42,7 @@ Thread::Thread(const void *code, size_t size, ThreadPriority priority,
 
 	this->stackPointer = hal::prepare_user_thread_stack(
 		stackBase, THREAD_STACK_SIZE, this->userStackBase, USER_STACK_SIZE,
-		this->userStackBase, nullptr, is_driver);
+		this->userStackBase, nullptr);
 	TaskManager::registerThread(this);
 }
 
@@ -53,6 +52,7 @@ void Thread::initBase(ThreadPriority priority, ThreadType type) {
 	this->type = type;
 	this->state = ThreadState::READY;
 	this->stackBase = kmalloc(THREAD_STACK_SIZE);
+	this->archContext = hal::create_thread_context();
 }
 
 Thread::~Thread() {
@@ -63,6 +63,10 @@ Thread::~Thread() {
 	if (userStackBase != nullptr) {
 		VirtualMemoryManager::freePages(this->userStackBase, USER_PAGES);
 		this->userStackBase = nullptr;
+	}
+	if (this->archContext != nullptr) {
+		hal::destroy_thread_context(this->archContext);
+		this->archContext = nullptr;
 	}
 }
 
