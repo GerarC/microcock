@@ -1,3 +1,5 @@
+#include <cock/core/boot/module.hpp>
+#include <cock/core/memory/vmm.hpp>
 #include <cock/core/cock.hpp>
 #include <cock/core/hal/utils.hpp>
 #include <cock/core/task/scheduler.hpp>
@@ -5,6 +7,7 @@
 #include <cock/core/task/thread.hpp>
 #include <cock/core/version.hpp>
 #include <cock/utils/logger.hpp>
+#include <cock/core/hal/loader.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -21,7 +24,9 @@ using core::task::TaskManager;
 using core::task::Thread;
 using core::task::ThreadPriority;
 using core::task::ThreadResult;
-using core::task::ThreadType;
+using core::boot::BootModule;
+using core::memory::VirtualMemoryManager;
+using core::hal::load_executable;
 using utils::Logger;
 using utils::LogLevel;
 
@@ -33,38 +38,7 @@ ThreadResult kernel_idle() {
 	return ThreadResult::success();
 }
 
-void user_process_example(){
-	const char *message = "Hello from cock ring 3!!!\n";
-	size_t msg_len = strlen(message);
-    
-	unsigned char shellcode[] = {
-        0xB8, 0x07, 0x00, 0x00, 0x00, 
-        0xBB, 0x60, 0x00, 0x00, 0x00, 
-        0xB9, 0x01, 0x00, 0x00, 0x00, 
-        0xCD, 0x80,                   
-		0xE4, 0x60,                   
-        0xB8, 0x04, 0x00, 0x00, 0x00, 
-        0xBB, 0x01, 0x00, 0x00, 0x00, 
-        0xB9, 0x35, 0x00, 0x00, 0x40, 
-		0xBA, (unsigned char)msg_len, 0x00, 0x00, 0x00, 
-        0xCD, 0x80, 
-        0xB8, 0x01, 0x00, 0x00, 0x00, 
-        0xBB, 0x00, 0x00, 0x00, 0x00, 
-        0xCD, 0x80
-    };
-
-	Thread *user_thread =
-		new Thread(shellcode, sizeof(shellcode), ThreadPriority::NORMAL);
-
-	uintptr_t old_cr3 = core::hal::get_current_address_space();
-	core::hal::switch_address_space(user_thread->getAddressSpace());
-
-	memcpy(reinterpret_cast<void *>(0x40000035), message, msg_len);
-
-	core::hal::switch_address_space(old_cr3);
-	Scheduler::addThread(user_thread);
-}
-extern "C" void cock_main(void) {
+extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
 	Logger::init(LogLevel::DEBUG);
 	printf("Welcome to %s\n", core::VERSION_STRING);
 	printf("Build: %s (%s)\n", COCK_BUILD_DATE, COCK_GIT_HASH);
@@ -84,7 +58,15 @@ extern "C" void cock_main(void) {
 	Thread *idle_thread = new Thread(kernel_idle, ThreadPriority::IDLE);
 	Scheduler::addThread(idle_thread);
 
-	user_process_example();
+    for (size_t i = 0; i < mod_count; i++) {
+        Logger::info("Loading module: %s", modules[i].name);
+        
+        uintptr_t new_cr3 = VirtualMemoryManager::createAddressSpace();
+        uintptr_t entry = load_executable(modules[i].start_address, new_cr3);
+        
+        Thread *app_thread = new Thread(entry, new_cr3, ThreadPriority::NORMAL);
+        Scheduler::addThread(app_thread);
+    }
 
 	core::hal::manual_timer();
 	Logger::fatal("Kernel panic: Returned to cock_main!");

@@ -63,6 +63,13 @@ typedef struct __attribute__((packed)) _multiboot_mmap_entry_t {
 	uint32_t type;
 } MBMemoryMapEntry;
 
+typedef struct multiboot_mod_list {
+    uint32_t mod_start;
+    uint32_t mod_end;
+    uint32_t cmdline;
+    uint32_t pad;
+}MBModuleList;
+
 } // namespace cock::arch::x86
 
 #endif // !MULTIBOOT_HPP

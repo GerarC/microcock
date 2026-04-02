@@ -30,10 +30,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/arch/x86/init.occ"
@@ -69,10 +69,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/arch/x86/memory/vmm.occ"
@@ -108,13 +108,91 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/arch/x86/memory/pmm.occ"
+  },
+  {
+    "file": "cock/arch/x86/loader/elf.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/loader/elf.cpp",
+      "-o",
+      "build/cock/arch/x86/loader/elf.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-Ishared/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=6",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/loader/elf.occ"
+  },
+  {
+    "file": "cock/arch/x86/loader/multiboot_module_loader.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/loader/multiboot_module_loader.cpp",
+      "-o",
+      "build/cock/arch/x86/loader/multiboot_module_loader.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-Ishared/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=6",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/loader/multiboot_module_loader.occ"
   },
   {
     "file": "cock/arch/x86/timer/timer.cpp",
@@ -147,10 +225,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/arch/x86/timer/timer.occ"
@@ -186,13 +264,52 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/arch/x86/keyboard/keyboard.occ"
+  },
+  {
+    "file": "cock/arch/x86/task/context.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/task/context.cpp",
+      "-o",
+      "build/cock/arch/x86/task/context.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-Ishared/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=6",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/task/context.occ"
   },
   {
     "file": "cock/arch/x86/task/tasking.cpp",
@@ -225,10 +342,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/arch/x86/task/tasking.occ"
@@ -264,22 +381,22 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/arch/x86/gdt/gdt.occ"
   },
   {
-    "file": "cock/arch/x86/utils/halt.cpp",
+    "file": "cock/arch/x86/syscall/syscall_manager.cpp",
     "arguments": [
       "i686-elf-g++",
       "-c",
-      "cock/arch/x86/utils/halt.cpp",
+      "cock/arch/x86/syscall/syscall_manager.cpp",
       "-o",
-      "build/cock/arch/x86/utils/halt.occ",
+      "build/cock/arch/x86/syscall/syscall_manager.occ",
       "-ffreestanding",
       "-O2",
       "-Wall",
@@ -303,13 +420,52 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
-    "output": "build/cock/arch/x86/utils/halt.occ"
+    "output": "build/cock/arch/x86/syscall/syscall_manager.occ"
+  },
+  {
+    "file": "cock/arch/x86/utils/instructions.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/arch/x86/utils/instructions.cpp",
+      "-o",
+      "build/cock/arch/x86/utils/instructions.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-Ishared/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=6",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/arch/x86/utils/instructions.occ"
   },
   {
     "file": "cock/arch/x86/utils/helpers.cpp",
@@ -342,10 +498,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/arch/x86/utils/helpers.occ"
@@ -381,10 +537,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/arch/x86/interrupt/irq/irq.occ"
@@ -420,10 +576,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/arch/x86/interrupt/isr/isr.occ"
@@ -459,10 +615,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/arch/x86/interrupt/idt/idt.occ"
@@ -498,10 +654,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/arch/x86/interrupt/pic/pic.occ"
@@ -537,10 +693,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/driver/vga.occ"
@@ -576,10 +732,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/utils/logger.occ"
@@ -615,10 +771,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/utils/panic.occ"
@@ -654,10 +810,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/utils/test_global.occ"
@@ -693,10 +849,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/utils/ssp.occ"
@@ -732,13 +888,52 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/core/memory/heap.occ"
+  },
+  {
+    "file": "cock/core/task/ipc.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/core/task/ipc.cpp",
+      "-o",
+      "build/cock/core/task/ipc.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-Ishared/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=6",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/core/task/ipc.occ"
   },
   {
     "file": "cock/core/task/thread.cpp",
@@ -771,10 +966,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/core/task/thread.occ"
@@ -810,10 +1005,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/core/task/scheduler.occ"
@@ -849,10 +1044,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/core/task/task_manager.occ"
@@ -888,13 +1083,247 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/cock/core/cock.occ"
+  },
+  {
+    "file": "cock/core/syscall/fs/sys_write.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/core/syscall/fs/sys_write.cpp",
+      "-o",
+      "build/cock/core/syscall/fs/sys_write.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-Ishared/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=6",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/core/syscall/fs/sys_write.occ"
+  },
+  {
+    "file": "cock/core/syscall/fs/sys_read.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/core/syscall/fs/sys_read.cpp",
+      "-o",
+      "build/cock/core/syscall/fs/sys_read.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-Ishared/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=6",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/core/syscall/fs/sys_read.occ"
+  },
+  {
+    "file": "cock/core/syscall/hw/sys_request_resource.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/core/syscall/hw/sys_request_resource.cpp",
+      "-o",
+      "build/cock/core/syscall/hw/sys_request_resource.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-Ishared/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=6",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/core/syscall/hw/sys_request_resource.occ"
+  },
+  {
+    "file": "cock/core/syscall/proc/sys_sched_yield.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/core/syscall/proc/sys_sched_yield.cpp",
+      "-o",
+      "build/cock/core/syscall/proc/sys_sched_yield.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-Ishared/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=6",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/core/syscall/proc/sys_sched_yield.occ"
+  },
+  {
+    "file": "cock/core/syscall/proc/sys_getpid.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/core/syscall/proc/sys_getpid.cpp",
+      "-o",
+      "build/cock/core/syscall/proc/sys_getpid.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-Ishared/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=6",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/core/syscall/proc/sys_getpid.occ"
+  },
+  {
+    "file": "cock/core/syscall/proc/sys_exit.cpp",
+    "arguments": [
+      "i686-elf-g++",
+      "-c",
+      "cock/core/syscall/proc/sys_exit.cpp",
+      "-o",
+      "build/cock/core/syscall/proc/sys_exit.occ",
+      "-ffreestanding",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-D__is_cock_kernel",
+      "-D__is_libc",
+      "-D__is_libk",
+      "-Ilibc/include",
+      "-Ilibcxx/include",
+      "-Ishared/include",
+      "-I.",
+      "-fstack-protector-all",
+      "-fno-use-cxa-atexit",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-mmx",
+      "-mno-80387",
+      "-MMD",
+      "-MP",
+      "-DCOCK_VERSION_MAJOR=0",
+      "-DCOCK_VERSION_MINOR=0",
+      "-DCOCK_VERSION_PATCH=6",
+      "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
+    ],
+    "directory": "/home/gerarc/Workspace/microcock",
+    "output": "build/cock/core/syscall/proc/sys_exit.occ"
   },
   {
     "file": "libc/stdio/putchar.cpp",
@@ -927,10 +1356,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libc/stdio/putchar.occ"
@@ -966,10 +1395,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libc/stdio/printf.occ"
@@ -1005,10 +1434,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libc/stdio/puts.occ"
@@ -1044,10 +1473,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libc/string/strlen.occ"
@@ -1083,10 +1512,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libc/string/memcmp.occ"
@@ -1122,10 +1551,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libc/string/memcpy.occ"
@@ -1161,10 +1590,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libc/string/memmove.occ"
@@ -1200,10 +1629,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libc/string/memset.occ"
@@ -1239,10 +1668,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libc/stdlib/abort.occ"
@@ -1278,10 +1707,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libcxx/cxa/cxa_constructors.occ"
@@ -1317,10 +1746,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libcxx/cxa/cxa_guards.occ"
@@ -1356,10 +1785,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libcxx/cxa/cxa_atexit.occ"
@@ -1395,10 +1824,10 @@
       "-MP",
       "-DCOCK_VERSION_MAJOR=0",
       "-DCOCK_VERSION_MINOR=0",
-      "-DCOCK_VERSION_PATCH=4",
+      "-DCOCK_VERSION_PATCH=6",
       "-DCOCK_VERSION_STAGE=\"Pre-alfa\"",
-      "-DCOCK_GIT_HASH=\"865cec8\"",
-      "-DCOCK_BUILD_DATE=\"2026-03-28\""
+      "-DCOCK_GIT_HASH=\"c12cf8e\"",
+      "-DCOCK_BUILD_DATE=\"2026-04-02\""
     ],
     "directory": "/home/gerarc/Workspace/microcock",
     "output": "build/libcxx/memory/new.occ"

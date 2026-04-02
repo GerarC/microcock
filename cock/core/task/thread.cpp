@@ -46,6 +46,25 @@ Thread::Thread(const void *code, size_t size, ThreadPriority priority) {
 	TaskManager::registerThread(this);
 }
 
+Thread::Thread(uintptr_t entry_point, uintptr_t address_space, ThreadPriority priority) {
+    initBase(priority, ThreadType::USER);
+    this->archContext = hal::create_thread_context();
+    this->addressSpace = address_space;
+
+    uintptr_t old_cr3 = hal::get_current_address_space();
+    hal::switch_address_space(this->addressSpace);
+    
+    this->userStackBase = VirtualMemoryManager::allocPages(USER_PAGES, VMMPermission::USER_DATA);
+    
+    hal::switch_address_space(old_cr3);
+
+    this->stackPointer = hal::prepare_user_thread_stack(
+        stackBase, THREAD_STACK_SIZE, this->userStackBase, USER_STACK_SIZE,
+        reinterpret_cast<void*>(entry_point), nullptr); 
+
+    TaskManager::registerThread(this);
+}
+
 void Thread::initBase(ThreadPriority priority, ThreadType type) {
 	this->id = TaskManager::allocatePID();
 	this->priority = priority;
