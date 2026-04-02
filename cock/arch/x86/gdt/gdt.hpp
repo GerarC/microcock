@@ -1,8 +1,12 @@
 #ifndef ARCH_X86_GDT_HPP
 #define ARCH_X86_GDT_HPP
+#include <stddef.h>
 #include <stdint.h>
 
 namespace cock::arch::x86 {
+
+constexpr size_t IO_PERMISSION_MAP_SIZE = 8193;
+
 typedef struct __attribute__((packed)) _gdt_entry_t {
 	uint16_t limit;
 	uint16_t base_low;
@@ -43,19 +47,22 @@ typedef struct __attribute__((packed)) _task_state_segement_entry {
 	uint32_t fs;
 	uint32_t gs;
 	uint32_t ldt;
-	uint32_t trap;
-	uint32_t iomap_base;
+	uint16_t trap;
+	uint16_t iomap_base;
+	uint8_t io_permission_map[IO_PERMISSION_MAP_SIZE];
 } TssEntry;
 
 class GDT {
   public:
 	GDT();
 	static void init();
+    static void setKernelStack(uint32_t stack_pointer);
+    static void setIOPM(const uint8_t* thread_iopm);
 
   private:
 	static constexpr int MAX_ENTRIES = 6;
 	static Entry entries[MAX_ENTRIES];
-    static TssEntry tss_entry;
+    static TssEntry tssEntry;
 	static Pointer pointer;
 
 	static void setGate(uint32_t num, uint32_t base, uint32_t limit, uint8_t access,
