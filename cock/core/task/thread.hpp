@@ -70,6 +70,8 @@ class Thread {
   public:
 	Thread(ThreadFunction entry_point, ThreadPriority priority);
 	Thread(const void *code, size_t size, ThreadPriority priority);
+	Thread(uintptr_t entry_point, uintptr_t address_space,
+		   ThreadPriority priority);
 	~Thread();
 
 	uint32_t getId() const { return this->id; }
