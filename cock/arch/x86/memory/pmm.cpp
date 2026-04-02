@@ -125,6 +125,8 @@ void PhysicalMemoryManager::mapPage(uint32_t phys, uint32_t virt,
 		invalidatePage(pt_virt);
 
 		memset(reinterpret_cast<void *>(pt_virt), 0, PAGE_SIZE);
+	} else if (flags & USER) {
+		virtual_pd->entries[pd_idx] |= USER;
 	}
 
 	uint32_t pt_virt = 0xFFC00000 + (pd_idx * PAGE_SIZE);
@@ -161,6 +163,30 @@ uint32_t PhysicalMemoryManager::getPhysicalAddress(uint32_t virt) {
 	if (!(table->entries[pt_idx] & PRESENT)) return NULL_PTR;
 
 	return (table->entries[pt_idx] & ~TABLE_MASK) + (virt & TABLE_MASK);
+}
+
+uint32_t PhysicalMemoryManager::getKernelDirectory() {
+    return reinterpret_cast<uint32_t>(&page_directory) - KERNEL_START;
+}
+
+uint32_t PhysicalMemoryManager::createAddressSpace() {
+    uint32_t new_pd_phys = allocFrame();
+    if (new_pd_phys == LAST_ADDRESS) return 0;
+
+    uint32_t temp_virt = 0xE0000000; 
+    mapPage(new_pd_phys, temp_virt, PRESENT | WRITEABLE);
+
+    PageDirectory *new_pd = reinterpret_cast<PageDirectory *>(temp_virt);
+    PageDirectory *curr_pd = reinterpret_cast<PageDirectory *>(LAST_ADDRESS - TABLE_MASK);
+
+    for (int i = 0; i < 768; i++) new_pd->entries[i] = 0;
+    
+    for (int i = 768; i < 1023; i++) new_pd->entries[i] = curr_pd->entries[i];
+
+    new_pd->entries[1023] = new_pd_phys | PRESENT | WRITEABLE;
+
+    unmapPage(temp_virt);
+    return new_pd_phys;
 }
 
 } // namespace cock::arch::x86

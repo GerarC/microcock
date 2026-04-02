@@ -30,10 +30,13 @@ inline bool operator&(VMMPermission a, VMMPermission b) {
 class VirtualMemoryManager {
   public:
 	static void *
-	allocPages(size_t page_count, VMMPermission permission = VMMPermission::KERNEL_DATA);
+	allocPages(size_t page_count,
+			   VMMPermission permission = VMMPermission::KERNEL_DATA);
 	static void freePages(void *vaddr, size_t page_count);
 	static void map(uintptr_t phys, uintptr_t virt, VMMPermission permission);
 	static void unmap(uintptr_t virt);
+	static uintptr_t createAddressSpace();
+	static uintptr_t getKernelDirectory();
 };
 
 } // namespace cock::core::memory

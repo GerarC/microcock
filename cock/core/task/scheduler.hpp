@@ -1,13 +1,13 @@
 #ifndef CORE_SCHEDULER_HPP
 #define CORE_SCHEDULER_HPP
 
-#include <cock/utils/data_structure/ll.hpp>
+#include <cock/data_structure/ll.hpp>
 #include <cock/core/task/thread.hpp>
 #include <stdint.h>
 #include <stddef.h>
 
 namespace cock::core::task {
-using utils::data_structure::LinkedList;
+using data_structure::LinkedList;
 
 class Scheduler {
   public:

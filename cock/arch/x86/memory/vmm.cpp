@@ -7,12 +7,13 @@
 
 namespace cock::core::memory {
 
-using arch::x86::PhysicalMemoryManager;
 using arch::x86::NULL_PTR;
 using arch::x86::PageFlag;
+using arch::x86::PhysicalMemoryManager;
 using utils::Logger;
 
-static uintptr_t next_virtual_address = 0xD0000000;
+static uintptr_t next_kernel_vaddr = 0xD0000000;
+static uintptr_t next_user_vaddr = 0x40000000;
 static constexpr size_t PAGE_SIZE = 0x1000;
 
 static uint32_t toX86Flag(VMMPermission permission) {
@@ -24,11 +25,18 @@ static uint32_t toX86Flag(VMMPermission permission) {
 	return arch_flags;
 }
 
-void *VirtualMemoryManager::allocPages(size_t page_count, VMMPermission permission) {
+void *VirtualMemoryManager::allocPages(size_t page_count,
+									   VMMPermission permission) {
 	if (page_count == 0) return nullptr;
 
-	uintptr_t start_virt = next_virtual_address;
-	next_virtual_address += (page_count * PAGE_SIZE);
+	uintptr_t start_virt = 0;
+	if (permission & VMMPermission::USER) {
+		start_virt = next_user_vaddr;
+		next_user_vaddr += (page_count * PAGE_SIZE);
+	} else {
+		start_virt = next_kernel_vaddr;
+		next_kernel_vaddr += (page_count * PAGE_SIZE);
+	}
 
 	for (size_t idx = 0; idx < page_count; idx++) {
 		uintptr_t virt = start_virt + (idx * PAGE_SIZE);
@@ -50,19 +58,26 @@ void VirtualMemoryManager::freePages(void *vaddr, size_t page_count) {
 
 	for (size_t idx = 0; idx < page_count; idx++) {
 		uintptr_t current_virt = virt + (idx * PAGE_SIZE);
-        uint32_t phys = PhysicalMemoryManager::getPhysicalAddress(current_virt);
-        PhysicalMemoryManager::unmapPage(current_virt);
-        if(phys != NULL_PTR) PhysicalMemoryManager::freeFrame(phys);
+		uint32_t phys = PhysicalMemoryManager::getPhysicalAddress(current_virt);
+		PhysicalMemoryManager::unmapPage(current_virt);
+		if (phys != NULL_PTR) PhysicalMemoryManager::freeFrame(phys);
 	}
 }
 
-void VirtualMemoryManager::map(uintptr_t phys, uintptr_t virt, VMMPermission permission){
-    PhysicalMemoryManager::mapPage(phys, virt, toX86Flag(permission));
+void VirtualMemoryManager::map(uintptr_t phys, uintptr_t virt,
+							   VMMPermission permission) {
+	PhysicalMemoryManager::mapPage(phys, virt, toX86Flag(permission));
 }
 
-void VirtualMemoryManager::unmap(uintptr_t virt){
-    PhysicalMemoryManager::unmapPage(virt);
+void VirtualMemoryManager::unmap(uintptr_t virt) {
+	PhysicalMemoryManager::unmapPage(virt);
 }
 
+uintptr_t VirtualMemoryManager::createAddressSpace() {
+    return PhysicalMemoryManager::createAddressSpace();
+}
+uintptr_t VirtualMemoryManager::getKernelDirectory() {
+    return PhysicalMemoryManager::getKernelDirectory();
+}
 
 } // namespace cock::core::memory
