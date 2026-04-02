@@ -28,12 +28,15 @@ class PhysicalMemoryManager {
 
 	static void mapPage(uint32_t phys, uint32_t virt, uint32_t flags);
 	static void unmapPage(uint32_t virt);
-    static uint32_t getPhysicalAddress(uint32_t virt);
+	static uint32_t getPhysicalAddress(uint32_t virt);
+	static uint32_t createAddressSpace();
+	static uint32_t getKernelDirectory();
 
   private:
 	static constexpr uint32_t PAGE_SIZE = 0x1000;
 	static constexpr uint32_t NUM_PAGE_DIRS = 0x100;
-	static constexpr uint32_t NUM_PAGE_FRAMES = (0x100000000ULL / PAGE_SIZE / 8);
+	static constexpr uint32_t NUM_PAGE_FRAMES =
+		(0x100000000ULL / PAGE_SIZE / 8);
 
 	static constexpr uintptr_t KERNEL_START = 0xC0000000;
 
@@ -44,14 +47,14 @@ class PhysicalMemoryManager {
 
 	static uint32_t physicalMemoryBitMap[NUM_PAGE_FRAMES / 32];
 
-    static PageDirectory* currentDirectory;
+	static PageDirectory *currentDirectory;
 
 	static void initMemory(uint32_t physicalAllocStart);
 
 	static void setBit(uint32_t frame_idx);
 	static void unsetBit(uint32_t frame_idx);
 	static bool testBit(uint32_t frame_idx);
-    static uint32_t firstFreeFrame();
+	static uint32_t firstFreeFrame();
 };
 
 } // namespace cock::arch::x86

@@ -36,7 +36,9 @@ isr_common_stub:
 
     call isr_handler
 
-    add esp, 8
+    mov esp, eax
+
+    add esp, 4
 
     pop ebx
     mov ds, bx
