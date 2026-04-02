@@ -5,7 +5,7 @@
 #include <stdint.h>
 namespace cock::ipc {
 
-static constexpr size_t MAX_ARGUMENTS = 5;
+static constexpr size_t MAX_ARGUMENTS = 6;
 enum class MessageType : uint32_t {
 	NONE = 0,
 	SYS_PING = 1,
@@ -21,6 +21,7 @@ typedef struct message_t {
 	union {
 		uint32_t argv[MAX_ARGUMENTS];
 		struct {
+			uint32_t arg0;
 			uint32_t arg1;
 			uint32_t arg2;
 			uint32_t arg3;

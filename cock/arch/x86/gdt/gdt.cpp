@@ -1,5 +1,5 @@
-#include <cock/utils/logger.hpp>
 #include <cock/arch/x86/gdt/gdt.hpp>
+#include <cock/utils/logger.hpp>
 #include <stddef.h>
 #include <string.h>
 
@@ -11,6 +11,8 @@ extern "C" void tss_flush();		  // tss flush
 namespace cock::arch::x86 {
 
 using cock::utils::Logger;
+
+constexpr size_t IO_MAP_BASE = 0x68;
 
 Entry GDT::entries[MAX_ENTRIES];
 TssEntry GDT::tssEntry;
@@ -51,27 +53,31 @@ void GDT::setGate(uint32_t num, uint32_t base, uint32_t limit, uint8_t access,
 void GDT::writeTSS(uint32_t num, uint16_t ss0, uint32_t esp0) {
 	size_t tts_size = sizeof(tssEntry);
 	uint32_t base = reinterpret_cast<uint32_t>(&tssEntry);
-	uint32_t limit = base + tts_size;
+	uint32_t limit = base + tts_size - 1;
 
 	GDT::setGate(num, base, limit, 0xE9, 0x00);
 	memset(&tssEntry, 0, tts_size);
+
 	tssEntry.ss0 = ss0;
 	tssEntry.esp0 = esp0;
-
 	tssEntry.cs = 0x08;
-
 	tssEntry.ss = 0x10;
 	tssEntry.es = 0x10;
 	tssEntry.ds = 0x10;
 	tssEntry.fs = 0x10;
 	tssEntry.gs = 0x10;
+
+	tssEntry.iomap_base = IO_MAP_BASE;
+	memset(tssEntry.io_permission_map, 0xFF,
+		   sizeof(tssEntry.io_permission_map));
 }
 
-
-void GDT::setKernelStack(uint32_t stack_pointer){
-    tssEntry.esp0 = stack_pointer;
-
+void GDT::setIOPM(const uint8_t *thread_iopm) {
+	if (thread_iopm) memcpy(tssEntry.io_permission_map, thread_iopm, sizeof(tssEntry.io_permission_map));
+	else memset(tssEntry.io_permission_map, 0xFF, sizeof(tssEntry.io_permission_map));
 }
-
+void GDT::setKernelStack(uint32_t stack_pointer) {
+	tssEntry.esp0 = stack_pointer;
+}
 
 } // namespace cock::arch::x86
