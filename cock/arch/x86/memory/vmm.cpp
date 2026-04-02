@@ -1,3 +1,4 @@
+#include <cock/utils/panic.hpp>
 #include <cock/arch/x86/memory/paging.hpp>
 #include <cock/arch/x86/memory/pmm.hpp>
 #include <cock/core/memory/vmm.hpp>
@@ -15,6 +16,10 @@ using utils::Logger;
 static uintptr_t next_kernel_vaddr = 0xD0000000;
 static uintptr_t next_user_vaddr = 0x40000000;
 static constexpr size_t PAGE_SIZE = 0x1000;
+static constexpr uint32_t BIT_PRESENT = 0b000000001;
+static constexpr uint32_t BIT_WRITE = 0b00000010;
+static constexpr uint32_t BIT_EXECUTABLE = 0b00000100;
+static constexpr uint32_t TABLE_MASK = 0xFFF;
 
 static uint32_t toX86Flag(VMMPermission permission) {
 	uint32_t arch_flags = PageFlag::PRESENT;
@@ -76,8 +81,30 @@ void VirtualMemoryManager::unmap(uintptr_t virt) {
 uintptr_t VirtualMemoryManager::createAddressSpace() {
     return PhysicalMemoryManager::createAddressSpace();
 }
+
 uintptr_t VirtualMemoryManager::getKernelDirectory() {
     return PhysicalMemoryManager::getKernelDirectory();
+}
+
+
+void* VirtualMemoryManager::mapPagesAt(uintptr_t vaddr, size_t num_pages, VMMPermission permission) {
+    uint32_t flags = BIT_PRESENT;
+    if (permission == VMMPermission::KERNEL_DATA || permission == VMMPermission::USER_DATA) {
+        flags |= BIT_WRITE;
+    }
+    if (permission == VMMPermission::USER_CODE || permission == VMMPermission::USER_DATA) {
+        flags |= BIT_EXECUTABLE;
+    }
+
+    vaddr &= ~TABLE_MASK;
+
+    for (size_t page_idx = 0; page_idx < num_pages; page_idx++) {
+        uintptr_t phys_addr = reinterpret_cast<uintptr_t>(PhysicalMemoryManager::allocFrame());
+        if (!phys_addr) utils::panic("VMM: Out of memory");
+        
+        PhysicalMemoryManager::mapPage(phys_addr, vaddr + (page_idx * PAGE_SIZE), flags);
+    }
+    return reinterpret_cast<void*>(vaddr);
 }
 
 } // namespace cock::core::memory

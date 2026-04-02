@@ -1,3 +1,4 @@
+#include <cock/arch/x86/loader/multiboot_module_loader.hpp>
 #include <cock/arch/x86/boot/multiboot.hpp>
 #include <cock/arch/x86/gdt/gdt.hpp>
 #include <cock/arch/x86/interrupt/idt/idt.hpp>
@@ -30,7 +31,9 @@ extern "C" void init_cock(uint32_t magic, MBInfo *boot_info) {
 	core_init(boot_info);
 	call_global_constructors();
 	Logger::trace("magic = 0x%x", magic);
-	cock_main();
+
+    MultibootModuleLoader::init(boot_info);
+    cock_main(MultibootModuleLoader::getModules(), MultibootModuleLoader::getCount());
 }
 
 void video_init() {
