@@ -28,12 +28,18 @@ void PhysicalMemoryManager::init(MBInfo *boot_info) {
 	uint32_t physical_alloc_start = 0;
 
 	if ((bootInfo->flags & (1 << 3)) && bootInfo->mods_count > 0) {
+		MBModuleList *mod_list = reinterpret_cast<MBModuleList *>(
+			bootInfo->mods_address + KERNEL_START);
 
-		uint32_t mods_virt = bootInfo->mods_address + KERNEL_START;
+		uint32_t highest_mod_end = 0;
+		
+		for (uint32_t i = 0; i < bootInfo->mods_count; i++) {
+			if (mod_list[i].mod_end > highest_mod_end) {
+				highest_mod_end = mod_list[i].mod_end;
+			}
+		}
 
-		uint32_t mod1 = *reinterpret_cast<uint32_t *>(mods_virt + 4);
-		physical_alloc_start = (mod1 + TABLE_MASK) & ~TABLE_MASK;
-
+		physical_alloc_start = (highest_mod_end + TABLE_MASK) & ~TABLE_MASK;
 	} else {
 		physical_alloc_start = 0x400000;
 	}

@@ -1,6 +1,8 @@
 #ifndef CORE_THREAD_HPP
 #define CORE_THREAD_HPP
 
+#include "cock/data_structure/ll.hpp"
+#include <cock/core/memory/memory_region.hpp>
 #include <cock/core/hal/tasking.hpp>
 #include <cock/data_structure/ring_buffer.hpp>
 #include <cock/ipc/message.hpp>
@@ -15,7 +17,9 @@ constexpr size_t USER_PAGES = USER_STACK_SIZE / 0x1000;
 constexpr size_t THREAD_MESSAGE_BUFFER_SIZE = 0x10;
 
 using cock::core::hal::ArchThreadContext;
+using cock::core::memory::MemoryRegion;
 using cock::data_structure::RingBuffer;
+using cock::data_structure::LinkedList;
 using ipc::Message;
 
 enum class ThreadPriority : uint8_t {
@@ -67,6 +71,8 @@ class Thread {
 	void initBase(ThreadPriority priority, ThreadType type);
 	ArchThreadContext archContext;
 
+	LinkedList<MemoryRegion> mapped_pages;
+
   public:
 	Thread(ThreadFunction entry_point, ThreadPriority priority);
 	Thread(const void *code, size_t size, ThreadPriority priority);
@@ -108,6 +114,12 @@ class Thread {
 
 	uintptr_t getAddressSpace() const { return addressSpace; }
 	void setUserStackBase(void *base) { userStackBase = base; }
+
+	void addMemoryRegion(uintptr_t addr, size_t pages) {
+		mapped_pages.append({addr, pages});
+	}
+
+	void removeMemoryRegion(uintptr_t addr) { mapped_pages.remove({addr, 0}); }
 
 	static void wrapper(ThreadFunction userFunc);
 	static void yield();

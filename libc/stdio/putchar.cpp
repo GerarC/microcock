@@ -1,16 +1,12 @@
 #include <stdio.h>
-#if defined(__is_libk)
-#include <cock/driver/vga.hpp>
-#endif
+#include <unistd.h>
 
-using cock::driver::vga_instance;
+#ifndef __is_libk
+#include <unistd.h>
 
 int putchar(int ic) {
-#if defined(__is_libk)
-	char c = (char)ic;
-    vga_instance->write(&c, sizeof(c));
-#else
-// TODO: implement stdio and write a systemcall
-#endif
-	return ic;
+    char c = (char)ic;
+    write(1, &c, 1);
+    return ic;
 }
+#endif

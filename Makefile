@@ -97,7 +97,7 @@ iso: $(BUILD)/$(PROJECT).iso
 
 run: $(BUILD)/$(PROJECT).iso
 	@echo "[RUN] Launching QEMU"
-	@qemu-system-i386 -cdrom $<
+	@qemu-system-i386 -cdrom $< -serial stdio
 
 test: clean
 	@echo "[TST] Compiling and running in TEST MODE"
