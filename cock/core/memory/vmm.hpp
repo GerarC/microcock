@@ -38,6 +38,7 @@ class VirtualMemoryManager {
 	static uintptr_t createAddressSpace();
 	static uintptr_t getKernelDirectory();
     static void* mapPagesAt(uintptr_t vaddr, size_t num_pages, VMMPermission permission);
+    static uintptr_t getPhysicalAddress(uintptr_t virt);
 };
 
 } // namespace cock::core::memory

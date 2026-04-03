@@ -11,6 +11,7 @@ void *memcpy(void *__restrict dest, const void *__restrict src,
 void *memmove(void *dest, const void *src, size_t size);
 void *memset(void *str, int c, size_t n);
 size_t strlen(const char *str);
+int strcmp(const char *s1, const char *s2);
 }
 
 #endif // STRING_H

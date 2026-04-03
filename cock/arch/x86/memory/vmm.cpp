@@ -107,4 +107,8 @@ void* VirtualMemoryManager::mapPagesAt(uintptr_t vaddr, size_t num_pages, VMMPer
     return reinterpret_cast<void*>(vaddr);
 }
 
+uintptr_t VirtualMemoryManager::getPhysicalAddress(uintptr_t virt) {
+    return PhysicalMemoryManager::getPhysicalAddress(virt);
+}
+
 } // namespace cock::core::memory

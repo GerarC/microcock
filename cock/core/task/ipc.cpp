@@ -23,9 +23,10 @@ void IPC::send(uint32_t to_pid, Message message) {
 	if (target->getState() == ThreadState::WAITING_MSG) {
 		target->setState(ThreadState::READY);
 		Scheduler::addThread(target);
-		hal::unblock_interruptions();
-		Thread::yield();
+	    hal::unblock_interruptions();
+        Thread::yield();
 	} else hal::unblock_interruptions();
+
 }
 
 void IPC::receive(Message *message) {

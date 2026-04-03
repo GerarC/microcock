@@ -10,7 +10,6 @@ namespace cock::driver {
 typedef uint8_t vcolor;
 typedef uint16_t vchar;
 
-
 enum class VGAColor : vcolor {
 	BLACK = 0,
 	BLUE = 1,
@@ -30,7 +29,7 @@ enum class VGAColor : vcolor {
 	WHITE = 15,
 };
 
-class VGA : Video{
+class VGA : Video {
   public:
 	static constexpr size_t VGA_WIDTH = 80;
 	static constexpr size_t VGA_HEIGHT = 25;
@@ -44,8 +43,11 @@ class VGA : Video{
 	void writeString(const char *data);
 	void clear();
 	void init();
+	bool isEnabled() const { return enabled; }
+	void setEnabled(const bool enabled) { this->enabled = enabled; }
 
   private:
+	bool enabled;
 	size_t row;
 	size_t column;
 	vcolor color;
@@ -60,6 +62,6 @@ class VGA : Video{
 
 extern VGA *vga_instance;
 
-} // namespace driver
+} // namespace cock::driver
 
 #endif // !VGA_H

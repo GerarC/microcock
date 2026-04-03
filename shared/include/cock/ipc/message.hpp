@@ -10,13 +10,16 @@ enum class MessageType : uint32_t {
 	NONE = 0,
 	SYS_PING = 1,
 	SYS_PONG = 2,
-	SYS_DEBUG = 2,
+	SYS_DEBUG = 3,
+	VIDEO_WRITE_CHAR = 4,
+	VIDEO_WRITE_STR = 5,
+	SYS_REGISTER_MAILBOX = 6,
 };
 
 typedef struct message_t {
 	uint32_t sender_pid;
 	uint32_t target_pid;
-    MessageType type;
+	MessageType type;
 
 	union {
 		uint32_t argv[MAX_ARGUMENTS];

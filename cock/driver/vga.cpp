@@ -5,20 +5,22 @@ namespace cock::driver {
 
 constexpr VGAColor DEFAULT_BG_COLOR = VGAColor::BLACK;
 constexpr VGAColor DEFAULT_FG_COLOR = VGAColor::GREEN;
+constexpr bool DEFAULT_ENABLED = true;
 constexpr char INITIAL_ROW = 0;
 constexpr char INITIAL_COL = 0;
 constexpr char NEWLINE = '\n';
 constexpr char EMPTY = ' ';
 constexpr size_t STEP = 1;
 
-VGA* vga_instance = nullptr;
+VGA *vga_instance = nullptr;
 
 VGA::VGA()
-	: row(INITIAL_ROW), column(INITIAL_COL),
+	: enabled(DEFAULT_ENABLED), row(INITIAL_ROW), column(INITIAL_COL),
 	  color(vga_entry_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR)),
 	  buffer(reinterpret_cast<vchar *>(VGA_ADDRESS)) {}
 
 void VGA::init() {
+	enabled = DEFAULT_ENABLED;
 	row = INITIAL_ROW;
 	column = INITIAL_COL;
 	color = vga_entry_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);

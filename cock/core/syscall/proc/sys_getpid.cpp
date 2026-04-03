@@ -1,4 +1,3 @@
-
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/thread.hpp>
