@@ -7,6 +7,11 @@
 
 namespace cock::data_structure {
 
+/**
+ * @brief A generic doubly-linked list implementation.
+ * * Designed for freestanding environments without STL availability.
+ * @tparam TYPE The data type to be stored in the list nodes.
+ */
 template <typename TYPE> class LinkedList {
   private:
 	Node<TYPE> *head;
@@ -20,6 +25,10 @@ template <typename TYPE> class LinkedList {
 
 	TYPE &back() { return tail->data; }
 
+	/**
+	 * @brief Adds a new element to the end of the list.
+	 * @param data The value to append.
+	 */
 	void append(const TYPE &data) {
 		Node<TYPE> *new_node = new Node(data);
 		if (!head) head = tail = new_node;
@@ -31,6 +40,10 @@ template <typename TYPE> class LinkedList {
 		lenght++;
 	}
 
+	/**
+	 * @brief Adds a new element to the beginning of the list.
+	 * @param data The value to prepend.
+	 */
 	void preprend(const TYPE &data) {
 		Node<TYPE> *new_node = new Node(data);
 		if (!head) head = tail = new_node;
@@ -42,6 +55,11 @@ template <typename TYPE> class LinkedList {
 		lenght++;
 	}
 
+	/**
+	 * @brief Removes the last element of the list.
+	 * @param out Reference to store the popped value.
+	 * @return true if an element was popped, false if the list was empty.
+	 */
 	bool pop(TYPE &out) {
 		if (!tail) return false;
 
@@ -57,6 +75,11 @@ template <typename TYPE> class LinkedList {
 		return true;
 	}
 
+	/**
+	 * @brief Removes the first element of the list.
+	 * @param out Reference to store the popped value.
+	 * @return true if an element was popped, false if the list was empty.
+	 */
 	bool popFront(TYPE &out) {
 		if (!head) return false;
 
@@ -72,6 +95,9 @@ template <typename TYPE> class LinkedList {
 		return true;
 	}
 
+	/**
+	 * @brief Removes a specific node from the list by pointer.
+	 */
 	bool removeNode(Node<TYPE> *target) {
 		if (!target) return false;
 
@@ -85,6 +111,9 @@ template <typename TYPE> class LinkedList {
 		lenght--;
 	}
 
+	/**
+	 * @brief Searches for and removes the first occurrence of a specific value.
+	 */
 	bool remove(const TYPE &value) {
 		for (Node<TYPE> *curr = head; curr != nullptr; curr = curr->next) {
 			if (curr->data == value) {
@@ -95,6 +124,9 @@ template <typename TYPE> class LinkedList {
 		return false;
 	}
 
+	/**
+	 * @brief Deletes all nodes and resets the list.
+	 */
 	void clear() {
 		Node<TYPE> *current = head;
 		while (current) {
@@ -106,6 +138,9 @@ template <typename TYPE> class LinkedList {
 		lenght = 0;
 	}
 
+	/**
+	 * @brief Finds an element and returns an iterator pointing to it.
+	 */
 	Iterator<TYPE> find(const TYPE &value) {
 		for (Node<TYPE> *curr = head; curr != nullptr; curr = curr->next) {
 			if (curr->data == value) { return Iterator(curr); }
@@ -122,6 +157,6 @@ template <typename TYPE> class LinkedList {
 	~LinkedList() { clear(); }
 };
 
-} // namespace cock::utils::data_structure
+} // namespace cock::data_structure
 
 #endif // !SHARED_COCK_LINKED_LIST_HPP

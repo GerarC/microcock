@@ -10,6 +10,9 @@ namespace cock::driver {
 typedef uint8_t vcolor;
 typedef uint16_t vchar;
 
+/**
+ * @brief Standard 16-color palette for the VGA text mode.
+ */
 enum class VGAColor : vcolor {
 	BLACK = 0,
 	BLUE = 1,
@@ -29,6 +32,11 @@ enum class VGAColor : vcolor {
 	WHITE = 15,
 };
 
+/**
+ * @brief Kernel-space VGA Text Mode Driver.
+ * * Handles raw writes to the VGA framebuffer.
+ * * Note: Disabled and replaced by the Userland VGA Server once the OS is fully booted.
+ */
 class VGA : Video {
   public:
 	static constexpr size_t VGA_WIDTH = 80;
@@ -36,13 +44,30 @@ class VGA : Video {
 	static constexpr uintptr_t VGA_ADDRESS = 0xC00B8000;
 	VGA();
 
+    /**
+     * @brief Sets the active foreground and background colors.
+     */
 	void setColor(VGAColor fg, VGAColor bg);
+	
+    /**
+     * @brief Puts a character directly at the specified X, Y coordinates.
+     */
 	void putEntryAt(unsigned char c, vcolor color, size_t x, size_t y);
+	
+    /**
+     * @brief Prints a character at the current cursor position and advances.
+     */
 	void putChar(char c);
+	
 	void write(const char *data, size_t size);
 	void writeString(const char *data);
+	
+    /**
+     * @brief Clears the entire screen using the current background color.
+     */
 	void clear();
 	void init();
+	
 	bool isEnabled() const { return enabled; }
 	void setEnabled(const bool enabled) { this->enabled = enabled; }
 
