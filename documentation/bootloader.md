@@ -1,82 +1,74 @@
-# Bootloaader
+# Bootloader
 
-A bootloader is a piece of software in charge of load a more complex program. Creating a new one is an advance subject. **MicroCOCK** uses *GRUB* to facilitate the Kernel developing.
+A bootloader is a piece of software in charge of loading a more complex program. **MicroCOCK** uses GRUB to facilitate Kernel development.
 
-## How It Works?
-In this case, bootloader file can be found in *kernel/arch/x86/boot/entry.s*. Let's talk about each piece of code of that file.
+## How It Works
+The bootloader entry code is located in `cock/arch/x86/boot/entry.s`.
 
-The first code in *entry.s* does is to declare the needed information and constants.
-~~~ nasm
+First, it defines Multiboot constants including `MBALIGN`, `MEMINFO`, and `MBGFX`.
+```nasm
 MBALIGN     equ 1 << 0              ; align loaded modules on page boundaries
 MEMINFO     equ 1 << 1              ; provide memory map
-MBGFX       equ 0                   ;  Use graphics
+MBGFX       equ 0                   ; Use graphics
 MBFLAGS     equ MBALIGN | MEMINFO | MBGFX   ; this is Multiboot 'flag' field
 MAGIC       equ 0x1BADB002          ; 'magic number' lets to the bootloader find the header
 CHECKSUM    equ -(MAGIC + MBFLAGS)  ; this is the checksum of above
-~~~
-<br/>
+```
 
-
-This section push into `.multiboot` the header with the information of the constants.
-~~~ nasm
+This section pushes the header into `.multiboot` so GRUB can find it.
+```nasm
 section .multiboot
 align 4
     dd MAGIC
     dd MBFLAGS
     dd CHECKSUM
-~~~
-<br/>
+    dd 0, 0, 0, 0, 0
+```
 
-As multiboot has no definition of stack pointer then is needed to reservate a portion of memory for the stack in `.bss`.
-~~~ nasm
+As multiboot has no definition of a stack pointer, it reserves a portion of memory for the stack in the `.bss` section.
+```nasm
 section .bss
 align 16
 stack_bottom: 
-    resb 16384 
+    resb 16384 ; 16 KiB is reserved for stack
 stack_top:
-~~~
-<br/>
+```
 
-
-`.text` section has the code that serves as entry point for the kernel, sets up the stack, import the kernel funciton and call it. If something fails then it get stuck into an infinite loop.
-~~~ nasm
+The `.text` section sets up paging, mounts the Higher-Half offset, and calls the kernel entry point `init_cock`.
+```nasm
 section .text
-global _start:function (_start.end - _start)
-_start:
+higher_half:
+    mov dword [page_directory + 0], 0
+    mov eax, cr3
+    mov cr3, eax
     mov esp, stack_top
-    extern main_cock ; Here it imports the entry function for the kernel
-    call main_cock
+    
+    ; ... pushes arguments ...
+    extern init_cock
+    call init_cock
+    cli             ; disables interrupts
+hang: hlt
+    jmp hang
+```
 
-    cli
-.hang: hlt
-    jmp .hang
-.end:
-~~~
-<br/>
-
-
-To tell CPU where to look up for the information a linker script is needed. In this project this file is placed in *kernel/arch/x86/linker.ld*
-~~~ ld
+## Linker Script
+To tell the CPU where to look up the information, a linker script is needed. In this project, this file is placed in `cock/arch/x86/linker.ld`. It offsets the virtual addresses by `0xC0000000` to enforce the Higher-Half design.
+```ld
 ENTRY(_start)
 SECTIONS {
-    . = 1M;
-    .text ALIGN(4K) : {
+    . = 0x00100000;
+
+    _kernel_start = .;
+    .multiboot ALIGN(4K) : {
         KEEP(*(.multiboot))
         KEEP(*(.multiboot_header))
+    }
+
+    . += 0xC0000000;
+
+    .text ALIGN(4K) : AT(ADDR(.text) - 0xC0000000) {
         *(.text*)
     }
-    .rodata ALIGN(4K) : {
-        *(.rodata*)
-    }
-    .data ALIGN(4K) : {
-        *(.data*)
-    }
-    .bss ALIGN(4K) : {
-        __bss_start = .;
-        *(COMMON)
-        *(.bss*)
-        __bss_end = .;
-    }
+    /* ... rodata, data, bss ... */
 }
-~~~
-This file say which is the entry point, the complete size of the kernel, the size, the alignment and the position of each section, and even pointers to the data.
+```

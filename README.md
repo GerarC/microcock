@@ -50,7 +50,7 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_IPC_SEND` (0x160): Send a message to another process.
 * `SYS_IPC_RECV` (0x161): Receive a message from the thread's inbox.
 
-## 🛠️ Building and Running
+## Building and Running
 
 ### Prerequisites
 To build and run MicroCOCK, you need a standard i686-elf cross-compiler toolchain, NASM, GRUB, and QEMU.
@@ -89,9 +89,22 @@ Run in test mode (compiles with `COCK_TEST_MODE` flag):
 make test
 ```
 
+### References
+To create microcock I've reseach a lot of sites, videos and even AI models to learn ways to implement certain things,
+so this is the space where I put those references that really helped me to move this project forward:
+
+##### Sites
+- [Higher Half Bare Bones](https://wiki.osdev.org/Higher_Half_x86_Bare_Bones): Initial Paging and Higher half kernel were taken from this page
+
+##### Videos
+- [OliveStem OS course](https://www.youtube.com/playlist?list=PL2EF13wm-hWAglI8rRbdsCPq_wRpYvQQy): my man olive basically help me to have a path to follow. Interrupts, Keyboard, Multiboot, Memory management and other things at the beginnig where possible because of him.
+
 ## Documentation
 For more detailed information regarding specific subsystems, please check the `documentation/` folder:
-* `bootloader.md`: Multiboot and early entry process.
-* `kernel_main.md`: Initialization sequence.
-* `gdt.md` & `idt.md`: CPU descriptor tables and interrupt handling.
-* `vga.md`: Legacy video driver specifications.
+* [Bootloader](documentation/bootloader.md): Multiboot and early entry process.
+* [Kernel Main](documentation/kernel_main.md): Initialization sequence.
+* [Memory Management](documentation/memory_management.md): PMM, VMM, and Heap.
+* [Task Management](documentation/task_management.md): Scheduler and MLFQ.
+* [Inter-Process Communication](documentation/ipc.md): Syscalls and messaging.
+* [GDT](documentation/gdt.md) & [IDT](documentation/idt.md): CPU descriptor tables and interrupt handling.
+* [VGA](documentation/vga.md): Legacy video driver specifications.
