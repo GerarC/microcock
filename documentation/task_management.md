@@ -10,7 +10,7 @@ A **`Process`** (`cock/core/task/process.hpp`) owns everything that threads of t
 * the capabilities ([capabilities](capabilities.md)),
 * the architecture context (`ArchProcessContext`), stored **by value**: on x86 it is the I/O permission bitmap and a version number,
 * a name (the Multiboot module name),
-* the `mmap` cursor and the list of mapped regions.
+* a **fixed table of mapping regions** (up to 32) and the count of pages it owns (up to 4096). Anonymous memory counts against that limit, device memory does not. See [memory management](memory_management.md#per-process-limits).
 
 A **`Thread`** (`cock/core/task/thread.hpp`) is an execution context inside a process. Threads can be `KERNEL` (Ring 0) or `USER` (Ring 3).
 
@@ -18,6 +18,7 @@ A **`Thread`** (`cock/core/task/thread.hpp`) is an execution context inside a pr
 * User threads also get a **64 KiB user stack** at the top of the user-space limit of their process.
 * The kernel has its own process, which owns the kernel threads (the idle thread among them).
 * A user process has exactly **one thread** for now. The process id is the id of that first thread, so it is also the address used by IPC.
+* Each thread carries, besides its inbox, a mask of **pending interrupt notifications** (see [ipc](ipc.md#interrupts-as-messages)).
 
 When the last thread of a user process is destroyed, the process is destroyed with it: its address space, the page tables and every owned frame go back to the PMM, and the IRQ lines it had bound are released.
 
@@ -64,10 +65,29 @@ A system call cannot sleep in the middle of a handler, because the kernel does n
 | Exception from Ring 3 | Logs it, terminates the thread, and reschedules |
 | Exception from Ring 0 | Panics |
 | Timer interrupt | `Scheduler::onTick` |
-| Any other IRQ | Forwards it to the process that bound the line, if any |
+| Any other IRQ | Masks the line and raises a pending notification on the thread that bound it, waking it if it waits |
 
 ## Garbage Collection
-The `TaskManager` keeps a global registry of all threads. When a thread terminates, it is moved to a `graveyard` queue. The Kernel's idle thread periodically invokes `TaskManager::buryDeadThreads()`, which clears the registry slot, deletes the thread (and the process, if it was the last thread) and recycles the id.
+The `TaskManager` keeps a global registry of all threads. When a thread terminates, it is moved to a `graveyard` queue.
+
+A dedicated kernel thread, the **reaper**, empties the graveyard with `TaskManager::buryDeadThreads()`: it clears the registry slot, deletes the thread (and the process, if it was the last thread) and recycles the id. When the graveyard is empty the reaper marks itself `BLOCKED` and yields; `TaskManager::notifyThreadDeath` wakes it when the next thread dies. It runs at a high priority so the memory of a dead process comes back quickly, and it does not depend on the CPU ever being idle, as the earlier design did.
+
+```cpp
+ThreadResult kernel_reaper() {
+	while (true) {
+		TaskManager::buryDeadThreads();
+		{
+			core::hal::InterruptGuard guard;
+			if (TaskManager::graveyardEmpty())
+				Scheduler::getCurrentThread()->setState(ThreadState::BLOCKED);
+		}
+		Scheduler::yield();
+	}
+	return ThreadResult::success();
+}
+```
+
+The check and the state change happen under the interrupt guard, and a thread can only die from a context that runs with interrupts off, so a death cannot slip in between and be missed. The reaper is created after the boot modules, so their process ids do not change. The idle thread now only halts the CPU.
 
 ## Context of the architecture
 `ArchProcessContext` holds the I/O permission bitmap of the process. Copying a bitmap into the TSS at every switch would be the most expensive thing the kernel did, so it is lazy:

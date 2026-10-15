@@ -13,13 +13,17 @@ MicroCOCK or _Micro Colombian Open Code Kernel_ is a 32-bit x86 higher-half micr
     * Virtual Memory Manager (VMM) that holds the policy: user limits, device memory, guard pages.
     * Strong `PhysAddr` and `VirtAddr` types that cost nothing at run time.
     * Custom Kernel Heap (`kmalloc`, `kfree`) with block coalescing and splitting.
+    * Per-process limits: a fixed table of mapping regions and a maximum number of owned pages. The kernel keeps a reserve of frames that programs cannot take.
+    * The kernel code and constants are read only (`CR0.WP`), and executables are loaded writable and then sealed according to their segment flags.
 * **Processes and Scheduling:**
     * A `Process` owns the address space, the capabilities and the architecture context; a `Thread` runs inside it.
     * Multi-Level Feedback Queue (MLFQ) scheduler with priority boosting and intrusive queues.
     * The core decides when to reschedule; the architecture only reports events.
-* **Inter-Process Communication (IPC):** Ring-buffer-based asynchronous message passing between processes.
+* **Inter-Process Communication (IPC):** Ring-buffer-based asynchronous message passing between processes. Messages that carry authority or come from the kernel cannot be forged by a program.
 * **Capabilities:** I/O ports, IRQ lines and physical memory are only reachable through explicit grants. See [capabilities](documentation/capabilities.md).
-* **Interrupts to userland:** a driver binds an IRQ line, the kernel masks it, notifies the driver by IPC and the driver acknowledges it.
+* **Interrupts to userland:** a driver binds an IRQ line, the kernel masks it and raises a pending notification on the driver thread (never lost, delivered by `SYS_IPC_RECV`), and the driver acknowledges it.
+* **Dead threads are reaped by a kernel thread** that sleeps when there is nothing to free and wakes when a thread dies.
+* **The FPU is off for programs:** `CR0.EM` is set, so floating point, MMX and SSE fault instead of sharing state between processes.
 * **Custom LibC & LibCXX:** Freestanding implementation of standard C/C++ libraries, including dynamic memory allocation (`new`/`delete`) and global constructors/destructors support.
 * **ELF Loader:** Loads ELF32 and ELF64 executables through two separate descriptions. Each class has its own user-space limit. The x86 build accepts ELF32 only.
 
@@ -55,14 +59,14 @@ The codebase is strictly separated to maintain the microkernel philosophy. The C
 Userland processes communicate with the kernel through software interrupts (`int 0x80`). The number goes in `EAX`, the arguments in `EBX`, `ECX`, `EDX`, `ESI`, `EDI` and `EBP`, and the result comes back in `EAX`. The current system call table includes:
 * `SYS_EXIT` (0x01): Terminate current thread.
 * `SYS_READ` (0x03): Read from a file descriptor.
-* `SYS_WRITE` (0x04): Write to a file descriptor (routed to Serial or VGA Server).
+* `SYS_WRITE` (0x04): Write to a file descriptor (routed to Serial or VGA Server). A call takes at most 128 bytes; the caller writes the rest with more calls.
 * `SYS_REQUEST_RESOURCE` (0x07): Enable I/O ports in the process permission bitmap. Requires an `IO_PORTS` capability.
 * `SYS_GETPID` (0x16): Retrieve current Process ID.
 * `SYS_MMAP` (0x5A): Allocate dynamic memory (anonymous, or physical device memory with a `PHYSICAL_MEMORY` capability).
 * `SYS_MUNMAP` (0x5B): Free dynamically allocated memory.
 * `SYS_SCHED_YIELD` (0x9E): Yield CPU to the next ready thread.
 * `SYS_IPC_SEND` (0x160): Send a message to another process.
-* `SYS_IPC_RECV` (0x161): Receive a message from the thread's inbox, blocking when it is empty.
+* `SYS_IPC_RECV` (0x161): Receive the next interrupt notification or message of the thread, blocking when there is none.
 * `SYS_CAP_GRANT` (0x170): Delegate part of a capability to another process.
 * `SYS_IRQ_BIND` (0x171): Route an interrupt line to the calling process. Requires an `IRQ` capability.
 * `SYS_IRQ_ACK` (0x172): Re-enable an interrupt line after handling it.
@@ -122,6 +126,7 @@ Build options:
 | `HOST_TOOLCHAIN=1` | Use the host `g++ -m32` and `ld -m elf_i386` instead of `i686-elf-*` |
 | `USE_LTO=1` | Link time optimization (the kernel text shrinks about a quarter) |
 | `TEST_BUILD=1` | Build the in-kernel test suite |
+| `USER_EXTRA_FLAGS=...` | Extra compiler flags for the userland programs, for example `-fno-omit-frame-pointer` |
 
 The userland programs are rebuilt when a header they include changes. After switching toolchains or flags, run `make clean` once.
 
@@ -148,6 +153,11 @@ optimization:
 bash scripts/qemu_test.sh HOST_TOOLCHAIN=1 USE_LTO=1
 ```
 
+The userland test is also run with the programs built with frame pointers, which is how some distributions compile by default:
+```bash
+bash scripts/qemu_userland_test.sh HOST_TOOLCHAIN=1 USER_EXTRA_FLAGS=-fno-omit-frame-pointer
+```
+
 The same checks run on every push through `.github/workflows/ci.yml`.
 
 ### Current limitations
@@ -157,7 +167,9 @@ The same checks run on every push through `.github/workflows/ci.yml`.
 * IPC is asynchronous with a small inbox per thread; there are no timeouts and no synchronous call and reply.
 * The user C library is minimal: no `malloc` and no `printf`.
 * `SYS_WRITE` is a debug channel owned by the kernel; it goes away once there is a console server.
+* A process maps at most 4096 pages (16 MiB) in at most 32 regions.
 * The x86 build has no PAE, so no NX bit and no memory above 4 GiB.
+* A kernel stack overflow reaches the guard page but ends in a triple fault, without a message.
 * Only exercised on QEMU.
 
 ### References

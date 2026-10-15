@@ -50,7 +50,7 @@ typedef struct message_t {
 } Message;
 ```
 
-The kernel writes `sender_pid` and `target_pid` itself on delivery; whatever the sender put there is replaced. The message types are:
+The kernel writes `sender_pid` and `target_pid` itself on delivery; whatever the sender put there is replaced. The sender of a message produced by the kernel is `KERNEL_SENDER` (`0`, defined in `shared/include/cock/ipc/message.hpp`). The message types are:
 
 | Type | Meaning |
 |------|---------|
@@ -58,11 +58,11 @@ The kernel writes `sender_pid` and `target_pid` itself on delivery; whatever the
 | `SYS_PING`, `SYS_PONG`, `SYS_DEBUG`, `SYS_REGISTER_MAILBOX` | Reserved for tests, debugging and future use |
 | `VIDEO_WRITE_CHAR` | Write one character (`arg0`) on the display server |
 | `VIDEO_WRITE_STR` | Write `arg0` bytes that follow in `arg1` and the next arguments |
-| `IRQ_NOTIFICATION` | The kernel tells a driver that its interrupt line fired (`arg0` is the line) |
-| `CAPABILITY_GRANTED` | The root server tells a driver that its capabilities are in place (`arg0` is a peer process id) |
+| `IRQ_NOTIFICATION` | The kernel tells a driver that its interrupt line fired (`arg0` is the line). Only the kernel produces it, with `KERNEL_SENDER` as sender; a program that tries to send one gets `-1` |
+| `CAPABILITY_GRANTED` | The root server tells a driver that its capabilities are in place (`arg0` is a peer process id). Only a process that holds a capability with the grant right can send it |
 
 ### Sending (`sys_ipc_send`)
-`IPC::deliver` validates the target, stamps the message and pushes it into the inbox of the target. If the target was blocked waiting for a message (`WAITING_MSG`), it is set to `READY` and put back in the scheduler. The call fails, and the sender is told, when the target does not exist or its inbox is full.
+Before delivering, the system call checks that the sender may use the message type: `IRQ_NOTIFICATION` is refused to every program, and `CAPABILITY_GRANTED` is refused unless the sender holds grant authority. A server can therefore trust the type of a message it receives without checking who sent it. `IPC::deliver` then validates the target, stamps the message and pushes it into the inbox of the target. If the target was blocked waiting for a message (`WAITING_MSG`), it is set to `READY` and put back in the scheduler. The call fails, and the sender is told, when the target does not exist or its inbox is full.
 
 ```cpp
 bool IPC::deliver(uint32_t to_pid, Message message) {
@@ -80,13 +80,28 @@ bool IPC::deliver(uint32_t to_pid, Message message) {
 ```
 
 ### Receiving (`sys_ipc_recv`)
-If the inbox has a message, it is copied to the buffer of the caller. If it is empty, the handler sets the thread to `WAITING_MSG` and asks the scheduler for a restart. The thread is not scheduled again until a message arrives, so no cycles are wasted on polling, and when it wakes up it simply runs the system call again and finds the message.
+Pending interrupt notifications come first (see below): each one is delivered as an `IRQ_NOTIFICATION` message made on the spot. Otherwise, if the inbox has a message, it is copied to the buffer of the caller. If there is neither, the handler sets the thread to `WAITING_MSG` and asks the scheduler for a restart. The thread is not scheduled again until a message arrives, so no cycles are wasted on polling, and when it wakes up it simply runs the system call again and finds the message.
 
 ## Interrupts as messages
 A driver in userland handles a hardware interrupt like this:
 
 1. it calls `SYS_IRQ_BIND` with the line (it needs an `IRQ` capability) and the kernel unmasks the line,
-2. when the line fires, the kernel **masks it** and sends an `IRQ_NOTIFICATION` message to the owner,
-3. the driver reads its device, then calls `SYS_IRQ_ACK`, and the kernel unmasks the line again.
+2. when the line fires, the kernel **masks it** and sets the bit of that line in the **pending notifications** of the owner thread, waking it if it was waiting,
+3. the driver receives the notification as an `IRQ_NOTIFICATION` message from `SYS_IPC_RECV`, reads its device, then calls `SYS_IRQ_ACK`, and the kernel unmasks the line again.
+
+A notification is a bit in the thread, one bit per line, not a message in the inbox. That has two consequences:
+
+* it **cannot be lost**: a full inbox, full of messages from other programs, does not stop an interrupt from reaching its driver,
+* it **cannot be forged**: a program is not allowed to send an `IRQ_NOTIFICATION`, and the one the driver receives carries `KERNEL_SENDER`.
+
+Notifications of different lines are delivered lowest line first.
+
+If the owner no longer exists when its line fires, the kernel releases the line instead of leaving it masked and owned.
 
 The timer line and the PIC cascade line are reserved and cannot be bound. When the owner dies, the kernel masks and releases its lines. The keyboard driver in `userland/kbd` is the reference.
+
+## Output from programs
+`SYS_WRITE` is the debug output channel. The kernel writes the bytes to the serial port with interrupts disabled, so a call is limited to 128 bytes to keep that time short. It returns how many bytes it took, and `cock::user::write_text` calls again until everything is written. When the display server is alive the text also goes to it, in messages of 20 bytes.
+
+## Logging of denied calls
+A call that is denied (no capability, bad pointer, unknown number) is logged at `trace` level only, so a program that keeps asking cannot flood the serial log. Raise the log level in `cock_main` to see them.

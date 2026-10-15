@@ -27,7 +27,7 @@ extern "C" void _start() {
 }
 ```
 
-1. It blocks on `ipc_recv` until a `CAPABILITY_GRANTED` message arrives, and takes the first one it receives.
+1. It blocks on `ipc_recv` until a `CAPABILITY_GRANTED` message arrives, and takes the first one it receives. The kernel only lets a process that holds grant authority send that type, so the message can only come from the root server.
 2. It enables port `0x60` in its permission bitmap (`SYS_REQUEST_RESOURCE`) and binds IRQ 1 (`SYS_IRQ_BIND`). Either one is denied if `init` did not grant it, and then the driver prints `kbd: cannot bind the keyboard` and exits.
 3. It prints `kbd: ready`. The end to end test waits for that line on the serial log.
 
@@ -35,7 +35,9 @@ extern "C" void _start() {
 ```cpp
 for (;;) {
 	cock::user::ipc_recv(message);
-	if (message.type != MessageType::IRQ_NOTIFICATION) continue;
+	if (message.type != MessageType::IRQ_NOTIFICATION ||
+		message.sender_pid != cock::ipc::KERNEL_SENDER)
+		continue;
 
 	show(display, decoder.feed(cock::user::port_in8(PS2_DATA_PORT)));
 	cock::user::irq_ack(KEYBOARD_IRQ_LINE);
@@ -45,12 +47,12 @@ for (;;) {
 A key press travels like this:
 
 1. The keyboard controller raises IRQ 1.
-2. The kernel **masks the line** and sends an `IRQ_NOTIFICATION` message to `kbd` (see [ipc](ipc.md#interrupts-as-messages)).
+2. The kernel **masks the line** and raises a pending notification on `kbd`, which `ipc_recv` returns as an `IRQ_NOTIFICATION` message (see [ipc](ipc.md#interrupts-as-messages)).
 3. `kbd` wakes up, reads one byte from port `0x60` and gives it to the decoder.
 4. If the byte produces a character, `kbd` sends a `VIDEO_WRITE_CHAR` message to the display server, which draws it.
 5. `kbd` calls `SYS_IRQ_ACK`, and the kernel unmasks the line so the next key can arrive.
 
-The line stays masked while the driver works, so a burst of keys never piles up interrupts in the kernel. The thread is blocked in `ipc_recv` between keys and uses no CPU. If the driver dies, the kernel masks and releases the line.
+The line stays masked while the driver works, so a burst of keys never piles up interrupts in the kernel. The thread is blocked in `ipc_recv` between keys and uses no CPU. Because the notification does not use the inbox, another program that fills the inbox of `kbd` with messages cannot make it miss a key. If the driver dies, the kernel masks and releases the line.
 
 ## The decoder
 `userland/kbd/keymap.hpp` turns scan codes into characters. It is a small state machine with no I/O, so it can be tested on its own.

@@ -34,7 +34,7 @@ The conversion is always explicit, so a physical address cannot be passed where 
 | `0x00400000` | Link address of the userland programs |
 | `0x60000000` | Where anonymous `mmap` starts |
 | Top 64 KiB of the user limit | User stack |
-| `0xC0000000` | Kernel image (the first 4 MiB are mapped by the boot code) |
+| `0xC0000000` | Kernel image (the first 4 MiB are mapped by the boot code; code and constants are read only) |
 | `0xD0000000` to `0xDFFFFFFF` | Kernel heap and kernel thread stacks |
 | `0xE0000000` | Temporary slots used to edit other address spaces |
 | `0xF0000000` | Early boot window for Multiboot structures and modules |
@@ -63,11 +63,12 @@ PhysAddr PhysicalMemoryManager::allocFrame() {
 
 	setFrame(frame);
 	usedFrames++;
+	freeFrames--;
 	return PhysAddr(frame * PAGE_SIZE);
 }
 ```
 
-`allocFrame` returns a null address when memory runs out and `freeFrame` ignores frames that are already free, so the callers decide what an out of memory condition means. `isRam` answers whether a physical address belongs to RAM; the VMM uses it to tell devices from memory.
+`allocFrame` returns a null address when memory runs out and `freeFrame` ignores frames that are already free, so the callers decide what an out of memory condition means. `isRam` answers whether a physical address belongs to RAM; the VMM uses it to tell devices from memory. `freeFrameCount` returns the number of free frames, kept as a counter, so a caller can check before starting a large mapping.
 
 ## Paging
 `Paging` (`cock/arch/x86/memory/paging.cpp`) is the only code that writes page tables. It uses the recursive mapping in the last directory entry, so every table of the current address space is reachable at a fixed virtual address.
@@ -79,6 +80,11 @@ PhysAddr PhysicalMemoryManager::allocFrame() {
 * **`isRangeAccessible`** checks that every page in a range is present, readable by user mode when asked, and writable when asked. System calls use it before touching a user pointer.
 
 The address space is switched only when it actually changes between two threads, and the switch is an inline write to `CR3`.
+
+### Protection of the kernel image
+The boot code maps the first 4 MiB writable. At the end of `Paging::init()`, `protectKernelImage` clears the write bit of every page of `.text` and of `.rodata` (the linker script exports `_text_start`, `_text_end`, `_rodata_start` and `_rodata_end`) and then turns on `CR0.WP`, so the kernel itself obeys the read-only bit. A stray write through a bad pointer faults instead of silently changing code or constants. The linker also checks, with an `ASSERT`, that the image fits in the 4 MiB that the boot code maps.
+
+Because the kernel obeys the write bit of user pages as well, nothing in the kernel writes to a user page that is read only. The ELF loader maps every segment writable, copies it, and only then makes the read-only segments read only; a page shared with a writable segment stays writable.
 
 ## Virtual Memory Manager (VMM)
 The VMM is the policy on top of `Paging` and the PMM. It never writes a page table directly.
@@ -95,6 +101,7 @@ class VirtualMemoryManager {
 							   VMMPermission permission, VirtAddr user_limit);
 	static bool isUserRangeValid(VirtAddr ptr, size_t length, bool write,
 								 VirtAddr user_limit);
+	static bool protectPage(VirtAddr virt, VMMPermission permission);
 	static bool isRangeUnmapped(VirtAddr start, size_t page_count);
 	static bool isDeviceMemory(PhysAddr phys, size_t length);
 };
@@ -102,9 +109,18 @@ class VirtualMemoryManager {
 
 * Every frame that goes to a process is **zeroed** first, so a process never sees what another left behind.
 * `allocStack` leaves an unmapped **guard page** below each kernel stack, so an overflow faults instead of corrupting the heap. Freed stacks are recycled.
-* `mapPagesAt` receives the user limit of the process: a request above it, or above the architecture limit, fails.
+* `mapPagesAt` receives the user limit of the process: a request above it, or above the architecture limit, fails. Before mapping anything it counts the frames the request needs (the new pages, plus a margin for page tables) and fails at once if the PMM does not have them. For a user mapping it also leaves `KERNEL_RESERVED_FRAMES` frames untouched, so a program cannot take the memory the kernel needs for stacks, page tables and its heap. If a mapping of fresh pages fails half way, the pages it had just mapped are released.
+* `protectPage` replaces the permissions of one already mapped page.
 * `isUserRangeValid` is the check behind every pointer a program hands to the kernel.
 * `isDeviceMemory` is true only when no frame of the range is RAM. Mapping physical memory into a process requires both that and a capability (see [capabilities](capabilities.md)).
+
+## Per-process limits
+Each `Process` keeps its mappings in a **fixed table of 32 regions** (`Process::MAX_MAPPING_REGIONS`) and counts the pages it owns against a limit of **4096 pages**, 16 MiB (`Process::MAX_OWNED_PAGES`). Nothing is allocated from the kernel heap for this.
+
+* **Anonymous `mmap`** fails when the table is full, when the request would pass the page limit, or when the memory is not there. Otherwise it takes the first hole of the right size between `USER_MMAP_BASE` and the top of the image area (`Process::findFreeRange`), so an address freed by `munmap` can be handed out again.
+* **Device mappings** (`MAP_PHYS`) use a slot of the table but do not count as owned pages, because the frames are not RAM.
+* **`munmap`** must name a region exactly as it was mapped; the pages go back to the PMM unless they are device pages.
+* When a process dies, its whole address space is destroyed, so every owned frame returns regardless of the table.
 
 ## Kernel Heap Allocator
 For dynamic memory allocation inside Ring 0 (`kmalloc` and `kfree`, behind `new` and `delete`), the OS uses a custom Heap implementation based on a First-Fit linked list algorithm.
