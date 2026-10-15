@@ -1,5 +1,6 @@
 #include <cock/arch/x86/gdt/gdt.hpp>
 #include <cock/core/hal/tasking.hpp>
+#include <cock/core/memory/heap.hpp>
 #include <stddef.h>
 #include <string.h>
 
@@ -31,9 +32,14 @@ static bool overlaps_reserved_ports(uint32_t first, uint32_t size) {
 	return false;
 }
 
-void init_process_context(ArchProcessContext &context) {
-	memset(context.iopm, IO_DENIED, sizeof(context.iopm));
+void release_process_context(ArchProcessContext &context) {
+	if (context.iopm != nullptr) cock::core::memory::kfree(context.iopm);
+	context.iopm = nullptr;
 	context.iopm_bytes = 0;
+}
+
+void init_process_context(ArchProcessContext &context) {
+	release_process_context(context);
 	context.version = nextContextVersion++;
 }
 
@@ -44,6 +50,13 @@ bool grant_hardware_resource(ArchProcessContext &context, uint32_t resource_id,
 		return false;
 
 	if (overlaps_reserved_ports(resource_id, size)) return false;
+
+	if (context.iopm == nullptr) {
+		context.iopm = static_cast<uint8_t *>(
+			cock::core::memory::kmalloc(IO_PERMISSION_MAP_BYTES));
+		if (context.iopm == nullptr) return false;
+		memset(context.iopm, IO_DENIED, IO_PERMISSION_MAP_BYTES);
+	}
 
 	for (uint32_t i = 0; i < size; i++) {
 		uint32_t port = resource_id + i;

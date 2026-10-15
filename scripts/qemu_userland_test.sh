@@ -3,6 +3,9 @@ set -u
 
 BOOT_SECONDS="${BOOT_SECONDS:-6}"
 KEY_SECONDS="${KEY_SECONDS:-2}"
+CLIENTS_TIMEOUT="${CLIENTS_TIMEOUT:-60}"
+POLL_SECONDS=1
+CLIENTS_DONE_TEXT=("fatclient: ok" "extclient: ok" "cfile: ok" "muteclient: ok")
 SERIAL_FILE="${SERIAL_FILE:-build/userland_serial.txt}"
 SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
@@ -11,7 +14,7 @@ FILE_CLIENT_RUNS=10
 DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
 EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 34/34 checks passed|abCd"
-EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|init: manifest has 17 entries|init: configured vga_driver|init: started kbd|init: started ata|init: started fat|init: started vfs|vfs: 4 mounts|init: started probe|kbd: ready|VGA driver detected|reaped"
+EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|Boot memory released|init: manifest has 18 entries|init: configured vga_driver|init: started kbd|init: started ata|init: started rtc|rtc: ready|init: started fat|init: started vfs|vfs: 4 mounts|init: started probe|kbd: ready|VGA driver detected|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"
 case "$DISK_SCHEME" in
@@ -33,6 +36,16 @@ bash "$(dirname "$0")/make_test_disk.sh" "$DISK_SCHEME" "$DISK_FILE" || exit 2
 	-monitor "unix:$SOCKET_FILE,server,nowait" &
 qemu_pid=$!
 sleep "$BOOT_SECONDS"
+waited=0
+while [ "$waited" -lt "$CLIENTS_TIMEOUT" ]; do
+	pending=0
+	for marker in "${CLIENTS_DONE_TEXT[@]}"; do
+		grep -qF "$marker" "$SERIAL_FILE" 2> /dev/null || pending=1
+	done
+	[ "$pending" -eq 0 ] && break
+	sleep "$POLL_SECONDS"
+	waited=$((waited + POLL_SECONDS))
+done
 
 screen=$(python3 - "$SOCKET_FILE" "$TYPED_KEYS" "$KEY_SECONDS" <<'PYTHON'
 import re

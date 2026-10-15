@@ -1,6 +1,7 @@
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/irq/irq_routing.hpp>
+#include <cock/core/memory/slab_pool.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
@@ -17,6 +18,23 @@ using cock::core::memory::VirtualMemoryManager;
 using cock::core::memory::VMMPermission;
 using cock::utils::Logger;
 using hal::InterruptGuard;
+
+namespace {
+
+constexpr size_t THREAD_POOL_CHUNK_PAGES = 4;
+
+using ThreadPool = memory::SlabPool<Thread, THREAD_POOL_CHUNK_PAGES>;
+
+} // namespace
+
+void *Thread::operator new(size_t size) {
+	if (size != sizeof(Thread)) utils::panic("thread allocation of the wrong size");
+	void *slot = ThreadPool::allocate();
+	if (slot == nullptr) utils::panic("thread pool out of memory");
+	return slot;
+}
+
+void Thread::operator delete(void *pointer) { ThreadPool::release(pointer); }
 
 Thread::Thread(ThreadFunction entry_point, ThreadPriority priority) {
 	initBase(priority, ThreadType::KERNEL, TaskManager::getKernelProcess());

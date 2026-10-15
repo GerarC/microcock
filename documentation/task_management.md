@@ -8,7 +8,7 @@ A **`Process`** (`cock/core/task/process.hpp`) owns everything that threads of t
 
 * the address space and the user-space limit of its ELF class,
 * the capabilities ([capabilities](capabilities.md)),
-* the architecture context (`ArchProcessContext`), stored **by value**: on x86 it is the I/O permission bitmap and a version number,
+* the architecture context (`ArchProcessContext`), stored **by value**: on x86 it is a pointer to the I/O permission bitmap (null until the process is granted a port, so a process without ports costs nothing) and a version number,
 * a name (the Multiboot module name),
 * a **fixed table of mapping regions** (up to 32) and the count of pages it owns (up to 4096). Anonymous memory counts against that limit, device memory does not. See [memory management](memory_management.md#per-process-limits).
 
@@ -94,6 +94,9 @@ ThreadResult kernel_reaper() {
 ```
 
 The check and the state change happen under the interrupt guard, and a thread can only die from a context that runs with interrupts off, so a death cannot slip in between and be missed. The reaper is created after the boot modules, so their process ids do not change. The idle thread now only halts the CPU.
+
+## Pools
+`Thread` and `Process` have their own `operator new` and `operator delete` over a `SlabPool` (`cock/core/memory/slab_pool.hpp`): chunks of four pages come from `VirtualMemoryManager::allocPages`, are cut into slots and kept in a free list, and a released slot is the next one handed out. Neither class touches the first-fit heap, a thread that dies leaves its slot to the next one, and the kernel virtual range stays flat while threads and processes come and go. Chunks are never returned. The I/O permission bitmap (8 KiB) is allocated from the heap when a process asks for its first port, and freed with the process; a request that cannot get the memory is denied.
 
 ## Context of the architecture
 `ArchProcessContext` holds the I/O permission bitmap of the process. Copying a bitmap into the TSS at every switch would be the most expensive thing the kernel did, so it is lazy:

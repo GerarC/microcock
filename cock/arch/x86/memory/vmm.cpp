@@ -3,6 +3,7 @@
 #include <cock/arch/x86/memory/pmm.hpp>
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/memory/vmm.hpp>
+#include <cock/data_structure/range_pool.hpp>
 #include <cock/utils/logger.hpp>
 #include <cock/utils/panic.hpp>
 #include <stddef.h>
@@ -27,19 +28,14 @@ static_assert(USER_SPACE_LIMIT == USER_TOP,
 
 namespace {
 
-constexpr size_t MAX_RECYCLED_STACKS = 64;
+constexpr size_t MAX_FREE_KERNEL_RANGES = 128;
 constexpr size_t KERNEL_RESERVED_FRAMES = 256;
 constexpr size_t TABLE_MARGIN_EXTRA = 2;
 constexpr uint64_t ADDRESS_SPACE_END = 0x100000000ULL;
+constexpr size_t STACK_GUARD_PAGES = 1;
 
-struct RecycledStack {
-	uintptr_t base;
-	size_t pages;
-};
-
-RecycledStack recycledStacks[MAX_RECYCLED_STACKS];
-size_t recycledCount = 0;
-uintptr_t nextKernelVaddr = KERNEL_HEAP_BASE;
+data_structure::RangePool<MAX_FREE_KERNEL_RANGES> kernelRanges(KERNEL_HEAP_BASE,
+															   KERNEL_HEAP_LIMIT, PAGE_SIZE);
 uintptr_t scratchVaddr = 0;
 
 uint32_t toX86Flag(VMMPermission permission) {
@@ -54,13 +50,14 @@ uint32_t toX86Flag(VMMPermission permission) {
 	return arch_flags;
 }
 
-bool reserveKernelRange(size_t pages, uintptr_t &out) {
-	if (pages == 0) return false;
-	if (pages > (KERNEL_HEAP_LIMIT - nextKernelVaddr) / PAGE_SIZE) return false;
+bool reserveKernelRange(size_t pages, uintptr_t &out) { return kernelRanges.reserve(pages, out); }
 
-	out = nextKernelVaddr;
-	nextKernelVaddr += pages * PAGE_SIZE;
-	return true;
+bool inKernelRanges(uintptr_t address) {
+	return address >= KERNEL_HEAP_BASE && address < KERNEL_HEAP_LIMIT;
+}
+
+void releaseKernelRange(uintptr_t start, size_t pages) {
+	if (inKernelRanges(start)) kernelRanges.release(start, pages);
 }
 
 void releasePages(VirtAddr virt, size_t pages) {
@@ -89,11 +86,6 @@ bool mapFresh(VirtAddr virt, size_t pages, uint32_t flags) {
 	return true;
 }
 
-void recycleStack(uintptr_t base, size_t pages) {
-	if (recycledCount < MAX_RECYCLED_STACKS)
-		recycledStacks[recycledCount++] = {base, pages};
-}
-
 } // namespace
 
 void *VirtualMemoryManager::allocPages(size_t page_count,
@@ -102,8 +94,12 @@ void *VirtualMemoryManager::allocPages(size_t page_count,
 
 	InterruptGuard guard;
 	uintptr_t start_virt = 0;
-	if (!reserveKernelRange(page_count, start_virt) ||
-		!mapFresh(VirtAddr(start_virt), page_count, toX86Flag(permission))) {
+	if (!reserveKernelRange(page_count, start_virt)) {
+		Logger::fatal("VMM: Out of memory");
+		return nullptr;
+	}
+	if (!mapFresh(VirtAddr(start_virt), page_count, toX86Flag(permission))) {
+		releaseKernelRange(start_virt, page_count);
 		Logger::fatal("VMM: Out of memory");
 		return nullptr;
 	}
@@ -113,31 +109,22 @@ void *VirtualMemoryManager::allocPages(size_t page_count,
 
 void VirtualMemoryManager::freePages(void *vaddr, size_t page_count) {
 	InterruptGuard guard;
-	releasePages(VirtAddr::of(vaddr), page_count);
+	VirtAddr virt = VirtAddr::of(vaddr);
+	releasePages(virt, page_count);
+	releaseKernelRange(virt.raw(), page_count);
 }
 
 void *VirtualMemoryManager::allocStack(size_t page_count) {
 	if (page_count == 0) return nullptr;
 
 	InterruptGuard guard;
-	uintptr_t base = 0;
-
-	for (size_t idx = 0; idx < recycledCount; idx++) {
-		if (recycledStacks[idx].pages != page_count) continue;
-		base = recycledStacks[idx].base;
-		recycledStacks[idx] = recycledStacks[--recycledCount];
-		break;
-	}
-
-	if (base == 0) {
-		uintptr_t region = 0;
-		if (!reserveKernelRange(page_count + 1, region)) return nullptr;
-		base = region + PAGE_SIZE;
-	}
+	uintptr_t region = 0;
+	if (!reserveKernelRange(page_count + STACK_GUARD_PAGES, region)) return nullptr;
+	uintptr_t base = region + STACK_GUARD_PAGES * PAGE_SIZE;
 
 	if (!mapFresh(VirtAddr(base), page_count,
 				  PageFlag::PRESENT | PageFlag::WRITEABLE)) {
-		recycleStack(base, page_count);
+		releaseKernelRange(region, page_count + STACK_GUARD_PAGES);
 		return nullptr;
 	}
 
@@ -150,7 +137,18 @@ void VirtualMemoryManager::freeStack(void *base, size_t page_count) {
 	InterruptGuard guard;
 	VirtAddr virt = VirtAddr::of(base);
 	releasePages(virt, page_count);
-	recycleStack(virt.raw(), page_count);
+	releaseKernelRange(virt.raw() - STACK_GUARD_PAGES * PAGE_SIZE,
+					   page_count + STACK_GUARD_PAGES);
+}
+
+uintptr_t VirtualMemoryManager::kernelRangeEnd() { return kernelRanges.end(); }
+
+void VirtualMemoryManager::releaseBootFrames(PhysAddr start, size_t bytes) {
+	uint64_t first = (static_cast<uint64_t>(start.raw()) + PAGE_MASK) >> arch::x86::PAGE_SHIFT;
+	uint64_t last = (static_cast<uint64_t>(start.raw()) + bytes) >> arch::x86::PAGE_SHIFT;
+	for (uint64_t frame = first; frame < last; frame++)
+		PhysicalMemoryManager::releaseBootFrame(
+			PhysAddr(static_cast<uint32_t>(frame << arch::x86::PAGE_SHIFT)));
 }
 
 bool VirtualMemoryManager::map(PhysAddr phys, VirtAddr virt,

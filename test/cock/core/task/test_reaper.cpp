@@ -30,6 +30,7 @@ constexpr uintptr_t USER_ENTRY_POINT = 0x400000;
 constexpr size_t DRAIN_LIMIT = 16;
 constexpr size_t WARM_UP_ROUNDS = 2;
 constexpr size_t BATCH_THREADS = 4;
+constexpr size_t CHURN_ROUNDS = 200;
 
 Thread *idleThread = nullptr;
 
@@ -139,6 +140,38 @@ void checkProcessFramesReturn() {
 	EXPECT_TRUE(TaskManager::getThreadByPID(pid) == nullptr);
 }
 
+void checkPoolSlotsAreReused() {
+	Thread *first = makeUserThread();
+	Process *firstProcess = first->getProcess();
+	EXPECT_TRUE(firstProcess->getContext().iopm == nullptr);
+	retire(first);
+	TaskManager::buryDeadThreads();
+
+	Thread *second = makeUserThread();
+	EXPECT_TRUE(second == first);
+	EXPECT_TRUE(second->getProcess() == firstProcess);
+	retire(second);
+	TaskManager::buryDeadThreads();
+}
+
+void checkKernelRangesStayFlat() {
+	for (size_t round = 0; round < WARM_UP_ROUNDS; round++) {
+		runUserProcessCycle();
+		retire(makeThread(ThreadPriority::NORMAL));
+		TaskManager::buryDeadThreads();
+	}
+
+	uintptr_t rangeEnd = VirtualMemoryManager::kernelRangeEnd();
+	size_t frames = PhysicalMemoryManager::freeFrameCount();
+	for (size_t round = 0; round < CHURN_ROUNDS; round++) {
+		runUserProcessCycle();
+		retire(makeThread(ThreadPriority::NORMAL));
+		TaskManager::buryDeadThreads();
+	}
+	EXPECT_EQ(rangeEnd, VirtualMemoryManager::kernelRangeEnd());
+	EXPECT_EQ(frames, PhysicalMemoryManager::freeFrameCount());
+}
+
 void checkReaperWakesUp() {
 	startScheduler();
 	Thread *reaper = makeThread(ThreadPriority::NORMAL);
@@ -199,6 +232,8 @@ void test_reaper() {
 	checkBuryOnEmptyGraveyard();
 	checkBatchIsFreed();
 	checkProcessFramesReturn();
+	checkPoolSlotsAreReused();
+	checkKernelRangesStayFlat();
 	checkReaperWakesUp();
 	checkRunningReaperIsNotQueuedTwice();
 

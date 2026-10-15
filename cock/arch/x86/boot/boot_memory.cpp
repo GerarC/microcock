@@ -1,5 +1,6 @@
 #include <cock/arch/x86/boot/boot_memory.hpp>
 #include <cock/arch/x86/memory/layout.hpp>
+#include <hal/boot.hpp>
 #include <hal/cpu.hpp>
 
 namespace cock::arch::x86 {
@@ -41,4 +42,18 @@ void *BootMemory::map(PhysAddr address, uint32_t size) {
 	return reinterpret_cast<void *>(base + (phys & PAGE_MASK));
 }
 
+void BootMemory::release() {
+	for (uint32_t idx = 0; idx < nextPage; idx++) {
+		window.entries[idx] = 0;
+		core::hal::invalidate_page(BOOT_WINDOW_BASE + idx * PAGE_SIZE);
+	}
+	nextPage = ENTRIES_PER_TABLE;
+}
+
 } // namespace cock::arch::x86
+
+namespace cock::core::hal {
+
+void boot_memory_release() { arch::x86::BootMemory::release(); }
+
+} // namespace cock::core::hal

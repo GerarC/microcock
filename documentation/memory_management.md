@@ -108,7 +108,8 @@ class VirtualMemoryManager {
 ```
 
 * Every frame that goes to a process is **zeroed** first, so a process never sees what another left behind.
-* `allocStack` leaves an unmapped **guard page** below each kernel stack, so an overflow faults instead of corrupting the heap. Freed stacks are recycled.
+* `allocStack` leaves an unmapped **guard page** below each kernel stack, so an overflow faults instead of corrupting the heap.
+* The kernel virtual range (`0xD0000000` to `0xE0000000`) is managed by a `RangePool` (`shared/include/cock/data_structure/range_pool.hpp`): a bump cursor plus a sorted table of up to 128 free ranges. `allocPages` and `allocStack` take the first free range that fits (or move the cursor), `freePages` and `freeStack` give the range back (a stack with its guard page), neighbours are merged, and a range that touches the cursor moves it back. When the table is full a release that cannot be merged is dropped, so that range is lost. A `freePages` of an address outside the range (a user mapping) only unmaps.
 * `mapPagesAt` receives the user limit of the process: a request above it, or above the architecture limit, fails. Before mapping anything it counts the frames the request needs (the new pages, plus a margin for page tables) and fails at once if the PMM does not have them. For a user mapping it also leaves `KERNEL_RESERVED_FRAMES` frames untouched, so a program cannot take the memory the kernel needs for stacks, page tables and its heap. If a mapping of fresh pages fails half way, the pages it had just mapped are released.
 * `protectPage` replaces the permissions of one already mapped page.
 * `isUserRangeValid` is the check behind every pointer a program hands to the kernel.
@@ -165,3 +166,5 @@ void *Heap::allocate(size_t size) {
 
 ## Early boot window
 Before paging is complete, the Multiboot information, the memory map and the modules are read through `BootMemory` (`cock/arch/x86/boot/boot_memory.cpp`). Anything inside the first 4 MiB is reached through the kernel mapping. Anything above is mapped on demand in a fixed window at `0xF0000000`, up to 4 MiB in total.
+
+When `cock_main` has loaded the program modules it gives the whole pages of every ELF module back to the PMM (`VirtualMemoryManager::releaseBootFrames`; a partial page at either end stays reserved, and data modules such as the `initrd` are kept) and empties the window (`hal/boot.hpp`, `boot_memory_release`), after which `BootMemory::map` only serves addresses inside the first 4 MiB. The boot log has the line `Boot memory released`.

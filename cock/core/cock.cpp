@@ -12,6 +12,7 @@
 #include <cock/utils/logger.hpp>
 #include <cock/core/loader/elf.hpp>
 #include <cock/core/memory/shared_memory.hpp>
+#include <hal/boot.hpp>
 #include <hal/console.hpp>
 #include <hal/interrupt.hpp>
 #include <hal/page.hpp>
@@ -163,6 +164,16 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
 
         Scheduler::addThread(app_thread);
     }
+
+	size_t released_frames = 0;
+	for (size_t i = 0; i < mod_count; i++) {
+		if (!has_elf_magic(modules[i].start_address, modules[i].size)) continue;
+		VirtualMemoryManager::releaseBootFrames(modules[i].physical_address, modules[i].size);
+		released_frames += modules[i].size >> core::hal::PAGE_SHIFT;
+	}
+	core::hal::boot_memory_release();
+	Logger::debug("Boot memory released (about %u frames of program images)",
+				  static_cast<unsigned>(released_frames));
 
 	Thread *reaper_thread = new Thread(kernel_reaper, ThreadPriority::HIGH);
 	TaskManager::setReaper(reaper_thread);
