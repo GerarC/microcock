@@ -29,7 +29,7 @@ uintptr_t sys_cap_grant(uintptr_t target_pid, uintptr_t type, uintptr_t first,
 	CapabilityType capability_type = static_cast<CapabilityType>(type);
 	if (!current->getProcess()->getCapabilities().mayGrant(capability_type,
 														   first, count)) {
-		Logger::warn("sys_cap_grant: PID %d may not grant type %u [0x%x, +0x%x)",
+		Logger::trace("sys_cap_grant: PID %d may not grant type %u [0x%x, +0x%x)",
 					 current->getProcess()->getId(),
 					 static_cast<unsigned>(type), static_cast<unsigned>(first),
 					 static_cast<unsigned>(count));

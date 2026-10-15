@@ -27,7 +27,8 @@ constexpr uint8_t TEST_PATTERN = 0x5A;
 constexpr unsigned DECIMAL_BASE = 10;
 constexpr size_t NUMBER_BUFFER_SIZE = 12;
 constexpr long WRITE_FAILED = -1;
-constexpr size_t CHECK_COUNT = 12;
+constexpr size_t CHECK_COUNT = 13;
+constexpr size_t OVERSIZED_WRITE = 200;
 constexpr uint32_t PING_VALUE = 0x5EED;
 constexpr int MUNMAP_FAILED = -1;
 constexpr uintptr_t EXIT_ALL_PASSED = 0;
@@ -71,6 +72,17 @@ bool refusesReservedMessage(MessageType type) {
 	return !cock::user::ipc_send(cock::user::self(), message);
 }
 
+bool oversizedWriteIsCut() {
+	char spaces[OVERSIZED_WRITE];
+	for (size_t idx = 0; idx < OVERSIZED_WRITE; idx++)
+		spaces[idx] = ' ';
+
+	uintptr_t written = syscall(SYS_WRITE, cock::user::STDOUT_FILE,
+								reinterpret_cast<uintptr_t>(spaces), OVERSIZED_WRITE,
+								0, 0, 0);
+	return written > 0 && written < OVERSIZED_WRITE;
+}
+
 bool messageToSelfArrives() {
 	uint32_t self = cock::user::self();
 
@@ -110,7 +122,8 @@ extern "C" void _start() {
 			MUNMAP_FAILED,
 		refusesReservedMessage(MessageType::IRQ_NOTIFICATION),
 		refusesReservedMessage(MessageType::CAPABILITY_GRANTED),
-		messageToSelfArrives()};
+		messageToSelfArrives(),
+		oversizedWriteIsCut()};
 
 	unsigned passed = 0;
 	for (size_t idx = 0; idx < CHECK_COUNT; idx++) {

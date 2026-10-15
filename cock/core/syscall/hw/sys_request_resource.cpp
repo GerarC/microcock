@@ -23,7 +23,7 @@ uintptr_t sys_request_resource(uintptr_t resource_id, uintptr_t size, uintptr_t,
 	Process &process = *current->getProcess();
 	if (!process.getCapabilities().covers(CapabilityType::IO_PORTS,
 										  resource_id, size)) {
-		Logger::warn("sys_request_resource: PID %d has no port capability "
+		Logger::trace("sys_request_resource: PID %d has no port capability "
 					 "(id 0x%x, size %u)",
 					 process.getId(), resource_id, size);
 		return (uintptr_t)-1;
@@ -32,7 +32,7 @@ uintptr_t sys_request_resource(uintptr_t resource_id, uintptr_t size, uintptr_t,
 	hal::ArchProcessContext &context = process.getContext();
 	bool success = hal::grant_hardware_resource(context, resource_id, size);
 	if (!success) {
-		Logger::warn("sys_request_resource: PID %d denied (id 0x%x, size %u)",
+		Logger::trace("sys_request_resource: PID %d denied (id 0x%x, size %u)",
 					 current->getId(), resource_id, size);
 		return (uintptr_t)-1;
 	}

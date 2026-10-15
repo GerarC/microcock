@@ -57,9 +57,16 @@ inline uint32_t lookup(const char *name) {
 }
 
 inline long write_text(const char *text, size_t length) {
-	return static_cast<long>(syscall(SYS_WRITE, STDOUT_FILE,
-									 reinterpret_cast<uintptr_t>(text), length,
-									 0, 0, 0));
+	size_t written = 0;
+	while (written < length) {
+		long step = static_cast<long>(
+			syscall(SYS_WRITE, STDOUT_FILE,
+					reinterpret_cast<uintptr_t>(text + written), length - written,
+					0, 0, 0));
+		if (step <= 0) return written == 0 ? step : static_cast<long>(written);
+		written += static_cast<size_t>(step);
+	}
+	return static_cast<long>(written);
 }
 
 [[noreturn]] inline void exit_process(uintptr_t status) {

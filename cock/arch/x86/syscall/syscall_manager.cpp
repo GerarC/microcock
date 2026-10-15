@@ -38,7 +38,7 @@ void SyscallManager::init() {
 
 SystemCall SyscallManager::getSyscall(size_t code){
     if (code >= MAX_X86_SYSCALLS || syscall_table[code] == nullptr) {
-            utils::Logger::error("Unimplemented Syscall %d called!", code);
+            utils::Logger::trace("Unimplemented Syscall %d called!", code);
             return nullptr;
     }
     return syscall_table[code];

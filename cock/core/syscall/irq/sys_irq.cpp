@@ -25,7 +25,7 @@ uintptr_t sys_irq_bind(uintptr_t line, uintptr_t, uintptr_t, uintptr_t,
 
 	if (!current->getProcess()->getCapabilities().covers(CapabilityType::IRQ,
 														 line, SINGLE_LINE)) {
-		Logger::warn("sys_irq_bind: PID %d has no capability for line %u",
+		Logger::trace("sys_irq_bind: PID %d has no capability for line %u",
 					 current->getProcess()->getId(),
 					 static_cast<unsigned>(line));
 		return FAILURE;
