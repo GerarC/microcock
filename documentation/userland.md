@@ -14,6 +14,7 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 | `hello` | Assembly program that writes a line and exits |
 | `fsclient` | Reads a file from the `initrd` and exits; `init` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |
+| `rtc` | Clock server, the only owner of the CMOS ports `0x70+2` (granted by the manifest); answers `RTC_READ` with the date and time read twice until two reads agree, so two servers can never interleave on the index port; started before `fat` and `ext` |
 | `ata` | Block server for the first IDE disk: PIO reads, MBR and GPT partitions; started by `init` with the ports `0x1F0+8` and `0x3F6+1`; see [block storage](block_storage.md) |
 | `fat` | FAT32 server over the block protocol; see [FAT32](fat32.md) |
 | `vfs` | The file server clients talk to: mount table of `/` (`ramfs`) and `/fat` (`fat`); see [file system](filesystem.md#the-vfs-server) |
@@ -73,7 +74,7 @@ When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED
 | `spawn(image, size, name)` | `SYS_SPAWN` |
 | `process_alive(pid)` | `SYS_PROC_ALIVE` |
 | `ipc_try_recv(message)` | `SYS_IPC_TRY_RECV`; `Received::MESSAGE`, `EMPTY` or `FAILED` |
-| `Clock` (`clock.hpp`), `init()`, `now(time)` | Reads the CMOS date and time through the ports `0x70` and `0x71` (the program needs `io:0x70+2`); `abi/datetime.hpp` converts it to Unix seconds and to FAT date and time |
+| `Clock` (`clock.hpp`), `init()`, `now(time)` | Asks the `rtc` server for the date and time (a program needs no port capability; `onForeign` receives the messages that arrive while it waits); `abi/datetime.hpp` converts it to Unix seconds and to FAT date and time. `Cmos` (`cmos.hpp`) is the reader of the ports `0x70` and `0x71` that only `rtc` uses |
 | `self()` | `SYS_GETPID` |
 | `write_text(text, length)` | `SYS_WRITE`, repeated until the whole text is written (a call takes at most 128 bytes) |
 | `exit_process(status)` | `SYS_EXIT` |

@@ -21,7 +21,8 @@ class WriteCheck {
 			   step(5, protectsOpenFiles()) && step(6, truncates()) &&
 			   step(7, deletes()) && step(8, keepsAFile()) && step(9, refusesBadRequests()) &&
 			   step(10, lists()) && step(11, managesDirectories()) &&
-			   step(12, usesLongNames()) && step(13, aliasesDoNotCollide());
+			   step(12, usesLongNames()) && step(13, aliasesDoNotCollide()) &&
+				   step(14, replacesNames()) && step(15, linksFiles());
 	}
 
 	bool refuses(const char *path, uint32_t flags, abi::fs::Status expected) {
@@ -336,7 +337,7 @@ class WriteCheck {
 			 reads("sub/moved.txt", INNER_TEXT) && missing("sub/inner.txt");
 		ok = ok && makes("sub2") && renames("sub/moved.txt", "sub2/final.txt") &&
 			 reads("sub2/final.txt", INNER_TEXT);
-		ok = ok && failsWith(renames(NOTE_NAME, KEEP_NAME), abi::fs::Status::EXISTS) &&
+		ok = ok && failsWith(renames(NOTE_NAME, "sub"), abi::fs::Status::EXISTS) &&
 			 failsWith(renames("absent.txt", "other.txt"), abi::fs::Status::NOT_FOUND) &&
 			 failsWith(renames(NOTE_NAME, "nodir/x.txt"), abi::fs::Status::NOT_FOUND);
 
@@ -364,6 +365,86 @@ class WriteCheck {
 		ok = ok && makes("keepdir") && creates("keepdir/tmp.txt", TREE_TEXT) &&
 			 renames("keepdir/tmp.txt", "keepdir/stay.txt") && reads("keepdir/stay.txt", TREE_TEXT);
 		return ok;
+	}
+
+	bool links(const char *existing, const char *name) {
+		char first[PATH_BYTES];
+		char second[PATH_BYTES];
+		return join(first, existing) && join(second, name) && client.link(first, second);
+	}
+
+	bool linksFiles() {
+		constexpr char ORIGINAL[] = "lnk-a.txt";
+		constexpr char ALIAS[] = "lnk-b.txt";
+		constexpr char OTHER[] = "lnk-c.txt";
+		constexpr char DIRECTORY[] = "lnk-dir";
+		constexpr char LINK_TEXT[] = "one body, two names\n";
+		constexpr char OTHER_TEXT[] = "a different file\n";
+		bool ok = creates(ORIGINAL, LINK_TEXT);
+		if (windowsNames)
+			return ok && failsWith(links(ORIGINAL, ALIAS), abi::fs::Status::UNSUPPORTED) &&
+				   missing(ALIAS) && removes(ORIGINAL);
+
+		ok = ok && links(ORIGINAL, ALIAS) && reads(ALIAS, LINK_TEXT) && listed("", ALIAS);
+		ok = ok && creates(OTHER, OTHER_TEXT) &&
+			 failsWith(links(ORIGINAL, OTHER), abi::fs::Status::EXISTS) &&
+			 failsWith(links("absent.txt", "lnk-d.txt"), abi::fs::Status::NOT_FOUND) &&
+			 failsWith(links(ORIGINAL, "nodir/x.txt"), abi::fs::Status::NOT_FOUND);
+		ok = ok && makes(DIRECTORY) &&
+			 failsWith(links(DIRECTORY, "lnk-e"), abi::fs::Status::UNSUPPORTED) &&
+			 removesDirectory(DIRECTORY);
+
+		uint32_t reader = openNamed(ORIGINAL, abi::fs::OPEN_READ_ONLY);
+		ok = ok && reader != abi::fs::NO_HANDLE &&
+			 failsWith(links(ORIGINAL, "lnk-f.txt"), abi::fs::Status::BUSY);
+		if (reader != abi::fs::NO_HANDLE) ok = client.close(reader) && ok;
+
+		ok = ok && removes(ORIGINAL) && missing(ORIGINAL) && reads(ALIAS, LINK_TEXT);
+		return ok && removes(ALIAS) && removes(OTHER) && missing(ALIAS);
+	}
+
+	bool replacesNames() {
+		constexpr char FIRST_FILE[] = "rep-a.txt";
+		constexpr char SECOND_FILE[] = "rep-b.txt";
+		constexpr char BUSY_FILE[] = "rep-c.txt";
+		constexpr char MOVED_DIRECTORY[] = "rep-d1";
+		constexpr char TARGET_DIRECTORY[] = "rep-d2";
+		constexpr char KEPT_DIRECTORY[] = "rep-d3";
+		constexpr char FULL_DIRECTORY[] = "rep-d4";
+		constexpr char MOVED_CHILD[] = "rep-d1/x.txt";
+		constexpr char TARGET_CHILD[] = "rep-d2/x.txt";
+		constexpr char FULL_CHILD[] = "rep-d4/y.txt";
+		constexpr char CASE_FROM[] = "Case.txt";
+		constexpr char CASE_TO[] = "CASE.TXT";
+		constexpr char FIRST_TEXT[] = "first body\n";
+		constexpr char SECOND_TEXT[] = "second body\n";
+		bool ok = creates(FIRST_FILE, FIRST_TEXT) && creates(SECOND_FILE, SECOND_TEXT) &&
+				  renames(FIRST_FILE, SECOND_FILE) && reads(SECOND_FILE, FIRST_TEXT) &&
+				  missing(FIRST_FILE);
+
+		ok = ok && makes(MOVED_DIRECTORY) && makes(TARGET_DIRECTORY) &&
+			 creates(MOVED_CHILD, FIRST_TEXT) && renames(MOVED_DIRECTORY, TARGET_DIRECTORY) &&
+			 reads(TARGET_CHILD, FIRST_TEXT) && missing(MOVED_DIRECTORY);
+
+		ok = ok && makes(KEPT_DIRECTORY) && makes(FULL_DIRECTORY) &&
+			 creates(FULL_CHILD, SECOND_TEXT) &&
+			 failsWith(renames(KEPT_DIRECTORY, FULL_DIRECTORY), abi::fs::Status::NOT_EMPTY) &&
+			 reads(FULL_CHILD, SECOND_TEXT);
+
+		ok = ok && failsWith(renames(SECOND_FILE, KEPT_DIRECTORY), abi::fs::Status::EXISTS) &&
+			 failsWith(renames(KEPT_DIRECTORY, SECOND_FILE), abi::fs::Status::EXISTS);
+
+		uint32_t reader = openNamed(SECOND_FILE, abi::fs::OPEN_READ_ONLY);
+		ok = ok && creates(BUSY_FILE, FIRST_TEXT) && reader != abi::fs::NO_HANDLE &&
+			 failsWith(renames(BUSY_FILE, SECOND_FILE), abi::fs::Status::BUSY);
+		if (reader != abi::fs::NO_HANDLE) ok = client.close(reader) && ok;
+
+		ok = ok && creates(CASE_FROM, FIRST_TEXT) && renames(CASE_FROM, CASE_TO) &&
+			 reads(CASE_TO, FIRST_TEXT) && listed("", CASE_TO);
+
+		return ok && removes(SECOND_FILE) && removes(BUSY_FILE) && removes(TARGET_CHILD) &&
+			   removesDirectory(TARGET_DIRECTORY) && removesDirectory(KEPT_DIRECTORY) &&
+			   removes(FULL_CHILD) && removesDirectory(FULL_DIRECTORY) && removes(CASE_TO);
 	}
 
 	bool usesLongNames() {

@@ -623,7 +623,66 @@ struct Fat {
 		return Status::OK;
 	}
 
+	static bool setCleanBit(bool clean) {
+		if (!loadFat(fatSector(cock::abi::fat32::FAT_STATE_ENTRY))) return false;
+		uint8_t *entry = fatBuffer + size_t(cock::abi::fat32::FAT_STATE_ENTRY) *
+										 cock::abi::fat32::FAT_ENTRY_BYTES;
+		uint32_t value = cock::abi::fat32::detail::readLe32(entry);
+		value = clean ? (value | cock::abi::fat32::FAT_CLEAN_SHUTDOWN_BIT)
+					  : (value & ~cock::abi::fat32::FAT_CLEAN_SHUTDOWN_BIT);
+		cock::abi::fat32::detail::writeLe32(entry, value);
+		return storeFat();
+	}
+
+	static bool isCleanVolume() {
+		if (!loadFat(fatSector(cock::abi::fat32::FAT_STATE_ENTRY))) return false;
+		const uint8_t *entry = fatBuffer + size_t(cock::abi::fat32::FAT_STATE_ENTRY) *
+											   cock::abi::fat32::FAT_ENTRY_BYTES;
+		return (cock::abi::fat32::detail::readLe32(entry) &
+				cock::abi::fat32::FAT_CLEAN_SHUTDOWN_BIT) != 0;
+	}
+
+	static bool begin() { return setCleanBit(false); }
+
+	static Status end(Status status) { return setCleanBit(true) ? status : Status::IO_ERROR; }
+
 	static Status create(const char *path, Node &node) {
+		if (!begin()) return Status::IO_ERROR;
+		return end(createEntry(path, node));
+	}
+
+	static Status makeDirectory(const char *path) {
+		if (!begin()) return Status::IO_ERROR;
+		return end(makeDirectoryEntry(path));
+	}
+
+	static Status removeDirectory(const char *path) {
+		if (!begin()) return Status::IO_ERROR;
+		return end(removeDirectoryEntry(path));
+	}
+
+	static Status rename(const char *from, const char *to) {
+		if (!begin()) return Status::IO_ERROR;
+		return end(renameEntry(from, to));
+	}
+
+	static Status truncate(Node &node) {
+		if (!begin()) return Status::IO_ERROR;
+		return end(truncateNode(node));
+	}
+
+	static Status write(Handle &handle, const uint8_t *source, uint32_t offset, uint32_t count,
+						uint32_t &written) {
+		if (!begin()) return Status::IO_ERROR;
+		return end(writeBytes(handle, source, offset, count, written));
+	}
+
+	static Status unlink(const char *path) {
+		if (!begin()) return Status::IO_ERROR;
+		return end(unlinkEntry(path));
+	}
+
+	static Status createEntry(const char *path, Node &node) {
 		Node parent = {};
 		char name[cock::abi::fs::MAX_PATH_BYTES];
 		size_t nameBytes = 0;
@@ -644,7 +703,7 @@ struct Fat {
 		return Status::OK;
 	}
 
-	static Status makeDirectory(const char *path) {
+	static Status makeDirectoryEntry(const char *path) {
 		Node parent = {};
 		char name[cock::abi::fs::MAX_PATH_BYTES];
 		size_t nameBytes = 0;
@@ -730,7 +789,7 @@ struct Fat {
 		}
 	}
 
-	static Status removeDirectory(const char *path) {
+	static Status removeDirectoryEntry(const char *path) {
 		Node node = {};
 		Found leaf = {};
 		if (!walk(path, node, leaf) || node.type != FileType::DIRECTORY ||
@@ -774,7 +833,29 @@ struct Fat {
 		return true;
 	}
 
-	static Status rename(const char *from, const char *to) {
+	static Status link(const char *, const char *) { return Status::UNSUPPORTED; }
+
+	static Status checkReplace(const Node &source, const Found &existing) {
+		bool sourceIsDirectory = source.type == FileType::DIRECTORY;
+		if (existing.entry.isDirectory() != sourceIsDirectory) return Status::EXISTS;
+		if (!sourceIsDirectory) return Status::OK;
+		if (!bpb.isDataCluster(existing.entry.cluster)) return Status::IO_ERROR;
+
+		bool empty = false;
+		Status scanned = isEmptyDirectory(existing.entry.cluster, empty);
+		if (scanned != Status::OK) return scanned;
+		return empty ? Status::OK : Status::NOT_EMPTY;
+	}
+
+	static Status removeFound(const Found &existing) {
+		Status deleted = deleteEntries(existing);
+		if (deleted != Status::OK) return deleted;
+		bool freed = !bpb.isDataCluster(existing.entry.cluster) || freeChain(existing.entry.cluster);
+		flushFsInfo();
+		return freed ? Status::OK : Status::IO_ERROR;
+	}
+
+	static Status renameEntry(const char *from, const char *to) {
 		Node source = {};
 		Found leaf = {};
 		if (!walk(from, source, leaf)) return Status::NOT_FOUND;
@@ -796,7 +877,13 @@ struct Fat {
 			return Status::NOT_FOUND;
 
 		Found existing = {};
-		if (findInDirectory(parent.cluster, name, existing)) return Status::EXISTS;
+		bool exists = findInDirectory(parent.cluster, name, existing);
+		bool caseOnly = exists && sameSpot(existing.shortEntry, leaf.shortEntry);
+		bool replaces = exists && !caseOnly;
+		if (replaces) {
+			Status allowed = checkReplace(source, existing);
+			if (allowed != Status::OK) return allowed;
+		}
 
 		uint32_t sector = spotSector(leaf.shortEntry);
 		if (!loadDirectory(sector)) return Status::IO_ERROR;
@@ -805,9 +892,20 @@ struct Fat {
 			   directoryBuffer + size_t(leaf.shortEntry.entry) * cock::abi::fat32::ENTRY_BYTES,
 			   sizeof(entry));
 
+		if (replaces) {
+			Status gone = removeFound(existing);
+			if (gone != Status::OK) return gone;
+		}
+
 		Spot where = {};
-		Status placed = placeEntry(parent.cluster, name, targetBytes, entry, where);
-		if (placed == Status::OK) placed = deleteEntries(leaf);
+		Status placed = Status::OK;
+		if (caseOnly) {
+			placed = deleteEntries(leaf);
+			if (placed == Status::OK) placed = placeEntry(parent.cluster, name, targetBytes, entry, where);
+		} else {
+			placed = placeEntry(parent.cluster, name, targetBytes, entry, where);
+			if (placed == Status::OK) placed = deleteEntries(leaf);
+		}
 		if (placed == Status::OK && source.type == FileType::DIRECTORY) {
 			Spot dotDot = {source.cluster, 0, 1};
 			uint32_t dotSector = spotSector(dotDot);
@@ -824,7 +922,7 @@ struct Fat {
 		return placed;
 	}
 
-	static Status truncate(Node &node) {
+	static Status truncateNode(Node &node) {
 		uint32_t first = node.cluster;
 		uint32_t size = node.size;
 		node.cluster = NO_CLUSTER;
@@ -879,8 +977,8 @@ struct Fat {
 		return Status::OK;
 	}
 
-	static Status write(Handle &handle, const uint8_t *source, uint32_t offset,
-						uint32_t count, uint32_t &written) {
+	static Status writeBytes(Handle &handle, const uint8_t *source, uint32_t offset,
+							 uint32_t count, uint32_t &written) {
 		Node &node = handle.node;
 		const uint32_t clusterBytes = bpb.clusterBytes();
 		const uint32_t originalCluster = node.cluster;
@@ -942,7 +1040,7 @@ struct Fat {
 		return result;
 	}
 
-	static Status unlink(const char *path) {
+	static Status unlinkEntry(const char *path) {
 		Node node = {};
 		Found leaf = {};
 		if (!walk(path, node, leaf)) return Status::NOT_FOUND;
@@ -970,7 +1068,7 @@ struct Fat {
 
 		bpb = found;
 		device = candidate;
-		readOnly = info.kind == cock::abi::block::DeviceKind::DISK;
+		readOnly = info.kind == cock::abi::block::DeviceKind::DISK || !isCleanVolume();
 		clockReady = clock.init();
 		loadFsInfo();
 		return true;
@@ -1008,6 +1106,7 @@ extern "C" void _start() {
 	}
 
 	Fat::disk.onForeign = Server::defer;
+	Fat::clock.onForeign = Server::defer;
 	uint32_t wanted = message.payload.args.arg1;
 	if (!Fat::mount(wanted)) {
 		printf("fat: device %u is not a FAT32 volume\n", wanted);

@@ -1,4 +1,5 @@
 #include <cock/abi/datetime.hpp>
+#include <cock/abi/rtc.hpp>
 #include <host_test/check.hpp>
 #include <stdint.h>
 
@@ -94,11 +95,29 @@ void checkConversions() {
 			 toFatDate(FAR_FUTURE));
 }
 
+void checkPacking() {
+	DateTime back = {};
+	CHECK_TRUE(cock::abi::rtc::unpack(cock::abi::rtc::packDate(SAMPLE),
+									  cock::abi::rtc::packTime(SAMPLE), back));
+	CHECK_EQ(SAMPLE.year, back.year);
+	CHECK_EQ(SAMPLE.month, back.month);
+	CHECK_EQ(SAMPLE.day, back.day);
+	CHECK_EQ(SAMPLE.hour, back.hour);
+	CHECK_EQ(SAMPLE.minute, back.minute);
+	CHECK_EQ(SAMPLE.second, back.second);
+
+	CHECK_FALSE(cock::abi::rtc::unpack(NO_VALUE, NO_VALUE, back));
+	CHECK_TRUE(cock::abi::rtc::unpack(cock::abi::rtc::packDate(LEAP_DAY),
+									  cock::abi::rtc::packTime(LEAP_DAY), back));
+	CHECK_EQ(LEAP_DAY.second, back.second);
+}
+
 } // namespace
 
 void testDatetime() {
 	checkCalendar();
 	checkConversions();
+	checkPacking();
 }
 
 } // namespace host_test

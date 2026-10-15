@@ -408,6 +408,9 @@ struct Ext {
 			superblockBuffer + cock::abi::ext2::SB_FREE_INODES_OFFSET, sb.freeInodes);
 		cock::abi::ext2::detail::writeLe16(
 			superblockBuffer + cock::abi::ext2::SB_STATE_OFFSET, state);
+		if (valid)
+			cock::abi::ext2::detail::writeLe32(
+				superblockBuffer + cock::abi::ext2::SB_WRITE_TIME_OFFSET, timestamp());
 		return disk.write(device, cock::abi::ext2::SUPERBLOCK_SECTOR, SINGLE_SECTOR,
 						  superblockBuffer);
 	}
@@ -959,6 +962,18 @@ struct Ext {
 		return end(makeDirectoryNode(path));
 	}
 
+	static bool directoryIsEmpty(const Node &node) {
+		uint32_t offset = 0;
+		DirItem item = {};
+		while (nextEntry(node, offset, item))
+			if (!(item.nameBytes == cock::abi::ext2::CURRENT_ENTRY_BYTES &&
+				  memcmp(item.name, CURRENT_NAME, item.nameBytes) == 0) &&
+				!(item.nameBytes == cock::abi::ext2::PARENT_ENTRY_BYTES &&
+				  memcmp(item.name, PARENT_NAME, item.nameBytes) == 0))
+				return false;
+		return true;
+	}
+
 	static Status removeDirectoryNode(const char *path) {
 		Node parent = {};
 		char name[MAX_NAME_BYTES + 1];
@@ -973,14 +988,7 @@ struct Ext {
 		if (node.type != FileType::DIRECTORY || node.inode == cock::abi::ext2::ROOT_INODE)
 			return Status::UNSUPPORTED;
 
-		uint32_t offset = 0;
-		DirItem item = {};
-		while (nextEntry(node, offset, item))
-			if (!(item.nameBytes == cock::abi::ext2::CURRENT_ENTRY_BYTES &&
-				  memcmp(item.name, CURRENT_NAME, item.nameBytes) == 0) &&
-				!(item.nameBytes == cock::abi::ext2::PARENT_ENTRY_BYTES &&
-				  memcmp(item.name, PARENT_NAME, item.nameBytes) == 0))
-				return Status::NOT_EMPTY;
+		if (!directoryIsEmpty(node)) return Status::NOT_EMPTY;
 
 		if (!locateEntry(parent, name, where)) return Status::IO_ERROR;
 		Status removed = removeEntry(where);
@@ -1037,7 +1045,25 @@ struct Ext {
 			return Status::BAD_REQUEST;
 
 		uint32_t existing = 0;
-		if (findEntry(newParent, newName, existing)) return Status::EXISTS;
+		if (findEntry(newParent, newName, existing)) {
+			if (existing == node.inode) return Status::OK;
+
+			Node victim = {};
+			if (!loadInode(existing, victim)) return Status::IO_ERROR;
+			bool sourceIsDirectory = node.type == FileType::DIRECTORY;
+			bool victimIsDirectory = victim.type == FileType::DIRECTORY;
+			if (sourceIsDirectory != victimIsDirectory ||
+				(!sourceIsDirectory && victim.type != FileType::REGULAR))
+				return Status::EXISTS;
+			if (victimIsDirectory && !directoryIsEmpty(victim)) return Status::NOT_EMPTY;
+
+			Status gone = victimIsDirectory ? removeDirectoryNode(to) : unlinkFile(to);
+			if (gone != Status::OK) return gone;
+
+			if (!parentAndName(from, oldParent, oldName, oldBytes) ||
+				!parentAndName(to, newParent, newName, newBytes))
+				return Status::IO_ERROR;
+		}
 
 		Status added = addEntry(newParent, newName, static_cast<uint32_t>(newBytes), node.inode,
 								entryType(node.type));
@@ -1068,6 +1094,45 @@ struct Ext {
 	static Status rename(const char *from, const char *to) {
 		if (!begin()) return Status::IO_ERROR;
 		return end(renameNode(from, to));
+	}
+
+	static Status linkNode(const char *existing, const char *name) {
+		Node parent = {};
+		char leaf[MAX_NAME_BYTES + 1];
+		size_t leafBytes = 0;
+		if (!parentAndName(existing, parent, leaf, leafBytes)) return Status::NOT_FOUND;
+
+		uint32_t inode = 0;
+		if (!findEntry(parent, leaf, inode)) return Status::NOT_FOUND;
+		Node node = {};
+		if (!loadInode(inode, node)) return Status::IO_ERROR;
+		if (node.type != FileType::REGULAR) return Status::UNSUPPORTED;
+		if (node.links >= cock::abi::ext2::MAX_LINKS) return Status::NO_SPACE;
+
+		Node newParent = {};
+		char newName[MAX_NAME_BYTES + 1];
+		size_t newBytes = 0;
+		if (!parentAndName(name, newParent, newName, newBytes)) return Status::NOT_FOUND;
+		if (isReservedName(newName)) return Status::BAD_REQUEST;
+
+		uint32_t taken = 0;
+		if (findEntry(newParent, newName, taken)) return Status::EXISTS;
+
+		node.links++;
+		if (!storeInode(node)) return Status::IO_ERROR;
+
+		Status added = addEntry(newParent, newName, static_cast<uint32_t>(newBytes), node.inode,
+								entryType(node.type));
+		if (added == Status::OK) return Status::OK;
+
+		node.links--;
+		storeInode(node);
+		return added;
+	}
+
+	static Status link(const char *existing, const char *name) {
+		if (!begin()) return Status::IO_ERROR;
+		return end(linkNode(existing, name));
 	}
 
 	static Status unlink(const char *path) {
@@ -1209,6 +1274,7 @@ extern "C" void _start() {
 	}
 
 	Ext::disk.onForeign = Server::defer;
+	Ext::clock.onForeign = Server::defer;
 	if (!Ext::mount(message.payload.args.arg1)) cock::user::exit_process(EXIT_FAILED_STATUS);
 	printf("ext: device %u, %u blocks of %u bytes, %u inodes\n", Ext::device,
 		   Ext::sb.blocksCount, Ext::sb.blockBytes, Ext::sb.inodesCount);

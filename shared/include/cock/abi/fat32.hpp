@@ -39,6 +39,8 @@ constexpr uint32_t FAT_END_OF_CHAIN_MIN = 0x0FFFFFF8;
 constexpr uint32_t FAT_BAD_CLUSTER = 0x0FFFFFF7;
 constexpr uint32_t FAT_END_OF_CHAIN = 0x0FFFFFFF;
 constexpr uint32_t FAT_FREE = 0;
+constexpr uint32_t FAT_STATE_ENTRY = 1;
+constexpr uint32_t FAT_CLEAN_SHUTDOWN_BIT = 0x08000000;
 constexpr uint32_t FAT_RESERVED_MASK = 0xF0000000;
 
 constexpr uint32_t FSINFO_LEAD_SIGNATURE = 0x41615252;
