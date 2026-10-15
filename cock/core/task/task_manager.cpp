@@ -47,6 +47,11 @@ uint32_t TaskManager::allocatePID() {
 	return (generations[slot] << SLOT_BITS) | slot;
 }
 
+bool TaskManager::hasFreePid() {
+	InterruptGuard guard;
+	return freePidCount > 0;
+}
+
 bool TaskManager::registerThread(Thread *thread) {
 	if (!thread || (thread->getId() >> SLOT_BITS) > GENERATION_MASK) return false;
 

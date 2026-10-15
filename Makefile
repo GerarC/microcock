@@ -34,7 +34,7 @@ QEMU_HEADLESS   = -display none -serial stdio -no-reboot $(QEMU_DEBUG_EXIT)
 
 VERSION_MAJOR := 0
 VERSION_MINOR := 1
-VERSION_PATCH := 3
+VERSION_PATCH := 4
 VERSION_STAGE := "\"Pre-alfa\""
 GIT_HASH := "\"$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)\""
 BUILD_DATE := "\"$(shell date +%Y-%m-%d)\""
@@ -63,7 +63,9 @@ OBJ_CORE    = $(OBJ_CPP) $(OBJ_ASM)
 OBJ            = $(OBJ_CORE) $(CRTBEGIN_OBJ) $(CRTEND_OBJ)
 LINKER_I686 = cock/arch/x86/linker.ld
 
-USERLAND_BOOT_ORDER = init
+USERLAND_BOOT_ORDER = init ramfs vga_driver
+INITRD_STAGE = $(BUILD)/initrd_root
+INITRD_PROGRAMS = bin
 INITRD_DIR = initrd
 INITRD_FILES := $(shell find $(INITRD_DIR) -type f)
 INITRD_ENTRIES := $(notdir $(wildcard $(INITRD_DIR)/*))
@@ -101,9 +103,19 @@ $(BUILD)/$(PROJECT).bin: $(OBJ)
 	@echo "[LD ] $@"
 	@$(CXX) -T $(LINKER_I686) -o $@ $(LN_FLAGS) $(OBJ) $(LN_LIBS)
 
-$(INITRD_IMAGE): $(INITRD_FILES) | $(BUILD)
+$(INITRD_IMAGE): $(INITRD_FILES) userland | $(BUILD)
 	@echo "[TAR] $@"
-	@tar --format=ustar --owner=root --group=root --numeric-owner -cf $@ -C $(INITRD_DIR) $(INITRD_ENTRIES)
+	@rm -rf $(INITRD_STAGE)
+	@mkdir -p $(INITRD_STAGE)/$(INITRD_PROGRAMS)
+	@cp -r $(INITRD_DIR)/. $(INITRD_STAGE)/
+	@for elf in $(BUILD)/userland/*.elf; do \
+		name=$$(basename $$elf .elf); \
+		case " $(USERLAND_BOOT_ORDER) " in \
+			*" $$name "*) ;; \
+			*) cp $$elf $(INITRD_STAGE)/$(INITRD_PROGRAMS)/ ;; \
+		esac; \
+	done
+	@cd $(INITRD_STAGE) && tar --format=ustar --owner=root --group=root --numeric-owner -cf $(abspath $@) *
 
 $(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin userland $(INITRD_IMAGE)
 	@echo "[ISO] creating ISO"
@@ -114,18 +126,11 @@ $(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin userland $(INITRD_IMAGE)
 	@echo 'menuentry "cock" {' >> build/isodir/boot/grub/grub.cfg
 	@echo "    multiboot /boot/$(PROJECT).bin" >> build/isodir/boot/grub/grub.cfg
 	@if ls build/userland/*.elf 1> /dev/null 2>&1; then \
-		cp build/userland/*.elf build/isodir/boot/; \
 		for name in $(USERLAND_BOOT_ORDER); do \
 			if [ -f build/userland/$$name.elf ]; then \
+				cp build/userland/$$name.elf build/isodir/boot/; \
 				echo "    module /boot/$$name.elf \"$$name\"" >> build/isodir/boot/grub/grub.cfg; \
 			fi; \
-		done; \
-		for elf in build/userland/*.elf; do \
-			name=$$(basename $$elf .elf); \
-			case " $(USERLAND_BOOT_ORDER) " in \
-				*" $$name "*) ;; \
-				*) echo "    module /boot/$$name.elf \"$$name\"" >> build/isodir/boot/grub/grub.cfg ;; \
-			esac; \
 		done; \
 	fi
 	@cp $(INITRD_IMAGE) build/isodir/boot/$(INITRD_MODULE).tar

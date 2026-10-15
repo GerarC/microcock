@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/mman.h>
 
 using cock::abi::fs::FileType;
 using cock::abi::fs::Status;
@@ -112,6 +113,18 @@ Session *findSession(uint32_t pid) {
 	return nullptr;
 }
 
+void releaseSession(Session &session) {
+	munmap(session.window, cock::abi::fs::WINDOW_BYTES);
+	cock::user::shm_release(session.windowId);
+	memset(&session, 0, sizeof(session));
+}
+
+void releaseDeadSessions() {
+	for (Session &session : sessions)
+		if (session.used && !cock::user::process_alive(session.pid))
+			releaseSession(session);
+}
+
 Session *freeSession() {
 	for (Session &session : sessions)
 		if (!session.used) return &session;
@@ -137,6 +150,7 @@ void connect(uint32_t pid, uint32_t id) {
 		return;
 	}
 
+	releaseDeadSessions();
 	session = freeSession();
 	if (session == nullptr) return reply(pid, id, Status::NO_SPACE);
 

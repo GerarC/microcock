@@ -24,6 +24,8 @@
     #define SYS_SHM_RELEASE      0x177
     #define SYS_MODULE_OPEN      0x178
     #define SYS_MODULE_INDEX     0x179
+    #define SYS_SPAWN            0x17A
+    #define SYS_PROC_ALIVE       0x17B
 
     #ifdef __cplusplus
     extern "C" {

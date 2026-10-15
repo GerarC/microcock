@@ -78,6 +78,8 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_SHM_RELEASE` (0x177): Drop the right of the caller to an object.
 * `SYS_MODULE_OPEN` (0x178): Open a data boot module by name as a read only shared memory object; needs a `BOOT_MODULE` capability.
 * `SYS_MODULE_INDEX` (0x179): Index of a data boot module by name; needs grant authority.
+* `SYS_SPAWN` (0x17A): Start a process from an ELF image in the memory of the caller, with no capabilities; needs grant authority.
+* `SYS_PROC_ALIVE` (0x17B): Tell whether a process id is alive.
 
 ## Building and Running
 
@@ -222,7 +224,7 @@ The file system lives outside the kernel, as servers that talk by IPC. The kerne
 - [x] **F1** Shared memory between processes (the way to move file data).
 - [x] **F2** Data boot modules, a capability to open them, and an `initrd` built as a tar archive.
 - [x] **F3** `ramfs` server and a client library: a program reads a file from the initrd.
-- [ ] **F4** `spawn`: `init` starts the drivers from files instead of from boot modules.
+- [x] **F4** `spawn`: `init` starts the programs from files instead of from boot modules, and `ramfs` releases the sessions of dead clients.
 - [ ] **F5** A manifest read by `init` that lists each program and its capabilities. Adding a driver becomes adding a line.
 - [ ] **F6** ATA driver (PIO), a block protocol and partition tables (MBR and GPT).
 - [ ] **F7** FAT32 server (read only first) and a `vfs` with a mount table.

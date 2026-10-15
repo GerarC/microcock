@@ -100,4 +100,4 @@ SECTIONS {
 `_kernel_end` marks where the physical memory manager starts to consider memory free. `_text_start`, `_text_end`, `_rodata_start` and `_rodata_end` delimit the pages that paging makes read only once it is up. The `ASSERT` stops the link when the image, `.bss` included, no longer fits in the 4 MiB that the boot code maps, instead of letting the kernel fail to boot without a message. The `.init_array` and `.ctors` sections are collected here too, and `call_global_constructors` runs whichever the toolchain produced.
 
 ## Boot modules
-GRUB loads the userland programs as Multiboot modules, with the name of each one as its command line. The Makefile writes the `grub.cfg` and puts `init` first (`USERLAND_BOOT_ORDER`). See [userland](userland.md).
+GRUB loads `init`, `ramfs` and `vga_driver` as Multiboot modules, with the name of each one as its command line, and the `initrd` archive as a data module. The Makefile writes the `grub.cfg` and puts `init` first (`USERLAND_BOOT_ORDER`). Every other program travels inside the `initrd` and `init` starts it with `SYS_SPAWN`. See [userland](userland.md).

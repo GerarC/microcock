@@ -6,21 +6,22 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 
 | Program | Role |
 |---------|------|
-| `init` | Root server. The only process born with authority; it gives each driver its capabilities and tells it to start, then exits |
+| `init` | Root server. The only process born with authority; it grants the display and file servers their capabilities, reads the other programs from the `initrd` through `ramfs`, starts them with `SYS_SPAWN`, grants `kbd` its port and line, then exits |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the display server |
-| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp` and `files.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 30/30 checks passed` |
+| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp` and `files.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 32/32 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
+| `fsclient` | Reads a file from the `initrd` and exits; `init` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |
 
 The processes see each other only by name: `init` calls `cock::user::lookup("kbd")` to get a process id. The kernel names a process after its module.
 
 ## How the system starts the userland
 1. The Makefile builds every `userland/*/Makefile` into `build/userland/<name>.elf`.
-2. It packs the files of the `initrd/` folder into `build/initrd.tar` (ustar), and writes a `grub.cfg` with one `module` line per program, named after the program, with `init` first (`USERLAND_BOOT_ORDER` in the Makefile), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](memory_management.md)), so it never becomes a process and the process ids do not move.
+2. It packs the files of the `initrd/` folder and, under `bin/`, every program that is not a boot module into `build/initrd.tar` (ustar). It writes a `grub.cfg` with one `module` line for each program of `USERLAND_BOOT_ORDER` (`init`, `ramfs`, `vga_driver`), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](memory_management.md)), so it never becomes a process.
 3. The kernel loads each module as a process and gives the root capabilities to the one called `init`.
-4. `init` grants the capabilities and sends `CAPABILITY_GRANTED` to the drivers. `vga_driver` then maps the screen, and `kbd` enables the port and binds the interrupt.
+4. `init` grants `vga_driver` the screen and `ramfs` the `initrd`, and sends `CAPABILITY_GRANTED` to both. It then reads `bin/*.elf` through `ramfs` and starts each program with `SYS_SPAWN`; a spawned process is born with no capabilities, so `init` grants `kbd` its port and line and sends it `CAPABILITY_GRANTED`. `kbd` enables the port and binds the interrupt.
 5. A key press travels: keyboard controller, IRQ 1, kernel (`IRQ_NOTIFICATION`), `kbd` reads the scan code and acknowledges the line, `kbd` sends `VIDEO_WRITE_CHAR`, `vga_driver` draws the character.
 
 A driver that needs a new capability needs a new `cap_grant` in `userland/init/main.cpp`; see [capabilities](capabilities.md). The display server is described in [VGA](vga.md) and the keyboard driver in [keyboard](keyboard.md).
@@ -38,6 +39,8 @@ A driver that needs a new capability needs a new `cap_grant` in `userland/init/m
 | `shm_create(pages)`, `shm_share(id, pid, writable)`, `shm_map(id, writable)`, `shm_release(id)` | `SYS_SHM_CREATE`, `SYS_SHM_SHARE`, `SYS_SHM_MAP`, `SYS_SHM_RELEASE` |
 | `module_open(name)` | `SYS_MODULE_OPEN` |
 | `module_index(name)` | `SYS_MODULE_INDEX` |
+| `spawn(image, size, name)` | `SYS_SPAWN` |
+| `process_alive(pid)` | `SYS_PROC_ALIVE` |
 | `self()` | `SYS_GETPID` |
 | `write_text(text, length)` | `SYS_WRITE`, repeated until the whole text is written (a call takes at most 128 bytes) |
 | `exit_process(status)` | `SYS_EXIT` |

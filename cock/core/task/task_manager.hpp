@@ -45,6 +45,7 @@ class TaskManager {
 	 */
 	static Process *getKernelProcess();
 	static uint32_t allocatePID();
+	static bool hasFreePid();
 	static constexpr uint32_t slotOf(uint32_t pid) { return pid & SLOT_MASK; }
 
 	/**

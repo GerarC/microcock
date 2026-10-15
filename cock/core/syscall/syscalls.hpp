@@ -113,6 +113,12 @@ uintptr_t sys_module_open(uintptr_t name_ptr, uintptr_t length, uintptr_t,
 uintptr_t sys_module_index(uintptr_t name_ptr, uintptr_t length, uintptr_t,
 						   uintptr_t, uintptr_t, uintptr_t);
 
+uintptr_t sys_spawn(uintptr_t image_ptr, uintptr_t image_size, uintptr_t name_ptr,
+					uintptr_t name_length, uintptr_t, uintptr_t);
+
+uintptr_t sys_proc_alive(uintptr_t pid, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
+						 uintptr_t);
+
 } // namespace cock::core::syscall
 
 #endif

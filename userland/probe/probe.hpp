@@ -28,6 +28,7 @@ bool kernelWriteIsDenied();
 bool unmappedWriteIsDenied();
 bool kernelUnmapIsDenied();
 bool bootModulesAreDenied();
+bool spawnIsDenied();
 
 bool anonymousMemoryWorks();
 bool mappingQuotaIsEnforced();
@@ -37,6 +38,7 @@ bool regionTableIsBounded();
 bool irqNotificationIsRefused();
 bool capabilityGrantIsRefused();
 bool messageToSelfArrives();
+bool processAliveReportsLiveness();
 
 bool oversizedWriteIsCut();
 bool printfFormatsAndLongLines();

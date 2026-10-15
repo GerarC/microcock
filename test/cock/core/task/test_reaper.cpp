@@ -72,6 +72,7 @@ Thread *makeUserThread() {
 }
 
 void checkDeadThreadIsFreed() {
+	EXPECT_TRUE(TaskManager::hasFreePid());
 	EXPECT_TRUE(TaskManager::graveyardEmpty());
 
 	Thread *thread = makeThread(ThreadPriority::NORMAL);

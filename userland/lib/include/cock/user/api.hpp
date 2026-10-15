@@ -96,6 +96,21 @@ inline uint32_t module_index(const char *name) {
 	return result == FAILURE ? NO_MODULE : static_cast<uint32_t>(result);
 }
 
+inline uint32_t spawn(const void *image, size_t size, const char *name) {
+	size_t length = 0;
+	while (name[length] != '\0')
+		length++;
+
+	uintptr_t result =
+		syscall(SYS_SPAWN, reinterpret_cast<uintptr_t>(image), size,
+				reinterpret_cast<uintptr_t>(name), length, 0, 0);
+	return result == FAILURE ? NO_PROCESS : static_cast<uint32_t>(result);
+}
+
+inline bool process_alive(uint32_t pid) {
+	return syscall(SYS_PROC_ALIVE, pid, 0, 0, 0, 0, 0) == SUCCESS;
+}
+
 inline long write_text(const char *text, size_t length) {
 	size_t written = 0;
 	while (written < length) {
