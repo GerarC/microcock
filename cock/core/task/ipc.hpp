@@ -25,10 +25,6 @@ class IPC {
 	 */
 	static void send(uint32_t to_pid, Message message);
 
-	/**
-	 * @brief Queues a message without ever yielding the CPU.
-	 * @return false when the target does not exist or its inbox is full.
-	 */
 	static bool deliver(uint32_t to_pid, Message message);
 
 	/**

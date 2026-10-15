@@ -85,15 +85,6 @@ class GDT {
 	 */
 	static void setKernelStack(uint32_t stack_pointer);
 
-	/**
-	 * @brief Applies an I/O permission bitmap to the TSS to grant/deny hardware
-	 * port access. Nothing is copied when the same version is already applied,
-	 * and only the bytes in use are copied otherwise.
-	 * @param map The process I/O permission map.
-	 * @param bytes Number of leading bytes of the map that grant ports; zero
-	 * denies every port without copying.
-	 * @param version Identifies the contents of the map.
-	 */
 	static void applyIoPermissions(const uint8_t *map, uint32_t bytes,
 								   uint32_t version);
 	static uint32_t appliedIoVersion();

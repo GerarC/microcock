@@ -25,17 +25,9 @@ class Scheduler {
 	static uintptr_t onYield(uintptr_t current_stack_pointer);
 	static void terminateCurrentThread();
 
-	/**
-	 * @brief Asks for a context switch once the running syscall or interrupt
-	 * finishes.
-	 */
 	static void requestReschedule();
 	static bool takeRescheduleRequest();
 
-	/**
-	 * @brief Asks for the running syscall to be executed again when the thread
-	 * resumes, which lets a syscall block without nesting interrupts.
-	 */
 	static void requestRestart();
 	static bool takeRestartRequest();
 	static void exitCurrentThread(ThreadResult result);

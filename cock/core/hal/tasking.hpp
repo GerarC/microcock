@@ -36,10 +36,6 @@ void set_kernel_stack(uintptr_t stack_top);
  */
 void update_thread_entry(uintptr_t context_ptr, void *new_entry);
 
-/**
- * @brief Makes a saved context execute its system call instruction again when
- * it resumes.
- */
 void rewind_syscall(uintptr_t context_ptr);
 
 /**
@@ -57,9 +53,6 @@ inline memory::PhysAddr get_current_address_space() {
 	return memory::PhysAddr(read_page_table_root());
 }
 
-/**
- * @brief Resets a process context so it grants no hardware resource.
- */
 void init_process_context(ArchProcessContext &context);
 
 /**

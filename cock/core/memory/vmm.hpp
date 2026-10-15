@@ -98,15 +98,8 @@ class VirtualMemoryManager {
 	 */
 	static PhysAddr getPhysicalAddress(VirtAddr virt);
 
-	/**
-	 * @brief Tells whether no frame of the physical range is system RAM, which
-	 * is what a device mapping requires.
-	 */
 	static bool isDeviceMemory(PhysAddr phys, size_t length);
 
-	/**
-	 * @brief Tells whether none of the pages of a range is mapped.
-	 */
 	static bool isRangeUnmapped(VirtAddr start, size_t page_count);
 };
 

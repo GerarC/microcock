@@ -82,30 +82,15 @@ uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
 uintptr_t sys_ipc_recv(uintptr_t msg_ptr, uintptr_t, uintptr_t, uintptr_t,
 					   uintptr_t, uintptr_t);
 
-// ==== Security ====
-/**
- * @brief Delegates part of a capability the caller may grant to another process.
- */
 uintptr_t sys_cap_grant(uintptr_t target_pid, uintptr_t type, uintptr_t first,
 						uintptr_t count, uintptr_t, uintptr_t);
 
-// ==== Interrupts ====
-/**
- * @brief Routes a hardware interrupt line to the calling driver.
- */
 uintptr_t sys_irq_bind(uintptr_t line, uintptr_t, uintptr_t, uintptr_t,
 					   uintptr_t, uintptr_t);
 
-/**
- * @brief Re-enables an interrupt line after the driver handled it.
- */
 uintptr_t sys_irq_ack(uintptr_t line, uintptr_t, uintptr_t, uintptr_t,
 					  uintptr_t, uintptr_t);
 
-// ==== Process lookup ====
-/**
- * @brief Finds the process id of a boot module by name.
- */
 uintptr_t sys_proc_lookup(uintptr_t name_ptr, uintptr_t length, uintptr_t,
 						  uintptr_t, uintptr_t, uintptr_t);
 
