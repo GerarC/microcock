@@ -30,7 +30,7 @@ Paths and data never travel in the message. On `FS_CONNECT` the **server** creat
 The server keeps up to 8 sessions keyed by the kernel stamped `sender_pid`, each with 16 handles. A handle is the slot number plus one, valid only in the session that opened it. A second `FS_CONNECT` from the same process resets its handles and returns the same window. When a client asks to connect and the table is full, the server asks `SYS_PROC_ALIVE` about every session, unmaps the window of each dead client, releases its shared memory object and frees the slot. A client that dies leaves its session until then. The process id carries a generation, so a recycled slot is never mistaken for the old client.
 
 ## Programs from the initrd
-`init` is the first client. It reads `manifest.txt`, and for each program of the manifest it opens the file, reads it into an anonymous mapping through the window and calls `SYS_SPAWN`; see [the manifest](userland.md#the-manifest) and [task management](task_management.md#spawn). `fsclient` is a small client that the manifest runs ten times to exercise the release of sessions.
+`init` is the first client. It reads `manifest.conf`, and for each program of the manifest it opens the file, reads it into an anonymous mapping through the window and calls `SYS_SPAWN`; see [the manifest](userland.md#the-manifest) and [task management](task_management.md#spawn). `fsclient` is a small client that the manifest runs ten times to exercise the release of sessions.
 
 ## Client library
 `userland/lib/include/cock/user/fs.hpp` offers `cock::user::fs::Client` with `connect`, `open`, `read`, `readdir`, `stat`, `close` and the raw `call`. A program that uses it lists `string/memcpy.cpp` and `string/strlen.cpp` in `LIBC_SRCS`.

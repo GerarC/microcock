@@ -7,7 +7,7 @@
 
 namespace cock::abi::manifest {
 
-constexpr const char *FILE_PATH = "manifest.txt";
+constexpr const char *FILE_PATH = "manifest.conf";
 constexpr size_t MAX_FILE_BYTES = 4096;
 constexpr size_t MAX_ENTRIES = 16;
 constexpr size_t MAX_NAME_BYTES = 32;
