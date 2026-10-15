@@ -216,6 +216,29 @@ bool VirtualMemoryManager::isUserRangeValid(VirtAddr ptr, size_t length,
 	return Paging::isRangeAccessible(ptr, length, true, write);
 }
 
+bool VirtualMemoryManager::isRangeUnmapped(VirtAddr start,
+											size_t page_count) {
+	for (size_t idx = 0; idx < page_count; idx++) {
+		if (Paging::getPageFlags(start + idx * PAGE_SIZE) != 0) return false;
+	}
+	return true;
+}
+
+bool VirtualMemoryManager::isDeviceMemory(PhysAddr phys, size_t length) {
+	if (length == 0) return false;
+
+	uint64_t last = static_cast<uint64_t>(phys.raw()) + length - 1;
+	if (last >= ADDRESS_SPACE_END) return false;
+
+	for (uint64_t frame = phys.frameNumber(); frame <= (last >> arch::x86::PAGE_SHIFT);
+		 frame++) {
+		if (PhysicalMemoryManager::isRam(
+				PhysAddr(static_cast<uint32_t>(frame << arch::x86::PAGE_SHIFT))))
+			return false;
+	}
+	return true;
+}
+
 PhysAddr VirtualMemoryManager::getPhysicalAddress(VirtAddr virt) {
 	return Paging::translate(virt);
 }

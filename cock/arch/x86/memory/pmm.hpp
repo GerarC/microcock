@@ -15,6 +15,7 @@ class PhysicalMemoryManager {
 
 	static core::memory::PhysAddr allocFrame();
 	static void freeFrame(core::memory::PhysAddr frame);
+	static bool isRam(core::memory::PhysAddr frame);
 };
 
 } // namespace cock::arch::x86

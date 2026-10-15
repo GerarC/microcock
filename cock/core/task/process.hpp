@@ -4,6 +4,7 @@
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/memory/address.hpp>
 #include <cock/core/memory/memory_region.hpp>
+#include <cock/core/security/capability.hpp>
 #include <cock/data_structure/ll.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -21,6 +22,8 @@ using cock::data_structure::LinkedList;
  */
 class Process {
   public:
+	static constexpr size_t MAX_NAME_LENGTH = 32;
+
 	static Process *createKernel();
 	static Process *create(memory::PhysAddr address_space,
 						   memory::VirtAddr user_space_limit);
@@ -36,6 +39,14 @@ class Process {
 
 	hal::ArchProcessContext &getContext() { return context; }
 	const hal::ArchProcessContext &getContext() const { return context; }
+
+	security::CapabilitySet &getCapabilities() { return capabilities; }
+	const security::CapabilitySet &getCapabilities() const {
+		return capabilities;
+	}
+
+	void setName(const char *new_name);
+	const char *getName() const { return name; }
 
 	size_t getThreadCount() const { return threadCount; }
 	void attachThread(uint32_t thread_id);
@@ -56,6 +67,8 @@ class Process {
 	memory::PhysAddr addressSpace;
 	memory::VirtAddr userSpaceLimit;
 	hal::ArchProcessContext context;
+	security::CapabilitySet capabilities;
+	char name[MAX_NAME_LENGTH] = {};
 	size_t threadCount = 0;
 	memory::VirtAddr mmapCursor;
 	LinkedList<MemoryRegion> mappedRegions;

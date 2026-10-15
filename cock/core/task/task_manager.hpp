@@ -52,6 +52,12 @@ class TaskManager {
 	 * @return Pointer to the Thread, or nullptr if it does not exist.
 	 */
 	static Thread *getThreadByPID(uint32_t pid);
+
+	/**
+	 * @brief Finds the id of the user process with the given name.
+	 * @return The process id, or the all ones value when none matches.
+	 */
+	static uint32_t findProcessId(const char *name);
 	static void notifyThreadDeath(Thread *thread);
 	static void buryDeadThreads();
 };

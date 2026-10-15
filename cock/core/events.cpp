@@ -1,5 +1,6 @@
 #include <cock/core/events.hpp>
 #include <cock/core/hal/tasking.hpp>
+#include <cock/core/irq/irq_routing.hpp>
 #include <cock/core/syscall/syscall_manager.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/scheduler.hpp>
@@ -57,6 +58,7 @@ uintptr_t on_exception(const ExceptionInfo &info, uintptr_t stack_pointer) {
 
 uintptr_t on_irq(uint32_t line, uintptr_t stack_pointer) {
 	if (line == hal::TIMER_IRQ_LINE) return Scheduler::onTick(stack_pointer);
+	if (irq::IrqRouting::forward(line)) return Scheduler::onYield(stack_pointer);
 	return stack_pointer;
 }
 

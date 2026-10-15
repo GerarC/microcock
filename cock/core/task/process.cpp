@@ -29,6 +29,16 @@ Process *Process::create(PhysAddr address_space, VirtAddr user_space_limit) {
 	return new Process(address_space, user_space_limit, false);
 }
 
+void Process::setName(const char *new_name) {
+	size_t length = 0;
+	while (new_name != nullptr && new_name[length] != '\0' &&
+		   length < MAX_NAME_LENGTH - 1) {
+		name[length] = new_name[length];
+		length++;
+	}
+	name[length] = '\0';
+}
+
 void Process::attachThread(uint32_t thread_id) {
 	if (threadCount == 0) id = thread_id;
 	threadCount++;

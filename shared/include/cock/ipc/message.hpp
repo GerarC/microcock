@@ -21,6 +21,8 @@ enum class MessageType : uint32_t {
 	VIDEO_WRITE_CHAR = 4,           /**< Request to write a single character to the Video server. */
 	VIDEO_WRITE_STR = 5,            /**< Request to write a string to the Video server. */
 	SYS_REGISTER_MAILBOX = 6,       /**< System request to register a shared memory mailbox. */
+	IRQ_NOTIFICATION = 7,           /**< Kernel notice that a bound hardware interrupt fired; arg0 is the line. */
+	CAPABILITY_GRANTED = 8,         /**< Root server notice that the capabilities were granted; arg0 is a peer process id. */
 };
 
 /**

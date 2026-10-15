@@ -14,6 +14,10 @@
     #define SYS_SCHED_YIELD      0x9E
     #define SYS_IPC_SEND         0x160
     #define SYS_IPC_RECV         0x161
+    #define SYS_CAP_GRANT        0x170
+    #define SYS_IRQ_BIND         0x171
+    #define SYS_IRQ_ACK          0x172
+    #define SYS_PROC_LOOKUP      0x173
 
     #ifdef __cplusplus
     extern "C" {
