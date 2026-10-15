@@ -44,6 +44,10 @@ bool receiveTimeoutBehaves();
 bool timeoutCallsRefuseBadInput();
 bool sleepReturnsAndKeepsMessages();
 
+bool threadsShareMemoryUnderMutex();
+bool futexWakesEveryWaiterAndThreadsAreBounded();
+bool futexAndThreadCallsRefuseBadInput();
+
 bool oversizedWriteIsCut();
 bool printfFormatsAndLongLines();
 

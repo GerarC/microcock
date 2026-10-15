@@ -6,7 +6,7 @@
 
 namespace {
 
-constexpr size_t CHECK_COUNT = 37;
+constexpr size_t CHECK_COUNT = 40;
 constexpr uintptr_t EXIT_ALL_PASSED = 0;
 constexpr uintptr_t EXIT_SOME_FAILED = 1;
 
@@ -50,7 +50,10 @@ extern "C" void _start() {
 		probe::processAliveReportsLiveness(),
 		probe::receiveTimeoutBehaves(),
 		probe::timeoutCallsRefuseBadInput(),
-		probe::sleepReturnsAndKeepsMessages()};
+		probe::sleepReturnsAndKeepsMessages(),
+		probe::futexAndThreadCallsRefuseBadInput(),
+		probe::threadsShareMemoryUnderMutex(),
+		probe::futexWakesEveryWaiterAndThreadsAreBounded()};
 
 	unsigned passed = 0;
 	for (size_t idx = 0; idx < CHECK_COUNT; idx++) {

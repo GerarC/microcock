@@ -17,6 +17,7 @@ uintptr_t sys_exit(uintptr_t status, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
 		Logger::trace("Syscall: EXIT (Thread %d, Code: %d)", current->getId(),
 					  status);
 
+		current->getProcess()->setExitStatus(static_cast<uint32_t>(status));
 		Scheduler::terminateCurrentThread();
 	}
 

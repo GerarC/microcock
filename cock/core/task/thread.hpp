@@ -23,6 +23,7 @@ constexpr size_t USER_PAGES =
 	(MIN_USER_STACK_BYTES + hal::PAGE_MASK) >> hal::PAGE_SHIFT;
 constexpr size_t USER_STACK_SIZE = USER_PAGES << hal::PAGE_SHIFT;
 constexpr size_t THREAD_INBOX_CAPACITY = 0x10;
+constexpr uintptr_t NO_FUTEX_ADDRESS = 0;
 
 static_assert(hal::IRQ_LINE_COUNT <= sizeof(uint32_t) * 8,
 			  "every interrupt line needs a bit in the pending mask");
@@ -100,12 +101,33 @@ class Thread {
 	uint32_t pendingNotifications = 0;
 	uint64_t wakeTick = 0;
 	TimeoutState timeoutState = TimeoutState::NONE;
-	void initBase(ThreadPriority priority, ThreadType type, Process *owner);
+	uintptr_t futexAddress = NO_FUTEX_ADDRESS;
+	bool futexWoken = false;
+	void initBase(ThreadPriority priority, ThreadType type, Process *owner,
+				  void *kernel_stack = nullptr);
+	Thread(Process &owner, memory::VirtAddr entry_point,
+		   memory::VirtAddr user_stack_base, size_t user_stack_size,
+		   void *kernel_stack, ThreadPriority priority);
 
   public:
 	Thread *link = nullptr;
 	Thread *timerLink = nullptr;
+	Thread *futexLink = nullptr;
 	bool queued = false;
+
+	static Thread *createUser(Process &owner, memory::VirtAddr entry_point,
+							  memory::VirtAddr user_stack_base,
+							  size_t user_stack_size, ThreadPriority priority);
+
+	uintptr_t getFutexAddress() const { return futexAddress; }
+	void setFutexAddress(uintptr_t address) { futexAddress = address; }
+	bool isFutexWaiting() const { return futexAddress != NO_FUTEX_ADDRESS; }
+	void setFutexWoken(bool woken) { futexWoken = woken; }
+	bool takeFutexWake() {
+		bool woken = futexWoken;
+		futexWoken = false;
+		return woken;
+	}
 
 	TimeoutState getTimeoutState() const { return timeoutState; }
 	void setTimeoutState(TimeoutState state) { timeoutState = state; }

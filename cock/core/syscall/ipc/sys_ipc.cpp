@@ -26,7 +26,9 @@ constexpr uintptr_t SUCCESS = 0;
 constexpr uintptr_t NO_MESSAGE = 1;
 
 static bool sender_may_use(const Thread &thread, MessageType type) {
-	if (type == MessageType::IRQ_NOTIFICATION) return false;
+	if (type == MessageType::IRQ_NOTIFICATION ||
+		type == MessageType::PROCESS_EXITED)
+		return false;
 	if (type == MessageType::CAPABILITY_GRANTED)
 		return thread.getProcess()->getCapabilities().holdsGrantAuthority();
 	return true;

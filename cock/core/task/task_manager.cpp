@@ -1,4 +1,5 @@
 #include <cock/core/hal/interrupt_guard.hpp>
+#include <cock/core/task/ipc.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
@@ -88,11 +89,27 @@ void TaskManager::setReaper(Thread *thread) { reaper = thread; }
 
 bool TaskManager::graveyardEmpty() { return graveyard.isEmpty(); }
 
+void TaskManager::announceExit(Process &process) {
+	if (!process.notifiesExit() || process.getParentId() == abi::process::NO_PARENT)
+		return;
+
+	Message message = {};
+	message.type = ipc::MessageType::PROCESS_EXITED;
+	message.payload.args.arg0 = process.getId();
+	message.payload.args.arg1 = process.getExitStatus();
+	if (!IPC::deliverAs(process.getParentId(), message, ipc::KERNEL_SENDER))
+		Logger::trace("Exit notice of %u was not delivered", process.getId());
+}
+
 void TaskManager::notifyThreadDeath(Thread *thread) {
 	if (!thread) return;
 
 	InterruptGuard guard;
 	graveyard.push(thread);
+
+	Process *process = thread->getProcess();
+	if (process != nullptr && !process->isKernel() && process->threadExited())
+		announceExit(*process);
 
 	if (reaper != nullptr && reaper->getState() == ThreadState::BLOCKED) {
 		reaper->setState(ThreadState::READY);

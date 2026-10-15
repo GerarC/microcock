@@ -2,6 +2,7 @@
 #define COCK_USER_API_HPP
 
 #include <cock/abi/capability.hpp>
+#include <cock/abi/process.hpp>
 #include <cock/ipc/message.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -142,15 +143,40 @@ inline uint32_t module_index(const char *name) {
 	return result == FAILURE ? NO_MODULE : static_cast<uint32_t>(result);
 }
 
-inline uint32_t spawn(const void *image, size_t size, const char *name) {
+inline uint32_t spawn(const void *image, size_t size, const char *name,
+					  bool notify_exit = false) {
 	size_t length = 0;
 	while (name[length] != '\0')
 		length++;
 
 	uintptr_t result =
 		syscall(SYS_SPAWN, reinterpret_cast<uintptr_t>(image), size,
-				reinterpret_cast<uintptr_t>(name), length, 0, 0);
+				reinterpret_cast<uintptr_t>(name), length,
+				notify_exit ? abi::process::SPAWN_NOTIFY_EXIT : 0, 0);
 	return result == FAILURE ? NO_PROCESS : static_cast<uint32_t>(result);
+}
+
+inline uint32_t gettid() {
+	return static_cast<uint32_t>(syscall(SYS_GETTID, 0, 0, 0, 0, 0, 0));
+}
+
+inline uint32_t thread_create_raw(uintptr_t entry, void *stack_base,
+								  size_t stack_size) {
+	uintptr_t result = syscall(SYS_THREAD_CREATE, entry,
+							   reinterpret_cast<uintptr_t>(stack_base), stack_size,
+							   0, 0, 0);
+	return result == FAILURE ? NO_PROCESS : static_cast<uint32_t>(result);
+}
+
+inline uintptr_t futex_wait(const uint32_t *word, uint32_t expected,
+							uint32_t milliseconds = abi::process::FUTEX_NO_TIMEOUT) {
+	return syscall(SYS_FUTEX_WAIT, reinterpret_cast<uintptr_t>(word), expected,
+				   milliseconds, 0, 0, 0);
+}
+
+inline uintptr_t futex_wake(const uint32_t *word, uint32_t count) {
+	return syscall(SYS_FUTEX_WAKE, reinterpret_cast<uintptr_t>(word), count, 0, 0, 0,
+				   0);
 }
 
 inline bool process_alive(uint32_t pid) {

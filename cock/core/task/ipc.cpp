@@ -7,15 +7,19 @@
 namespace cock::core::task {
 
 bool IPC::deliver(uint32_t to_pid, Message message) {
+	Thread *sender = Scheduler::getCurrentThread();
+	return deliverAs(to_pid, message, sender ? sender->getId() : 0);
+}
+
+bool IPC::deliverAs(uint32_t to_pid, Message message, uint32_t sender_pid) {
 	uintptr_t flags = hal::save_and_block_interruptions();
 	Thread *target = TaskManager::getThreadByPID(to_pid);
-	Thread *sender = Scheduler::getCurrentThread();
 
 	if (!target || target->getState() == ThreadState::DEAD) {
 		hal::restore_interruptions(flags);
 		return false;
 	}
-	message.sender_pid = sender ? sender->getId() : 0;
+	message.sender_pid = sender_pid;
 	message.target_pid = target->getId();
 
 	if (!target->receiveMessage(message)) {

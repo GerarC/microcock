@@ -1,3 +1,4 @@
+#include <cock/abi/process.hpp>
 #include <cock/core/loader/elf.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/syscall/syscalls.hpp>
@@ -31,7 +32,7 @@ constexpr size_t MAX_IMAGE_BYTES = 0x400000;
 }
 
 uintptr_t sys_spawn(uintptr_t image_ptr, uintptr_t image_size, uintptr_t name_ptr,
-					uintptr_t name_length, uintptr_t, uintptr_t) {
+					uintptr_t name_length, uintptr_t flags, uintptr_t) {
 	Thread *current = Scheduler::getCurrentThread();
 	if (!current) return FAILURE;
 	if (!current->getProcess()->getCapabilities().holdsGrantAuthority()) {
@@ -77,6 +78,8 @@ uintptr_t sys_spawn(uintptr_t image_ptr, uintptr_t image_size, uintptr_t name_pt
 
 	Process *process = Process::create(address_space, image.user_space_limit);
 	process->setName(name);
+	process->setParentId(current->getProcess()->getId());
+	process->setNotifiesExit((flags & abi::process::SPAWN_NOTIFY_EXIT) != 0);
 	Thread *thread = new Thread(*process, image.entry, ThreadPriority::NORMAL);
 	Scheduler::addThread(thread);
 	return thread->getId();

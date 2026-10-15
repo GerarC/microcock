@@ -30,6 +30,7 @@ class TaskManager {
 	static ThreadQueue graveyard;
 	static Process *kernelProcess;
 	static Thread *reaper;
+	static void announceExit(Process &process);
 
   public:
 	/**

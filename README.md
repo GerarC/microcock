@@ -83,6 +83,10 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_IPC_TRY_RECV` (0x17C): Like `SYS_IPC_RECV` but returns 1 at once when there is nothing to receive.
 * `SYS_IPC_RECV_TIMEOUT` (0x17D): Like `SYS_IPC_RECV` but returns 1 when the given milliseconds pass with nothing to receive.
 * `SYS_SLEEP` (0x17E): Block the caller for at least the given milliseconds (10 ms resolution).
+* `SYS_THREAD_CREATE` (0x17F): Start another thread of the caller process at an entry point, on a stack the caller provides; returns the thread id.
+* `SYS_FUTEX_WAIT` (0x180): Block while a 32 bit word still holds an expected value, with an optional timeout.
+* `SYS_FUTEX_WAKE` (0x181): Wake up to a given number of threads of the caller process waiting on a word.
+* `SYS_GETTID` (0x182): Retrieve the id of the calling thread.
 
 ## Building and Running
 
@@ -191,7 +195,8 @@ The same checks run on every push through `.github/workflows/ci.yml`.
 
 ### Current limitations
 
-* One thread per user process, and no syscall to create processes or threads at run time: every process comes from a Multiboot module.
+* At most 8 threads per user process. A thread runs on a stack the program provides, an exception ends only the thread that caused it, and `SYS_EXIT` ends only the calling thread: the process is gone when its last thread ends.
+* A process that exits tells its spawner only if the spawner asked for it (`PROCESS_EXITED`), and the notice is lost when the inbox of the spawner is full; `SYS_PROC_ALIVE` stays the reliable check.
 * Capabilities are assigned at boot (the module named `init` holds the authority) and cannot be revoked; each process holds up to 16.
 * IPC is asynchronous with a small inbox per thread; there are no timeouts and no synchronous call and reply.
 * The user C library is minimal: it has buffered `printf`, `malloc` and `operator new` (no locking), and no file calls yet.
@@ -253,7 +258,7 @@ In this order. Each item is one change with its tests and documentation.
 
 **2. Microkernel features** (each needs the previous one)
 - [x] Timers: `sleep` and receive with a timeout.
-- [ ] Threads, blocking primitives and exit notifications for `spawn`.
+- [x] Threads, blocking primitives and exit notifications for `spawn`.
 - [ ] Synchronous IPC with a register fast path.
 - [ ] A console server that replaces `SYS_WRITE` and gives `SYS_READ` something to read.
 - [ ] Locking in `malloc` and a shared `crt0`.
