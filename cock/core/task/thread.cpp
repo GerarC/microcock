@@ -36,6 +36,7 @@ Thread::Thread(uintptr_t entry_point, uintptr_t address_space,
 	initBase(priority, ThreadType::USER);
 	this->addressSpace = address_space;
 	this->userSpaceLimit = user_space_limit;
+	this->mmapCursor = hal::USER_MMAP_BASE;
 
 	{
 		InterruptGuard guard;

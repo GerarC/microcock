@@ -1,9 +1,11 @@
 #ifndef CORE_THREAD_HPP
 #define CORE_THREAD_HPP
 
+#include "cock/data_structure/ll.hpp"
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/data_structure/intrusive_queue.hpp>
+#include <cock/core/memory/memory_region.hpp>
 #include <cock/data_structure/ring_buffer.hpp>
 #include <cock/ipc/message.hpp>
 #include <hal/page.hpp>
@@ -24,9 +26,15 @@ constexpr size_t THREAD_MESSAGE_BUFFER_SIZE = 0x10;
 
 using cock::core::hal::ArchThreadContext;
 using cock::data_structure::IntrusiveQueue;
+using cock::core::memory::MemoryRegion;
+using cock::data_structure::LinkedList;
 using cock::data_structure::RingBuffer;
 using ipc::Message;
 
+/**
+ * @brief Defines the priority levels for the Multi-Level Feedback Queue
+ * scheduler.
+ */
 enum class ThreadPriority : uint8_t {
 	IDLE = 0,
 	LOW = 1,
@@ -35,12 +43,24 @@ enum class ThreadPriority : uint8_t {
 	CRITICAL = 4
 };
 
+/**
+ * @brief Represents the exit status or error code of a thread.
+ */
 enum class ThreadError { NONE = 0, GENERAL_FAULT = 1, TIMEOUT };
 
+/**
+ * @brief Represents the current execution state of a thread.
+ */
 enum class ThreadState { READY, RUNNING, BLOCKED, WAITING_MSG, DEAD };
 
+/**
+ * @brief Differentiates between Kernel (Ring 0) and User (Ring 3) threads.
+ */
 enum class ThreadType { KERNEL, USER };
 
+/**
+ * @brief Wrapper for the execution result of a thread function.
+ */
 class ThreadResult {
   private:
 	bool errorFlag;
@@ -61,6 +81,9 @@ class ThreadResult {
 
 using ThreadFunction = ThreadResult (*)();
 
+/**
+ * @brief Core Thread class representing an independent execution context.
+ */
 class Thread {
   private:
 	uint32_t id = 0;
@@ -73,6 +96,8 @@ class Thread {
 	uintptr_t userSpaceLimit = 0;
 	void *stackBase = nullptr;
 	RingBuffer<Message, THREAD_MESSAGE_BUFFER_SIZE> inbox;
+	LinkedList<MemoryRegion> mapped_pages;
+	uintptr_t mmapCursor = 0;
 	void initBase(ThreadPriority priority, ThreadType type);
 	ArchThreadContext archContext = nullptr;
 
@@ -110,18 +135,41 @@ class Thread {
 	}
 
 	void *getUserStackBase() const { return userStackBase; }
+	void setUserStackBase(void *base) { userStackBase = base; }
 
 	void setEntryPoint(void *entry) {
 		hal::update_thread_entry(stackPointer, entry);
 	}
 
-	void receiveMessage(const Message &msg) { inbox.push(msg); }
+	/**
+	 * @brief Pushes an incoming IPC message into the thread's inbox.
+	 */
+	bool receiveMessage(const Message &msg) { return inbox.push(msg); }
 	bool getNextMessage(Message &out) { return inbox.pop(out); }
 	bool hasMessages() const { return !inbox.isEmpty(); }
 
 	uintptr_t getAddressSpace() const { return addressSpace; }
 	uintptr_t getUserSpaceLimit() const { return userSpaceLimit; }
-	void setUserStackBase(void *base) { userStackBase = base; }
+
+	/**
+	 * @brief Registers dynamically allocated memory to track and prevent memory
+	 * leaks upon thread death.
+	 */
+	void addMemoryRegion(uintptr_t addr, size_t pages) {
+		mapped_pages.append({addr, pages});
+	}
+	void removeMemoryRegion(uintptr_t addr) { mapped_pages.remove({addr, 0}); }
+
+	bool takeMemoryRegion(uintptr_t addr, size_t pages) {
+		auto found = mapped_pages.find({addr, 0});
+		if (found == mapped_pages.end() || (*found).page_count != pages)
+			return false;
+		mapped_pages.remove({addr, 0});
+		return true;
+	}
+
+	uintptr_t getMmapCursor() const { return mmapCursor; }
+	void setMmapCursor(uintptr_t cursor) { mmapCursor = cursor; }
 
 	static void wrapper(ThreadFunction userFunc);
 	static void yield();

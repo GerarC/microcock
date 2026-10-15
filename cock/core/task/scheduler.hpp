@@ -7,10 +7,17 @@
 
 namespace cock::core::task {
 
+/**
+ * @brief Multi-Level Feedback Queue (MLFQ) Thread Scheduler.
+ * * Manages thread execution, context switching, and priority aging/boosting.
+ */
 class Scheduler {
   public:
 	static constexpr size_t PRIORITY_NUMBER = 5;
 
+    /**
+     * @brief Initializes the scheduling engine. Must be called before enabling interrupts.
+     */
 	static void init();
 	static void setIdleThread(Thread *thread);
 	static void addThread(Thread *thread);
@@ -18,7 +25,16 @@ class Scheduler {
 	static uintptr_t onYield(uintptr_t current_stack_pointer);
 	static void terminateCurrentThread();
 	static void exitCurrentThread(ThreadResult result);
+
+    /**
+     * @brief Voluntarily relinquishes the CPU.
+     */
 	static void yield();
+
+    /**
+     * @brief Retrieves the currently executing thread.
+     * @return Pointer to the current Thread, or nullptr if none.
+     */
 	static Thread *getCurrentThread();
 
   private:

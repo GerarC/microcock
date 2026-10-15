@@ -8,6 +8,7 @@
 #include <cock/core/version.hpp>
 #include <cock/utils/logger.hpp>
 #include <cock/core/loader/elf.hpp>
+#include <hal/console.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -30,6 +31,10 @@ using core::loader::load_executable;
 using core::loader::LoadedImage;
 using utils::Logger;
 using utils::LogLevel;
+
+uint32_t vga_server_pid = 0;
+
+constexpr const char *VGA_DRIVER_MODULE = "vga_driver";
 
 ThreadResult kernel_idle() {
 	while (true) {
@@ -76,6 +81,12 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
         }
 
         Thread *app_thread = new Thread(image.entry, new_cr3, image.user_space_limit, ThreadPriority::NORMAL);
+        if (strcmp(modules[i].name, VGA_DRIVER_MODULE) == 0) {
+            core::hal::console_detach();
+            vga_server_pid = app_thread->getId();
+            Logger::info("VGA driver detected. Assigned PID: %d", vga_server_pid);
+        }
+
         Scheduler::addThread(app_thread);
     }
 

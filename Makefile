@@ -46,7 +46,7 @@ CPP_FLAGS += -DCOCK_VERSION_STAGE=$(VERSION_STAGE)
 CPP_FLAGS += -DCOCK_GIT_HASH=$(GIT_HASH)
 CPP_FLAGS += -DCOCK_BUILD_DATE=$(BUILD_DATE)
 
-CPP_SOURCES  = $(shell find cock libc libcxx shared -name '*.cpp')
+CPP_SOURCES  = $(shell find cock libc libcxx shared -name '*.cpp' -not -path 'libc/unistd/*' -not -path 'libc/sys/*')
 ASM_SOURCES  = $(shell find cock libc libcxx shared -name '*.s')
 
 ifdef TEST_BUILD
