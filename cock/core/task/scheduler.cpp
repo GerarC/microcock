@@ -20,6 +20,8 @@ Thread *Scheduler::idleThread = nullptr;
 uint32_t Scheduler::currentTicks = 0;
 uint32_t Scheduler::ticksSinceLastBoost = 0;
 bool Scheduler::initialized = false;
+bool Scheduler::rescheduleRequested = false;
+bool Scheduler::restartRequested = false;
 
 void Scheduler::init() {
 	currentThread = nullptr;
@@ -73,6 +75,23 @@ void Scheduler::terminateCurrentThread() {
 
 	currentThread->setState(ThreadState::DEAD);
 	TaskManager::notifyThreadDeath(currentThread);
+	requestReschedule();
+}
+
+void Scheduler::requestReschedule() { rescheduleRequested = true; }
+
+bool Scheduler::takeRescheduleRequest() {
+	bool requested = rescheduleRequested;
+	rescheduleRequested = false;
+	return requested;
+}
+
+void Scheduler::requestRestart() { restartRequested = true; }
+
+bool Scheduler::takeRestartRequest() {
+	bool requested = restartRequested;
+	restartRequested = false;
+	return requested;
 }
 
 void Scheduler::exitCurrentThread(ThreadResult result) {
@@ -133,6 +152,7 @@ uintptr_t Scheduler::onYield(uintptr_t current_stack_pointer) {
 
 uintptr_t Scheduler::switchFrom(uintptr_t current_stack_pointer,
 								bool quantum_expired) {
+	rescheduleRequested = false;
 	Thread *previous = currentThread;
 
 	if (previous) {

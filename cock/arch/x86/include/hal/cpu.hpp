@@ -6,6 +6,7 @@
 
 namespace cock::core::hal {
 
+constexpr uint32_t TIMER_IRQ_LINE = 0;
 constexpr uint8_t TIMER_VECTOR = 0x20;
 constexpr uint8_t SYSCALL_VECTOR = 0x80;
 constexpr uint16_t IO_DELAY_PORT = 0x80;

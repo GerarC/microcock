@@ -3,6 +3,7 @@
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/ipc.hpp>
 #include <cock/core/task/scheduler.hpp>
+#include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
 #include <cock/ipc/message.hpp>
 #include <hal/console.hpp>
@@ -13,6 +14,8 @@ namespace cock::core::syscall {
 
 using core::task::IPC;
 using core::task::Scheduler;
+using core::task::TaskManager;
+using core::task::ThreadState;
 using core::task::Thread;
 using ipc::Message;
 using ipc::MessageType;
@@ -60,7 +63,20 @@ uintptr_t sys_write(uintptr_t fd, uintptr_t buf_ptr, uintptr_t count, uintptr_t,
 	}
 
 	size_t accepted = forward_to_video_server(user_buf, count);
-	if (accepted == 0 && count != 0) return FAILURE;
+	if (accepted == 0 && count != 0) {
+		Thread *server = TaskManager::getThreadByPID(cock::vga_server_pid);
+		if (server && server->getState() != ThreadState::DEAD) {
+			Scheduler::requestReschedule();
+			Scheduler::requestRestart();
+			return 0;
+		}
+
+		cock::vga_server_pid = 0;
+		hal::console_attach();
+		hal::console_write(user_buf, count);
+		return count;
+	}
+
 	hal::console_write(user_buf, accepted);
 	return accepted;
 }

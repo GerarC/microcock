@@ -85,6 +85,12 @@ uintptr_t prepare_user_thread_stack(void *kernel_stack_base,
 
 void set_kernel_stack(uintptr_t stack_top) { GDT::setKernelStack(stack_top); }
 
+void rewind_syscall(uintptr_t context_ptr) {
+	InterruptRegisters *regs =
+		reinterpret_cast<InterruptRegisters *>(context_ptr);
+	regs->eip -= SYSCALL_INSTRUCTION_SIZE;
+}
+
 void update_thread_entry(uintptr_t context_ptr, void *new_entry) {
 	InterruptRegisters *regs =
 		reinterpret_cast<InterruptRegisters *>(context_ptr);

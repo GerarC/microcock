@@ -37,6 +37,12 @@ void set_kernel_stack(uintptr_t stack_top);
 void update_thread_entry(uintptr_t context_ptr, void *new_entry);
 
 /**
+ * @brief Makes a saved context execute its system call instruction again when
+ * it resumes.
+ */
+void rewind_syscall(uintptr_t context_ptr);
+
+/**
  * @brief Performs a hardware page directory switch (writes to CR3 on x86).
  */
 inline void switch_address_space(memory::PhysAddr root) {

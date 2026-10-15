@@ -14,6 +14,7 @@ using core::memory::VirtualMemoryManager;
 using core::task::IPC;
 using core::task::Scheduler;
 using core::task::Thread;
+using core::task::ThreadState;
 using ipc::Message;
 
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
@@ -41,7 +42,13 @@ uintptr_t sys_ipc_recv(uintptr_t msg_ptr, uintptr_t, uintptr_t, uintptr_t,
 	if (!current || !user_message_ok(*current, msg_ptr, true)) return FAILURE;
 
 	Message message = {};
-	IPC::receive(&message);
+	if (!current->getNextMessage(message)) {
+		current->setState(ThreadState::WAITING_MSG);
+		Scheduler::requestReschedule();
+		Scheduler::requestRestart();
+		return SUCCESS;
+	}
+
 	memcpy(reinterpret_cast<void *>(msg_ptr), &message, sizeof(message));
 	return SUCCESS;
 }

@@ -23,6 +23,8 @@ inline void console_write(const char *data, size_t size) {
 
 inline void console_detach() { console_screen_attached = false; }
 
+inline void console_attach() { console_screen_attached = true; }
+
 } // namespace cock::core::hal
 
 #endif // !ARCH_X86_HAL_CONSOLE_HPP
