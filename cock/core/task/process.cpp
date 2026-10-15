@@ -1,6 +1,7 @@
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/task/process.hpp>
 #include <hal/address_space.hpp>
+#include <hal/page.hpp>
 
 namespace cock::core::task {
 
@@ -11,8 +12,7 @@ using memory::VirtualMemoryManager;
 Process::Process(PhysAddr address_space, VirtAddr user_space_limit,
 				 bool is_kernel)
 	: kernel(is_kernel), addressSpace(address_space),
-	  userSpaceLimit(user_space_limit),
-	  mmapCursor(VirtAddr(hal::USER_MMAP_BASE)) {
+	  userSpaceLimit(user_space_limit) {
 	hal::init_process_context(context);
 }
 
@@ -49,16 +49,48 @@ bool Process::detachThread() {
 	return threadCount == 0;
 }
 
-void Process::addMemoryRegion(VirtAddr addr, size_t pages) {
-	mappedRegions.append({addr.raw(), pages});
+bool Process::addMemoryRegion(VirtAddr addr, size_t pages, bool owned) {
+	if (!hasRegionSlot() || pages == 0) return false;
+	if (owned && !canOwnPages(pages)) return false;
+
+	regions[regionCount++] = {addr.raw(), pages, owned};
+	if (owned) ownedPages += pages;
+	return true;
 }
 
 bool Process::takeMemoryRegion(VirtAddr addr, size_t pages) {
-	auto found = mappedRegions.find({addr.raw(), 0});
-	if (found == mappedRegions.end() || (*found).page_count != pages)
-		return false;
-	mappedRegions.remove({addr.raw(), 0});
-	return true;
+	for (size_t idx = 0; idx < regionCount; idx++) {
+		if (regions[idx].virt_addr != addr.raw()) continue;
+		if (regions[idx].page_count != pages) return false;
+
+		if (regions[idx].owned) ownedPages -= pages;
+		regions[idx] = regions[--regionCount];
+		return true;
+	}
+	return false;
+}
+
+VirtAddr Process::findFreeRange(size_t pages, VirtAddr from,
+								VirtAddr limit) const {
+	uint64_t length = static_cast<uint64_t>(pages) << hal::PAGE_SHIFT;
+	uint64_t candidate = from.raw();
+
+	for (;;) {
+		if (pages == 0 || candidate + length > limit.raw()) return VirtAddr();
+
+		bool moved = false;
+		for (size_t idx = 0; idx < regionCount && !moved; idx++) {
+			uint64_t region_start = regions[idx].virt_addr;
+			uint64_t region_end =
+				region_start +
+				(static_cast<uint64_t>(regions[idx].page_count) << hal::PAGE_SHIFT);
+			if (candidate < region_end && region_start < candidate + length) {
+				candidate = region_end;
+				moved = true;
+			}
+		}
+		if (!moved) return VirtAddr(static_cast<hal::VirtualRaw>(candidate));
+	}
 }
 
 } // namespace cock::core::task

@@ -27,7 +27,9 @@ constexpr uint8_t TEST_PATTERN = 0x5A;
 constexpr unsigned DECIMAL_BASE = 10;
 constexpr size_t NUMBER_BUFFER_SIZE = 12;
 constexpr long WRITE_FAILED = -1;
-constexpr size_t CHECK_COUNT = 13;
+constexpr size_t CHECK_COUNT = 16;
+constexpr size_t OVERSIZED_MAPPING = 0x20000000;
+constexpr size_t MAPPING_ATTEMPTS = 64;
 constexpr size_t OVERSIZED_WRITE = 200;
 constexpr uint32_t PING_VALUE = 0x5EED;
 constexpr int MUNMAP_FAILED = -1;
@@ -70,6 +72,43 @@ bool refusesReservedMessage(MessageType type) {
 	Message message = {};
 	message.type = type;
 	return !cock::user::ipc_send(cock::user::self(), message);
+}
+
+void *mapPage() {
+	return mmap(nullptr, PAGE_BYTES, MAPPING_PROTECTION, MAP_ANONYMOUS, NO_FILE, 0);
+}
+
+bool mappingQuotaIsEnforced() {
+	void *huge = mmap(nullptr, OVERSIZED_MAPPING, MAPPING_PROTECTION,
+					  MAP_ANONYMOUS, NO_FILE, 0);
+	if (huge != MAP_FAILED) return false;
+	return mapPage() != MAP_FAILED;
+}
+
+bool releasedAddressIsReused() {
+	void *first = mapPage();
+	if (first == MAP_FAILED) return false;
+	if (munmap(first, PAGE_BYTES) != 0) return false;
+
+	void *second = mapPage();
+	if (second == MAP_FAILED) return false;
+	return second == first && munmap(second, PAGE_BYTES) == 0;
+}
+
+bool regionTableIsBounded() {
+	void *regions[MAPPING_ATTEMPTS];
+	size_t mapped = 0;
+
+	while (mapped < MAPPING_ATTEMPTS) {
+		void *region = mapPage();
+		if (region == MAP_FAILED) break;
+		regions[mapped++] = region;
+	}
+	bool bounded = mapped > 0 && mapped < MAPPING_ATTEMPTS;
+
+	for (size_t idx = 0; idx < mapped; idx++)
+		munmap(regions[idx], PAGE_BYTES);
+	return bounded && mapPage() != MAP_FAILED;
 }
 
 bool oversizedWriteIsCut() {
@@ -123,7 +162,10 @@ extern "C" void _start() {
 		refusesReservedMessage(MessageType::IRQ_NOTIFICATION),
 		refusesReservedMessage(MessageType::CAPABILITY_GRANTED),
 		messageToSelfArrives(),
-		oversizedWriteIsCut()};
+		oversizedWriteIsCut(),
+		mappingQuotaIsEnforced(),
+		releasedAddressIsReused(),
+		regionTableIsBounded()};
 
 	unsigned passed = 0;
 	for (size_t idx = 0; idx < CHECK_COUNT; idx++) {

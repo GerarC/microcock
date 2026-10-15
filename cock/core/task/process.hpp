@@ -5,18 +5,18 @@
 #include <cock/core/memory/address.hpp>
 #include <cock/core/memory/memory_region.hpp>
 #include <cock/core/security/capability.hpp>
-#include <cock/data_structure/ll.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
 namespace cock::core::task {
 
 using cock::core::memory::MemoryRegion;
-using cock::data_structure::LinkedList;
 
 class Process {
   public:
 	static constexpr size_t MAX_NAME_LENGTH = 32;
+	static constexpr size_t MAX_MAPPING_REGIONS = 32;
+	static constexpr size_t MAX_OWNED_PAGES = 0x1000;
 
 	static Process *createKernel();
 	static Process *create(memory::PhysAddr address_space,
@@ -46,11 +46,17 @@ class Process {
 	void attachThread(uint32_t thread_id);
 	bool detachThread();
 
-	memory::VirtAddr getMmapCursor() const { return mmapCursor; }
-	void setMmapCursor(memory::VirtAddr cursor) { mmapCursor = cursor; }
+	bool hasRegionSlot() const { return regionCount < MAX_MAPPING_REGIONS; }
+	bool canOwnPages(size_t pages) const {
+		return pages <= MAX_OWNED_PAGES - ownedPages;
+	}
+	size_t getOwnedPages() const { return ownedPages; }
+	size_t getRegionCount() const { return regionCount; }
 
-	void addMemoryRegion(memory::VirtAddr addr, size_t pages);
+	bool addMemoryRegion(memory::VirtAddr addr, size_t pages, bool owned);
 	bool takeMemoryRegion(memory::VirtAddr addr, size_t pages);
+	memory::VirtAddr findFreeRange(size_t pages, memory::VirtAddr from,
+								   memory::VirtAddr limit) const;
 
   private:
 	Process(memory::PhysAddr address_space, memory::VirtAddr user_space_limit,
@@ -64,8 +70,9 @@ class Process {
 	security::CapabilitySet capabilities;
 	char name[MAX_NAME_LENGTH] = {};
 	size_t threadCount = 0;
-	memory::VirtAddr mmapCursor;
-	LinkedList<MemoryRegion> mappedRegions;
+	MemoryRegion regions[MAX_MAPPING_REGIONS] = {};
+	size_t regionCount = 0;
+	size_t ownedPages = 0;
 };
 
 } // namespace cock::core::task

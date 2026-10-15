@@ -34,6 +34,7 @@ uint32_t ramBitmap[BITMAP_WORDS];
 uint32_t frameLimit = 0;
 uint32_t searchHint = 0;
 uint32_t usedFrames = 0;
+uint32_t freeFrames = 0;
 
 inline bool testFrame(uint32_t frame) {
 	return frameBitmap[frame / BITS_PER_WORD] & (1u << (frame % BITS_PER_WORD));
@@ -172,6 +173,11 @@ void PhysicalMemoryManager::init(const MBInfo *boot_info, PhysAddr boot_info_phy
 	reserveRange(0, kernel_end_phys);
 	reserveBootStructures(boot_info, boot_info_phys);
 
+	freeFrames = 0;
+	for (uint32_t frame = 0; frame < frameLimit; frame++) {
+		if (!testFrame(frame)) freeFrames++;
+	}
+
 	Logger::debug("Physical Memory Manager initializated (%u KiB addressable)",
 				  frameLimit * (PAGE_SIZE / KIBIBYTE));
 }
@@ -182,6 +188,8 @@ bool PhysicalMemoryManager::isRam(PhysAddr address) {
 	return ramBitmap[frame / BITS_PER_WORD] & (1u << (frame % BITS_PER_WORD));
 }
 
+size_t PhysicalMemoryManager::freeFrameCount() { return freeFrames; }
+
 PhysAddr PhysicalMemoryManager::allocFrame() {
 	InterruptGuard guard;
 
@@ -190,6 +198,7 @@ PhysAddr PhysicalMemoryManager::allocFrame() {
 
 	setFrame(frame);
 	usedFrames++;
+	freeFrames--;
 	return PhysAddr(frame * PAGE_SIZE);
 }
 
@@ -200,6 +209,7 @@ void PhysicalMemoryManager::freeFrame(PhysAddr address) {
 	if (frame >= frameLimit || !testFrame(frame)) return;
 
 	clearFrame(frame);
+	freeFrames++;
 	if (usedFrames > 0) usedFrames--;
 	if (frame / BITS_PER_WORD < searchHint) searchHint = frame / BITS_PER_WORD;
 }

@@ -28,6 +28,8 @@ static_assert(USER_SPACE_LIMIT == USER_TOP,
 namespace {
 
 constexpr size_t MAX_RECYCLED_STACKS = 64;
+constexpr size_t KERNEL_RESERVED_FRAMES = 256;
+constexpr size_t TABLE_MARGIN_EXTRA = 2;
 constexpr uint64_t ADDRESS_SPACE_END = 0x100000000ULL;
 
 struct RecycledStack {
@@ -186,6 +188,21 @@ VirtAddr VirtualMemoryManager::mapPagesAt(VirtAddr vaddr, size_t num_pages,
 	uint32_t flags = toX86Flag(permission);
 	InterruptGuard guard;
 
+	size_t fresh = 0;
+	for (size_t idx = 0; idx < num_pages; idx++) {
+		if (Paging::getPageFlags(start + idx * PAGE_SIZE) == 0) fresh++;
+	}
+
+	size_t reserve = (permission & VMMPermission::USER) ? KERNEL_RESERVED_FRAMES : 0;
+	size_t needed = fresh + num_pages / arch::x86::ENTRIES_PER_TABLE +
+					TABLE_MARGIN_EXTRA + reserve;
+	if (needed > PhysicalMemoryManager::freeFrameCount()) {
+		Logger::trace("VMM: not enough free frames to map %u pages",
+					  static_cast<unsigned>(num_pages));
+		return VirtAddr();
+	}
+	bool all_fresh = fresh == num_pages;
+
 	for (size_t idx = 0; idx < num_pages; idx++) {
 		VirtAddr virt = start + idx * PAGE_SIZE;
 		uint32_t existing = Paging::getPageFlags(virt);
@@ -199,6 +216,7 @@ VirtAddr VirtualMemoryManager::mapPagesAt(VirtAddr vaddr, size_t num_pages,
 
 		if (!mapFresh(virt, 1, flags)) {
 			Logger::fatal("VMM: Out of memory");
+			if (all_fresh) releasePages(start, idx);
 			return VirtAddr();
 		}
 	}
