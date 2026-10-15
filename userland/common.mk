@@ -8,7 +8,7 @@ LIBC := $(USERLAND_ROOT)../libc
 LIBCXX := $(USERLAND_ROOT)../libcxx
 LINKER_SCRIPT := $(USERLAND_ROOT)linker.ld
 
-INCLUDE_FLAGS = -I$(LIBC)/include -I$(USERLAND_ROOT)../shared/include -I$(USERLAND_ROOT)lib/include -I.
+INCLUDE_FLAGS = -I$(LIBC)/include -I$(USERLAND_ROOT)../shared/include -I$(USERLAND_ROOT)lib/include -I$(USERLAND_ROOT)../test/userland/lib/include -I.
 CXX_FLAGS = -std=gnu++20 -ffreestanding -nostdlib -fno-exceptions -fno-rtti \
             -fno-stack-protector -fno-pie -fno-tree-loop-distribute-patterns \
             -fno-asynchronous-unwind-tables -mno-sse -mno-mmx -mno-80387 -Wall -Wextra -Werror $(INCLUDE_FLAGS) -O2 \

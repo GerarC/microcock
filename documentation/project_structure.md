@@ -42,11 +42,11 @@ The codebase strictly separates the architecture-dependent code, the kernel core
 │   ├── lib/include/cock/user/      # `cock::user` API
 │   ├── init/                       # Root server
 │   ├── kbd/                        # Keyboard driver
-│   ├── vga_driver/                 # Display server
-│   ├── probe/                      # Security probe
-│   └── hello/                      # Test assembly program
-├── test/                           # In-kernel test suite
-├── host_test/                      # Tests of shared/ and CapabilitySet, run on the host
+│   └── vga_driver/                 # Display server
+├── test/                           # Every test
+│   ├── cock/                       # In-kernel test suites
+│   ├── host/                       # Tests of shared/ and CapabilitySet, run on the host
+│   └── userland/                   # Test programs (probe, hello, aborter, fsclient, fatclient, extclient, blkclient, cfile, mute, muteclient) and lib/include/cock/user/write_check.hpp
 ├── scripts/                        # QEMU based and host test runners
 └── Makefile                        # Master build system
 ```

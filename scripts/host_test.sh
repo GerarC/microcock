@@ -8,5 +8,5 @@ BINARY="$OUTPUT_DIR/host_test"
 mkdir -p "$OUTPUT_DIR"
 "$CXX_BIN" -std=c++20 -Wall -Wextra -O1 \
 	-I. -Ishared/include \
-	host_test/*.cpp -o "$BINARY"
+	test/host/*.cpp -o "$BINARY"
 "$BINARY"

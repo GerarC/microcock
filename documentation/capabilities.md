@@ -72,7 +72,7 @@ Two message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
 * `CAPABILITY_GRANTED` can only be sent by a process that holds at least one capability with the grant right (`CapabilitySet::holdsGrantAuthority`). In practice that is the root server. A driver that waits for it knows it came from there and does not need to check the sender.
 
 ## Testing it
-`userland/probe` runs sixteen checks from Ring 3 that must be denied or must work:
+`test/userland/probe` runs sixteen checks from Ring 3 that must be denied or must work:
 
 * it asks for a port, an interrupt line, a grant, the video memory and a RAM frame it holds no capability for,
 * it sends the two reserved message types and is refused, and sends itself an ordinary message that arrives with its own id as sender,
