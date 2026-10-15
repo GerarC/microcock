@@ -1,6 +1,7 @@
 #ifndef CORE_HAL_TASKING_HPP
 #define CORE_HAL_TASKING_HPP
 
+#include <cock/core/memory/address.hpp>
 #include <hal/cpu.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -43,13 +44,17 @@ void update_thread_entry(uintptr_t context_ptr, void *new_entry);
 /**
  * @brief Performs a hardware page directory switch (writes to CR3 on x86).
  */
-void switch_address_space(uintptr_t pd_phys);
+inline void switch_address_space(memory::PhysAddr root) {
+	write_page_table_root(root.raw());
+}
 
 /**
  * @brief Retrieves the current physical address of the page directory (CR3 on
  * x86).
  */
-uintptr_t get_current_address_space();
+inline memory::PhysAddr get_current_address_space() {
+	return memory::PhysAddr(read_page_table_root());
+}
 
 ArchThreadContext create_thread_context();
 void destroy_thread_context(ArchThreadContext context);

@@ -68,10 +68,12 @@ typename Format::ProgramHeader read_segment(const uint8_t *base,
 }
 
 template <typename Format>
-bool load_image(const uint8_t *base, size_t size, uintptr_t address_space,
+bool load_image(const uint8_t *base, size_t size, memory::PhysAddr address_space,
 				LoadedImage &out) {
 	using Header = typename Format::Header;
 	using Segment = typename Format::ProgramHeader;
+	using memory::PhysAddr;
+	using memory::VirtAddr;
 	using memory::VirtualMemoryManager;
 	using memory::VMMPermission;
 	using utils::Logger;
@@ -113,7 +115,7 @@ bool load_image(const uint8_t *base, size_t size, uintptr_t address_space,
 	}
 
 	hal::InterruptGuard guard;
-	uintptr_t old_cr3 = hal::get_current_address_space();
+	PhysAddr old_cr3 = hal::get_current_address_space();
 	hal::switch_address_space(address_space);
 
 	bool loaded = true;
@@ -130,10 +132,11 @@ bool load_image(const uint8_t *base, size_t size, uintptr_t address_space,
 									   ? VMMPermission::USER_DATA
 									   : VMMPermission::USER_CODE;
 
-		if (!VirtualMemoryManager::mapPagesAt(
-				static_cast<uintptr_t>(first_page),
-				static_cast<size_t>(page_count), permission,
-				static_cast<uintptr_t>(user_limit))) {
+		if (VirtualMemoryManager::mapPagesAt(
+					VirtAddr(static_cast<uintptr_t>(first_page)),
+					static_cast<size_t>(page_count), permission,
+					VirtAddr(static_cast<uintptr_t>(user_limit)))
+				.isNull()) {
 			Logger::error("ELF: cannot map segment %u",
 						  static_cast<unsigned>(idx));
 			loaded = false;
@@ -147,8 +150,8 @@ bool load_image(const uint8_t *base, size_t size, uintptr_t address_space,
 	hal::switch_address_space(old_cr3);
 	if (!loaded) return false;
 
-	out.entry = static_cast<uintptr_t>(header.entry);
-	out.user_space_limit = static_cast<uintptr_t>(user_limit);
+	out.entry = VirtAddr(static_cast<uintptr_t>(header.entry));
+	out.user_space_limit = VirtAddr(static_cast<uintptr_t>(user_limit));
 	return true;
 }
 

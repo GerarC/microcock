@@ -15,7 +15,7 @@ using utils::Logger;
 namespace {
 
 template <typename Format>
-bool try_load(const uint8_t *base, size_t size, uintptr_t address_space,
+bool try_load(const uint8_t *base, size_t size, memory::PhysAddr address_space,
 			  LoadedImage &out) {
 	if constexpr (Format::SUPPORTED) {
 		return detail::load_image<Format>(base, size, address_space, out);
@@ -32,10 +32,10 @@ bool try_load(const uint8_t *base, size_t size, uintptr_t address_space,
 
 } // namespace
 
-bool load_executable(const void *image, size_t size, uintptr_t address_space,
-					 LoadedImage &out) {
+bool load_executable(const void *image, size_t size,
+					 memory::PhysAddr address_space, LoadedImage &out) {
 	out = LoadedImage{};
-	if (!image || address_space == 0 || size < ELF_IDENT_SIZE) return false;
+	if (!image || address_space.isNull() || size < ELF_IDENT_SIZE) return false;
 
 	const uint8_t *base = static_cast<const uint8_t *>(image);
 	if (memcmp(base, ELF_MAGIC, ELF_MAGIC_SIZE) != 0) {

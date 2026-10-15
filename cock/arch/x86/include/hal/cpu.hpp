@@ -12,6 +12,9 @@ constexpr uint16_t IO_DELAY_PORT = 0x80;
 constexpr uint8_t IO_DELAY_VALUE = 0;
 constexpr uint16_t EMULATOR_EXIT_PORT = 0xF4;
 constexpr uint8_t SYSCALL_INSTRUCTION_SIZE = 2;
+constexpr uint32_t CPUID_FEATURES_LEAF = 1;
+constexpr uint32_t CPUID_EDX_GLOBAL_PAGES = 1u << 13;
+constexpr uint32_t CR4_GLOBAL_PAGES = 1u << 7;
 
 [[gnu::always_inline]] inline void halt() { __asm__ volatile("hlt"); }
 
@@ -63,6 +66,29 @@ constexpr uint8_t SYSCALL_INSTRUCTION_SIZE = 2;
 
 [[gnu::always_inline]] inline void write_page_table_root(uint32_t value) {
 	__asm__ volatile("mov %0, %%cr3" : : "r"(value) : "memory");
+}
+
+[[gnu::always_inline]] inline uint32_t read_cr4() {
+	uint32_t value;
+	__asm__ volatile("mov %%cr4, %0" : "=r"(value));
+	return value;
+}
+
+[[gnu::always_inline]] inline void write_cr4(uint32_t value) {
+	__asm__ volatile("mov %0, %%cr4" : : "r"(value) : "memory");
+}
+
+[[gnu::always_inline]] inline bool cpu_supports_global_pages() {
+	uint32_t eax = CPUID_FEATURES_LEAF;
+	uint32_t ebx;
+	uint32_t ecx;
+	uint32_t edx;
+	__asm__ volatile("cpuid" : "+a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx));
+	return (edx & CPUID_EDX_GLOBAL_PAGES) != 0;
+}
+
+[[gnu::always_inline]] inline void enable_global_pages() {
+	write_cr4(read_cr4() | CR4_GLOBAL_PAGES);
 }
 
 [[gnu::always_inline]] inline uint32_t read_fault_address() {

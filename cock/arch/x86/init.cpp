@@ -5,6 +5,7 @@
 #include <cock/arch/x86/interrupt/pic/pic.hpp>
 #include <cock/arch/x86/keyboard/keyboard.hpp>
 #include <cock/arch/x86/loader/multiboot_module_loader.hpp>
+#include <cock/arch/x86/memory/paging.hpp>
 #include <cock/arch/x86/memory/pmm.hpp>
 #include <cock/arch/x86/timer/timer.hpp>
 #include <cock/core/cock.hpp>
@@ -23,6 +24,7 @@ namespace cock::arch::x86 {
 using cock::core::syscall::SyscallManager;
 using cock::utils::Logger;
 using cock::utils::panic;
+using core::memory::PhysAddr;
 
 constexpr uint8_t PIC_MASTER_OFFSET = 0x20;
 constexpr uint8_t PIC_SLAVE_OFFSET = 0x28;
@@ -51,7 +53,7 @@ MBInfo *boot_memory_init(uint32_t magic, uint32_t boot_info_phys) {
 
 	BootMemory::init();
 	MBInfo *boot_info = static_cast<MBInfo *>(
-		BootMemory::map(boot_info_phys, sizeof(MBInfo)));
+		BootMemory::map(PhysAddr(boot_info_phys), sizeof(MBInfo)));
 	if (!boot_info) panic("boot_info is unreachable");
 
 	return boot_info;
@@ -59,7 +61,8 @@ MBInfo *boot_memory_init(uint32_t magic, uint32_t boot_info_phys) {
 
 void core_init(MBInfo *boot_info, uint32_t boot_info_phys) {
 	GDT::init();
-	PhysicalMemoryManager::init(boot_info, boot_info_phys);
+	PhysicalMemoryManager::init(boot_info, PhysAddr(boot_info_phys));
+	Paging::init();
 }
 
 void interrupts_init() {

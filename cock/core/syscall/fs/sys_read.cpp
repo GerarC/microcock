@@ -9,6 +9,7 @@ namespace cock::core::syscall {
 
 using core::task::Scheduler;
 using core::task::Thread;
+using memory::VirtAddr;
 using memory::VirtualMemoryManager;
 using utils::Logger;
 
@@ -21,7 +22,7 @@ uintptr_t sys_read(uintptr_t fd, uintptr_t buf, uintptr_t count, uintptr_t,
 
 	Thread *current = Scheduler::getCurrentThread();
 	if (!current) return (uintptr_t)-1;
-	if (!VirtualMemoryManager::isUserRangeValid(buf, count, true,
+	if (!VirtualMemoryManager::isUserRangeValid(VirtAddr(buf), count, true,
 												current->getUserSpaceLimit()))
 		return (uintptr_t)-1;
 
