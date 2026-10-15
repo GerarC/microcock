@@ -9,7 +9,7 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 | `init` | Root server. The only process born with authority; it gives each driver its capabilities and tells it to start, then exits |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the display server |
-| `probe` | Security probe. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 22/22 checks passed` |
+| `probe` | Security probe. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 25/25 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |
 
@@ -34,6 +34,7 @@ A driver that needs a new capability needs a new `cap_grant` in `userland/init/m
 | `irq_bind(line)`, `irq_ack(line)` | `SYS_IRQ_BIND`, `SYS_IRQ_ACK` |
 | `cap_grant(pid, type, first, count)` | `SYS_CAP_GRANT` |
 | `lookup(name)` | `SYS_PROC_LOOKUP` |
+| `shm_create(pages)`, `shm_share(id, pid, writable)`, `shm_map(id, writable)`, `shm_release(id)` | `SYS_SHM_CREATE`, `SYS_SHM_SHARE`, `SYS_SHM_MAP`, `SYS_SHM_RELEASE` |
 | `self()` | `SYS_GETPID` |
 | `write_text(text, length)` | `SYS_WRITE`, repeated until the whole text is written (a call takes at most 128 bytes) |
 | `exit_process(status)` | `SYS_EXIT` |
@@ -96,7 +97,7 @@ The main Makefile passes the compiler, linker and assembler (`USER_CXX`, `USER_L
 The programs run in a user-space limit of `0xC0000000` (ELF32). Their stack is the top 64 KiB below that limit, and `mmap` hands out addresses from `0x60000000` upward.
 
 ## Testing
-* `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and `probe: 22/22 checks passed` on the screen, the typed text on the screen, the `printf` sample line `probe: printf -42 4294967295 FF hi Z 0xBEEF` and the `abort()` message of `aborter` on the serial log, `kbd: ready`, the VGA driver detection and the reaping of the processes that exit on the serial log, and not one exception.
+* `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and `probe: 25/25 checks passed` on the screen, the typed text on the screen, the `printf` sample line `probe: printf -42 4294967295 FF hi Z 0xBEEF` and the `abort()` message of `aborter` on the serial log, `kbd: ready`, the VGA driver detection and the reaping of the processes that exit on the serial log, and not one exception.
 * Run it also with `USER_EXTRA_FLAGS=-fno-omit-frame-pointer`, which changes how the compiler addresses locals and caught a real bug in the system call wrapper.
 * Both variants run in CI, on every push.
 * `bash scripts/host_test.sh` builds `host_test/` with the host compiler and runs it; it needs no emulator and checks the ring buffer, the intrusive queue, the linked list, the message layout and the capability table.

@@ -21,6 +21,7 @@ enum class VMMPermission : uint32_t {
 	EXEC = 1 << 2,
 	USER = 1 << 3,
 	DEVICE = 1 << 4,
+	SHARED = 1 << 5,
 
 	KERNEL_DATA = READ | WRITE,
 	USER_DATA = READ | WRITE | USER,
@@ -103,6 +104,9 @@ class VirtualMemoryManager {
 	static bool isDeviceMemory(PhysAddr phys, size_t length);
 
 	static bool isRangeUnmapped(VirtAddr start, size_t page_count);
+
+	static bool allocFrames(PhysAddr *frames, size_t count);
+	static void freeFrames(const PhysAddr *frames, size_t count);
 };
 
 } // namespace cock::core::memory

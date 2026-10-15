@@ -7,7 +7,7 @@ SERIAL_FILE="${SERIAL_FILE:-build/userland_serial.txt}"
 SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
 TYPED_KEYS="a b shift-c d"
-EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 22/22 checks passed|abCd"
+EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 25/25 checks passed|abCd"
 EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|kbd: ready|VGA driver detected|reaped"
 
 make clean "$@" > /dev/null

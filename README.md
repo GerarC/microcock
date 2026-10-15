@@ -72,6 +72,10 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_IRQ_BIND` (0x171): Route an interrupt line to the calling process. Requires an `IRQ` capability.
 * `SYS_IRQ_ACK` (0x172): Re-enable an interrupt line after handling it.
 * `SYS_PROC_LOOKUP` (0x173): Find the process id of a boot module by name.
+* `SYS_SHM_CREATE` (0x174): Create a shared memory object of a number of pages, paid by the caller.
+* `SYS_SHM_SHARE` (0x175): Let another process map an object, read only or read and write.
+* `SYS_SHM_MAP` (0x176): Map a whole object into the caller, read only or read and write.
+* `SYS_SHM_RELEASE` (0x177): Drop the right of the caller to an object.
 
 ## Building and Running
 
@@ -213,7 +217,7 @@ The path the project follows, in order. `[x]` is done, `[ ]` is planned.
 
 ### File system
 The file system lives outside the kernel, as servers that talk by IPC. The kernel only gains small general mechanisms. The first one is a read-only initial RAM disk; a disk comes after it, on the same protocol.
-- [ ] **F1** Shared memory between processes (the way to move file data).
+- [x] **F1** Shared memory between processes (the way to move file data).
 - [ ] **F2** Data boot modules, a capability to open them, and an `initrd` built as a tar archive.
 - [ ] **F3** `ramfs` server and a client library: a program reads a file from the initrd.
 - [ ] **F4** `spawn`: `init` starts the drivers from files instead of from boot modules.

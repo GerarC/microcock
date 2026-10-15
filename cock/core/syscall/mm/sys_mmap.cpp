@@ -1,5 +1,7 @@
+#include <cock/core/memory/shared_memory.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/security/capability.hpp>
+#include <cock/core/syscall/mm/placement.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/thread.hpp>
@@ -10,7 +12,9 @@
 
 namespace cock::core::syscall {
 
+using core::memory::NO_SHARED_OBJECT;
 using core::memory::PhysAddr;
+using core::memory::SharedMemory;
 using core::memory::VirtAddr;
 using core::memory::VirtualMemoryManager;
 using core::memory::VMMPermission;
@@ -24,7 +28,6 @@ constexpr uintptr_t MAP_PHYS = 0x1000;
 constexpr uintptr_t MAP_ANONYMOUS = 0x20;
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 constexpr uintptr_t MIN_USER_ADDRESS = hal::PAGE_SIZE;
-constexpr size_t MAX_PLACEMENT_ATTEMPTS = 64;
 
 static bool pages_for(uintptr_t length, size_t &pages) {
 	if (length == 0 || length > UINTPTR_MAX - hal::PAGE_MASK) return false;
@@ -32,37 +35,22 @@ static bool pages_for(uintptr_t length, size_t &pages) {
 	return true;
 }
 
-static uintptr_t image_limit(const Thread &thread) {
-	return thread.getUserSpaceLimit().raw() - task::USER_STACK_SIZE;
-}
-
 static uintptr_t map_anonymous(Thread &current, size_t pages) {
 	Process &process = *current.getProcess();
 	if (!process.hasRegionSlot() || !process.canOwnPages(pages)) return FAILURE;
 
-	VirtAddr search_from(hal::USER_MMAP_BASE);
-	VirtAddr search_limit(image_limit(current));
+	VirtAddr base = find_user_placement(current, pages);
+	if (base.isNull()) return FAILURE;
 
-	for (size_t attempt = 0; attempt < MAX_PLACEMENT_ATTEMPTS; attempt++) {
-		VirtAddr base = process.findFreeRange(pages, search_from, search_limit);
-		if (base.isNull()) return FAILURE;
+	VirtAddr mapped = VirtualMemoryManager::mapPagesAt(
+		base, pages, VMMPermission::USER_DATA, current.getUserSpaceLimit());
+	if (mapped.isNull()) return FAILURE;
 
-		if (!VirtualMemoryManager::isRangeUnmapped(base, pages)) {
-			search_from = base + hal::PAGE_SIZE;
-			continue;
-		}
-
-		VirtAddr mapped = VirtualMemoryManager::mapPagesAt(
-			base, pages, VMMPermission::USER_DATA, current.getUserSpaceLimit());
-		if (mapped.isNull()) return FAILURE;
-
-		if (!process.addMemoryRegion(base, pages, true)) {
-			VirtualMemoryManager::freePages(base.as<void>(), pages);
-			return FAILURE;
-		}
-		return base.raw();
+	if (!process.addMemoryRegion(base, pages, true)) {
+		VirtualMemoryManager::freePages(base.as<void>(), pages);
+		return FAILURE;
 	}
-	return FAILURE;
+	return base.raw();
 }
 
 static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
@@ -85,8 +73,8 @@ static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 					 current.getId(), phys.raw());
 		return FAILURE;
 	}
-	if (virt.raw() < MIN_USER_ADDRESS || virt.raw() > image_limit(current) ||
-		span > image_limit(current) - virt.raw())
+	if (virt.raw() < MIN_USER_ADDRESS || virt.raw() > user_image_limit(current) ||
+		span > user_image_limit(current) - virt.raw())
 		return FAILURE;
 
 	for (size_t idx = 0; idx < pages; idx++) {
@@ -129,8 +117,11 @@ uintptr_t sys_munmap(uintptr_t addr, uintptr_t length, uintptr_t, uintptr_t,
 		return FAILURE;
 
 	VirtAddr region(addr);
-	if (!current->getProcess()->takeMemoryRegion(region, pages)) return FAILURE;
+	uint32_t shared_object = NO_SHARED_OBJECT;
+	if (!current->getProcess()->takeMemoryRegion(region, pages, &shared_object))
+		return FAILURE;
 	VirtualMemoryManager::freePages(region.as<void>(), pages);
+	if (shared_object != NO_SHARED_OBJECT) SharedMemory::unmapped(shared_object);
 	return 0;
 }
 

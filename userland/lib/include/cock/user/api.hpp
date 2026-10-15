@@ -11,6 +11,7 @@ namespace cock::user {
 
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 constexpr uint32_t NO_PROCESS = 0xFFFFFFFF;
+constexpr uint32_t NO_SHM = 0xFFFFFFFF;
 constexpr uintptr_t SUCCESS = 0;
 constexpr int STDOUT_FILE = 1;
 
@@ -54,6 +55,24 @@ inline uint32_t lookup(const char *name) {
 	uintptr_t result = syscall(SYS_PROC_LOOKUP, reinterpret_cast<uintptr_t>(name),
 							   length, 0, 0, 0, 0);
 	return result == FAILURE ? NO_PROCESS : static_cast<uint32_t>(result);
+}
+
+inline uint32_t shm_create(size_t pages) {
+	uintptr_t result = syscall(SYS_SHM_CREATE, pages, 0, 0, 0, 0, 0);
+	return result == FAILURE ? NO_SHM : static_cast<uint32_t>(result);
+}
+
+inline bool shm_share(uint32_t id, uint32_t pid, bool writable) {
+	return syscall(SYS_SHM_SHARE, id, pid, writable ? 1 : 0, 0, 0, 0) == SUCCESS;
+}
+
+inline void *shm_map(uint32_t id, bool writable) {
+	uintptr_t result = syscall(SYS_SHM_MAP, id, writable ? 1 : 0, 0, 0, 0, 0);
+	return result == FAILURE ? nullptr : reinterpret_cast<void *>(result);
+}
+
+inline bool shm_release(uint32_t id) {
+	return syscall(SYS_SHM_RELEASE, id, 0, 0, 0, 0, 0) == SUCCESS;
 }
 
 inline long write_text(const char *text, size_t length) {

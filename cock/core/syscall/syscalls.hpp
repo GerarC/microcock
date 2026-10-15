@@ -94,6 +94,19 @@ uintptr_t sys_irq_ack(uintptr_t line, uintptr_t, uintptr_t, uintptr_t,
 uintptr_t sys_proc_lookup(uintptr_t name_ptr, uintptr_t length, uintptr_t,
 						  uintptr_t, uintptr_t, uintptr_t);
 
+
+uintptr_t sys_shm_create(uintptr_t pages, uintptr_t, uintptr_t, uintptr_t,
+						 uintptr_t, uintptr_t);
+
+uintptr_t sys_shm_share(uintptr_t id, uintptr_t target_pid, uintptr_t writable,
+						uintptr_t, uintptr_t, uintptr_t);
+
+uintptr_t sys_shm_map(uintptr_t id, uintptr_t writable, uintptr_t, uintptr_t,
+					  uintptr_t, uintptr_t);
+
+uintptr_t sys_shm_release(uintptr_t id, uintptr_t, uintptr_t, uintptr_t,
+						  uintptr_t, uintptr_t);
+
 } // namespace cock::core::syscall
 
 #endif
