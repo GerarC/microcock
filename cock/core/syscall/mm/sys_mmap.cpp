@@ -24,6 +24,7 @@ constexpr uintptr_t MAP_PHYS = 0x1000;
 constexpr uintptr_t MAP_ANONYMOUS = 0x20;
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 constexpr uintptr_t MIN_USER_ADDRESS = hal::PAGE_SIZE;
+constexpr size_t MAX_PLACEMENT_ATTEMPTS = 64;
 
 static bool pages_for(uintptr_t length, size_t &pages) {
 	if (length == 0 || length > UINTPTR_MAX - hal::PAGE_MASK) return false;
@@ -37,19 +38,31 @@ static uintptr_t image_limit(const Thread &thread) {
 
 static uintptr_t map_anonymous(Thread &current, size_t pages) {
 	Process &process = *current.getProcess();
-	VirtAddr base = process.getMmapCursor();
-	if (pages > (image_limit(current) - base.raw()) >> hal::PAGE_SHIFT)
-		return FAILURE;
+	if (!process.hasRegionSlot() || !process.canOwnPages(pages)) return FAILURE;
 
-	if (!VirtualMemoryManager::isRangeUnmapped(base, pages)) return FAILURE;
+	VirtAddr search_from(hal::USER_MMAP_BASE);
+	VirtAddr search_limit(image_limit(current));
 
-	VirtAddr mapped = VirtualMemoryManager::mapPagesAt(
-		base, pages, VMMPermission::USER_DATA, current.getUserSpaceLimit());
-	if (mapped.isNull()) return FAILURE;
+	for (size_t attempt = 0; attempt < MAX_PLACEMENT_ATTEMPTS; attempt++) {
+		VirtAddr base = process.findFreeRange(pages, search_from, search_limit);
+		if (base.isNull()) return FAILURE;
 
-	process.setMmapCursor(base + (pages << hal::PAGE_SHIFT));
-	process.addMemoryRegion(base, pages);
-	return base.raw();
+		if (!VirtualMemoryManager::isRangeUnmapped(base, pages)) {
+			search_from = base + hal::PAGE_SIZE;
+			continue;
+		}
+
+		VirtAddr mapped = VirtualMemoryManager::mapPagesAt(
+			base, pages, VMMPermission::USER_DATA, current.getUserSpaceLimit());
+		if (mapped.isNull()) return FAILURE;
+
+		if (!process.addMemoryRegion(base, pages, true)) {
+			VirtualMemoryManager::freePages(base.as<void>(), pages);
+			return FAILURE;
+		}
+		return base.raw();
+	}
+	return FAILURE;
 }
 
 static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
@@ -58,6 +71,8 @@ static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 		Logger::trace("sys_mmap: MAP_PHYS requires a fixed virtual address");
 		return FAILURE;
 	}
+
+	if (!current.getProcess()->hasRegionSlot()) return FAILURE;
 
 	VirtAddr virt = VirtAddr(addr).pageBase();
 	PhysAddr phys = PhysAddr(static_cast<hal::PhysicalRaw>(offset)).pageBase();
@@ -83,7 +98,10 @@ static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 			return FAILURE;
 		}
 	}
-	current.getProcess()->addMemoryRegion(virt, pages);
+	if (!current.getProcess()->addMemoryRegion(virt, pages, false)) {
+		VirtualMemoryManager::freePages(virt.as<void>(), pages);
+		return FAILURE;
+	}
 	return virt.raw();
 }
 

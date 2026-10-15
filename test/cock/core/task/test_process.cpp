@@ -24,6 +24,9 @@ constexpr size_t TWO_THREADS = 2;
 constexpr uintptr_t REGION_START = 0x40000000;
 constexpr size_t REGION_PAGES = 2;
 constexpr size_t WRONG_REGION_PAGES = 3;
+constexpr size_t NO_PAGES = 0;
+constexpr size_t RANGE_PAGES = 16;
+constexpr uintptr_t REGION_STRIDE = 0x10000;
 constexpr uint32_t KEYBOARD_DATA_PORT = 0x60;
 constexpr uint32_t KEYBOARD_NEXT_PORT = 0x61;
 constexpr uint32_t PIC_MASTER_PORT = 0x20;
@@ -56,10 +59,72 @@ void checkLifecycle() {
 	EXPECT_TRUE(process->detachThread());
 
 	VirtAddr region(REGION_START);
-	process->addMemoryRegion(region, REGION_PAGES);
+	EXPECT_TRUE(process->addMemoryRegion(region, REGION_PAGES, true));
+	EXPECT_EQ(REGION_PAGES, process->getOwnedPages());
 	EXPECT_FALSE(process->takeMemoryRegion(region, WRONG_REGION_PAGES));
+	EXPECT_EQ(REGION_PAGES, process->getOwnedPages());
 	EXPECT_TRUE(process->takeMemoryRegion(region, REGION_PAGES));
+	EXPECT_EQ(NO_PAGES, process->getOwnedPages());
 	EXPECT_FALSE(process->takeMemoryRegion(region, REGION_PAGES));
+
+	delete process;
+}
+
+void checkRegionLimits() {
+	PhysAddr space = VirtualMemoryManager::createAddressSpace();
+	EXPECT_FALSE(space.isNull());
+	if (space.isNull()) return;
+
+	Process *process =
+		Process::create(space, VirtAddr(core::hal::USER_SPACE_LIMIT));
+	VirtAddr region(REGION_START);
+
+	EXPECT_FALSE(process->canOwnPages(Process::MAX_OWNED_PAGES + 1));
+	EXPECT_FALSE(process->addMemoryRegion(region, Process::MAX_OWNED_PAGES + 1, true));
+	EXPECT_FALSE(process->addMemoryRegion(region, NO_PAGES, true));
+
+	EXPECT_TRUE(process->addMemoryRegion(region, REGION_PAGES, false));
+	EXPECT_EQ(NO_PAGES, process->getOwnedPages());
+	EXPECT_TRUE(process->takeMemoryRegion(region, REGION_PAGES));
+	EXPECT_EQ(NO_PAGES, process->getOwnedPages());
+
+	for (size_t idx = 0; idx < Process::MAX_MAPPING_REGIONS; idx++)
+		EXPECT_TRUE(process->addMemoryRegion(
+			VirtAddr(REGION_START + idx * REGION_STRIDE), REGION_PAGES, true));
+	EXPECT_FALSE(process->hasRegionSlot());
+	EXPECT_FALSE(process->addMemoryRegion(VirtAddr(REGION_START - REGION_STRIDE),
+										  REGION_PAGES, true));
+	EXPECT_EQ(Process::MAX_MAPPING_REGIONS * REGION_PAGES, process->getOwnedPages());
+	EXPECT_TRUE(process->takeMemoryRegion(region, REGION_PAGES));
+	EXPECT_TRUE(process->hasRegionSlot());
+
+	delete process;
+}
+
+void checkFreeRange() {
+	PhysAddr space = VirtualMemoryManager::createAddressSpace();
+	EXPECT_FALSE(space.isNull());
+	if (space.isNull()) return;
+
+	Process *process =
+		Process::create(space, VirtAddr(core::hal::USER_SPACE_LIMIT));
+	VirtAddr from(REGION_START);
+	VirtAddr limit(REGION_START + RANGE_PAGES * core::hal::PAGE_SIZE);
+	VirtAddr second(REGION_START + REGION_PAGES * core::hal::PAGE_SIZE);
+	VirtAddr after(REGION_START + (REGION_PAGES + 1) * core::hal::PAGE_SIZE);
+
+	EXPECT_EQ(from.raw(), process->findFreeRange(REGION_PAGES, from, limit).raw());
+
+	EXPECT_TRUE(process->addMemoryRegion(from, REGION_PAGES, true));
+	EXPECT_TRUE(process->addMemoryRegion(second, 1, true));
+	EXPECT_EQ(after.raw(), process->findFreeRange(1, from, limit).raw());
+
+	EXPECT_TRUE(process->takeMemoryRegion(from, REGION_PAGES));
+	EXPECT_EQ(from.raw(), process->findFreeRange(REGION_PAGES, from, limit).raw());
+	EXPECT_EQ(after.raw(), process->findFreeRange(REGION_PAGES + 1, from, limit).raw());
+
+	EXPECT_TRUE(process->findFreeRange(RANGE_PAGES + 1, from, limit).isNull());
+	EXPECT_TRUE(process->findFreeRange(NO_PAGES, from, limit).isNull());
 
 	delete process;
 }
@@ -92,6 +157,8 @@ void checkPortGrants() {
 void test_process() {
 	TestRunner::begin_suite("Process and hardware permissions");
 	checkLifecycle();
+	checkRegionLimits();
+	checkFreeRange();
 	checkPortGrants();
 	TestRunner::end_suite();
 }
