@@ -177,7 +177,7 @@ The same checks run on every push through `.github/workflows/ci.yml`.
 * One thread per user process, and no syscall to create processes or threads at run time: every process comes from a Multiboot module.
 * Capabilities are assigned at boot (the module named `init` holds the authority) and cannot be revoked; each process holds up to 16.
 * IPC is asynchronous with a small inbox per thread; there are no timeouts and no synchronous call and reply.
-* The user C library is minimal: it has `printf` (buffered) but no `malloc`.
+* The user C library is minimal: it has buffered `printf`, `malloc` and `operator new` (no locking), and no file calls yet.
 * `SYS_WRITE` is a debug channel owned by the kernel; it goes away once there is a console server.
 * A process maps at most 4096 pages (16 MiB) in at most 32 regions.
 * The x86 build has no PAE, so no NX bit and no memory above 4 GiB.
@@ -207,7 +207,7 @@ The path the project follows, in order. `[x]` is done, `[ ]` is planned.
 
 ### Next
 - [x] Tests for the physical memory manager, the scheduler, IPC and the reaper, and host-side tests for the shared data structures.
-- [ ] **C library basics for programs:** ~~`printf` with buffered output~~ (done), and `malloc`, `calloc`, `realloc`, `free` and `operator new`.
+- [x] **C library basics for programs:** `printf` with buffered output, and `malloc`, `calloc`, `realloc`, `free` and `operator new`.
 - [ ] A separate stack for double fault and NMI, and a generation counter in process ids.
 
 ### File system

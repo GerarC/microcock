@@ -11,6 +11,7 @@ extern "C" {
 
 typedef int ssize_t;
 ssize_t write(int fd, const void *buf, size_t count);
+__attribute__((__noreturn__)) void _exit(int status);
 
 #ifdef __cplusplus
 }
