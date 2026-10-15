@@ -26,6 +26,7 @@
     #define SYS_MODULE_INDEX     0x179
     #define SYS_SPAWN            0x17A
     #define SYS_PROC_ALIVE       0x17B
+    #define SYS_IPC_TRY_RECV     0x17C
 
     #ifdef __cplusplus
     extern "C" {

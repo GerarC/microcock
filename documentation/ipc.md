@@ -93,6 +93,9 @@ bool IPC::deliver(uint32_t to_pid, Message message) {
 ### Receiving (`sys_ipc_recv`)
 Pending interrupt notifications come first (see below): each one is delivered as an `IRQ_NOTIFICATION` message made on the spot. Otherwise, if the inbox has a message, it is copied to the buffer of the caller. If there is neither, the handler sets the thread to `WAITING_MSG` and asks the scheduler for a restart. The thread is not scheduled again until a message arrives, so no cycles are wasted on polling, and when it wakes up it simply runs the system call again and finds the message.
 
+### Receiving without waiting (`sys_ipc_try_recv`)
+`SYS_IPC_TRY_RECV` (`0x17C`) takes the same next item as `SYS_IPC_RECV` (a pending notification first, then the inbox) but never blocks: it returns `0` with the message copied, `1` when there is nothing, and `-1` when the pointer is not a writable user range. A program that has to notice a dead peer polls it together with `SYS_PROC_ALIVE`.
+
 ## Interrupts as messages
 A driver in userland handles a hardware interrupt like this:
 

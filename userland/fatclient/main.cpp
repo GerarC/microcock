@@ -17,6 +17,11 @@ constexpr char FAT_ROOT[] = "/fat";
 constexpr char HELLO_PATH[] = "/fat/HELLO.TXT";
 constexpr char LONG_PATH[] = "/fat/a long file name.txt";
 constexpr char LONG_NAME[] = "A long file name.txt";
+constexpr char UNICODE_PATH[] = "/fat/caf\xC3\xA9 \xC3\xB1.txt";
+constexpr char UNICODE_NAME[] = "caf\xC3\xA9 \xC3\xB1.txt";
+constexpr char ROOT_DIRECTORY[] = "/";
+constexpr char MOUNT_NAME[] = "fat";
+constexpr char ROOT_FILE_NAME[] = "hello.txt";
 constexpr char NESTED_PATH[] = "/fat/subdir/nested.txt";
 constexpr char BIG_PATH[] = "/fat/BIG.BIN";
 constexpr char MISSING_PATH[] = "/fat/missing.txt";
@@ -35,7 +40,7 @@ constexpr uint32_t UNALIGNED_OFFSET = 4090;
 constexpr size_t UNALIGNED_BYTES = 20;
 constexpr size_t CHUNK_BYTES = 4096;
 constexpr size_t TEXT_BYTES = 64;
-constexpr uint32_t LISTED_ENTRIES = 4;
+constexpr uint32_t LISTED_ENTRIES = 5;
 constexpr uint32_t START_OFFSET = 0;
 constexpr uintptr_t EXIT_SERVED = 0;
 constexpr uintptr_t EXIT_REFUSED = 1;
@@ -94,6 +99,7 @@ bool listsTheVolume(Client &client) {
 	bool sawLong = false;
 	bool sawBig = false;
 	bool sawDirectory = false;
+	bool sawUnicode = false;
 	uint32_t count = START_OFFSET;
 	char name[TEXT_BYTES] = {};
 	FileType type = FileType::REGULAR;
@@ -103,9 +109,27 @@ bool listsTheVolume(Client &client) {
 		if (strcmp(name, LONG_NAME) == 0) sawLong = type == FileType::REGULAR;
 		if (strcmp(name, BIG_NAME) == 0) sawBig = type == FileType::REGULAR;
 		if (strcmp(name, DIRECTORY_NAME) == 0) sawDirectory = type == FileType::DIRECTORY;
+		if (strcmp(name, UNICODE_NAME) == 0) sawUnicode = type == FileType::REGULAR;
 	}
 	return client.close(root) && count == LISTED_ENTRIES && sawHello && sawLong &&
-		   sawBig && sawDirectory;
+		   sawBig && sawDirectory && sawUnicode;
+}
+
+bool rootShowsTheMounts(Client &client) {
+	uint32_t root = client.open(ROOT_DIRECTORY);
+	if (root == cock::abi::fs::NO_HANDLE) return false;
+
+	bool sawFile = false;
+	bool sawMount = false;
+	uint32_t count = START_OFFSET;
+	char name[TEXT_BYTES] = {};
+	FileType type = FileType::REGULAR;
+	while (client.readdir(root, count, name, sizeof(name), type)) {
+		count++;
+		if (strcmp(name, ROOT_FILE_NAME) == 0) sawFile = type == FileType::REGULAR;
+		if (strcmp(name, MOUNT_NAME) == 0) sawMount = type == FileType::DIRECTORY;
+	}
+	return client.close(root) && sawFile && sawMount;
 }
 
 bool refusesBadPaths(Client &client) {
@@ -124,8 +148,10 @@ extern "C" void _start() {
 
 	served = served && readsText(client, LONG_PATH, HELLO_TEXT, HELLO_BYTES);
 	served = served && readsText(client, NESTED_PATH, NESTED_TEXT, NESTED_BYTES);
+	served = served && readsText(client, UNICODE_PATH, HELLO_TEXT, HELLO_BYTES);
 	served = served && readsBigFile(client);
 	served = served && listsTheVolume(client);
+	served = served && rootShowsTheMounts(client);
 	served = served && refusesBadPaths(client);
 	served = served && client.open(ROOT_FILE) != cock::abi::fs::NO_HANDLE;
 

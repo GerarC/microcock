@@ -6,7 +6,7 @@
 
 namespace {
 
-constexpr size_t CHECK_COUNT = 33;
+constexpr size_t CHECK_COUNT = 34;
 constexpr uintptr_t EXIT_ALL_PASSED = 0;
 constexpr uintptr_t EXIT_SOME_FAILED = 1;
 
@@ -26,6 +26,7 @@ extern "C" void _start() {
 		probe::irqNotificationIsRefused(),
 		probe::capabilityGrantIsRefused(),
 		probe::messageToSelfArrives(),
+		probe::tryReceiveDoesNotBlock(),
 		probe::oversizedWriteIsCut(),
 		probe::mappingQuotaIsEnforced(),
 		probe::releasedAddressIsReused(),

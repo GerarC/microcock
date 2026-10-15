@@ -43,9 +43,11 @@ echo "$FAT_HELLO_TEXT" > "$WORK/hello.txt"
 echo "$FAT_NESTED_TEXT" > "$WORK/nested.txt"
 yes "$FAT_BIG_LETTERS" | tr -d '\n' | head -c "$FAT_BIG_BYTES" > "$WORK/big.bin"
 
+export LC_ALL=C.UTF-8
 mformat -i "$FAT_VOLUME" -F -T "$SECOND_SECTORS" -c "$FAT_CLUSTER_SECTORS" ::
 mmd -i "$FAT_VOLUME" "::/$FAT_DIRECTORY"
 mcopy -i "$FAT_VOLUME" "$WORK/hello.txt" ::/HELLO.TXT
 mcopy -i "$FAT_VOLUME" "$WORK/hello.txt" "::/$FAT_LONG_NAME"
+mcopy -i "$FAT_VOLUME" "$WORK/hello.txt" "::/$FAT_UNICODE_NAME"
 mcopy -i "$FAT_VOLUME" "$WORK/big.bin" ::/BIG.BIN
 mcopy -i "$FAT_VOLUME" "$WORK/nested.txt" "::/$FAT_DIRECTORY/NESTED.TXT"

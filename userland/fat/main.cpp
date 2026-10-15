@@ -27,7 +27,6 @@ constexpr size_t FIRST_PENDING = 0;
 constexpr uintptr_t EXIT_FAILED_STATUS = 1;
 constexpr uint32_t NO_CLUSTER = 0;
 constexpr uint32_t NOTHING_LOADED = 0xFFFFFFFF;
-constexpr uint32_t FIRST_PARTITION = 1;
 constexpr uint32_t SECTOR_ZERO = 0;
 constexpr uint32_t SINGLE_SECTOR = 1;
 constexpr uint32_t NO_BYTES = 0;
@@ -385,38 +384,42 @@ void handle(const Message &message) {
 	}
 }
 
-bool mount() {
-	if (!disk.connect()) return false;
+bool mount(uint32_t candidate) {
+	if (!disk.connect() || candidate >= disk.deviceCount()) return false;
 
-	for (uint32_t candidate = FIRST_PARTITION; candidate < disk.deviceCount(); candidate++) {
-		cock::user::block::DeviceInfo info = {};
-		Bpb found = {};
-		if (!disk.info(candidate, info) ||
-			!disk.read(candidate, SECTOR_ZERO, SINGLE_SECTOR, dataBuffer))
-			continue;
-		if (cock::abi::fat32::parseBpb(dataBuffer, info.sectorCount, found) !=
-			cock::abi::fat32::BpbError::NONE)
-			continue;
+	cock::user::block::DeviceInfo info = {};
+	Bpb found = {};
+	if (!disk.info(candidate, info) ||
+		!disk.read(candidate, SECTOR_ZERO, SINGLE_SECTOR, dataBuffer))
+		return false;
+	if (cock::abi::fat32::parseBpb(dataBuffer, info.sectorCount, found) !=
+		cock::abi::fat32::BpbError::NONE)
+		return false;
 
-		bpb = found;
-		device = candidate;
-		return true;
-	}
-	return false;
+	bpb = found;
+	device = candidate;
+	return true;
 }
 
 } // namespace
 
 extern "C" void _start() {
+	Message message = {};
+	for (;;) {
+		cock::user::ipc_recv(message);
+		if (message.type == MessageType::CAPABILITY_GRANTED) break;
+		defer(message);
+	}
+
 	disk.onForeign = defer;
-	if (!mount()) {
-		printf("fat: no FAT32 volume\n");
+	uint32_t wanted = message.payload.args.arg1;
+	if (!mount(wanted)) {
+		printf("fat: device %u is not a FAT32 volume\n", wanted);
 		cock::user::exit_process(EXIT_FAILED_STATUS);
 	}
 	printf("fat: device %u, %u clusters of %u sectors\n", device, bpb.clusterCount,
 		   bpb.sectorsPerCluster);
 
-	Message message = {};
 	for (;;) {
 		if (pendingCount > 0) {
 			message = pending[FIRST_PENDING];

@@ -38,6 +38,7 @@ bool regionTableIsBounded();
 bool irqNotificationIsRefused();
 bool capabilityGrantIsRefused();
 bool messageToSelfArrives();
+bool tryReceiveDoesNotBlock();
 bool processAliveReportsLiveness();
 
 bool oversizedWriteIsCut();

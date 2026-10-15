@@ -80,6 +80,7 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_MODULE_INDEX` (0x179): Index of a data boot module by name; needs grant authority.
 * `SYS_SPAWN` (0x17A): Start a process from an ELF image in the memory of the caller, with no capabilities; needs grant authority.
 * `SYS_PROC_ALIVE` (0x17B): Tell whether a process id is alive.
+* `SYS_IPC_TRY_RECV` (0x17C): Like `SYS_IPC_RECV` but returns 1 at once when there is nothing to receive.
 
 ## Building and Running
 

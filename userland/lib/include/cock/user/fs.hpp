@@ -4,6 +4,7 @@
 #include <cock/abi/fs.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <cock/user/reply.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -62,13 +63,15 @@ class Client {
 		if (!ipc_send(server, request)) return false;
 
 		Message answer = {};
-		for (;;) {
-			if (!ipc_recv(answer)) return false;
-			if (answer.type == MessageType::FS_REPLY && answer.sender_pid == server &&
-				answer.payload.args.arg0 == id)
-				break;
-			if (onForeign != nullptr) onForeign(answer);
-		}
+		bool matches = receiveReply(
+			server, answer,
+			[&](const Message &candidate) {
+				return candidate.type == MessageType::FS_REPLY &&
+					   candidate.sender_pid == server &&
+					   candidate.payload.args.arg0 == id;
+			},
+			onForeign);
+		if (!matches) return false;
 
 		reply.status = static_cast<Status>(answer.payload.args.arg1);
 		status = reply.status;

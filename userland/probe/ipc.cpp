@@ -44,6 +44,28 @@ bool messageToSelfArrives() {
 		   received.payload.args.arg0 == PING_VALUE;
 }
 
+bool tryReceiveDoesNotBlock() {
+	using cock::user::Received;
+	uint32_t self = cock::user::self();
+
+	Message received = {};
+	if (cock::user::ipc_try_recv(received) != Received::EMPTY) return false;
+
+	Message sent = {};
+	sent.type = MessageType::SYS_PING;
+	sent.payload.args.arg0 = PING_VALUE;
+	if (!cock::user::ipc_send(self, sent)) return false;
+	if (cock::user::ipc_try_recv(received) != Received::MESSAGE ||
+		received.payload.args.arg0 != PING_VALUE)
+		return false;
+	if (cock::user::ipc_try_recv(received) != Received::EMPTY) return false;
+
+	return syscall(SYS_IPC_TRY_RECV, KERNEL_ADDRESS, 0, 0, 0, 0, 0) ==
+			   cock::user::FAILURE &&
+		   syscall(SYS_IPC_TRY_RECV, UNMAPPED_USER_ADDRESS, 0, 0, 0, 0, 0) ==
+			   cock::user::FAILURE;
+}
+
 bool processAliveReportsLiveness() {
 	return cock::user::process_alive(cock::user::self()) &&
 		   cock::user::process_alive(cock::user::lookup(cock::abi::fs::SERVER_NAME)) &&
