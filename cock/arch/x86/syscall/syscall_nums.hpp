@@ -29,6 +29,8 @@ enum SyscallNum : uint32_t {
     SYS_SPAWN               = 0x17A,
     SYS_PROC_ALIVE          = 0x17B,
     SYS_IPC_TRY_RECV        = 0x17C,
+    SYS_IPC_RECV_TIMEOUT    = 0x17D,
+    SYS_SLEEP               = 0x17E,
 };
 
 }

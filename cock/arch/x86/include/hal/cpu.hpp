@@ -7,6 +7,7 @@
 namespace cock::core::hal {
 
 constexpr uint32_t TIMER_IRQ_LINE = 0;
+constexpr uint32_t TIMER_FREQUENCY_HZ = 100;
 constexpr uint64_t IO_PORT_COUNT = 0x10000;
 constexpr uint64_t PHYSICAL_ADDRESS_SPACE_SIZE = 0x100000000ull;
 constexpr uint8_t TIMER_VECTOR = 0x20;

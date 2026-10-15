@@ -64,6 +64,18 @@ inline Received ipc_try_recv(ipc::Message &message) {
 	return result == NO_MESSAGE ? Received::EMPTY : Received::FAILED;
 }
 
+inline Received ipc_recv_timeout(ipc::Message &message, uint32_t milliseconds) {
+	uintptr_t result = syscall(SYS_IPC_RECV_TIMEOUT,
+							   reinterpret_cast<uintptr_t>(&message), milliseconds,
+							   0, 0, 0, 0);
+	if (result == SUCCESS) return Received::MESSAGE;
+	return result == NO_MESSAGE ? Received::EMPTY : Received::FAILED;
+}
+
+inline bool sleep_ms(uint32_t milliseconds) {
+	return syscall(SYS_SLEEP, milliseconds, 0, 0, 0, 0, 0) == SUCCESS;
+}
+
 inline bool request_ports(uint32_t first, uint32_t count) {
 	return syscall(SYS_REQUEST_RESOURCE, first, count, 0, 0, 0, 0) == SUCCESS;
 }

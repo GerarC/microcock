@@ -7,17 +7,16 @@
 
 namespace cock::user {
 
-inline void yield_cpu() { syscall(SYS_SCHED_YIELD, 0, 0, 0, 0, 0, 0); }
+constexpr uint32_t SERVER_POLL_MILLISECONDS = 20;
 
 template <typename Match>
 bool receiveReply(uint32_t server, ipc::Message &answer, Match match,
 				  void (*foreign)(const ipc::Message &)) {
 	for (;;) {
-		Received received = ipc_try_recv(answer);
+		Received received = ipc_recv_timeout(answer, SERVER_POLL_MILLISECONDS);
 		if (received == Received::FAILED) return false;
 		if (received == Received::EMPTY) {
 			if (!process_alive(server)) return false;
-			yield_cpu();
 			continue;
 		}
 

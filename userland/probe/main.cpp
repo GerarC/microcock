@@ -6,7 +6,7 @@
 
 namespace {
 
-constexpr size_t CHECK_COUNT = 34;
+constexpr size_t CHECK_COUNT = 37;
 constexpr uintptr_t EXIT_ALL_PASSED = 0;
 constexpr uintptr_t EXIT_SOME_FAILED = 1;
 
@@ -47,7 +47,10 @@ extern "C" void _start() {
 		probe::manifestMatchesTheBoot(),
 		probe::moduleIndexIsDenied(),
 		probe::spawnIsDenied(),
-		probe::processAliveReportsLiveness()};
+		probe::processAliveReportsLiveness(),
+		probe::receiveTimeoutBehaves(),
+		probe::timeoutCallsRefuseBadInput(),
+		probe::sleepReturnsAndKeepsMessages()};
 
 	unsigned passed = 0;
 	for (size_t idx = 0; idx < CHECK_COUNT; idx++) {

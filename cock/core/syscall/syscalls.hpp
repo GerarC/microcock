@@ -125,6 +125,21 @@ uintptr_t sys_spawn(uintptr_t image_ptr, uintptr_t image_size, uintptr_t name_pt
 uintptr_t sys_proc_alive(uintptr_t pid, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
 						 uintptr_t);
 
+constexpr uintptr_t MAX_TIMEOUT_MILLISECONDS = 0x7FFFFFFF;
+
+/**
+ * @brief Like sys_ipc_recv but gives up after the given milliseconds and
+ * returns 1.
+ */
+uintptr_t sys_ipc_recv_timeout(uintptr_t msg_ptr, uintptr_t milliseconds,
+							   uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+
+/**
+ * @brief Blocks the calling thread for at least the given milliseconds.
+ */
+uintptr_t sys_sleep(uintptr_t milliseconds, uintptr_t, uintptr_t, uintptr_t,
+					uintptr_t, uintptr_t);
+
 } // namespace cock::core::syscall
 
 #endif

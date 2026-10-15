@@ -97,6 +97,14 @@ Pending interrupt notifications come first (see below): each one is delivered as
 ### Receiving without waiting (`sys_ipc_try_recv`)
 `SYS_IPC_TRY_RECV` (`0x17C`) takes the same next item as `SYS_IPC_RECV` (a pending notification first, then the inbox) but never blocks: it returns `0` with the message copied, `1` when there is nothing, and `-1` when the pointer is not a writable user range. A program that has to notice a dead peer polls it together with `SYS_PROC_ALIVE`.
 
+### Receiving with a time limit (`sys_ipc_recv_timeout`)
+`SYS_IPC_RECV_TIMEOUT` (`0x17D`) takes `(message, milliseconds)`. It takes the next item like `SYS_IPC_RECV`; if there is none it waits at most that long. It returns `0` with the message copied, `1` when the time ran out, and `-1` for a bad pointer or a time above `0x7FFFFFFF`. A time of `0` never waits. The wait uses the same restart pattern as `SYS_IPC_RECV`: the thread is `WAITING_MSG` with a timeout armed, a message wakes it as usual, and the timer wakes it when the time is up; in both cases the call runs again, finds the message or finds the timeout flag and returns `1`. A message that arrives together with the timeout wins.
+
+### Sleeping (`sys_sleep`)
+`SYS_SLEEP` (`0x17E`) takes `(milliseconds)` and blocks the thread (`BLOCKED`, so messages do not wake it, they wait in the inbox) for at least that long and less than one tick more. `0` yields the CPU. A time above `0x7FFFFFFF` returns `-1`.
+
+Both calls are driven by `Timeouts` (see [task management](task_management.md#timeouts)). The clock is the 100 Hz tick, so the resolution is 10 ms and a time is rounded up to whole ticks.
+
 ## Interrupts as messages
 A driver in userland handles a hardware interrupt like this:
 
