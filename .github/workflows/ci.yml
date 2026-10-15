@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  kernel:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install the build and emulation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm qemu-system-x86 grub-pc-bin grub-common \
+            xorriso mtools gcc-multilib g++-multilib make python3
+
+      - name: Kernel tests
+        run: bash scripts/qemu_test.sh HOST_TOOLCHAIN=1
+
+      - name: Kernel tests with link time optimization
+        run: bash scripts/qemu_test.sh HOST_TOOLCHAIN=1 USE_LTO=1
+
+      - name: Userland end to end
+        run: bash scripts/qemu_userland_test.sh HOST_TOOLCHAIN=1
+
+      - name: Upload the serial logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: serial-logs
+          path: |
+            build/test_output.txt
+            build/userland_serial.txt
+          if-no-files-found: ignore
