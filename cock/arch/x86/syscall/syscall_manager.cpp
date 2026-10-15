@@ -29,6 +29,11 @@ void SyscallManager::init() {
 
     syscall_table[SyscallNum::SYS_IPC_SEND] = sys_ipc_send;
     syscall_table[SyscallNum::SYS_IPC_RECV] = sys_ipc_recv;
+
+    syscall_table[SyscallNum::SYS_CAP_GRANT] = sys_cap_grant;
+    syscall_table[SyscallNum::SYS_IRQ_BIND] = sys_irq_bind;
+    syscall_table[SyscallNum::SYS_IRQ_ACK] = sys_irq_ack;
+    syscall_table[SyscallNum::SYS_PROC_LOOKUP] = sys_proc_lookup;
 }
 
 SystemCall SyscallManager::getSyscall(size_t code){

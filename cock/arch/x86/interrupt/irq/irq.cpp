@@ -2,6 +2,7 @@
 #include <cock/arch/x86/interrupt/pic/pic.hpp>
 #include <cock/core/events.hpp>
 #include <cock/utils/logger.hpp>
+#include <hal/interrupt.hpp>
 namespace cock::arch::x86 {
 
 using utils::InterruptRegisters;
@@ -66,3 +67,13 @@ extern "C" uintptr_t irq_handler(uintptr_t current_esp) {
 }
 
 } // namespace cock::arch::x86
+
+namespace cock::core::hal {
+
+void irq_mask(uint32_t line) { arch::x86::PIC_mask(static_cast<uint8_t>(line)); }
+
+void irq_unmask(uint32_t line) {
+	arch::x86::PIC_unmask(static_cast<uint8_t>(line));
+}
+
+} // namespace cock::core::hal

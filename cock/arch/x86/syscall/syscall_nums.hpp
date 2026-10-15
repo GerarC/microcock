@@ -16,6 +16,10 @@ enum SyscallNum : uint32_t {
     SYS_SCHED_YIELD         = 0x9E,
     SYS_IPC_SEND            = 0x160,
     SYS_IPC_RECV            = 0x161,
+    SYS_CAP_GRANT           = 0x170,
+    SYS_IRQ_BIND            = 0x171,
+    SYS_IRQ_ACK             = 0x172,
+    SYS_PROC_LOOKUP         = 0x173,
 };
 
 }

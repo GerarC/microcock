@@ -1,3 +1,8 @@
+SYS_EXIT equ 1
+SYS_WRITE equ 4
+STDOUT equ 1
+EXIT_SUCCESS equ 0
+
 section .data
     msg db "Hello from cock ring 3!!!", 10
     msg_len equ $ - msg
@@ -6,19 +11,12 @@ section .text
 global _start
 
 _start:
-    mov eax, 7
-    mov ebx, 0x60
-    mov ecx, 1
+    mov eax, SYS_WRITE
+    mov ebx, STDOUT
+    mov ecx, msg
+    mov edx, msg_len
     int 0x80
 
-    in al, 0x60
-
-    mov eax, 4
-    mov ebx, 1       
-    mov ecx, msg     
-    mov edx, msg_len 
-    int 0x80
-
-    mov eax, 1
-    mov ebx, 0 
+    mov eax, SYS_EXIT
+    mov ebx, EXIT_SUCCESS
     int 0x80

@@ -30,6 +30,7 @@ constexpr uint32_t KIBIBYTE = 0x400;
 constexpr unsigned HIGH_WORD_SHIFT = 32;
 
 uint32_t frameBitmap[BITMAP_WORDS];
+uint32_t ramBitmap[BITMAP_WORDS];
 uint32_t frameLimit = 0;
 uint32_t searchHint = 0;
 uint32_t usedFrames = 0;
@@ -42,6 +43,10 @@ inline void setFrame(uint32_t frame) {
 	frameBitmap[frame / BITS_PER_WORD] |= (1u << (frame % BITS_PER_WORD));
 }
 
+inline void markRam(uint32_t frame) {
+	ramBitmap[frame / BITS_PER_WORD] |= (1u << (frame % BITS_PER_WORD));
+}
+
 inline void clearFrame(uint32_t frame) {
 	frameBitmap[frame / BITS_PER_WORD] &= ~(1u << (frame % BITS_PER_WORD));
 }
@@ -51,8 +56,10 @@ void releaseRange(uint64_t start, uint64_t end) {
 	uint64_t last = end >> PAGE_SHIFT;
 	if (last > MAX_PHYSICAL_FRAMES) last = MAX_PHYSICAL_FRAMES;
 
-	for (uint64_t frame = first; frame < last; frame++)
+	for (uint64_t frame = first; frame < last; frame++) {
 		clearFrame(static_cast<uint32_t>(frame));
+		markRam(static_cast<uint32_t>(frame));
+	}
 	if (last > frameLimit) frameLimit = static_cast<uint32_t>(last);
 }
 
@@ -152,6 +159,7 @@ uint32_t findFreeFrame() {
 
 void PhysicalMemoryManager::init(const MBInfo *boot_info, PhysAddr boot_info_phys) {
 	memset(frameBitmap, 0xFF, sizeof(frameBitmap));
+	memset(ramBitmap, 0, sizeof(ramBitmap));
 	frameLimit = 0;
 	searchHint = 0;
 	usedFrames = 0;
@@ -166,6 +174,12 @@ void PhysicalMemoryManager::init(const MBInfo *boot_info, PhysAddr boot_info_phy
 
 	Logger::debug("Physical Memory Manager initializated (%u KiB addressable)",
 				  frameLimit * (PAGE_SIZE / KIBIBYTE));
+}
+
+bool PhysicalMemoryManager::isRam(PhysAddr address) {
+	size_t frame = address.frameNumber();
+	if (frame >= MAX_PHYSICAL_FRAMES) return false;
+	return ramBitmap[frame / BITS_PER_WORD] & (1u << (frame % BITS_PER_WORD));
 }
 
 PhysAddr PhysicalMemoryManager::allocFrame() {

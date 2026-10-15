@@ -20,6 +20,10 @@ namespace cock::test::arch {
 extern void test_io_permissions();
 } // namespace cock::test::arch
 
+namespace cock::test::security {
+extern void test_capabilities();
+} // namespace cock::test::security
+
 namespace cock::test {
 using utils::Logger;
 
@@ -31,6 +35,7 @@ void run_all_tests() {
 	loader::test_elf_loader();
 	task::test_process();
 	arch::test_io_permissions();
+	security::test_capabilities();
 
 	Logger::info("<=== ENDING COCK TEST SUIT ===>\n");
 	TestRunner::print_summary();

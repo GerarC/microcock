@@ -1,4 +1,5 @@
 #include <cock/core/memory/vmm.hpp>
+#include <cock/core/security/capability.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/thread.hpp>
@@ -13,6 +14,7 @@ using core::memory::PhysAddr;
 using core::memory::VirtAddr;
 using core::memory::VirtualMemoryManager;
 using core::memory::VMMPermission;
+using core::security::CapabilityType;
 using core::task::Process;
 using core::task::Scheduler;
 using core::task::Thread;
@@ -21,8 +23,6 @@ using utils::Logger;
 constexpr uintptr_t MAP_PHYS = 0x1000;
 constexpr uintptr_t MAP_ANONYMOUS = 0x20;
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
-constexpr uintptr_t LEGACY_VIDEO_START = 0xA0000;
-constexpr uintptr_t LEGACY_VIDEO_END = 0xC0000;
 constexpr uintptr_t MIN_USER_ADDRESS = hal::PAGE_SIZE;
 
 static bool pages_for(uintptr_t length, size_t &pages) {
@@ -40,6 +40,8 @@ static uintptr_t map_anonymous(Thread &current, size_t pages) {
 	VirtAddr base = process.getMmapCursor();
 	if (pages > (image_limit(current) - base.raw()) >> hal::PAGE_SHIFT)
 		return FAILURE;
+
+	if (!VirtualMemoryManager::isRangeUnmapped(base, pages)) return FAILURE;
 
 	VirtAddr mapped = VirtualMemoryManager::mapPagesAt(
 		base, pages, VMMPermission::USER_DATA, current.getUserSpaceLimit());
@@ -61,10 +63,10 @@ static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 	PhysAddr phys = PhysAddr(static_cast<hal::PhysicalRaw>(offset)).pageBase();
 	size_t span = pages << hal::PAGE_SHIFT;
 
-	if (phys.raw() < LEGACY_VIDEO_START || phys.raw() > LEGACY_VIDEO_END ||
-		span > LEGACY_VIDEO_END - phys.raw()) {
-		Logger::warn("sys_mmap: PID %d tried to map physical 0x%x outside the "
-					 "video window",
+	if (!current.getProcess()->getCapabilities().covers(
+			CapabilityType::PHYSICAL_MEMORY, phys.raw(), span) ||
+		!VirtualMemoryManager::isDeviceMemory(phys, span)) {
+		Logger::warn("sys_mmap: PID %d may not map physical 0x%x",
 					 current.getId(), phys.raw());
 		return FAILURE;
 	}

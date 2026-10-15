@@ -3,7 +3,6 @@
 #include <cock/arch/x86/gdt/gdt.hpp>
 #include <cock/arch/x86/interrupt/idt/idt.hpp>
 #include <cock/arch/x86/interrupt/pic/pic.hpp>
-#include <cock/arch/x86/keyboard/keyboard.hpp>
 #include <cock/arch/x86/loader/multiboot_module_loader.hpp>
 #include <cock/arch/x86/memory/paging.hpp>
 #include <cock/arch/x86/memory/pmm.hpp>
@@ -69,7 +68,6 @@ void interrupts_init() {
 	PIC_remap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
 	IDT::init();
 	Timer::init();
-	Keyboard::init();
 	SyscallManager::init();
 }
 

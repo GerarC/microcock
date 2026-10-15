@@ -9,12 +9,17 @@ size_t VgaServer::column = 0;
 uint8_t VgaServer::current_color = (DEFAULT_BG << 4) | (DEFAULT_FG & 0x0F);
 volatile uint16_t* VgaServer::buffer = nullptr;
 
-void VgaServer::init() {
-    buffer = (uint16_t*)mmap((void*)VGA_VIRTUAL_TARGET, PAGE_SIZE, 
-                             PROT_READ | PROT_WRITE, 
-                             MAP_PHYS | MAP_FIXED, -1, 
-                             VGA_PHYSICAL_ADDRESS);
-    // clear();
+bool VgaServer::init() {
+    void* mapped = mmap((void*)VGA_VIRTUAL_TARGET, PAGE_SIZE,
+                        PROT_READ | PROT_WRITE,
+                        MAP_PHYS | MAP_FIXED, -1,
+                        VGA_PHYSICAL_ADDRESS);
+    if (mapped == MAP_FAILED) {
+        buffer = nullptr;
+        return false;
+    }
+    buffer = static_cast<volatile uint16_t*>(mapped);
+    return true;
 }
 
 void VgaServer::setColor(VGAColor fg, VGAColor bg) {

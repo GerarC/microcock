@@ -11,6 +11,8 @@ namespace cock::core::task {
 using cock::utils::Logger;
 using hal::InterruptGuard;
 
+constexpr uint32_t NO_PROCESS = 0xFFFFFFFF;
+
 Thread *TaskManager::registry[MAX_PROCESSES];
 uint32_t TaskManager::freePids[MAX_PROCESSES];
 size_t TaskManager::freePidCount = 0;
@@ -52,6 +54,21 @@ bool TaskManager::registerThread(Thread *thread) {
 
 Thread *TaskManager::getThreadByPID(uint32_t pid) {
 	return (pid < MAX_PROCESSES) ? registry[pid] : nullptr;
+}
+
+uint32_t TaskManager::findProcessId(const char *name) {
+	InterruptGuard guard;
+
+	for (size_t slot = 0; slot < MAX_PROCESSES; slot++) {
+		Thread *thread = registry[slot];
+		if (!thread || thread->getState() == ThreadState::DEAD) continue;
+
+		Process *process = thread->getProcess();
+		if (process->isKernel() || process->getId() != thread->getId())
+			continue;
+		if (strcmp(process->getName(), name) == 0) return process->getId();
+	}
+	return NO_PROCESS;
 }
 
 void TaskManager::notifyThreadDeath(Thread *thread) {

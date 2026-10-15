@@ -38,7 +38,7 @@ enum class VGAColor : uint8_t {
 
 class VgaServer {
 public:
-    static void init();
+    static bool init();
     static void putChar(char c);
     static void write(const char* data, size_t size);
     static void clear();

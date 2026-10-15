@@ -1,5 +1,6 @@
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/hal/tasking.hpp>
+#include <cock/core/irq/irq_routing.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
@@ -72,6 +73,7 @@ void Thread::initBase(ThreadPriority priority, ThreadType type,
 }
 
 Thread::~Thread() {
+	irq::IrqRouting::release(id);
 	this->userStackBase = VirtAddr();
 
 	if (stackBase != nullptr) {
