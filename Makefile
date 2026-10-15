@@ -73,8 +73,15 @@ INITRD_FILES := $(shell find $(INITRD_DIR) -type f)
 INITRD_ENTRIES := $(notdir $(wildcard $(INITRD_DIR)/*))
 INITRD_IMAGE = $(BUILD)/initrd.tar
 INITRD_MODULE = initrd
+TEST_INITRD_DIR = test/initrd
+ifdef TEST_INITRD
 USERLAND_MAKEFILES := $(wildcard userland/*/Makefile test/userland/*/Makefile)
+INITRD_FILES += $(shell find $(TEST_INITRD_DIR) -type f)
+else
+USERLAND_MAKEFILES := $(wildcard userland/*/Makefile)
+endif
 USERLAND_PROJECTS  := $(patsubst %/Makefile,%,$(USERLAND_MAKEFILES))
+USERLAND_PROGRAMS  := $(notdir $(USERLAND_PROJECTS))
 
 all: $(BUILD)/$(PROJECT).bin
 
@@ -110,11 +117,16 @@ $(INITRD_IMAGE): $(INITRD_FILES) userland | $(BUILD)
 	@rm -rf $(INITRD_STAGE)
 	@mkdir -p $(INITRD_STAGE)/$(INITRD_PROGRAMS)
 	@cp -r $(INITRD_DIR)/. $(INITRD_STAGE)/
-	@for elf in $(BUILD)/userland/*.elf; do \
-		name=$$(basename $$elf .elf); \
+	@if [ -n "$(TEST_INITRD)" ]; then \
+		cp -r $(TEST_INITRD_DIR)/. $(INITRD_STAGE)/; \
+		for file in manifest.conf mounts.conf; do \
+			cat $(INITRD_DIR)/$$file $(TEST_INITRD_DIR)/$$file > $(INITRD_STAGE)/$$file; \
+		done; \
+	fi
+	@for name in $(USERLAND_PROGRAMS); do \
 		case " $(USERLAND_BOOT_ORDER) " in \
 			*" $$name "*) ;; \
-			*) cp $$elf $(INITRD_STAGE)/$(INITRD_PROGRAMS)/ ;; \
+			*) cp $(BUILD)/userland/$$name.elf $(INITRD_STAGE)/$(INITRD_PROGRAMS)/ ;; \
 		esac; \
 	done
 	@cd $(INITRD_STAGE) && tar --format=ustar --owner=root --group=root --numeric-owner -cf $(abspath $@) *
