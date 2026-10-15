@@ -35,6 +35,7 @@ enum class Status : uint32_t {
 enum class FileType : uint32_t {
 	REGULAR = 0,
 	DIRECTORY = 1,
+	SYMLINK = 2,
 };
 
 static_assert(WINDOW_BYTES > MAX_PATH_BYTES, "the window must hold a path");

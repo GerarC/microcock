@@ -11,6 +11,7 @@ void testManifest();
 void testPartition();
 void testFat32();
 void testMounts();
+void testExt2();
 } // namespace host_test
 
 int main() {
@@ -23,6 +24,7 @@ int main() {
 	host_test::testPartition();
 	host_test::testFat32();
 	host_test::testMounts();
+	host_test::testExt2();
 
 	printf("host tests: %d checks, %d failed\n", host_test::checksRun,
 		   host_test::checksFailed);
