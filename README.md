@@ -89,6 +89,29 @@ Run in test mode (compiles with `COCK_TEST_MODE` flag):
 make test
 ```
 
+### Testing
+
+The in-kernel test suite runs inside QEMU and reports through the serial port;
+`scripts/qemu_test.sh` builds it, runs it without a window and turns the
+`isa-debug-exit` status into the script exit code:
+```bash
+bash scripts/qemu_test.sh
+```
+
+`scripts/qemu_userland_test.sh` boots the normal ISO, types on the simulated
+keyboard and checks that the userland drivers, the capability checks and the
+screen output work end to end:
+```bash
+bash scripts/qemu_userland_test.sh
+```
+
+Both scripts accept extra `make` arguments. To build with the host `g++`/`ld`
+(for example on a CI runner without the cross-compiler) and with link time
+optimization:
+```bash
+bash scripts/qemu_test.sh HOST_TOOLCHAIN=1 USE_LTO=1
+```
+
 ### References
 To create microcock I've reseach a lot of sites, videos and even AI models to learn ways to implement certain things,
 so this is the space where I put those references that really helped me to move this project forward:
