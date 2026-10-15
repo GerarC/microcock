@@ -29,7 +29,7 @@ constexpr uint32_t UNKNOWN_PID = 0xFFFFFFF0;
 constexpr uint32_t FIRST_ARGUMENT = 0xA1;
 constexpr uint32_t SECOND_ARGUMENT = 0xB2;
 constexpr uint32_t KEYBOARD_LINE = 1;
-constexpr size_t INBOX_CAPACITY = core::task::THREAD_MESSAGE_BUFFER_SIZE - 1;
+constexpr size_t INBOX_CAPACITY = core::task::THREAD_INBOX_CAPACITY;
 constexpr size_t NO_MESSAGES = 0;
 
 Thread *idleThread = nullptr;
