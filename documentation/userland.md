@@ -8,8 +8,9 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 |---------|------|
 | `init` | Root server. The only process born with authority; it gives each driver its capabilities and tells it to start, then exits |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
+| `ramfs` | File server for the `initrd`; see [file system](filesystem.md) |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the display server |
-| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp` and `shared_memory.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 26/26 checks passed` |
+| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp` and `files.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 29/29 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |
 
@@ -36,6 +37,7 @@ A driver that needs a new capability needs a new `cap_grant` in `userland/init/m
 | `lookup(name)` | `SYS_PROC_LOOKUP` |
 | `shm_create(pages)`, `shm_share(id, pid, writable)`, `shm_map(id, writable)`, `shm_release(id)` | `SYS_SHM_CREATE`, `SYS_SHM_SHARE`, `SYS_SHM_MAP`, `SYS_SHM_RELEASE` |
 | `module_open(name)` | `SYS_MODULE_OPEN` |
+| `module_index(name)` | `SYS_MODULE_INDEX` |
 | `self()` | `SYS_GETPID` |
 | `write_text(text, length)` | `SYS_WRITE`, repeated until the whole text is written (a call takes at most 128 bytes) |
 | `exit_process(status)` | `SYS_EXIT` |

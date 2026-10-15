@@ -6,7 +6,7 @@
 # Project Identity
 # ------------------------------------------------------------------------------
 PROJECT_NAME           = "MicroCOCK OS"
-PROJECT_NUMBER         = "v0.1.2 Pre-alfa"
+PROJECT_NUMBER         = "v0.1.3 Pre-alfa"
 PROJECT_BRIEF          = "32-bit x86 Higher-Half Microkernel"
 PROJECT_LOGO           = 
 

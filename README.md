@@ -77,6 +77,7 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_SHM_MAP` (0x176): Map a whole object into the caller, read only or read and write.
 * `SYS_SHM_RELEASE` (0x177): Drop the right of the caller to an object.
 * `SYS_MODULE_OPEN` (0x178): Open a data boot module by name as a read only shared memory object; needs a `BOOT_MODULE` capability.
+* `SYS_MODULE_INDEX` (0x179): Index of a data boot module by name; needs grant authority.
 
 ## Building and Running
 
@@ -220,7 +221,7 @@ The path the project follows, in order. `[x]` is done, `[ ]` is planned.
 The file system lives outside the kernel, as servers that talk by IPC. The kernel only gains small general mechanisms. The first one is a read-only initial RAM disk; a disk comes after it, on the same protocol.
 - [x] **F1** Shared memory between processes (the way to move file data).
 - [x] **F2** Data boot modules, a capability to open them, and an `initrd` built as a tar archive.
-- [ ] **F3** `ramfs` server and a client library: a program reads a file from the initrd.
+- [x] **F3** `ramfs` server and a client library: a program reads a file from the initrd.
 - [ ] **F4** `spawn`: `init` starts the drivers from files instead of from boot modules.
 - [ ] **F5** A manifest read by `init` that lists each program and its capabilities. Adding a driver becomes adding a line.
 - [ ] **F6** ATA driver (PIO), a block protocol and partition tables (MBR and GPT).

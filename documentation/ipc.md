@@ -31,7 +31,7 @@ void SyscallManager::init() {
 
 The shared memory calls (`SYS_SHM_*`, numbers `0x174` to `0x177`) move bulk data between processes, which a message of six arguments cannot do: a process creates an object, shares it with the pid of another process by IPC, and the other process maps it. See [memory management](memory_management.md).
 
-`SYS_MODULE_OPEN` (`0x178`) gives a process holding the `BOOT_MODULE` capability the id of a data boot module, as a read only shared memory object.
+`SYS_MODULE_OPEN` (`0x178`) gives a process holding the `BOOT_MODULE` capability the id of a data boot module, as a read only shared memory object. `SYS_MODULE_INDEX` (`0x179`) gives the index of a data module to a process that holds grant authority, so `init` can grant the capability for one module.
 
 The full table with the numbers is in the [README](../README.md). The value a handler returns goes back in `EAX`; `-1` means failure. An unknown number returns `-1` as well.
 
@@ -68,6 +68,7 @@ The kernel writes `sender_pid` and `target_pid` itself on delivery; whatever the
 | `VIDEO_WRITE_CHAR` | Write one character (`arg0`) on the display server |
 | `VIDEO_WRITE_STR` | Write `arg0` bytes that follow in `arg1` and the next arguments |
 | `IRQ_NOTIFICATION` | The kernel tells a driver that its interrupt line fired (`arg0` is the line). Only the kernel produces it, with `KERNEL_SENDER` as sender; a program that tries to send one gets `-1` |
+| `FS_CONNECT`, `FS_OPEN`, `FS_READ`, `FS_STAT`, `FS_CLOSE`, `FS_REPLY` | The file server protocol (values 9 to 14); see [file system](filesystem.md) |
 | `CAPABILITY_GRANTED` | The root server tells a driver that its capabilities are in place (`arg0` is a peer process id). Only a process that holds a capability with the grant right can send it |
 
 ### Sending (`sys_ipc_send`)
