@@ -158,6 +158,10 @@ inline void port_read_words(uint16_t port, void *buffer, size_t words) {
 	__asm__ volatile("rep insw" : "+D"(buffer), "+c"(words) : "d"(port) : "memory");
 }
 
+inline void port_write_words(uint16_t port, const void *buffer, size_t words) {
+	__asm__ volatile("rep outsw" : "+S"(buffer), "+c"(words) : "d"(port) : "memory");
+}
+
 } // namespace cock::user
 
 #endif // !COCK_USER_API_HPP

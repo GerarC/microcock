@@ -68,8 +68,8 @@ The kernel writes `sender_pid` and `target_pid` itself on delivery; whatever the
 | `VIDEO_WRITE_CHAR` | Write one character (`arg0`) on the display server |
 | `VIDEO_WRITE_STR` | Write `arg0` bytes that follow in `arg1` and the next arguments |
 | `IRQ_NOTIFICATION` | The kernel tells a driver that its interrupt line fired (`arg0` is the line). Only the kernel produces it, with `KERNEL_SENDER` as sender; a program that tries to send one gets `-1` |
-| `FS_CONNECT`, `FS_OPEN`, `FS_READ`, `FS_STAT`, `FS_READDIR`, `FS_CLOSE`, `FS_REPLY` | The file server protocol (values 9 to 15); see [file system](filesystem.md) |
-| `BLK_CONNECT`, `BLK_INFO`, `BLK_READ`, `BLK_REPLY` | The block server protocol (values 16 to 19); see [block storage](block_storage.md) |
+| `FS_CONNECT`, `FS_OPEN`, `FS_READ`, `FS_STAT`, `FS_READDIR`, `FS_CLOSE`, `FS_REPLY`, `FS_WRITE`, `FS_UNLINK` | The file server protocol (values 9 to 15, 20 and 21); see [file system](filesystem.md) |
+| `BLK_CONNECT`, `BLK_INFO`, `BLK_READ`, `BLK_REPLY`, `BLK_WRITE` | The block server protocol (values 16 to 19 and 22); see [block storage](block_storage.md) |
 | `CAPABILITY_GRANTED` | The root server tells a driver that its capabilities are in place (`arg0` is a peer process id). Only a process that holds a capability with the grant right can send it |
 
 ### Sending (`sys_ipc_send`)

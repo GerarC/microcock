@@ -235,7 +235,7 @@ The file system lives outside the kernel, as servers that talk by IPC. The kerne
 - [x] **F6** ATA driver (PIO), a block protocol and partition tables (MBR and GPT).
 - [x] **F7** FAT32 server (read only first) and a `vfs` with a mount table.
 - [x] **F8** `ext` server, ext2 read only.
-- [ ] **F9** Writing for FAT32 and ext2.
+- [x] **F9** Writing for FAT32 and ext2.
 - [ ] **F10** `open`, `read`, `write` and `close` in the C library, over the file client.
 
 ### After that

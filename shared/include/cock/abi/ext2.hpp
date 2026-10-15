@@ -14,11 +14,14 @@ constexpr size_t SUPERBLOCK_SECTORS = SUPERBLOCK_BYTES / SECTOR_BYTES;
 
 constexpr size_t SB_INODES_COUNT_OFFSET = 0;
 constexpr size_t SB_BLOCKS_COUNT_OFFSET = 4;
+constexpr size_t SB_FREE_BLOCKS_OFFSET = 12;
+constexpr size_t SB_FREE_INODES_OFFSET = 16;
 constexpr size_t SB_FIRST_DATA_BLOCK_OFFSET = 20;
 constexpr size_t SB_LOG_BLOCK_SIZE_OFFSET = 24;
 constexpr size_t SB_BLOCKS_PER_GROUP_OFFSET = 32;
 constexpr size_t SB_INODES_PER_GROUP_OFFSET = 40;
 constexpr size_t SB_MAGIC_OFFSET = 56;
+constexpr size_t SB_STATE_OFFSET = 58;
 constexpr size_t SB_REVISION_OFFSET = 76;
 constexpr size_t SB_FIRST_INODE_OFFSET = 84;
 constexpr size_t SB_INODE_SIZE_OFFSET = 88;
@@ -52,13 +55,27 @@ constexpr uint32_t INCOMPAT_LARGE_DIRECTORIES = 0x04000;
 constexpr uint32_t INCOMPAT_INLINE_DATA = 0x08000;
 constexpr uint32_t INCOMPAT_ENCRYPTION = 0x10000;
 constexpr uint32_t SUPPORTED_INCOMPAT = INCOMPAT_FILETYPE;
+constexpr uint32_t COMPAT_HAS_JOURNAL = 0x00004;
+constexpr uint32_t RO_COMPAT_SPARSE_SUPER = 0x00001;
+constexpr uint32_t RO_COMPAT_LARGE_FILE = 0x00002;
+constexpr uint32_t SUPPORTED_RO_COMPAT = RO_COMPAT_SPARSE_SUPER | RO_COMPAT_LARGE_FILE;
+constexpr uint32_t STATE_VALID = 0x0001;
+constexpr uint32_t STATE_ERROR = 0x0002;
 
 constexpr size_t GROUP_DESCRIPTOR_BYTES = 32;
+constexpr size_t GD_BLOCK_BITMAP_OFFSET = 0;
+constexpr size_t GD_INODE_BITMAP_OFFSET = 4;
 constexpr size_t GD_INODE_TABLE_OFFSET = 8;
+constexpr size_t GD_FREE_BLOCKS_OFFSET = 12;
+constexpr size_t GD_FREE_INODES_OFFSET = 14;
 
 constexpr uint32_t ROOT_INODE = 2;
 constexpr size_t INODE_MODE_OFFSET = 0;
 constexpr size_t INODE_SIZE_OFFSET = 4;
+constexpr size_t INODE_DELETION_TIME_OFFSET = 20;
+constexpr uint32_t DELETION_TIME_MARK = 1000000000;
+constexpr size_t INODE_LINKS_OFFSET = 26;
+constexpr size_t INODE_SECTORS_OFFSET = 28;
 constexpr size_t INODE_FLAGS_OFFSET = 32;
 constexpr size_t INODE_BLOCKS_OFFSET = 40;
 constexpr size_t INODE_SIZE_HIGH_OFFSET = 108;
@@ -73,14 +90,23 @@ constexpr uint32_t MODE_TYPE_MASK = 0xF000;
 constexpr uint32_t MODE_DIRECTORY = 0x4000;
 constexpr uint32_t MODE_REGULAR = 0x8000;
 constexpr uint32_t MODE_SYMLINK = 0xA000;
+constexpr uint32_t MODE_PERMISSIONS_644 = 0x01A4;
+constexpr uint32_t MODE_NEW_FILE = MODE_REGULAR | MODE_PERMISSIONS_644;
+constexpr uint32_t NEW_FILE_LINKS = 1;
 constexpr uint32_t MAX_FILE_BYTES = 0x7FFFFFFF;
 constexpr uint32_t FAST_SYMLINK_BYTES = INODE_BLOCK_SLOTS * sizeof(uint32_t);
 
 constexpr size_t DIRENT_HEADER_BYTES = 8;
 constexpr size_t DIRENT_RECORD_OFFSET = 4;
 constexpr size_t DIRENT_NAME_LENGTH_OFFSET = 6;
+constexpr size_t DIRENT_TYPE_OFFSET = 7;
 constexpr size_t DIRENT_NAME_OFFSET = 8;
 constexpr uint32_t DIRENT_ALIGNMENT = 4;
+constexpr uint8_t DIRENT_TYPE_REGULAR = 1;
+constexpr uint32_t NO_BIT = 0xFFFFFFFF;
+constexpr uint8_t FULL_BYTE = 0xFF;
+constexpr uint32_t FIRST_BIT = 1;
+constexpr uint32_t BITS_PER_BITMAP_SECTOR = uint32_t(SECTOR_BYTES) * BITS_PER_BYTE;
 
 constexpr unsigned SHIFT_8 = 8;
 constexpr unsigned SHIFT_16 = 16;
@@ -117,7 +143,11 @@ struct Superblock {
 	uint32_t incompat;
 	uint32_t roCompat;
 	uint32_t unsupported;
+	uint32_t freeBlocks;
+	uint32_t freeInodes;
+	uint32_t state;
 	bool fileType;
+	bool writable;
 
 	uint32_t sectorsPerBlock() const { return blockBytes / uint32_t(SECTOR_BYTES); }
 	uint32_t pointersPerBlock() const { return blockBytes / uint32_t(sizeof(uint32_t)); }
@@ -127,6 +157,8 @@ struct Superblock {
 struct Inode {
 	InodeType type;
 	uint32_t size;
+	uint32_t links;
+	uint32_t sectors;
 	uint32_t flags;
 	uint32_t blocks[INODE_BLOCK_SLOTS];
 };
@@ -181,6 +213,18 @@ inline uint32_t readLe32(const uint8_t *bytes) {
 
 inline bool isPowerOfTwo(uint32_t value) { return value != 0 && (value & (value - 1)) == 0; }
 
+inline void writeLe16(uint8_t *bytes, uint32_t value) {
+	bytes[0] = uint8_t(value);
+	bytes[1] = uint8_t(value >> SHIFT_8);
+}
+
+inline void writeLe32(uint8_t *bytes, uint32_t value) {
+	bytes[0] = uint8_t(value);
+	bytes[1] = uint8_t(value >> SHIFT_8);
+	bytes[THIRD_BYTE] = uint8_t(value >> SHIFT_16);
+	bytes[FOURTH_BYTE] = uint8_t(value >> SHIFT_24);
+}
+
 } // namespace detail
 
 inline const char *featureName(uint32_t bit) {
@@ -217,6 +261,12 @@ inline Error parseSuperblock(const uint8_t *bytes, uint64_t partitionSectors,
 
 	sb.unsupported = sb.incompat & ~SUPPORTED_INCOMPAT;
 	sb.fileType = (sb.incompat & INCOMPAT_FILETYPE) != 0;
+	sb.freeBlocks = detail::readLe32(bytes + SB_FREE_BLOCKS_OFFSET);
+	sb.freeInodes = detail::readLe32(bytes + SB_FREE_INODES_OFFSET);
+	sb.state = detail::readLe16(bytes + SB_STATE_OFFSET);
+	sb.writable = (sb.roCompat & ~SUPPORTED_RO_COMPAT) == 0 &&
+				  (sb.compat & COMPAT_HAS_JOURNAL) == 0 && (sb.state & STATE_VALID) != 0 &&
+				  (sb.state & STATE_ERROR) == 0;
 	if (sb.unsupported != 0) return Error::UNSUPPORTED_FEATURES;
 
 	if (!detail::isPowerOfTwo(sb.inodeBytes) || sb.inodeBytes < LEGACY_INODE_BYTES ||
@@ -251,6 +301,8 @@ inline Inode parseInode(const uint8_t *raw) {
 	if (inode.type == InodeType::REGULAR &&
 		(detail::readLe32(raw + INODE_SIZE_HIGH_OFFSET) != 0 || inode.size > MAX_FILE_BYTES))
 		inode.size = MAX_FILE_BYTES;
+	inode.links = detail::readLe16(raw + INODE_LINKS_OFFSET);
+	inode.sectors = detail::readLe32(raw + INODE_SECTORS_OFFSET);
 	inode.flags = detail::readLe32(raw + INODE_FLAGS_OFFSET);
 	for (uint32_t slot = 0; slot < INODE_BLOCK_SLOTS; slot++)
 		inode.blocks[slot] =
@@ -277,6 +329,53 @@ inline bool parseDirItem(const uint8_t *block, uint32_t blockBytes, uint32_t off
 	item.nameBytes = nameBytes;
 	item.name = raw + DIRENT_NAME_OFFSET;
 	return true;
+}
+
+inline uint32_t direntBytes(uint32_t nameBytes) {
+	return (uint32_t(DIRENT_HEADER_BYTES) + nameBytes + DIRENT_ALIGNMENT - 1) /
+		   DIRENT_ALIGNMENT * DIRENT_ALIGNMENT;
+}
+
+inline void encodeDirItem(uint8_t *raw, uint32_t inode, uint32_t recordBytes,
+						  const char *name, uint32_t nameBytes, bool fileType,
+						  uint8_t type) {
+	detail::writeLe32(raw, inode);
+	detail::writeLe16(raw + DIRENT_RECORD_OFFSET, recordBytes);
+	if (fileType) {
+		raw[DIRENT_NAME_LENGTH_OFFSET] = uint8_t(nameBytes);
+		raw[DIRENT_TYPE_OFFSET] = type;
+	} else {
+		detail::writeLe16(raw + DIRENT_NAME_LENGTH_OFFSET, nameBytes);
+	}
+	for (uint32_t index = 0; index < nameBytes; index++)
+		raw[DIRENT_NAME_OFFSET + index] = uint8_t(name[index]);
+}
+
+inline uint8_t bitMask(uint32_t index) { return uint8_t(FIRST_BIT << (index % BITS_PER_BYTE)); }
+
+inline bool bitIsSet(const uint8_t *bitmap, uint32_t index) {
+	return (bitmap[index / BITS_PER_BYTE] & bitMask(index)) != 0;
+}
+
+inline void setBit(uint8_t *bitmap, uint32_t index) {
+	bitmap[index / BITS_PER_BYTE] = uint8_t(bitmap[index / BITS_PER_BYTE] | bitMask(index));
+}
+
+inline void clearBit(uint8_t *bitmap, uint32_t index) {
+	bitmap[index / BITS_PER_BYTE] = uint8_t(bitmap[index / BITS_PER_BYTE] & ~bitMask(index));
+}
+
+inline uint32_t findClearBit(const uint8_t *bitmap, uint32_t from, uint32_t limit) {
+	uint32_t index = from;
+	while (index < limit) {
+		if (index % BITS_PER_BYTE == 0 && bitmap[index / BITS_PER_BYTE] == FULL_BYTE) {
+			index += BITS_PER_BYTE;
+			continue;
+		}
+		if (!bitIsSet(bitmap, index)) return index;
+		index++;
+	}
+	return NO_BIT;
 }
 
 inline bool blockPath(uint32_t fileBlock, uint32_t perBlock, BlockPath &path) {

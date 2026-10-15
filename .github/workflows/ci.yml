@@ -15,7 +15,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y nasm qemu-system-x86 grub-pc-bin grub-common \
-            xorriso mtools e2fsprogs gcc-multilib g++-multilib make python3
+            xorriso mtools e2fsprogs dosfstools gcc-multilib g++-multilib make python3
 
       - name: Host tests
         run: bash scripts/host_test.sh

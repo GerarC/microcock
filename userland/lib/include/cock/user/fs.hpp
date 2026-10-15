@@ -17,6 +17,7 @@ using ipc::Message;
 using ipc::MessageType;
 
 constexpr long READ_FAILED = -1;
+constexpr long WRITE_FAILED = -1;
 
 struct Reply {
 	Status status;
@@ -80,7 +81,7 @@ class Client {
 		return true;
 	}
 
-	uint32_t open(const char *path) {
+	uint32_t open(const char *path, uint32_t flags = abi::fs::OPEN_READ_ONLY) {
 		size_t length = strlen(path);
 		if (view == nullptr || length == 0 || length >= abi::fs::MAX_PATH_BYTES)
 			return abi::fs::NO_HANDLE;
@@ -89,11 +90,36 @@ class Client {
 		view[length] = '\0';
 
 		Reply reply = {};
-		if (!call(MessageType::FS_OPEN, static_cast<uint32_t>(length),
-				  abi::fs::OPEN_READ_ONLY, 0, reply) ||
+		if (!call(MessageType::FS_OPEN, static_cast<uint32_t>(length), flags, 0, reply) ||
 			reply.status != Status::OK)
 			return abi::fs::NO_HANDLE;
 		return reply.first;
+	}
+
+	long write(uint32_t handle, uint32_t offset, const void *buffer, size_t length) {
+		if (view == nullptr) return WRITE_FAILED;
+		if (length > abi::fs::WINDOW_BYTES) length = abi::fs::WINDOW_BYTES;
+
+		memcpy(view, buffer, length);
+		Reply reply = {};
+		if (!call(MessageType::FS_WRITE, handle, offset, static_cast<uint32_t>(length),
+				  reply) ||
+			reply.status != Status::OK || reply.first > length)
+			return WRITE_FAILED;
+		return static_cast<long>(reply.first);
+	}
+
+	bool unlink(const char *path) {
+		size_t length = strlen(path);
+		if (view == nullptr || length == 0 || length >= abi::fs::MAX_PATH_BYTES)
+			return false;
+
+		memcpy(view, path, length);
+		view[length] = '\0';
+
+		Reply reply = {};
+		return call(MessageType::FS_UNLINK, static_cast<uint32_t>(length), 0, 0, reply) &&
+			   reply.status == Status::OK;
 	}
 
 	long read(uint32_t handle, uint32_t offset, void *buffer, size_t length) {

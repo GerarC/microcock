@@ -290,6 +290,124 @@ void checkBlockPaths() {
 	CHECK_FALSE(blockPath(0, MAX_POINTERS_PER_BLOCK + 1, path));
 }
 
+constexpr uint32_t FREE_BLOCKS = 9000;
+constexpr uint32_t FREE_INODES = 2500;
+constexpr uint32_t UNKNOWN_RO_COMPAT = 0x40;
+constexpr uint32_t ENCODED_INODE = 21;
+constexpr char ENCODED_NAME[] = "note.txt";
+constexpr uint32_t ENCODED_NAME_BYTES = sizeof(ENCODED_NAME) - sizeof(char);
+constexpr uint32_t ENCODED_RECORD_BYTES = 24;
+constexpr uint32_t EXPECTED_ENCODED_SIZE = 16;
+constexpr uint32_t ONE_BYTE_NAME_RECORD = 12;
+constexpr uint32_t BITMAP_BYTES = 8;
+constexpr uint32_t BITMAP_BITS = BITMAP_BYTES * BYTE_BITS;
+constexpr uint32_t FIRST_CLEAR_BIT = 13;
+constexpr uint32_t BITMAP_START = 14;
+constexpr uint32_t BITMAP_LIMIT = 20;
+constexpr uint32_t INODE_LINKS = 3;
+constexpr uint32_t INODE_SECTOR_COUNT = 24;
+constexpr uint32_t SECTOR_BITS = 4096;
+
+void makeWritableSuperblock(uint8_t *bytes) {
+	makeSuperblock(bytes);
+	putLe32(bytes + SB_FREE_BLOCKS_OFFSET, FREE_BLOCKS);
+	putLe32(bytes + SB_FREE_INODES_OFFSET, FREE_INODES);
+	putLe16(bytes + SB_STATE_OFFSET, STATE_VALID);
+}
+
+void checkWritableVolumes() {
+	uint8_t bytes[SUPERBLOCK_BYTES];
+	Superblock sb = {};
+
+	makeWritableSuperblock(bytes);
+	CHECK_TRUE(parseSuperblock(bytes, PARTITION_SECTORS, sb) == Error::NONE);
+	CHECK_TRUE(sb.writable);
+	CHECK_EQ(FREE_BLOCKS, sb.freeBlocks);
+	CHECK_EQ(FREE_INODES, sb.freeInodes);
+	CHECK_EQ(uint32_t(STATE_VALID), sb.state);
+
+	makeWritableSuperblock(bytes);
+	putLe16(bytes + SB_STATE_OFFSET, 0);
+	CHECK_TRUE(parseSuperblock(bytes, PARTITION_SECTORS, sb) == Error::NONE);
+	CHECK_FALSE(sb.writable);
+
+	makeWritableSuperblock(bytes);
+	putLe16(bytes + SB_STATE_OFFSET, STATE_VALID | STATE_ERROR);
+	CHECK_TRUE(parseSuperblock(bytes, PARTITION_SECTORS, sb) == Error::NONE);
+	CHECK_FALSE(sb.writable);
+
+	makeWritableSuperblock(bytes);
+	putLe32(bytes + SB_COMPAT_OFFSET, COMPAT_FLAGS | COMPAT_HAS_JOURNAL);
+	CHECK_TRUE(parseSuperblock(bytes, PARTITION_SECTORS, sb) == Error::NONE);
+	CHECK_FALSE(sb.writable);
+
+	makeWritableSuperblock(bytes);
+	putLe32(bytes + SB_RO_COMPAT_OFFSET, RO_COMPAT_FLAGS | UNKNOWN_RO_COMPAT);
+	CHECK_TRUE(parseSuperblock(bytes, PARTITION_SECTORS, sb) == Error::NONE);
+	CHECK_FALSE(sb.writable);
+}
+
+void checkInodeFields() {
+	uint8_t raw[LEGACY_INODE_BYTES] = {};
+	putLe16(raw + INODE_MODE_OFFSET, MODE_NEW_FILE);
+	putLe16(raw + INODE_LINKS_OFFSET, INODE_LINKS);
+	putLe32(raw + INODE_SECTORS_OFFSET, INODE_SECTOR_COUNT);
+	putLe32(raw + INODE_SIZE_OFFSET, FILE_BYTES);
+
+	Inode inode = parseInode(raw);
+	CHECK_TRUE(inode.type == InodeType::REGULAR);
+	CHECK_EQ(INODE_LINKS, inode.links);
+	CHECK_EQ(INODE_SECTOR_COUNT, inode.sectors);
+	CHECK_EQ(FILE_BYTES, inode.size);
+}
+
+void checkDirectoryEncoding() {
+	CHECK_EQ(EXPECTED_ENCODED_SIZE, direntBytes(ENCODED_NAME_BYTES));
+	CHECK_EQ(ONE_BYTE_NAME_RECORD, direntBytes(1));
+	CHECK_EQ(uint32_t(DIRENT_HEADER_BYTES), direntBytes(0));
+
+	uint8_t block[BLOCK_BYTES] = {};
+	DirItem item = {};
+	encodeDirItem(block, ENCODED_INODE, ENCODED_RECORD_BYTES, ENCODED_NAME,
+				  ENCODED_NAME_BYTES, true, DIRENT_TYPE_REGULAR);
+	CHECK_TRUE(parseDirItem(block, BLOCK_BYTES, 0, true, item));
+	CHECK_EQ(ENCODED_INODE, item.inode);
+	CHECK_EQ(ENCODED_RECORD_BYTES, item.recordBytes);
+	CHECK_EQ(ENCODED_NAME_BYTES, item.nameBytes);
+	CHECK_TRUE(memcmp(item.name, ENCODED_NAME, ENCODED_NAME_BYTES) == 0);
+	CHECK_EQ(uint8_t(DIRENT_TYPE_REGULAR), block[DIRENT_TYPE_OFFSET]);
+
+	uint8_t plain[BLOCK_BYTES] = {};
+	encodeDirItem(plain, ENCODED_INODE, EXPECTED_ENCODED_SIZE, ENCODED_NAME,
+				  ENCODED_NAME_BYTES, false, DIRENT_TYPE_REGULAR);
+	CHECK_TRUE(parseDirItem(plain, BLOCK_BYTES, 0, false, item));
+	CHECK_EQ(ENCODED_NAME_BYTES, item.nameBytes);
+	CHECK_EQ(uint8_t(0), plain[DIRENT_TYPE_OFFSET]);
+}
+
+void checkBitmaps() {
+	uint8_t bitmap[BITMAP_BYTES];
+	memset(bitmap, FULL_BYTE, sizeof(bitmap));
+	CHECK_EQ(NO_BIT, findClearBit(bitmap, 0, BITMAP_BITS));
+
+	clearBit(bitmap, FIRST_CLEAR_BIT);
+	CHECK_FALSE(bitIsSet(bitmap, FIRST_CLEAR_BIT));
+	CHECK_TRUE(bitIsSet(bitmap, FIRST_CLEAR_BIT - 1));
+	CHECK_TRUE(bitIsSet(bitmap, FIRST_CLEAR_BIT + 1));
+	CHECK_EQ(FIRST_CLEAR_BIT, findClearBit(bitmap, 0, BITMAP_BITS));
+	CHECK_EQ(NO_BIT, findClearBit(bitmap, BITMAP_START, BITMAP_BITS));
+	CHECK_EQ(NO_BIT, findClearBit(bitmap, 0, FIRST_CLEAR_BIT));
+
+	setBit(bitmap, FIRST_CLEAR_BIT);
+	CHECK_TRUE(bitIsSet(bitmap, FIRST_CLEAR_BIT));
+	CHECK_EQ(NO_BIT, findClearBit(bitmap, 0, BITMAP_BITS));
+
+	clearBit(bitmap, BITMAP_LIMIT);
+	CHECK_EQ(BITMAP_LIMIT, findClearBit(bitmap, BITMAP_START, BITMAP_BITS));
+	CHECK_EQ(NO_BIT, findClearBit(bitmap, BITMAP_START, BITMAP_LIMIT));
+	CHECK_EQ(SECTOR_BITS, BITS_PER_BITMAP_SECTOR);
+}
+
 } // namespace
 
 void testExt2() {
@@ -298,6 +416,10 @@ void testExt2() {
 	checkInodes();
 	checkDirectoryItems();
 	checkBlockPaths();
+	checkWritableVolumes();
+	checkInodeFields();
+	checkDirectoryEncoding();
+	checkBitmaps();
 }
 
 } // namespace host_test

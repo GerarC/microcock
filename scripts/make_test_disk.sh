@@ -50,6 +50,7 @@ yes "$FAT_BIG_LETTERS" | tr -d '\n' | head -c "$FAT_BIG_BYTES" > "$WORK/big.bin"
 export LC_ALL=C.UTF-8
 mformat -i "$FAT_VOLUME" -F -T "$SECOND_SECTORS" -c "$FAT_CLUSTER_SECTORS" ::
 mmd -i "$FAT_VOLUME" "::/$FAT_DIRECTORY"
+mmd -i "$FAT_VOLUME" "::/$FAT_SCRATCH"
 mcopy -i "$FAT_VOLUME" "$WORK/hello.txt" ::/HELLO.TXT
 mcopy -i "$FAT_VOLUME" "$WORK/hello.txt" "::/$FAT_LONG_NAME"
 mcopy -i "$FAT_VOLUME" "$WORK/hello.txt" "::/$FAT_UNICODE_NAME"
@@ -57,7 +58,7 @@ mcopy -i "$FAT_VOLUME" "$WORK/big.bin" ::/BIG.BIN
 mcopy -i "$FAT_VOLUME" "$WORK/nested.txt" "::/$FAT_DIRECTORY/NESTED.TXT"
 
 EXT_TREE="$WORK/ext"
-mkdir -p "$EXT_TREE/subdir" "$EXT_TREE/many"
+mkdir -p "$EXT_TREE/subdir" "$EXT_TREE/many" "$EXT_TREE/$EXT_SCRATCH"
 echo "$EXT_SMALL_TEXT" > "$EXT_TREE/small.txt"
 echo "$EXT_INNER_TEXT" > "$EXT_TREE/subdir/inner.txt"
 yes "$FAT_BIG_LETTERS" | tr -d '\n' | head -c "$EXT_LARGE_BYTES" > "$EXT_TREE/large.bin"

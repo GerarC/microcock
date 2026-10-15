@@ -23,6 +23,7 @@ constexpr size_t BPB_TOTAL32_OFFSET = 32;
 constexpr size_t BPB_FAT_SIZE32_OFFSET = 36;
 constexpr size_t BPB_VERSION_OFFSET = 42;
 constexpr size_t BPB_ROOT_CLUSTER_OFFSET = 44;
+constexpr size_t BPB_FSINFO_OFFSET = 48;
 constexpr size_t BPB_SIGNATURE_OFFSET = 510;
 constexpr uint8_t BPB_SIGNATURE_FIRST = 0x55;
 constexpr uint8_t BPB_SIGNATURE_SECOND = 0xAA;
@@ -36,6 +37,19 @@ constexpr uint32_t FIRST_DATA_CLUSTER = 2;
 constexpr uint32_t FAT_VALUE_MASK = 0x0FFFFFFF;
 constexpr uint32_t FAT_END_OF_CHAIN_MIN = 0x0FFFFFF8;
 constexpr uint32_t FAT_BAD_CLUSTER = 0x0FFFFFF7;
+constexpr uint32_t FAT_END_OF_CHAIN = 0x0FFFFFFF;
+constexpr uint32_t FAT_FREE = 0;
+constexpr uint32_t FAT_RESERVED_MASK = 0xF0000000;
+
+constexpr uint32_t FSINFO_LEAD_SIGNATURE = 0x41615252;
+constexpr uint32_t FSINFO_STRUCT_SIGNATURE = 0x61417272;
+constexpr uint32_t FSINFO_TRAIL_SIGNATURE = 0xAA550000;
+constexpr size_t FSINFO_LEAD_OFFSET = 0;
+constexpr size_t FSINFO_STRUCT_OFFSET = 484;
+constexpr size_t FSINFO_FREE_OFFSET = 488;
+constexpr size_t FSINFO_NEXT_OFFSET = 492;
+constexpr size_t FSINFO_TRAIL_OFFSET = 508;
+constexpr uint32_t FSINFO_UNKNOWN = 0xFFFFFFFF;
 
 constexpr uint8_t DIRECTORY_END = 0x00;
 constexpr uint8_t DIRECTORY_DELETED = 0xE5;
@@ -46,9 +60,21 @@ constexpr size_t ENTRY_EXTENSION_BYTES = 3;
 constexpr size_t ENTRY_SHORT_NAME_BYTES = ENTRY_BASE_BYTES + ENTRY_EXTENSION_BYTES;
 constexpr size_t ENTRY_ATTRIBUTES_OFFSET = 11;
 constexpr size_t ENTRY_CASE_OFFSET = 12;
+constexpr size_t ENTRY_CREATE_TIME_OFFSET = 14;
+constexpr size_t ENTRY_CREATE_DATE_OFFSET = 16;
+constexpr size_t ENTRY_ACCESS_DATE_OFFSET = 18;
 constexpr size_t ENTRY_CLUSTER_HIGH_OFFSET = 20;
+constexpr size_t ENTRY_WRITE_TIME_OFFSET = 22;
+constexpr size_t ENTRY_WRITE_DATE_OFFSET = 24;
 constexpr size_t ENTRY_CLUSTER_LOW_OFFSET = 26;
 constexpr size_t ENTRY_SIZE_OFFSET = 28;
+constexpr uint16_t FAT_EPOCH_DATE = 0x0021;
+constexpr uint16_t FAT_EPOCH_TIME = 0;
+constexpr uint8_t ATTRIBUTE_ARCHIVE = 0x20;
+constexpr char SHORT_NAME_SYMBOLS[] = "$%'-_@~`!(){}^#&";
+constexpr size_t MAX_SHORT_NAME_BYTES = ENTRY_BASE_BYTES + 1 + ENTRY_EXTENSION_BYTES;
+constexpr char DIGIT_FIRST = '0';
+constexpr char DIGIT_LAST = '9';
 constexpr uint8_t CASE_LOWER_BASE = 0x08;
 constexpr uint8_t CASE_LOWER_EXTENSION = 0x10;
 constexpr uint8_t ATTRIBUTE_VOLUME_LABEL = 0x08;
@@ -96,6 +122,8 @@ constexpr uint8_t CHECKSUM_BYTE_MASK = 0xFF;
 constexpr char LETTER_UPPER_A = 'A';
 constexpr char LETTER_UPPER_Z = 'Z';
 constexpr char LETTER_LOWER_A = 'a';
+constexpr char LETTER_LOWER_Z = 'z';
+constexpr uint32_t LOW_HALF_MASK = 0xFFFF;
 constexpr char CASE_DISTANCE = LETTER_LOWER_A - LETTER_UPPER_A;
 constexpr size_t LONG_FIRST_INDEX = 1;
 constexpr size_t DOT_SECOND_BYTE = 1;
@@ -119,7 +147,9 @@ enum class BpbError : uint32_t {
 struct Bpb {
 	uint32_t sectorsPerCluster;
 	uint32_t reservedSectors;
+	uint32_t fatCount;
 	uint32_t fatSectors;
+	uint32_t fsInfoSector;
 	uint32_t rootCluster;
 	uint32_t clusterCount;
 	uint32_t dataStart;
@@ -158,6 +188,18 @@ inline uint32_t readLe32(const uint8_t *bytes) {
 }
 
 inline bool isPowerOfTwo(uint32_t value) { return value != 0 && (value & (value - 1)) == 0; }
+
+inline void writeLe16(uint8_t *bytes, uint32_t value) {
+	bytes[0] = uint8_t(value);
+	bytes[1] = uint8_t(value >> SHIFT_8);
+}
+
+inline void writeLe32(uint8_t *bytes, uint32_t value) {
+	bytes[0] = uint8_t(value);
+	bytes[1] = uint8_t(value >> SHIFT_8);
+	bytes[THIRD_BYTE] = uint8_t(value >> SHIFT_16);
+	bytes[FOURTH_BYTE] = uint8_t(value >> SHIFT_24);
+}
 
 inline char lower(char character) {
 	return character >= LETTER_UPPER_A && character <= LETTER_UPPER_Z ? char(character + CASE_DISTANCE) : character;
@@ -206,7 +248,9 @@ inline BpbError parseBpb(const uint8_t *sector, uint64_t partitionSectors, Bpb &
 
 	bpb.sectorsPerCluster = clusterSectors;
 	bpb.reservedSectors = reserved;
+	bpb.fatCount = fatCount;
 	bpb.fatSectors = fatSize;
+	bpb.fsInfoSector = detail::readLe16(sector + BPB_FSINFO_OFFSET);
 	bpb.rootCluster = root;
 	bpb.clusterCount = clusters;
 	bpb.dataStart = static_cast<uint32_t>(overhead);
@@ -220,6 +264,111 @@ inline uint32_t fatValue(const uint8_t *fatSector, uint32_t indexInSector) {
 }
 
 inline bool isEndOfChain(uint32_t value) { return value >= FAT_END_OF_CHAIN_MIN; }
+
+inline void setFatValue(uint8_t *fatSector, uint32_t indexInSector, uint32_t value) {
+	uint8_t *entry = fatSector + size_t(indexInSector) * FAT_ENTRY_BYTES;
+	uint32_t kept = detail::readLe32(entry) & FAT_RESERVED_MASK;
+	detail::writeLe32(entry, kept | (value & FAT_VALUE_MASK));
+}
+
+inline bool validFsInfo(const uint8_t *sector) {
+	return detail::readLe32(sector + FSINFO_LEAD_OFFSET) == FSINFO_LEAD_SIGNATURE &&
+		   detail::readLe32(sector + FSINFO_STRUCT_OFFSET) == FSINFO_STRUCT_SIGNATURE &&
+		   detail::readLe32(sector + FSINFO_TRAIL_OFFSET) == FSINFO_TRAIL_SIGNATURE;
+}
+
+inline uint32_t fsInfoFree(const uint8_t *sector) {
+	return detail::readLe32(sector + FSINFO_FREE_OFFSET);
+}
+
+inline uint32_t fsInfoNext(const uint8_t *sector) {
+	return detail::readLe32(sector + FSINFO_NEXT_OFFSET);
+}
+
+inline void storeFsInfo(uint8_t *sector, uint32_t freeClusters, uint32_t nextFree) {
+	detail::writeLe32(sector + FSINFO_FREE_OFFSET, freeClusters);
+	detail::writeLe32(sector + FSINFO_NEXT_OFFSET, nextFree);
+}
+
+inline bool isShortNameCharacter(char character) {
+	if (character >= DIGIT_FIRST && character <= DIGIT_LAST) return true;
+	if (character >= LETTER_UPPER_A && character <= LETTER_UPPER_Z) return true;
+	for (size_t index = 0; SHORT_NAME_SYMBOLS[index] != '\0'; index++)
+		if (character == SHORT_NAME_SYMBOLS[index]) return true;
+	return false;
+}
+
+inline bool encodeShortNamePart(const char *part, size_t length, uint8_t *target,
+								bool &lowered) {
+	bool sawUpper = false;
+	bool sawLower = false;
+	for (size_t index = 0; index < length; index++) {
+		char character = part[index];
+		if (character >= LETTER_LOWER_A && character <= LETTER_LOWER_Z) {
+			sawLower = true;
+			character = char(character - CASE_DISTANCE);
+		} else if (character >= LETTER_UPPER_A && character <= LETTER_UPPER_Z) {
+			sawUpper = true;
+		}
+		if (!isShortNameCharacter(character)) return false;
+		target[index] = uint8_t(character);
+	}
+	if (sawUpper && sawLower) return false;
+	lowered = sawLower;
+	return true;
+}
+
+inline bool encodeShortName(const char *name, size_t length, uint8_t *shortName,
+							uint8_t &caseFlags) {
+	if (length == 0 || length > MAX_SHORT_NAME_BYTES) return false;
+
+	size_t dot = length;
+	for (size_t index = 0; index < length; index++)
+		if (name[index] == DOT) dot = index;
+
+	size_t baseLength = dot;
+	size_t extensionLength = dot == length ? 0 : length - dot - 1;
+	if (baseLength == 0 || baseLength > ENTRY_BASE_BYTES ||
+		extensionLength > ENTRY_EXTENSION_BYTES || (dot != length && extensionLength == 0))
+		return false;
+
+	for (size_t index = 0; index < ENTRY_SHORT_NAME_BYTES; index++)
+		shortName[index] = uint8_t(SPACE);
+
+	bool baseLowered = false;
+	bool extensionLowered = false;
+	if (!encodeShortNamePart(name, baseLength, shortName, baseLowered) ||
+		!encodeShortNamePart(name + dot + 1, extensionLength, shortName + ENTRY_BASE_BYTES,
+							 extensionLowered))
+		return false;
+
+	caseFlags = uint8_t((baseLowered ? CASE_LOWER_BASE : 0) |
+						(extensionLowered ? CASE_LOWER_EXTENSION : 0));
+	return true;
+}
+
+inline void patchEntryLocation(uint8_t *raw, uint32_t cluster, uint32_t size) {
+	detail::writeLe16(raw + ENTRY_CLUSTER_HIGH_OFFSET, cluster >> SHIFT_16);
+	detail::writeLe16(raw + ENTRY_CLUSTER_LOW_OFFSET, cluster & LOW_HALF_MASK);
+	detail::writeLe32(raw + ENTRY_SIZE_OFFSET, size);
+}
+
+inline void encodeEntry(uint8_t *raw, const uint8_t *shortName, uint8_t caseFlags,
+						uint8_t attributes, uint32_t cluster, uint32_t size) {
+	for (size_t index = 0; index < ENTRY_BYTES; index++)
+		raw[index] = 0;
+	for (size_t index = 0; index < ENTRY_SHORT_NAME_BYTES; index++)
+		raw[ENTRY_NAME_OFFSET + index] = shortName[index];
+
+	raw[ENTRY_ATTRIBUTES_OFFSET] = attributes;
+	raw[ENTRY_CASE_OFFSET] = caseFlags;
+	detail::writeLe16(raw + ENTRY_CREATE_TIME_OFFSET, FAT_EPOCH_TIME);
+	detail::writeLe16(raw + ENTRY_CREATE_DATE_OFFSET, FAT_EPOCH_DATE);
+	detail::writeLe16(raw + ENTRY_ACCESS_DATE_OFFSET, FAT_EPOCH_DATE);
+	detail::writeLe16(raw + ENTRY_WRITE_TIME_OFFSET, FAT_EPOCH_TIME);
+	detail::writeLe16(raw + ENTRY_WRITE_DATE_OFFSET, FAT_EPOCH_DATE);
+	patchEntryLocation(raw, cluster, size);
+}
 
 inline bool namesEqual(const char *first, const char *second) {
 	size_t index = 0;

@@ -1,6 +1,7 @@
 #include <cock/abi/fs.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/fs.hpp>
+#include <cock/user/write_check.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -40,7 +41,11 @@ constexpr uint32_t UNALIGNED_OFFSET = 4090;
 constexpr size_t UNALIGNED_BYTES = 20;
 constexpr size_t CHUNK_BYTES = 4096;
 constexpr size_t TEXT_BYTES = 64;
-constexpr uint32_t LISTED_ENTRIES = 5;
+constexpr uint32_t LISTED_ENTRIES = 6;
+constexpr char SCRATCH_PATH[] = "/fat/SCRATCH";
+constexpr char MIXED_CASE_PATH[] = "/fat/SCRATCH/MixedCase.txt";
+constexpr char LONG_NEW_PATH[] = "/fat/SCRATCH/a new long name.txt";
+constexpr uint32_t WRITTEN_BIG_BYTES = 40000;
 constexpr uint32_t START_OFFSET = 0;
 constexpr uintptr_t EXIT_SERVED = 0;
 constexpr uintptr_t EXIT_REFUSED = 1;
@@ -137,6 +142,16 @@ bool refusesBadPaths(Client &client) {
 		   client.open(BEYOND_FILE_PATH) == cock::abi::fs::NO_HANDLE;
 }
 
+bool writesTheVolume(Client &client) {
+	cock::user::fs::WriteCheck check(client, SCRATCH_PATH, WRITTEN_BIG_BYTES);
+	return check.run() &&
+		   check.refuses(MIXED_CASE_PATH,
+						 cock::abi::fs::OPEN_WRITE | cock::abi::fs::OPEN_CREATE,
+						 cock::abi::fs::Status::UNSUPPORTED) &&
+		   check.refuses(LONG_NEW_PATH, cock::abi::fs::OPEN_WRITE | cock::abi::fs::OPEN_CREATE,
+						 cock::abi::fs::Status::UNSUPPORTED);
+}
+
 }
 
 extern "C" void _start() {
@@ -154,6 +169,7 @@ extern "C" void _start() {
 	served = served && rootShowsTheMounts(client);
 	served = served && refusesBadPaths(client);
 	served = served && client.open(ROOT_FILE) != cock::abi::fs::NO_HANDLE;
+	served = served && writesTheVolume(client);
 
 	puts(served ? "fatclient: ok" : "fatclient: refused");
 	cock::user::exit_process(served ? EXIT_SERVED : EXIT_REFUSED);

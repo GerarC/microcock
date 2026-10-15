@@ -323,6 +323,126 @@ void checkUnicodeNames() {
 	CHECK_TRUE(namedAs(lonelyLow, 1, "?"));
 }
 
+constexpr uint32_t FAT_SET_VALUE = 0x00054321;
+constexpr uint32_t FAT_FLAG_NIBBLE = 0xA0000000;
+constexpr uint32_t FAT_NEIGHBOR_INDEX = 4;
+constexpr uint32_t FAT_NEIGHBOR_VALUE = 0x0000BEEF;
+constexpr uint32_t FSINFO_FREE_CLUSTERS = 12345;
+constexpr uint32_t FSINFO_NEXT_CLUSTER = 77;
+
+bool encodes(const char *name, uint8_t *shortName, uint8_t &caseFlags) {
+	return encodeShortName(name, strlen(name), shortName, caseFlags);
+}
+
+void checkShortNameEncoding() {
+	uint8_t shortName[ENTRY_SHORT_NAME_BYTES];
+	uint8_t caseFlags = 0;
+
+	CHECK_TRUE(encodes("HELLO.TXT", shortName, caseFlags));
+	CHECK_TRUE(memcmp(shortName, "HELLO   TXT", ENTRY_SHORT_NAME_BYTES) == 0);
+	CHECK_EQ(uint8_t(0), caseFlags);
+
+	CHECK_TRUE(encodes("note.txt", shortName, caseFlags));
+	CHECK_TRUE(memcmp(shortName, "NOTE    TXT", ENTRY_SHORT_NAME_BYTES) == 0);
+	CHECK_EQ(uint8_t(CASE_LOWER_BASE | CASE_LOWER_EXTENSION), caseFlags);
+
+	CHECK_TRUE(encodes("NOTE.txt", shortName, caseFlags));
+	CHECK_EQ(uint8_t(CASE_LOWER_EXTENSION), caseFlags);
+
+	CHECK_TRUE(encodes("readme", shortName, caseFlags));
+	CHECK_TRUE(memcmp(shortName, "README     ", ENTRY_SHORT_NAME_BYTES) == 0);
+	CHECK_EQ(uint8_t(CASE_LOWER_BASE), caseFlags);
+
+	CHECK_TRUE(encodes("12345678.123", shortName, caseFlags));
+	CHECK_TRUE(encodes("a_b-c.d1", shortName, caseFlags));
+	CHECK_EQ(uint8_t(CASE_LOWER_BASE | CASE_LOWER_EXTENSION), caseFlags);
+
+	CHECK_FALSE(encodes("", shortName, caseFlags));
+	CHECK_FALSE(encodes(".", shortName, caseFlags));
+	CHECK_FALSE(encodes("..", shortName, caseFlags));
+	CHECK_FALSE(encodes(".profile", shortName, caseFlags));
+	CHECK_FALSE(encodes("trailing.", shortName, caseFlags));
+	CHECK_FALSE(encodes("MixedCase.txt", shortName, caseFlags));
+	CHECK_FALSE(encodes("name.TxT", shortName, caseFlags));
+	CHECK_FALSE(encodes("123456789.txt", shortName, caseFlags));
+	CHECK_FALSE(encodes("name.text", shortName, caseFlags));
+	CHECK_FALSE(encodes("a.b.c", shortName, caseFlags));
+	CHECK_FALSE(encodes("with space.txt", shortName, caseFlags));
+	CHECK_FALSE(encodes("star*.txt", shortName, caseFlags));
+	CHECK_FALSE(encodes("caf\xC3\xA9.txt", shortName, caseFlags));
+}
+
+void checkEntryEncoding() {
+	uint8_t shortName[ENTRY_SHORT_NAME_BYTES];
+	uint8_t caseFlags = 0;
+	uint8_t raw[ENTRY_BYTES];
+	DirectoryParser parser;
+	parser.reset();
+	DirEntry entry = {};
+
+	CHECK_TRUE(encodes("note.txt", shortName, caseFlags));
+	encodeEntry(raw, shortName, caseFlags, ATTRIBUTE_ARCHIVE, NO_VALUE, NO_VALUE);
+	CHECK_TRUE(parser.feed(raw, entry) == DirectoryParser::Result::ENTRY);
+	CHECK_TRUE(strcmp(entry.name, "note.txt") == 0);
+	CHECK_EQ(NO_VALUE, entry.cluster);
+	CHECK_EQ(NO_VALUE, entry.size);
+	CHECK_FALSE(entry.isDirectory());
+	CHECK_EQ(uint16_t(FAT_EPOCH_DATE), detail::readLe16(raw + ENTRY_WRITE_DATE_OFFSET));
+
+	patchEntryLocation(raw, FILE_CLUSTER, FILE_SIZE);
+	CHECK_TRUE(parser.feed(raw, entry) == DirectoryParser::Result::ENTRY);
+	CHECK_EQ(FILE_CLUSTER, entry.cluster);
+	CHECK_EQ(FILE_SIZE, entry.size);
+	CHECK_TRUE(strcmp(entry.name, "note.txt") == 0);
+}
+
+void checkFatUpdates() {
+	uint8_t sector[SECTOR_BYTES] = {};
+	putLe32(sector + FAT_ENTRY_INDEX * FAT_ENTRY_BYTES, FAT_FLAG_NIBBLE | FAT_MASKED_VALUE);
+	putLe32(sector + FAT_NEIGHBOR_INDEX * FAT_ENTRY_BYTES, FAT_NEIGHBOR_VALUE);
+
+	setFatValue(sector, FAT_ENTRY_INDEX, FAT_SET_VALUE);
+	CHECK_EQ(FAT_SET_VALUE, fatValue(sector, FAT_ENTRY_INDEX));
+	CHECK_EQ(FAT_FLAG_NIBBLE, (detail::readLe32(sector + FAT_ENTRY_INDEX * FAT_ENTRY_BYTES) &
+							   FAT_RESERVED_MASK));
+	CHECK_EQ(FAT_NEIGHBOR_VALUE, fatValue(sector, FAT_NEIGHBOR_INDEX));
+
+	setFatValue(sector, FAT_ENTRY_INDEX, FAT_FREE);
+	CHECK_EQ(FAT_FREE, fatValue(sector, FAT_ENTRY_INDEX));
+	setFatValue(sector, FAT_ENTRY_INDEX, FAT_END_OF_CHAIN);
+	CHECK_TRUE(isEndOfChain(fatValue(sector, FAT_ENTRY_INDEX)));
+}
+
+void checkFsInfo() {
+	uint8_t sector[SECTOR_BYTES] = {};
+	CHECK_FALSE(validFsInfo(sector));
+
+	putLe32(sector + FSINFO_LEAD_OFFSET, FSINFO_LEAD_SIGNATURE);
+	putLe32(sector + FSINFO_STRUCT_OFFSET, FSINFO_STRUCT_SIGNATURE);
+	CHECK_FALSE(validFsInfo(sector));
+	putLe32(sector + FSINFO_TRAIL_OFFSET, FSINFO_TRAIL_SIGNATURE);
+	CHECK_TRUE(validFsInfo(sector));
+
+	storeFsInfo(sector, FSINFO_FREE_CLUSTERS, FSINFO_NEXT_CLUSTER);
+	CHECK_EQ(FSINFO_FREE_CLUSTERS, fsInfoFree(sector));
+	CHECK_EQ(FSINFO_NEXT_CLUSTER, fsInfoNext(sector));
+	CHECK_TRUE(validFsInfo(sector));
+
+	storeFsInfo(sector, FSINFO_UNKNOWN, FSINFO_UNKNOWN);
+	CHECK_EQ(FSINFO_UNKNOWN, fsInfoFree(sector));
+}
+
+void checkBpbWriteFields() {
+	uint8_t sector[SECTOR_BYTES];
+	Bpb bpb = {};
+	makeBpb(sector);
+	putLe16(sector + BPB_FSINFO_OFFSET, SINGLE_SECTOR);
+	CHECK_TRUE(parseBpb(sector, TOTAL_SECTORS, bpb) == BpbError::NONE);
+	CHECK_EQ(FAT_COUNT, bpb.fatCount);
+	CHECK_EQ(FAT_SECTORS, bpb.fatSectors);
+	CHECK_EQ(SINGLE_SECTOR, bpb.fsInfoSector);
+}
+
 } // namespace
 
 void testFat32() {
@@ -334,6 +454,11 @@ void testFat32() {
 	checkSkippedEntries();
 	checkLongNames();
 	checkUnicodeNames();
+	checkShortNameEncoding();
+	checkEntryEncoding();
+	checkFatUpdates();
+	checkFsInfo();
+	checkBpbWriteFields();
 }
 
 } // namespace host_test

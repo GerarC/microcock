@@ -17,8 +17,13 @@ constexpr size_t WINDOW_BYTES = WINDOW_PAGES * WINDOW_PAGE_BYTES;
 constexpr size_t MAX_PATH_BYTES = 128;
 
 constexpr uint32_t OPEN_READ_ONLY = 0;
+constexpr uint32_t OPEN_WRITE = 1;
+constexpr uint32_t OPEN_CREATE = 2;
+constexpr uint32_t OPEN_TRUNCATE = 4;
+constexpr uint32_t OPEN_FLAGS_MASK = OPEN_WRITE | OPEN_CREATE | OPEN_TRUNCATE;
 constexpr uint32_t NO_HANDLE = 0;
 constexpr uint32_t NO_WINDOW = 0xFFFFFFFF;
+constexpr char PATH_SEPARATOR = '/';
 
 enum class Status : uint32_t {
 	OK = 0,
@@ -30,6 +35,9 @@ enum class Status : uint32_t {
 	NO_SPACE = 6,
 	UNSUPPORTED = 7,
 	IO_ERROR = 8,
+	READ_ONLY = 9,
+	BUSY = 10,
+	EXISTS = 11,
 };
 
 enum class FileType : uint32_t {
@@ -39,6 +47,38 @@ enum class FileType : uint32_t {
 };
 
 static_assert(WINDOW_BYTES > MAX_PATH_BYTES, "the window must hold a path");
+
+inline bool splitPath(const char *path, char *parent, size_t parentCapacity,
+					  const char *&leaf, size_t &leafBytes) {
+	size_t end = 0;
+	while (path[end] != '\0')
+		end++;
+	while (end > 0 && path[end - 1] == PATH_SEPARATOR)
+		end--;
+
+	size_t start = end;
+	while (start > 0 && path[start - 1] != PATH_SEPARATOR)
+		start--;
+	if (start == end) return false;
+
+	size_t parentEnd = start;
+	while (parentEnd > 0 && path[parentEnd - 1] == PATH_SEPARATOR)
+		parentEnd--;
+
+	size_t parentBytes = parentEnd == 0 ? sizeof(char) : parentEnd;
+	if (parentBytes + sizeof(char) > parentCapacity) return false;
+	if (parentEnd == 0) {
+		parent[0] = PATH_SEPARATOR;
+	} else {
+		for (size_t index = 0; index < parentEnd; index++)
+			parent[index] = path[index];
+	}
+	parent[parentBytes] = '\0';
+
+	leaf = path + start;
+	leafBytes = end - start;
+	return true;
+}
 
 } // namespace cock::abi::fs
 

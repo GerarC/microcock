@@ -159,8 +159,10 @@ void openFile(Session &session, const Message &message) {
 	uint32_t pid = message.sender_pid;
 	uint32_t id = message.payload.args.arg0;
 	uint32_t length = message.payload.args.arg1;
-	if (message.payload.args.arg2 != cock::abi::fs::OPEN_READ_ONLY)
+	uint32_t flags = message.payload.args.arg2;
+	if ((flags & ~cock::abi::fs::OPEN_FLAGS_MASK) != 0)
 		return reply(pid, id, Status::UNSUPPORTED);
+	if (flags != cock::abi::fs::OPEN_READ_ONLY) return reply(pid, id, Status::READ_ONLY);
 	if (length == 0 || length >= cock::abi::fs::MAX_PATH_BYTES)
 		return reply(pid, id, Status::BAD_REQUEST);
 
@@ -271,6 +273,8 @@ void handle(const Message &message) {
 		return connect(pid, id);
 	case MessageType::FS_OPEN:
 	case MessageType::FS_READ:
+	case MessageType::FS_WRITE:
+	case MessageType::FS_UNLINK:
 	case MessageType::FS_STAT:
 	case MessageType::FS_READDIR:
 	case MessageType::FS_CLOSE:
@@ -287,6 +291,9 @@ void handle(const Message &message) {
 		return openFile(*session, message);
 	case MessageType::FS_READ:
 		return readFile(*session, message);
+	case MessageType::FS_WRITE:
+	case MessageType::FS_UNLINK:
+		return reply(pid, id, Status::READ_ONLY);
 	case MessageType::FS_STAT:
 		return statFile(*session, message);
 	case MessageType::FS_READDIR:

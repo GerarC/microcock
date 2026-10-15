@@ -117,6 +117,45 @@ if [ "$served" -ne "$FILE_CLIENT_RUNS" ]; then
 	echo "[qemu_userland_test] file clients served: $served of $FILE_CLIENT_RUNS"
 	status=1
 fi
+PART_DIR=$(mktemp -d)
+FAT_PART="$PART_DIR/fat.img"
+EXT_PART="$PART_DIR/ext.img"
+dd if="$DISK_FILE" of="$FAT_PART" bs=$SECTOR_BYTES skip=$SECOND_START count=$SECOND_SECTORS status=none
+dd if="$DISK_FILE" of="$EXT_PART" bs=$SECTOR_BYTES skip=$THIRD_START count=$THIRD_SECTORS status=none
+if ! fsck.fat -n "$FAT_PART" > "$PART_DIR/fat.log" 2>&1; then
+	cat "$PART_DIR/fat.log"
+	echo "[qemu_userland_test] fsck.fat found problems after the writes"
+	status=1
+fi
+if ! e2fsck -fn "$EXT_PART" > "$PART_DIR/ext.log" 2>&1; then
+	cat "$PART_DIR/ext.log"
+	echo "[qemu_userland_test] e2fsck found problems after the writes"
+	status=1
+fi
+fat_keep=$(mtype -i "$FAT_PART" "::/$FAT_SCRATCH/$WRITE_KEEP_NAME" 2>&1)
+if [ "$fat_keep" != "$WRITE_KEEP_TEXT" ]; then
+	echo "[qemu_userland_test] FAT file written by the guest reads back as: $fat_keep"
+	status=1
+fi
+if mtype -i "$FAT_PART" "::/$FAT_SCRATCH/$WRITE_BIG_NAME" > /dev/null 2>&1; then
+	echo "[qemu_userland_test] FAT file deleted by the guest is still there"
+	status=1
+fi
+if mtype -i "$FAT_PART" "::/$FAT_SCRATCH/$WRITE_GONE_NAME" > /dev/null 2>&1; then
+	echo "[qemu_userland_test] FAT file deleted by the guest is still there"
+	status=1
+fi
+ext_keep=$(debugfs -R "cat /$EXT_SCRATCH/$WRITE_KEEP_NAME" "$EXT_PART" 2> /dev/null)
+if [ "$ext_keep" != "$WRITE_KEEP_TEXT" ]; then
+	echo "[qemu_userland_test] ext2 file written by the guest reads back as: $ext_keep"
+	status=1
+fi
+if debugfs -R "stat /$EXT_SCRATCH/$WRITE_GONE_NAME" "$EXT_PART" 2>&1 | grep -q "Inode:"; then
+	echo "[qemu_userland_test] ext2 file deleted by the guest is still there"
+	status=1
+fi
+rm -rf "$PART_DIR"
+
 if grep -q "Exception{" "$SERIAL_FILE"; then
 	echo "[qemu_userland_test] a thread was killed by an exception"
 	status=1

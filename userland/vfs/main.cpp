@@ -209,29 +209,36 @@ Open *freeOpen() {
 	return nullptr;
 }
 
-void openFile(Session &session, const Message &message) {
-	uint32_t pid = message.sender_pid;
-	uint32_t id = message.payload.args.arg0;
-	uint32_t length = message.payload.args.arg1;
-	if (message.payload.args.arg2 != cock::abi::fs::OPEN_READ_ONLY)
-		return reply(pid, id, Status::UNSUPPORTED);
-	if (length == 0 || length >= cock::abi::fs::MAX_PATH_BYTES)
-		return reply(pid, id, Status::BAD_REQUEST);
+Status route(const Session &session, uint32_t length, char *full, size_t &index,
+			 const char *&rest) {
+	if (length == 0 || length >= cock::abi::fs::MAX_PATH_BYTES) return Status::BAD_REQUEST;
 
 	char path[cock::abi::fs::MAX_PATH_BYTES] = {};
 	memcpy(path, session.window, length);
-	if (strlen(path) != length) return reply(pid, id, Status::BAD_REQUEST);
+	if (strlen(path) != length) return Status::BAD_REQUEST;
 
-	char full[cock::abi::fs::MAX_PATH_BYTES + SEPARATOR_BYTES] = {};
 	size_t offset = 0;
 	if (path[0] != PATH_SEPARATOR) full[offset++] = PATH_SEPARATOR;
 	memcpy(full + offset, path, length);
 
-	const char *rest = nullptr;
-	size_t index = pickMount(full, rest);
+	index = pickMount(full, rest);
 	if (index == NOT_FOUND_MOUNT || strlen(rest) >= cock::abi::fs::MAX_PATH_BYTES)
-		return reply(pid, id, Status::BAD_REQUEST);
-	if (!ensureMount(index)) return reply(pid, id, Status::NOT_FOUND);
+		return Status::BAD_REQUEST;
+	return ensureMount(index) ? Status::OK : Status::NOT_FOUND;
+}
+
+void openFile(Session &session, const Message &message) {
+	uint32_t pid = message.sender_pid;
+	uint32_t id = message.payload.args.arg0;
+	uint32_t flags = message.payload.args.arg2;
+	if ((flags & ~cock::abi::fs::OPEN_FLAGS_MASK) != 0)
+		return reply(pid, id, Status::UNSUPPORTED);
+
+	char full[cock::abi::fs::MAX_PATH_BYTES + SEPARATOR_BYTES] = {};
+	const char *rest = nullptr;
+	size_t index = NOT_FOUND_MOUNT;
+	Status routed = route(session, message.payload.args.arg1, full, index, rest);
+	if (routed != Status::OK) return reply(pid, id, routed);
 
 	Open *slot = freeOpen();
 	if (slot == nullptr) {
@@ -241,12 +248,39 @@ void openFile(Session &session, const Message &message) {
 	if (slot == nullptr) return reply(pid, id, Status::NO_SPACE);
 
 	Client &client = mounts[index].client;
-	uint32_t backend = client.open(rest);
+	uint32_t backend = client.open(rest, flags);
 	if (backend == cock::abi::fs::NO_HANDLE) return reply(pid, id, failure(index));
 
 	bool root = strcmp(full, cock::abi::mounts::ROOT_PREFIX) == 0;
 	*slot = {true, pid, index, backend, root, false, 0};
 	reply(pid, id, Status::OK, static_cast<uint32_t>(slot - opens) + 1);
+}
+
+void writeFile(Session &session, const Message &message) {
+	uint32_t pid = message.sender_pid;
+	uint32_t id = message.payload.args.arg0;
+	Open *open = findOpen(pid, message.payload.args.arg1);
+	if (open == nullptr) return reply(pid, id, Status::BAD_HANDLE);
+
+	size_t index = open->mount;
+	long count = mounts[index].client.write(open->backend, message.payload.args.arg2,
+											session.window, message.payload.args.arg3);
+	if (count < 0) return reply(pid, id, failure(index));
+	reply(pid, id, Status::OK, static_cast<uint32_t>(count));
+}
+
+void unlinkFile(Session &session, const Message &message) {
+	uint32_t pid = message.sender_pid;
+	uint32_t id = message.payload.args.arg0;
+
+	char full[cock::abi::fs::MAX_PATH_BYTES + SEPARATOR_BYTES] = {};
+	const char *rest = nullptr;
+	size_t index = NOT_FOUND_MOUNT;
+	Status routed = route(session, message.payload.args.arg1, full, index, rest);
+	if (routed != Status::OK) return reply(pid, id, routed);
+
+	if (!mounts[index].client.unlink(rest)) return reply(pid, id, failure(index));
+	reply(pid, id, Status::OK);
 }
 
 void readFile(Session &session, const Message &message) {
@@ -360,6 +394,8 @@ void handle(const Message &message) {
 		return connect(pid, id);
 	case MessageType::FS_OPEN:
 	case MessageType::FS_READ:
+	case MessageType::FS_WRITE:
+	case MessageType::FS_UNLINK:
 	case MessageType::FS_STAT:
 	case MessageType::FS_READDIR:
 	case MessageType::FS_CLOSE:
@@ -376,6 +412,10 @@ void handle(const Message &message) {
 		return openFile(*session, message);
 	case MessageType::FS_READ:
 		return readFile(*session, message);
+	case MessageType::FS_WRITE:
+		return writeFile(*session, message);
+	case MessageType::FS_UNLINK:
+		return unlinkFile(*session, message);
 	case MessageType::FS_STAT:
 		return statFile(message);
 	case MessageType::FS_READDIR:
