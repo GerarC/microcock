@@ -14,6 +14,10 @@ constexpr uint32_t NO_PROCESS = 0xFFFFFFFF;
 constexpr uintptr_t SUCCESS = 0;
 constexpr int STDOUT_FILE = 1;
 
+inline uint32_t self() {
+	return static_cast<uint32_t>(syscall(SYS_GETPID, 0, 0, 0, 0, 0, 0));
+}
+
 inline bool ipc_send(uint32_t pid, const ipc::Message &message) {
 	return syscall(SYS_IPC_SEND, pid, reinterpret_cast<uintptr_t>(&message), 0,
 				   0, 0, 0) == SUCCESS;

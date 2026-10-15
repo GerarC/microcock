@@ -10,6 +10,8 @@ namespace cock::ipc {
  */
 static constexpr size_t MAX_ARGUMENTS = 6;
 
+static constexpr uint32_t KERNEL_SENDER = 0;
+
 /**
  * @brief Defines the classification of IPC messages used for routing and handling.
  */

@@ -31,6 +31,24 @@ bool IPC::deliver(uint32_t to_pid, Message message) {
 	return true;
 }
 
+bool IPC::notify(uint32_t to_pid, uint32_t line) {
+	uintptr_t flags = hal::save_and_block_interruptions();
+	Thread *target = TaskManager::getThreadByPID(to_pid);
+
+	if (!target || target->getState() == ThreadState::DEAD) {
+		hal::restore_interruptions(flags);
+		return false;
+	}
+
+	target->raiseNotification(line);
+	if (target->getState() == ThreadState::WAITING_MSG) {
+		target->setState(ThreadState::READY);
+		Scheduler::addThread(target);
+	}
+	hal::restore_interruptions(flags);
+	return true;
+}
+
 void IPC::send(uint32_t to_pid, Message message) {
 	if (deliver(to_pid, message)) Thread::yield();
 }

@@ -1,13 +1,10 @@
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/irq/irq_routing.hpp>
 #include <cock/core/task/ipc.hpp>
-#include <cock/ipc/message.hpp>
 
 namespace cock::core::irq {
 
 using hal::InterruptGuard;
-using ipc::Message;
-using ipc::MessageType;
 
 constexpr uint32_t NO_OWNER_SLOT = 0;
 
@@ -49,10 +46,10 @@ bool IrqRouting::forward(uint32_t line) {
 
 	hal::irq_mask(line);
 
-	Message notification = {};
-	notification.type = MessageType::IRQ_NOTIFICATION;
-	notification.payload.args.arg0 = line;
-	task::IPC::deliver(ownerSlots[line] - 1, notification);
+	if (!task::IPC::notify(ownerSlots[line] - 1, line)) {
+		ownerSlots[line] = NO_OWNER_SLOT;
+		return false;
+	}
 	return true;
 }
 

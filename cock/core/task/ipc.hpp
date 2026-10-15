@@ -26,6 +26,7 @@ class IPC {
 	static void send(uint32_t to_pid, Message message);
 
 	static bool deliver(uint32_t to_pid, Message message);
+	static bool notify(uint32_t to_pid, uint32_t line);
 
 	/**
 	 * @brief Attempts to retrieve a message from the current thread's inbox.
