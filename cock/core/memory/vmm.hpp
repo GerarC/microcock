@@ -89,6 +89,8 @@ class VirtualMemoryManager {
 	static VirtAddr mapPagesAt(VirtAddr vaddr, size_t num_pages,
 							   VMMPermission permission, VirtAddr user_limit);
 
+	static bool protectPage(VirtAddr virt, VMMPermission permission);
+
 	static bool isUserRangeValid(VirtAddr ptr, size_t length, bool write,
 								 VirtAddr user_limit);
 

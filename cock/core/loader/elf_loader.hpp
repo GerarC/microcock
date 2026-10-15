@@ -41,6 +41,7 @@ template <typename Format>
 bool validate_segment(const typename Format::ProgramHeader &segment,
 					  size_t size, uint64_t image_limit) {
 	if (segment.size_in_file > segment.size_in_memory) return false;
+	if (segment.size_in_memory == 0) return true;
 	if (segment.offset > size) return false;
 	if (segment.size_in_file > size - segment.offset) return false;
 	if (segment.vaddr < hal::PAGE_SIZE) return false;
@@ -65,6 +66,58 @@ typename Format::ProgramHeader read_segment(const uint8_t *base,
 						  sizeof(typename Format::ProgramHeader);
 	memcpy(&segment, base + offset, sizeof(segment));
 	return segment;
+}
+
+template <typename Format>
+bool writable_segment_covers_page(const uint8_t *base,
+								  const typename Format::Header &header,
+								  uint64_t page_start) {
+	uint64_t page_end = page_start + hal::PAGE_SIZE;
+
+	for (size_t idx = 0; idx < header.program_header_num; idx++) {
+		typename Format::ProgramHeader segment =
+			read_segment<Format>(base, header, idx);
+		if (segment.type != ELF_PT_LOAD || !(segment.flags & ELF_PF_WRITE) ||
+			segment.size_in_memory == 0)
+			continue;
+
+		uint64_t segment_start = segment.vaddr & ~static_cast<uint64_t>(hal::PAGE_MASK);
+		uint64_t segment_end = segment.vaddr + segment.size_in_memory;
+		if (segment_start < page_end && segment_end > page_start) return true;
+	}
+	return false;
+}
+
+template <typename Format>
+void seal_read_only_segments(const uint8_t *base,
+							 const typename Format::Header &header) {
+	using memory::VirtAddr;
+	using memory::VirtualMemoryManager;
+	using memory::VMMPermission;
+
+	constexpr uint64_t page_mask = hal::PAGE_MASK;
+
+	for (size_t idx = 0; idx < header.program_header_num; idx++) {
+		typename Format::ProgramHeader segment =
+			read_segment<Format>(base, header, idx);
+		if (segment.type != ELF_PT_LOAD || segment.size_in_memory == 0 ||
+			(segment.flags & ELF_PF_WRITE))
+			continue;
+
+		uint64_t first_page = segment.vaddr & ~page_mask;
+		uint64_t page_count =
+			((segment.vaddr & page_mask) + segment.size_in_memory + page_mask) /
+			hal::PAGE_SIZE;
+
+		for (uint64_t page = 0; page < page_count; page++) {
+			uint64_t page_start = first_page + page * hal::PAGE_SIZE;
+			if (writable_segment_covers_page<Format>(base, header, page_start))
+				continue;
+			VirtualMemoryManager::protectPage(
+				VirtAddr(static_cast<uintptr_t>(page_start)),
+				VMMPermission::USER_CODE);
+		}
+	}
 }
 
 template <typename Format>
@@ -128,13 +181,10 @@ bool load_image(const uint8_t *base, size_t size, memory::PhysAddr address_space
 		uint64_t page_count =
 			((segment.vaddr & page_mask) + segment.size_in_memory + page_mask) /
 			hal::PAGE_SIZE;
-		VMMPermission permission = (segment.flags & ELF_PF_WRITE)
-									   ? VMMPermission::USER_DATA
-									   : VMMPermission::USER_CODE;
 
 		if (VirtualMemoryManager::mapPagesAt(
 					VirtAddr(static_cast<uintptr_t>(first_page)),
-					static_cast<size_t>(page_count), permission,
+					static_cast<size_t>(page_count), VMMPermission::USER_DATA,
 					VirtAddr(static_cast<uintptr_t>(user_limit)))
 				.isNull()) {
 			Logger::error("ELF: cannot map segment %u",
@@ -146,6 +196,8 @@ bool load_image(const uint8_t *base, size_t size, memory::PhysAddr address_space
 		memcpy(reinterpret_cast<void *>(static_cast<uintptr_t>(segment.vaddr)),
 			   base + segment.offset, static_cast<size_t>(segment.size_in_file));
 	}
+
+	if (loaded) seal_read_only_segments<Format>(base, header);
 
 	hal::switch_address_space(old_cr3);
 	if (!loaded) return false;

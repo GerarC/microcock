@@ -18,6 +18,7 @@ extern void test_process();
 
 namespace cock::test::arch {
 extern void test_io_permissions();
+extern void test_paging();
 } // namespace cock::test::arch
 
 namespace cock::test::security {
@@ -35,6 +36,7 @@ void run_all_tests() {
 	loader::test_elf_loader();
 	task::test_process();
 	arch::test_io_permissions();
+	arch::test_paging();
 	security::test_capabilities();
 
 	Logger::info("<=== ENDING COCK TEST SUIT ===>\n");
