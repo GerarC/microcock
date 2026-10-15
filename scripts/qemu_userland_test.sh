@@ -11,14 +11,14 @@ FILE_CLIENT_RUNS=10
 DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
 EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 34/34 checks passed|abCd"
-EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|init: manifest has 16 entries|init: configured vga_driver|init: started kbd|init: started ata|init: started fat|init: started vfs|vfs: 4 mounts|init: started probe|kbd: ready|VGA driver detected|reaped"
+EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|init: manifest has 17 entries|init: configured vga_driver|init: started kbd|init: started ata|init: started fat|init: started vfs|vfs: 4 mounts|init: started probe|kbd: ready|VGA driver detected|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"
 case "$DISK_SCHEME" in
 	gpt) PARTITION_KIND=$KIND_GPT_PARTITION ;;
 	*) PARTITION_KIND=$KIND_MBR_PARTITION ;;
 esac
-EXPECTED_SERIAL_TEXT="$EXPECTED_SERIAL_TEXT|ata: $DISK_SECTORS sectors, $DEVICE_COUNT devices|blkclient: device 0: kind $KIND_DISK first $DISK_FIRST_SECTOR sectors $DISK_SECTORS|blkclient: device 1: kind $PARTITION_KIND first $FIRST_START sectors $FIRST_SECTORS|blkclient: device 2: kind $PARTITION_KIND first $SECOND_START sectors $SECOND_SECTORS|blkclient: sector says $MARKER_TEXT|blkclient: device 3: kind $PARTITION_KIND first $THIRD_START sectors $THIRD_SECTORS|blkclient: device 4: kind $PARTITION_KIND first $FOURTH_START sectors $FOURTH_SECTORS|blkclient: ok|fat: device $FAT_DEVICE,|fatclient: hello says $FAT_HELLO_TEXT|fatclient: ok|ext: device $EXT_DEVICE,|ext: device $EXT4_DEVICE: unsupported feature extents|extclient: small says $EXT_SMALL_TEXT|extclient: ok|muteclient: dead server did not hang the vfs|muteclient: ok"
+EXPECTED_SERIAL_TEXT="$EXPECTED_SERIAL_TEXT|ata: $DISK_SECTORS sectors, $DEVICE_COUNT devices|blkclient: device 0: kind $KIND_DISK first $DISK_FIRST_SECTOR sectors $DISK_SECTORS|blkclient: device 1: kind $PARTITION_KIND first $FIRST_START sectors $FIRST_SECTORS|blkclient: device 2: kind $PARTITION_KIND first $SECOND_START sectors $SECOND_SECTORS|blkclient: sector says $MARKER_TEXT|blkclient: device 3: kind $PARTITION_KIND first $THIRD_START sectors $THIRD_SECTORS|blkclient: device 4: kind $PARTITION_KIND first $FOURTH_START sectors $FOURTH_SECTORS|blkclient: ok|fat: device $FAT_DEVICE,|fatclient: hello says $FAT_HELLO_TEXT|fatclient: ok|ext: device $EXT_DEVICE,|ext: device $EXT4_DEVICE: unsupported feature extents|extclient: small says $EXT_SMALL_TEXT|extclient: ok|muteclient: dead server did not hang the vfs|muteclient: ok|cfile: ext ok|cfile: fat ok|cfile: ok"
 
 make clean "$@" > /dev/null
 make iso "$@" || exit 2
@@ -152,6 +152,20 @@ if [ "$ext_keep" != "$WRITE_KEEP_TEXT" ]; then
 fi
 if debugfs -R "stat /$EXT_SCRATCH/$WRITE_GONE_NAME" "$EXT_PART" 2>&1 | grep -q "Inode:"; then
 	echo "[qemu_userland_test] ext2 file deleted by the guest is still there"
+	status=1
+fi
+c_fat=$(mtype -i "$FAT_PART" "::/$FAT_SCRATCH/$C_FILE_NAME" 2>&1)
+c_ext=$(debugfs -R "cat /$EXT_SCRATCH/$C_FILE_NAME" "$EXT_PART" 2> /dev/null)
+if [ "$c_fat" != "$C_FILE_TEXT" ] || [ "$c_ext" != "$C_FILE_TEXT" ]; then
+	echo "[qemu_userland_test] files written through the C library read back as: $c_fat | $c_ext"
+	status=1
+fi
+if mtype -i "$FAT_PART" "::/$FAT_SCRATCH/$C_GONE_NAME" > /dev/null 2>&1; then
+	echo "[qemu_userland_test] FAT file deleted through the C library is still there"
+	status=1
+fi
+if debugfs -R "stat /$EXT_SCRATCH/$C_GONE_NAME" "$EXT_PART" 2>&1 | grep -q "Inode:"; then
+	echo "[qemu_userland_test] ext2 file deleted through the C library is still there"
 	status=1
 fi
 rm -rf "$PART_DIR"
