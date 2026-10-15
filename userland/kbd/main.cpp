@@ -1,6 +1,7 @@
 #include "keymap.hpp"
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <stdio.h>
 
 using cock::ipc::Message;
 using cock::ipc::MessageType;
@@ -40,10 +41,10 @@ extern "C" void _start() {
 
 	if (!cock::user::request_ports(PS2_DATA_PORT, PS2_PORT_COUNT) ||
 		!cock::user::irq_bind(KEYBOARD_IRQ_LINE)) {
-		cock::user::write_text(FAILED_MESSAGE, sizeof(FAILED_MESSAGE) - 1);
+		puts(FAILED_MESSAGE);
 		cock::user::exit_process(FAILED_STATUS);
 	}
-	cock::user::write_text(READY_MESSAGE, sizeof(READY_MESSAGE) - 1);
+	puts(READY_MESSAGE);
 
 	kbd::Decoder decoder;
 	Message message = {};
