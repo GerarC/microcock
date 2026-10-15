@@ -23,6 +23,7 @@
     #define SYS_SHM_MAP          0x176
     #define SYS_SHM_RELEASE      0x177
     #define SYS_MODULE_OPEN      0x178
+    #define SYS_MODULE_INDEX     0x179
 
     #ifdef __cplusplus
     extern "C" {

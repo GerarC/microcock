@@ -25,6 +25,12 @@ enum class MessageType : uint32_t {
 	SYS_REGISTER_MAILBOX = 6,       /**< System request to register a shared memory mailbox. */
 	IRQ_NOTIFICATION = 7,           /**< Kernel notice that a bound hardware interrupt fired; arg0 is the line. */
 	CAPABILITY_GRANTED = 8,         /**< Root server notice that the capabilities were granted; arg0 is a peer process id. */
+	FS_CONNECT = 9,                 /**< File server request: open a session and get a window; arg0 is the request id. */
+	FS_OPEN = 10,                   /**< File server request: open the path in the window; arg0 request id, arg1 path length, arg2 flags. */
+	FS_READ = 11,                   /**< File server request: read into the window; arg0 request id, arg1 handle, arg2 offset, arg3 length. */
+	FS_STAT = 12,                   /**< File server request: size and type of a handle; arg0 request id, arg1 handle. */
+	FS_CLOSE = 13,                  /**< File server request: drop a handle; arg0 request id, arg1 handle. */
+	FS_REPLY = 14,                  /**< File server answer; arg0 request id, arg1 status, arg2 and arg3 values. */
 };
 
 /**

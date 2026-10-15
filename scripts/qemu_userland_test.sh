@@ -7,8 +7,8 @@ SERIAL_FILE="${SERIAL_FILE:-build/userland_serial.txt}"
 SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
 TYPED_KEYS="a b shift-c d"
-EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 26/26 checks passed|abCd"
-EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|kbd: ready|VGA driver detected|reaped"
+EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 29/29 checks passed|abCd"
+EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the initrd|kbd: ready|VGA driver detected|reaped"
 
 make clean "$@" > /dev/null
 make iso "$@" || exit 2
@@ -34,6 +34,9 @@ CELL_BYTES = 2
 COLUMNS = 80
 ROWS = 25
 VIDEO_ADDRESS = "0xb8000"
+PROMPT = b"(qemu)"
+READ_TIMEOUT = 5.0
+CHUNK_BYTES = 1 << 16
 
 monitor = socket.socket(socket.AF_UNIX)
 monitor.connect(socket_path)
@@ -44,7 +47,17 @@ monitor.recv(65536)
 def command(text, wait):
     monitor.send((text + "\n").encode())
     time.sleep(wait)
-    return monitor.recv(1 << 20).decode(errors="replace")
+    monitor.settimeout(READ_TIMEOUT)
+    data = b""
+    try:
+        while not data.rstrip().endswith(PROMPT):
+            chunk = monitor.recv(CHUNK_BYTES)
+            if not chunk:
+                break
+            data += chunk
+    except socket.timeout:
+        pass
+    return data.decode(errors="replace")
 
 
 for key in keys:

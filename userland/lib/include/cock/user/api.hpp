@@ -12,6 +12,7 @@ namespace cock::user {
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 constexpr uint32_t NO_PROCESS = 0xFFFFFFFF;
 constexpr uint32_t NO_SHM = 0xFFFFFFFF;
+constexpr uint32_t NO_MODULE = 0xFFFFFFFF;
 constexpr uintptr_t SUCCESS = 0;
 constexpr int STDOUT_FILE = 1;
 
@@ -83,6 +84,16 @@ inline uint32_t module_open(const char *name) {
 	uintptr_t result = syscall(SYS_MODULE_OPEN, reinterpret_cast<uintptr_t>(name),
 							   length, 0, 0, 0, 0);
 	return result == FAILURE ? NO_SHM : static_cast<uint32_t>(result);
+}
+
+inline uint32_t module_index(const char *name) {
+	size_t length = 0;
+	while (name[length] != '\0')
+		length++;
+
+	uintptr_t result = syscall(SYS_MODULE_INDEX, reinterpret_cast<uintptr_t>(name),
+							   length, 0, 0, 0, 0);
+	return result == FAILURE ? NO_MODULE : static_cast<uint32_t>(result);
 }
 
 inline long write_text(const char *text, size_t length) {

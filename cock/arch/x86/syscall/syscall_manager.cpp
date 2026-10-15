@@ -40,6 +40,7 @@ void SyscallManager::init() {
     syscall_table[SyscallNum::SYS_SHM_MAP] = sys_shm_map;
     syscall_table[SyscallNum::SYS_SHM_RELEASE] = sys_shm_release;
     syscall_table[SyscallNum::SYS_MODULE_OPEN] = sys_module_open;
+    syscall_table[SyscallNum::SYS_MODULE_INDEX] = sys_module_index;
 }
 
 SystemCall SyscallManager::getSyscall(size_t code){

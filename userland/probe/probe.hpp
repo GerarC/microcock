@@ -51,6 +51,10 @@ bool sharedMemoryRoundTrips();
 bool sharedMemoryRefusesBadRequests();
 bool sharedMemoryTableIsBounded();
 
+bool initrdFileReads();
+bool fileServerRefusesBadRequests();
+bool moduleIndexIsDenied();
+
 } // namespace probe
 
 #endif // !PROBE_PROBE_HPP
