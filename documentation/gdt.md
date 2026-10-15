@@ -3,7 +3,7 @@
 The Global Descriptor Table defines the memory segments for the x86 architecture and is managed by the `GDT` class in `cock/arch/x86/gdt/gdt.cpp`.
 
 ## Initialization
-`GDT::init()` sets up a flat memory model by configuring 5 standard descriptor entries and the Task State Segment (TSS) in a table of 6.
+`GDT::init()` sets up a flat memory model by configuring 5 standard descriptor entries, the Task State Segment (TSS) and two fault TSSs in a table of 8.
 
 ```cpp
 void GDT::init() {
@@ -15,7 +15,11 @@ void GDT::init() {
 	GDT::setGate(2, 0, 0xFFFFFFFF, 0x92, 0xCF);
 	GDT::setGate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF);
 	GDT::setGate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);
-	GDT::writeTSS(5, KERNEL_DATA_SELECTOR, 0x0);
+	GDT::writeTSS(TSS_SLOT, KERNEL_DATA_SELECTOR, 0x0);
+	GDT::writeFaultTSS(DOUBLE_FAULT_TSS_SLOT, doubleFaultTss,
+					   reinterpret_cast<uint32_t>(&onDoubleFault), doubleFaultStack);
+	GDT::writeFaultTSS(NMI_TSS_SLOT, nmiTss, reinterpret_cast<uint32_t>(&onNmi),
+					   nmiStack);
 
 	gdt_flush(reinterpret_cast<uintptr_t>(&pointer));
 	tss_flush();
@@ -30,6 +34,8 @@ void GDT::init() {
 | 3 | User code (ring 3) |
 | 4 | User data (ring 3) |
 | 5 | TSS |
+| 6 | Double fault TSS |
+| 7 | NMI TSS |
 
 The selectors used by the rest of the kernel are named in `cock/arch/x86/gdt/segments.hpp`.
 
@@ -54,6 +60,15 @@ void GDT::writeTSS(uint32_t num, uint16_t ss0, uint32_t esp0) {
 ```
 
 The limit of the descriptor is the size of the structure minus one, and its access byte (`0x89`) gives it privilege level 0, so Ring 3 cannot reference it. Every port starts denied.
+
+### Fault tasks
+The double fault (vector 8) and the NMI (vector 2) are the only vectors reached through a task gate (see [idt](idt.md)). A kernel stack overflow faults while the CPU pushes the frame of the first exception, so the double fault must not need the stack that just failed. The hardware task switch loads the fault TSS, which has its own 8 KiB stack (`FAULT_STACK_SIZE`), the kernel segments and the kernel page directory (`GDT::bindFaultTasks`, called once paging is final). The state of the interrupted code is saved into the main TSS, so the handler reads `EIP` and `ESP` from it and panics with them:
+
+```
+cock panic: double fault (kernel stack overflow or a fault while handling a fault) EIP 0xC010940A ESP 0x10
+```
+
+The NMI task also panics: no NMI source is handled yet. These tasks are never resumed, so the busy bit of their descriptors does not matter. The fault TSSs have no I/O permission map.
 
 ### Applying a process context
 Each process keeps its own bitmap inside its `ArchProcessContext`, along with a version number. `GDT::applyIoPermissions` runs when the scheduler switches to a thread of a user process:

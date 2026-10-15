@@ -16,7 +16,11 @@ using cock::utils::Logger;
 
 constexpr uint8_t KERNEL_INTERRUPT_GATE = 0x8E;
 constexpr uint8_t USER_INTERRUPT_GATE = 0xEE;
+constexpr uint8_t TASK_GATE = 0x85;
 constexpr uint32_t SYSCALL_VECTOR = 128;
+constexpr uint32_t NMI_VECTOR = 2;
+constexpr uint32_t DOUBLE_FAULT_VECTOR = 8;
+constexpr uint32_t TASK_GATE_OFFSET = 0;
 
 IDT::IDT() {}
 
@@ -32,6 +36,10 @@ void IDT::init() {
 	for (size_t isr = 0; isr < ISR_NUM; isr++)
 		setGate(isr, reinterpret_cast<uint32_t>(isr_stub_table[isr]),
 				KERNEL_CODE_SELECTOR, KERNEL_INTERRUPT_GATE);
+
+	setGate(NMI_VECTOR, TASK_GATE_OFFSET, NMI_TSS_SELECTOR, TASK_GATE);
+	setGate(DOUBLE_FAULT_VECTOR, TASK_GATE_OFFSET, DOUBLE_FAULT_TSS_SELECTOR,
+			TASK_GATE);
 
 	for (size_t irq = 0; irq < IRQ_NUM; irq++)
 		setGate(ISR_NUM + irq, reinterpret_cast<uint32_t>(irq_stub_table[irq]),

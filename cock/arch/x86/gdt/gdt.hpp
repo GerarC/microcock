@@ -34,7 +34,7 @@ typedef struct __attribute__((packed)) _gdt_pointer_t {
  * * Primarily used by the CPU during hardware interrupts to switch to a valid
  * Kernel Ring 0 stack.
  */
-typedef struct __attribute__((packed)) _task_state_segement_entry {
+typedef struct __attribute__((packed)) _task_state_segement_base {
 	uint32_t prev_tss;
 	uint32_t esp0; /**< Ring 0 Stack Pointer (Updated on context switch). */
 	uint32_t ss0;  /**< Ring 0 Stack Segment. */
@@ -62,6 +62,13 @@ typedef struct __attribute__((packed)) _task_state_segement_entry {
 	uint32_t ldt;
 	uint16_t trap;
 	uint16_t iomap_base; /**< Offset to the I/O Permission Map. */
+} TssBase;
+
+/**
+ * @brief The TSS of the running kernel: the hardware part followed by the I/O
+ * Permission Map.
+ */
+typedef struct __attribute__((packed)) _task_state_segement_entry : TssBase {
 	uint8_t io_permission_map
 		[IO_PERMISSION_MAP_SIZE]; /**< Bitmap controlling access to `in` and
 									 `out` instructions per thread. */
@@ -89,10 +96,21 @@ class GDT {
 								   uint32_t version);
 	static uint32_t appliedIoVersion();
 
+	/**
+	 * @brief Gives the double fault and NMI tasks the page directory they run
+	 * with. Called once the kernel page directory is final.
+	 */
+	static void bindFaultTasks(uint32_t page_directory);
+
   private:
-	static constexpr int MAX_ENTRIES = 6;
+	static constexpr int MAX_ENTRIES = 8;
+	static constexpr size_t FAULT_STACK_SIZE = 0x2000;
 	static Entry entries[MAX_ENTRIES];
 	static TssEntry tssEntry;
+	static TssBase doubleFaultTss;
+	static TssBase nmiTss;
+	alignas(16) static uint8_t doubleFaultStack[FAULT_STACK_SIZE];
+	alignas(16) static uint8_t nmiStack[FAULT_STACK_SIZE];
 	static Pointer pointer;
 	static uint32_t appliedVersion;
 	static uint32_t dirtyBytes;
@@ -100,6 +118,10 @@ class GDT {
 	static void setGate(uint32_t num, uint32_t base, uint32_t limit,
 						uint8_t access, uint8_t gran);
 	static void writeTSS(uint32_t num, uint16_t ss0, uint32_t esp0);
+	static void writeFaultTSS(uint32_t num, TssBase &tss, uint32_t entry,
+							  uint8_t *stack);
+	[[noreturn]] static void onDoubleFault();
+	[[noreturn]] static void onNmi();
 };
 
 } // namespace cock::arch::x86

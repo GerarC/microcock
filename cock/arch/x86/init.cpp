@@ -63,6 +63,7 @@ void core_init(MBInfo *boot_info, uint32_t boot_info_phys) {
 	GDT::init();
 	PhysicalMemoryManager::init(boot_info, PhysAddr(boot_info_phys));
 	Paging::init();
+	GDT::bindFaultTasks(Paging::kernelDirectory().raw());
 	core::hal::disable_fpu();
 }
 
