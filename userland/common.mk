@@ -11,7 +11,7 @@ LINKER_SCRIPT := $(USERLAND_ROOT)linker.ld
 INCLUDE_FLAGS = -I$(LIBC)/include -I$(USERLAND_ROOT)../shared/include -I$(USERLAND_ROOT)lib/include -I.
 CXX_FLAGS = -std=gnu++20 -ffreestanding -nostdlib -fno-exceptions -fno-rtti \
             -fno-stack-protector -fno-pie -fno-tree-loop-distribute-patterns \
-            -fno-asynchronous-unwind-tables -mno-sse -mno-mmx -mno-80387 -Wall -Wextra $(INCLUDE_FLAGS) -O2 \
+            -fno-asynchronous-unwind-tables -mno-sse -mno-mmx -mno-80387 -Wall -Wextra -Werror $(INCLUDE_FLAGS) -O2 \
             $(USER_EXTRA_FLAGS)
 
 TARGET = $(OUT_DIR)/$(NAME).elf

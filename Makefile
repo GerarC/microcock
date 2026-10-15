@@ -10,7 +10,7 @@ CXX           = i686-elf-g++
 LD            = i686-elf-ld
 endif
 
-CPP_FLAGS   = -std=gnu++20 -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti \
+CPP_FLAGS   = -std=gnu++20 -ffreestanding -O2 -Wall -Wextra -Werror -fno-exceptions -fno-rtti \
               -D__is_cock_kernel -D__is_libc -D__is_libk \
               -Ilibc/include -Ilibcxx/include -Ishared/include -I. \
               -Icock/arch/$(ARCH)/include \
@@ -19,6 +19,8 @@ CPP_FLAGS   = -std=gnu++20 -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno
               -mno-sse -mno-sse2 -mno-mmx -mno-80387 \
               -MMD -MP
 TEST_FLAGS  = -DCOCK_TEST_MODE
+LOG_LEVEL  ?= TRACE
+CPP_FLAGS  += -DCOCK_LOG_LEVEL=::cock::utils::LogLevel::$(LOG_LEVEL)
 
 ifdef USE_LTO
 CPP_FLAGS += -flto
@@ -174,6 +176,7 @@ help:
 	@echo "  HOST_TOOLCHAIN=1  - Use the host g++/ld (-m32) instead of i686-elf-*"
 	@echo "  TEST_BUILD=1      - Build the in-kernel test suite"
 	@echo "  USE_LTO=1         - Enable link time optimization"
+	@echo "  LOG_LEVEL=<level> - Lowest kernel log level compiled in: TRACE, DEBUG, INFO, WARN, ERROR, FATAL"
 	@echo "================================================================"
 
 .PHONY: all clean iso run run-headless test make userland $(USERLAND_PROJECTS)
