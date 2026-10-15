@@ -53,7 +53,7 @@ ASM_SOURCES  = $(shell find cock libc libcxx shared -name '*.s')
 
 ifdef TEST_BUILD
 CPP_FLAGS += $(TEST_FLAGS)
-CPP_SOURCES += $(shell find test -name '*.cpp')
+CPP_SOURCES += $(shell find test -name '*.cpp' -not -path 'test/host/*' -not -path 'test/userland/*')
 endif
 
 CRTBEGIN_OBJ:= $(shell $(CXX) $(CPP_FLAGS) -print-file-name=crtbegin.o)
@@ -73,7 +73,7 @@ INITRD_FILES := $(shell find $(INITRD_DIR) -type f)
 INITRD_ENTRIES := $(notdir $(wildcard $(INITRD_DIR)/*))
 INITRD_IMAGE = $(BUILD)/initrd.tar
 INITRD_MODULE = initrd
-USERLAND_MAKEFILES := $(wildcard userland/*/Makefile)
+USERLAND_MAKEFILES := $(wildcard userland/*/Makefile test/userland/*/Makefile)
 USERLAND_PROJECTS  := $(patsubst %/Makefile,%,$(USERLAND_MAKEFILES))
 
 all: $(BUILD)/$(PROJECT).bin

@@ -4,6 +4,8 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 
 ## Programs
 
+The programs that exist only to test the system (`probe`, `hello`, `aborter`, `fsclient`, `fatclient`, `extclient`, `blkclient`, `cfile`, `mute`, `muteclient`) live in `test/userland/`, not in `userland/`. Their Makefiles include `../../../userland/common.mk` and the root Makefile builds both folders into `build/userland`. The helper `write_check.hpp` they share is in `test/userland/lib/include/cock/user/`.
+
 | Program | Role |
 |---------|------|
 | `init` | Root server. The only process born with authority; it grants `ramfs` the `initrd`, reads `manifest.conf` through `ramfs` and does what each line says (starts programs with `SYS_SPAWN`, grants capabilities), then exits |
@@ -143,4 +145,4 @@ The programs run in a user-space limit of `0xC0000000` (ELF32). Their stack is t
 * `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and `probe: 37/37 checks passed` on the screen, the typed text on the screen, the lines of the block driver and its client (see [block storage](block_storage.md#tests); the script attaches a test disk and accepts `DISK_SCHEME=gpt`), the `printf` sample line `probe: printf -42 4294967295 FF hi Z 0xBEEF` and the `abort()` message of `aborter` on the serial log, `kbd: ready`, the VGA driver detection and the reaping of the processes that exit on the serial log, and not one exception.
 * Run it also with `USER_EXTRA_FLAGS=-fno-omit-frame-pointer`, which changes how the compiler addresses locals and caught a real bug in the system call wrapper.
 * Both variants run in CI, on every push.
-* `bash scripts/host_test.sh` builds `host_test/` with the host compiler and runs it; it needs no emulator and checks the ring buffer, the intrusive queue, the linked list, the message layout, the capability table, the manifest parser, the mount table parser, the partition table parsers, the FAT32 parser and the ext2 parser.
+* `bash scripts/host_test.sh` builds `test/host/` with the host compiler and runs it; it needs no emulator and checks the ring buffer, the intrusive queue, the linked list, the message layout, the capability table, the manifest parser, the mount table parser, the partition table parsers, the FAT32 parser and the ext2 parser.

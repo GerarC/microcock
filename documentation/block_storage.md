@@ -22,7 +22,7 @@ After the capability grant the driver reads sector 0 and builds a table of devic
 - **GPT.** A table with a protective entry (type `0xEE`) sends the driver to LBA 1. The header must have the `EFI PART` signature, a size between 92 and 512 bytes, a valid header CRC32, `MyLBA` equal to 1, 128 byte entries (at most 128 of them) and an entry array that lies inside the disk; the array CRC32 must match too. An entry is kept when its type GUID is not zero and its range is ordered and inside the usable range of the header. Only the primary header is used; the backup copy is not read.
 - A bad table never stops the driver: the disk stays served as device 0 and, for GPT, the serial log shows `ata: GPT rejected`.
 
-The parsers are in `shared/include/cock/abi/partition.hpp`, which has no dependency on the driver and is covered by the host tests (`host_test/test_partition.cpp`): a good table of each kind, entries outside the disk, extended partitions, a corrupted header, a corrupted entry array and an entry array placed past the end of the disk.
+The parsers are in `shared/include/cock/abi/partition.hpp`, which has no dependency on the driver and is covered by the host tests (`test/host/test_partition.cpp`): a good table of each kind, entries outside the disk, extended partitions, a corrupted header, a corrupted entry array and an entry array placed past the end of the disk.
 
 ## Protocol
 Requests and replies are IPC messages. Every request carries a request id in `arg0`; the reply (`BLK_REPLY`) echoes it in `arg0` and carries the status in `arg1` and up to three values in `arg2` to `arg4`. A client accepts a reply only from the server pid and with its own id. The constants are in `shared/include/cock/abi/block.hpp`.

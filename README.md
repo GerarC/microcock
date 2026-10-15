@@ -46,11 +46,11 @@ The codebase is strictly separated to maintain the microkernel philosophy. The C
 │   ├── lib/                # `cock::user` API used by the programs
 │   ├── init/               # Root server: the only process born with authority
 │   ├── vga_driver/         # VGA Server running in userland
-│   ├── kbd/                # PS/2 keyboard driver running in userland
-│   ├── probe/              # Security probe: checks that the kernel denies what it must
-│   └── hello/              # Test assembly program
-├── test/                   # In-kernel test suite
-├── host_test/              # Tests of the shared structures, built and run on the host
+│   └── kbd/                # PS/2 keyboard driver running in userland
+├── test/                   # Every test
+│   ├── cock/               # In-kernel test suites
+│   ├── host/               # Tests of the shared structures, built and run on the host
+│   └── userland/           # Test programs run by init: probe, hello, aborter and the file and block clients
 ├── scripts/                # QEMU based and host test runners
 ├── documentation/          # Per-subsystem documentation
 └── Makefile                # Master build system
