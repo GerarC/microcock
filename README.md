@@ -50,7 +50,8 @@ The codebase is strictly separated to maintain the microkernel philosophy. The C
 │   ├── probe/              # Security probe: checks that the kernel denies what it must
 │   └── hello/              # Test assembly program
 ├── test/                   # In-kernel test suite
-├── scripts/                # QEMU based test runners
+├── host_test/              # Tests of the shared structures, built and run on the host
+├── scripts/                # QEMU based and host test runners
 ├── documentation/          # Per-subsystem documentation
 └── Makefile                # Master build system
 ```
@@ -139,6 +140,17 @@ The in-kernel test suite runs inside QEMU and reports through the serial port;
 bash scripts/qemu_test.sh
 ```
 
+The kernel suites cover the heap, the ELF loader, processes, the I/O permission
+map, paging protections, the physical memory manager, the scheduler, IPC,
+capabilities and the reaper.
+
+`scripts/host_test.sh` compiles the structures of `shared/` (`RingBuffer`,
+`IntrusiveQueue`, `LinkedList`, the message layout) and `CapabilitySet` with the
+host `g++` and runs them as a normal program, with no emulator:
+```bash
+bash scripts/host_test.sh
+```
+
 `scripts/qemu_userland_test.sh` boots the normal ISO, types on the simulated
 keyboard and checks that the userland drivers, the capability checks and the
 screen output work end to end:
@@ -194,7 +206,7 @@ The path the project follows, in order. `[x]` is done, `[ ]` is planned.
 - [x] QEMU based tests and CI.
 
 ### Next
-- [ ] Tests for the physical memory manager, the scheduler, IPC and the reaper, and host-side tests for the shared data structures.
+- [x] Tests for the physical memory manager, the scheduler, IPC and the reaper, and host-side tests for the shared data structures.
 - [ ] **C library basics for programs:** `printf` with buffered output, and `malloc`, `calloc`, `realloc`, `free` and `operator new`.
 - [ ] A separate stack for double fault and NMI, and a generation counter in process ids.
 

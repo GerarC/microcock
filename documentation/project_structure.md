@@ -46,7 +46,8 @@ The codebase strictly separates the architecture-dependent code, the kernel core
 │   ├── probe/                      # Security probe
 │   └── hello/                      # Test assembly program
 ├── test/                           # In-kernel test suite
-├── scripts/                        # QEMU based test runners
+├── host_test/                      # Tests of shared/ and CapabilitySet, run on the host
+├── scripts/                        # QEMU based and host test runners
 └── Makefile                        # Master build system
 ```
 
