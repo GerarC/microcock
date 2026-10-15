@@ -24,6 +24,20 @@ class Scheduler {
 	static uintptr_t onTick(uintptr_t current_stack_pointer);
 	static uintptr_t onYield(uintptr_t current_stack_pointer);
 	static void terminateCurrentThread();
+
+	/**
+	 * @brief Asks for a context switch once the running syscall or interrupt
+	 * finishes.
+	 */
+	static void requestReschedule();
+	static bool takeRescheduleRequest();
+
+	/**
+	 * @brief Asks for the running syscall to be executed again when the thread
+	 * resumes, which lets a syscall block without nesting interrupts.
+	 */
+	static void requestRestart();
+	static bool takeRestartRequest();
 	static void exitCurrentThread(ThreadResult result);
 
     /**
@@ -46,6 +60,8 @@ class Scheduler {
 	static uint32_t currentTicks;
 	static uint32_t ticksSinceLastBoost;
 	static bool initialized;
+	static bool rescheduleRequested;
+	static bool restartRequested;
 	static void boostPriorities();
 	static void enqueue(Thread *thread);
 	static Thread *dequeueNext();
