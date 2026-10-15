@@ -7,6 +7,11 @@
 #include <hal/cpu.hpp>
 #include <string.h>
 
+extern "C" char _text_start[];
+extern "C" char _text_end[];
+extern "C" char _rodata_start[];
+extern "C" char _rodata_end[];
+
 namespace cock::arch::x86 {
 
 using core::hal::InterruptGuard;
@@ -53,6 +58,28 @@ inline uint32_t globalFlagFor(VirtAddr virt, uint32_t flags) {
 void Paging::init() {
 	reserveKernelTables();
 	enableGlobalPages();
+	protectKernelImage();
+}
+
+void Paging::protectKernelImage() {
+	const uintptr_t ranges[][2] = {
+		{reinterpret_cast<uintptr_t>(_text_start),
+		 reinterpret_cast<uintptr_t>(_text_end)},
+		{reinterpret_cast<uintptr_t>(_rodata_start),
+		 reinterpret_cast<uintptr_t>(_rodata_end)},
+	};
+
+	for (const auto &range : ranges) {
+		for (uintptr_t page = range[0] & ~static_cast<uintptr_t>(PAGE_MASK);
+			 page < range[1]; page += PAGE_SIZE) {
+			VirtAddr virt(page);
+			tableEntries(directoryIndex(virt))[tableIndex(virt)] &= ~WRITEABLE;
+			invalidate(virt);
+		}
+	}
+
+	core::hal::enable_write_protect();
+	Logger::debug("Paging: kernel code and constants are read only");
 }
 
 void Paging::reserveKernelTables() {

@@ -224,6 +224,11 @@ VirtAddr VirtualMemoryManager::mapPagesAt(VirtAddr vaddr, size_t num_pages,
 	return start;
 }
 
+bool VirtualMemoryManager::protectPage(VirtAddr virt, VMMPermission permission) {
+	InterruptGuard guard;
+	return Paging::updatePageFlags(virt, toX86Flag(permission));
+}
+
 bool VirtualMemoryManager::isUserRangeValid(VirtAddr ptr, size_t length,
 											bool write, VirtAddr user_limit) {
 	if (user_limit.isNull() || user_limit > USER_SPACE_END) return false;

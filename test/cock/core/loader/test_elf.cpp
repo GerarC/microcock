@@ -54,6 +54,7 @@ constexpr uint8_t CORRUPTED_BYTE = 0;
 constexpr uint16_t EXCESSIVE_SEGMENT_COUNT = 0x100;
 constexpr uint16_t NO_SEGMENTS = 0;
 constexpr uint16_t SINGLE_SEGMENT = 1;
+constexpr size_t TWO_SEGMENTS = 2;
 constexpr uint16_t BAD_ENTRY_SIZE = 1;
 constexpr uint16_t MACHINE_STEP = 1;
 constexpr uint32_t FLAG_READ = 4;
@@ -101,6 +102,12 @@ void make_valid(File<Format> &file, uintptr_t vaddr, uint32_t flags) {
 	for (size_t idx = 0; idx < PAYLOAD_SIZE; idx++)
 		file.payload[idx] = static_cast<uint8_t>(PAYLOAD_PATTERN_BASE + idx);
 }
+
+template <typename Format> struct FileWithEmptySegment {
+	typename Format::Header header;
+	typename Format::ProgramHeader segments[TWO_SEGMENTS];
+	uint8_t payload[PAYLOAD_SIZE];
+};
 
 template <typename Format>
 bool loads(const File<Format> &file, PhysAddr address_space,
@@ -182,6 +189,31 @@ template <typename Format> void check_rejections(PhysAddr as) {
 	file.segment.size_in_memory =
 		static_cast<decltype(file.segment.size_in_memory)>(UINT64_MAX);
 	EXPECT_TRUE(rejected(file, as));
+}
+
+template <typename Format> void check_empty_segment(PhysAddr as) {
+	using Header = typename Format::Header;
+	using Segment = typename Format::ProgramHeader;
+
+	File<Format> base;
+	make_valid(base, CODE_ADDRESS, FLAGS_READ_WRITE);
+
+	FileWithEmptySegment<Format> file;
+	memset(&file, 0, sizeof(file));
+	file.header = base.header;
+	file.header.program_header_num = TWO_SEGMENTS;
+	file.segments[0] = base.segment;
+	file.segments[0].offset = sizeof(Header) + TWO_SEGMENTS * sizeof(Segment);
+	file.segments[1].type = ELF_PT_LOAD;
+	file.segments[1].flags = FLAGS_READ_WRITE;
+	memcpy(file.payload, base.payload, PAYLOAD_SIZE);
+
+	LoadedImage out;
+	EXPECT_TRUE(load_executable(&file, sizeof(file), as, out));
+	EXPECT_EQ(CODE_ADDRESS, out.entry.raw());
+
+	file.segments[1].size_in_file = SINGLE_PAGE;
+	EXPECT_FALSE(load_executable(&file, sizeof(file), as, out));
 }
 
 template <typename Format> void check_load(PhysAddr as) {
@@ -281,11 +313,13 @@ void test_elf_loader() {
 
 	if constexpr (Elf32::SUPPORTED) {
 		check_rejections<Elf32>(as);
+		check_empty_segment<Elf32>(as);
 		check_load<Elf32>(as);
 	} else check_unsupported<Elf32>(as);
 
 	if constexpr (Elf64::SUPPORTED) {
 		check_rejections<Elf64>(as);
+		check_empty_segment<Elf64>(as);
 		check_load<Elf64>(as);
 	} else check_unsupported<Elf64>(as);
 

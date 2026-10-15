@@ -12,6 +12,7 @@
 #include <cock/utils/logger.hpp>
 #include <cock/utils/panic.hpp>
 #include <hal/console.hpp>
+#include <hal/cpu.hpp>
 #include <stdint.h>
 
 #if defined(__linux__)
@@ -62,6 +63,7 @@ void core_init(MBInfo *boot_info, uint32_t boot_info_phys) {
 	GDT::init();
 	PhysicalMemoryManager::init(boot_info, PhysAddr(boot_info_phys));
 	Paging::init();
+	core::hal::disable_fpu();
 }
 
 void interrupts_init() {

@@ -18,6 +18,8 @@ constexpr uint8_t SYSCALL_INSTRUCTION_SIZE = 2;
 constexpr uint32_t CPUID_FEATURES_LEAF = 1;
 constexpr uint32_t CPUID_EDX_GLOBAL_PAGES = 1u << 13;
 constexpr uint32_t CR4_GLOBAL_PAGES = 1u << 7;
+constexpr uint32_t CR0_EMULATE_FPU = 1u << 2;
+constexpr uint32_t CR0_WRITE_PROTECT = 1u << 16;
 
 [[gnu::always_inline]] inline void halt() { __asm__ volatile("hlt"); }
 
@@ -69,6 +71,24 @@ constexpr uint32_t CR4_GLOBAL_PAGES = 1u << 7;
 
 [[gnu::always_inline]] inline void write_page_table_root(uint32_t value) {
 	__asm__ volatile("mov %0, %%cr3" : : "r"(value) : "memory");
+}
+
+[[gnu::always_inline]] inline uint32_t read_cr0() {
+	uint32_t value;
+	__asm__ volatile("mov %%cr0, %0" : "=r"(value));
+	return value;
+}
+
+[[gnu::always_inline]] inline void write_cr0(uint32_t value) {
+	__asm__ volatile("mov %0, %%cr0" : : "r"(value) : "memory");
+}
+
+[[gnu::always_inline]] inline void enable_write_protect() {
+	write_cr0(read_cr0() | CR0_WRITE_PROTECT);
+}
+
+[[gnu::always_inline]] inline void disable_fpu() {
+	write_cr0(read_cr0() | CR0_EMULATE_FPU);
 }
 
 [[gnu::always_inline]] inline uint32_t read_cr4() {

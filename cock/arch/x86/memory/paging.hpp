@@ -56,6 +56,7 @@ class Paging {
 	static core::memory::PhysAddr kernelDirectory();
 
 	static bool globalPagesEnabled();
+	static void protectKernelImage();
 
   private:
 	static void reserveKernelTables();
