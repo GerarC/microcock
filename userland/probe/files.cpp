@@ -20,7 +20,14 @@ namespace {
 constexpr char INITRD_FILE[] = "hello.txt";
 constexpr char INITRD_ROOTED_FILE[] = "/hello.txt";
 constexpr char MISSING_FILE[] = "no-such-file";
-constexpr char INITRD_TEXT[] = "Hello from the initrd\n";
+constexpr char ROOT_DIRECTORY[] = "/";
+constexpr char NESTED_DIRECTORY[] = "docs";
+constexpr char NESTED_FILE[] = "docs/note.txt";
+constexpr char NESTED_NAME[] = "note.txt";
+constexpr char NESTED_TEXT[] = "Cucked file\n";
+constexpr size_t NESTED_TEXT_BYTES = sizeof(NESTED_TEXT) - sizeof(char);
+constexpr uint32_t ROOT_ENTRY_COUNT = 2;
+constexpr char INITRD_TEXT[] = "Hello from the cock initrd!!!\n";
 constexpr size_t INITRD_TEXT_BYTES = sizeof(INITRD_TEXT) - sizeof(char);
 constexpr size_t READ_BUFFER_BYTES = 64;
 constexpr size_t SKIPPED_BYTES = 6;
@@ -102,6 +109,46 @@ bool fileServerRefusesBadRequests() {
 		 client.read(handle, NO_OFFSET, buffer, sizeof(buffer)) ==
 			 cock::user::fs::READ_FAILED;
 	return ok;
+}
+
+bool fileServerListsDirectories() {
+	Client client;
+	if (!client.connect()) return false;
+
+	uint32_t root = client.open(ROOT_DIRECTORY);
+	if (root == cock::abi::fs::NO_HANDLE) return false;
+
+	bool sawFile = false;
+	bool sawDirectory = false;
+	uint32_t count = 0;
+	char name[READ_BUFFER_BYTES] = {};
+	cock::abi::fs::FileType type = cock::abi::fs::FileType::REGULAR;
+	while (client.readdir(root, count, name, sizeof(name), type)) {
+		count++;
+		if (strcmp(name, INITRD_FILE) == 0)
+			sawFile = type == cock::abi::fs::FileType::REGULAR;
+		if (strcmp(name, NESTED_DIRECTORY) == 0)
+			sawDirectory = type == cock::abi::fs::FileType::DIRECTORY;
+	}
+	bool ok = count == ROOT_ENTRY_COUNT && sawFile && sawDirectory;
+
+	uint32_t nested = client.open(NESTED_DIRECTORY);
+	ok = ok && nested != cock::abi::fs::NO_HANDLE &&
+		 client.readdir(nested, NO_OFFSET, name, sizeof(name), type) &&
+		 strcmp(name, NESTED_NAME) == 0 &&
+		 !client.readdir(nested, 1, name, sizeof(name), type) && client.close(nested);
+
+	uint32_t file = client.open(NESTED_FILE);
+	char text[READ_BUFFER_BYTES] = {};
+	ok = ok && file != cock::abi::fs::NO_HANDLE &&
+		 client.read(file, NO_OFFSET, text, sizeof(text)) ==
+			 static_cast<long>(NESTED_TEXT_BYTES) &&
+		 memcmp(text, NESTED_TEXT, NESTED_TEXT_BYTES) == 0 &&
+		 !client.readdir(file, NO_OFFSET, name, sizeof(name), type) &&
+		 client.close(file);
+
+	return ok && !client.readdir(UNKNOWN_HANDLE, NO_OFFSET, name, sizeof(name), type) &&
+		   client.close(root);
 }
 
 bool moduleIndexIsDenied() {
