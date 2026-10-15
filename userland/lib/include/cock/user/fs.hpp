@@ -30,8 +30,10 @@ struct FileInfo {
 
 class Client {
   public:
-	bool connect() {
-		server = lookup(abi::fs::SERVER_NAME);
+	void (*onForeign)(const Message &) = nullptr;
+
+	bool connect(const char *name = abi::fs::SERVER_NAME) {
+		server = lookup(name);
 		if (server == NO_PROCESS) return false;
 
 		Reply reply = {};
@@ -43,8 +45,11 @@ class Client {
 		return view != nullptr;
 	}
 
+	Status lastStatus() const { return status; }
+
 	bool call(MessageType type, uint32_t first, uint32_t second, uint32_t third,
 			  Reply &reply) {
+		status = Status::NOT_CONNECTED;
 		if (server == NO_PROCESS) return false;
 
 		uint32_t id = nextId++;
@@ -57,12 +62,16 @@ class Client {
 		if (!ipc_send(server, request)) return false;
 
 		Message answer = {};
-		do {
+		for (;;) {
 			if (!ipc_recv(answer)) return false;
-		} while (answer.type != MessageType::FS_REPLY || answer.sender_pid != server ||
-				 answer.payload.args.arg0 != id);
+			if (answer.type == MessageType::FS_REPLY && answer.sender_pid == server &&
+				answer.payload.args.arg0 == id)
+				break;
+			if (onForeign != nullptr) onForeign(answer);
+		}
 
 		reply.status = static_cast<Status>(answer.payload.args.arg1);
+		status = reply.status;
 		reply.first = answer.payload.args.arg2;
 		reply.second = answer.payload.args.arg3;
 		return true;
@@ -133,6 +142,7 @@ class Client {
 	uint32_t server = NO_PROCESS;
 	uint8_t *view = nullptr;
 	uint32_t nextId = 1;
+	Status status = Status::NOT_CONNECTED;
 };
 
 } // namespace cock::user::fs

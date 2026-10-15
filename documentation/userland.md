@@ -8,13 +8,16 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 |---------|------|
 | `init` | Root server. The only process born with authority; it grants `ramfs` the `initrd`, reads `manifest.conf` through `ramfs` and does what each line says (starts programs with `SYS_SPAWN`, grants capabilities), then exits |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
-| `ramfs` | File server for the `initrd`; see [file system](filesystem.md) |
+| `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `init` can read the manifest) |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the display server |
 | `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp` and `files.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 33/33 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
 | `fsclient` | Reads a file from the `initrd` and exits; `init` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |
 | `ata` | Block server for the first IDE disk: PIO reads, MBR and GPT partitions; started by `init` with the ports `0x1F0+8` and `0x3F6+1`; see [block storage](block_storage.md) |
+| `fat` | FAT32 server over the block protocol; see [FAT32](fat32.md) |
+| `vfs` | The file server clients talk to: mount table of `/` (`ramfs`) and `/fat` (`fat`); see [file system](filesystem.md#the-vfs-server) |
+| `fatclient` | Reads files, a long name, a nested file, a multi-cluster file and a listing from `/fat`, and checks the refusals; the end to end test requires its output |
 | `blkclient` | Lists the devices of `ata` and reads the first sector of the first partition; the end to end test checks its output |
 
 The processes see each other only by name: `init` calls `cock::user::lookup("kbd")` to get a process id. The kernel names a process after its module.
@@ -128,4 +131,4 @@ The programs run in a user-space limit of `0xC0000000` (ELF32). Their stack is t
 * `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and `probe: 30/30 checks passed` on the screen, the typed text on the screen, the lines of the block driver and its client (see [block storage](block_storage.md#tests); the script attaches a test disk and accepts `DISK_SCHEME=gpt`), the `printf` sample line `probe: printf -42 4294967295 FF hi Z 0xBEEF` and the `abort()` message of `aborter` on the serial log, `kbd: ready`, the VGA driver detection and the reaping of the processes that exit on the serial log, and not one exception.
 * Run it also with `USER_EXTRA_FLAGS=-fno-omit-frame-pointer`, which changes how the compiler addresses locals and caught a real bug in the system call wrapper.
 * Both variants run in CI, on every push.
-* `bash scripts/host_test.sh` builds `host_test/` with the host compiler and runs it; it needs no emulator and checks the ring buffer, the intrusive queue, the linked list, the message layout, the capability table, the manifest parser and the partition table parsers.
+* `bash scripts/host_test.sh` builds `host_test/` with the host compiler and runs it; it needs no emulator and checks the ring buffer, the intrusive queue, the linked list, the message layout, the capability table, the manifest parser, the partition table parsers and the FAT32 parser.

@@ -1,10 +1,10 @@
 #include <cock/abi/fs.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <cock/user/session.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-#include <sys/mman.h>
 
 using cock::abi::fs::FileType;
 using cock::abi::fs::Status;
@@ -107,28 +107,10 @@ void buildIndex() {
 	}
 }
 
-Session *findSession(uint32_t pid) {
-	for (Session &session : sessions)
-		if (session.used && session.pid == pid) return &session;
-	return nullptr;
-}
-
-void releaseSession(Session &session) {
-	munmap(session.window, cock::abi::fs::WINDOW_BYTES);
-	cock::user::shm_release(session.windowId);
-	memset(&session, 0, sizeof(session));
-}
-
 void releaseDeadSessions() {
 	for (Session &session : sessions)
 		if (session.used && !cock::user::process_alive(session.pid))
-			releaseSession(session);
-}
-
-Session *freeSession() {
-	for (Session &session : sessions)
-		if (!session.used) return &session;
-	return nullptr;
+			cock::user::releaseSession(session, cock::abi::fs::WINDOW_BYTES);
 }
 
 void reply(uint32_t pid, uint32_t id, Status status, uint32_t first = 0,
@@ -143,7 +125,7 @@ void reply(uint32_t pid, uint32_t id, Status status, uint32_t first = 0,
 }
 
 void connect(uint32_t pid, uint32_t id) {
-	Session *session = findSession(pid);
+	Session *session = cock::user::findSession(sessions, MAX_CLIENTS, pid);
 	if (session != nullptr) {
 		memset(session->open, 0, sizeof(session->open));
 		reply(pid, id, Status::OK, session->windowId);
@@ -151,26 +133,10 @@ void connect(uint32_t pid, uint32_t id) {
 	}
 
 	releaseDeadSessions();
-	session = freeSession();
-	if (session == nullptr) return reply(pid, id, Status::NO_SPACE);
-
-	uint32_t window = cock::user::shm_create(cock::abi::fs::WINDOW_PAGES);
-	if (window == NO_SHM) return reply(pid, id, Status::NO_SPACE);
-
-	uint8_t *view = nullptr;
-	if (cock::user::shm_share(window, pid, true))
-		view = static_cast<uint8_t *>(cock::user::shm_map(window, true));
-	if (view == nullptr) {
-		cock::user::shm_release(window);
+	session = cock::user::freeSession(sessions, MAX_CLIENTS);
+	if (session == nullptr || !cock::user::openSession(*session, pid, cock::abi::fs::WINDOW_PAGES))
 		return reply(pid, id, Status::NO_SPACE);
-	}
-
-	memset(session, 0, sizeof(*session));
-	session->used = true;
-	session->pid = pid;
-	session->windowId = window;
-	session->window = view;
-	reply(pid, id, Status::OK, window);
+	reply(pid, id, Status::OK, session->windowId);
 }
 
 const Entry *findEntry(const char *path) {
@@ -313,7 +279,7 @@ void handle(const Message &message) {
 		return;
 	}
 
-	Session *session = findSession(pid);
+	Session *session = cock::user::findSession(sessions, MAX_CLIENTS, pid);
 	if (session == nullptr) return reply(pid, id, Status::NOT_CONNECTED);
 
 	switch (message.type) {

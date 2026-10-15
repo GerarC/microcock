@@ -9,6 +9,7 @@ void testMessage();
 void testCapabilitySet();
 void testManifest();
 void testPartition();
+void testFat32();
 } // namespace host_test
 
 int main() {
@@ -19,6 +20,7 @@ int main() {
 	host_test::testCapabilitySet();
 	host_test::testManifest();
 	host_test::testPartition();
+	host_test::testFat32();
 
 	printf("host tests: %d checks, %d failed\n", host_test::checksRun,
 		   host_test::checksFailed);

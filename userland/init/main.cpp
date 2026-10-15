@@ -128,7 +128,7 @@ void runEntry(Client &client, const Entry &entry) {
 } // namespace
 
 extern "C" void _start() {
-	uint32_t files = cock::user::lookup(cock::abi::fs::SERVER_NAME);
+	uint32_t files = cock::user::lookup(cock::abi::fs::RAMFS_SERVER_NAME);
 	uint32_t initrd = cock::user::module_index(cock::abi::fs::INITRD_MODULE_NAME);
 	if (files == NO_PROCESS || initrd == cock::user::NO_MODULE)
 		cock::user::exit_process(EXIT_FAILED_STATUS);
@@ -140,7 +140,7 @@ extern "C" void _start() {
 
 	Client client;
 	size_t length = NO_BYTES;
-	if (!client.connect() || !loadManifest(client, length)) {
+	if (!client.connect(cock::abi::fs::RAMFS_SERVER_NAME) || !loadManifest(client, length)) {
 		printf("init: cannot read %s\n", cock::abi::manifest::FILE_PATH);
 		cock::user::exit_process(EXIT_FAILED_STATUS);
 	}
