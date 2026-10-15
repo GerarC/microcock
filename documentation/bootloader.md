@@ -59,12 +59,16 @@ hang: hlt
     jmp hang
 ```
 
-Only the first 4 MiB are mapped when `init_cock` starts. Everything the kernel needs from the bootloader beyond that (the information structure, the memory map, the modules) is reached through the early window described in [memory management](memory_management.md#early-boot-window). The kernel image, with its `.bss`, must fit in those 4 MiB.
+Only the first 4 MiB are mapped when `init_cock` starts. Everything the kernel needs from the bootloader beyond that (the information structure, the memory map, the modules) is reached through the early window described in [memory management](memory_management.md#early-boot-window). The kernel image, with its `.bss`, must fit in those 4 MiB; the linker script checks it.
 
 ## Linker Script
 To tell the CPU where to look up the information, a linker script is needed. In this project, this file is placed in `cock/arch/x86/linker.ld`. It offsets the virtual addresses by `0xC0000000` to enforce the Higher-Half design, while the load addresses stay physical.
 ```ld
 ENTRY(_start)
+
+KERNEL_OFFSET = 0xC0000000;
+BOOT_MAPPED_SIZE = 0x400000;
+
 SECTIONS {
     . = 0x00100000;
 
@@ -78,17 +82,22 @@ SECTIONS {
         *(.boot*)
     }
 
-    . += 0xC0000000;
+    . += KERNEL_OFFSET;
 
-    .text ALIGN(4K) : AT(ADDR(.text) - 0xC0000000) {
+    .text ALIGN(4K) : AT(ADDR(.text) - KERNEL_OFFSET) {
+        _text_start = .;
         *(.text*)
+        _text_end = .;
     }
     ...
     _kernel_end = .;
+
+    ASSERT(_kernel_end - KERNEL_OFFSET <= BOOT_MAPPED_SIZE,
+           "the kernel image does not fit in the memory mapped at boot")
 }
 ```
 
-`_kernel_end` marks where the physical memory manager starts to consider memory free. The `.init_array` and `.ctors` sections are collected here too, and `call_global_constructors` runs whichever the toolchain produced.
+`_kernel_end` marks where the physical memory manager starts to consider memory free. `_text_start`, `_text_end`, `_rodata_start` and `_rodata_end` delimit the pages that paging makes read only once it is up. The `ASSERT` stops the link when the image, `.bss` included, no longer fits in the 4 MiB that the boot code maps, instead of letting the kernel fail to boot without a message. The `.init_array` and `.ctors` sections are collected here too, and `call_global_constructors` runs whichever the toolchain produced.
 
 ## Boot modules
 GRUB loads the userland programs as Multiboot modules, with the name of each one as its command line. The Makefile writes the `grub.cfg` and puts `init` first (`USERLAND_BOOT_ORDER`). See [userland](userland.md).

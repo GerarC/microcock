@@ -74,4 +74,4 @@ extern "C" uintptr_t irq_handler(uintptr_t current_esp) {
 }
 ```
 
-The spurious interrupts of lines 7 and 15 are detected and ignored. The end of interrupt is sent before the core may switch context. The core then decides: the timer line runs the scheduler, and any other line is forwarded to the process that bound it (see [ipc](ipc.md#interrupts-as-messages)). The architecture never calls the scheduler itself.
+The spurious interrupts of lines 7 and 15 are detected and ignored. The end of interrupt is sent before the core may switch context. The core then decides: the timer line runs the scheduler, and any other line is masked and turned into a pending notification of the thread that bound it (see [ipc](ipc.md#interrupts-as-messages)). The architecture never calls the scheduler itself.

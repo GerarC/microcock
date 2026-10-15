@@ -9,7 +9,7 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 | `init` | Root server. The only process born with authority; it gives each driver its capabilities and tells it to start, then exits |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the display server |
-| `probe` | Security probe. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 9/9 checks passed` |
+| `probe` | Security probe. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 16/16 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
 
 The processes see each other only by name: `init` calls `cock::user::lookup("kbd")` to get a process id. The kernel names a process after its module.
@@ -33,7 +33,8 @@ A driver that needs a new capability needs a new `cap_grant` in `userland/init/m
 | `irq_bind(line)`, `irq_ack(line)` | `SYS_IRQ_BIND`, `SYS_IRQ_ACK` |
 | `cap_grant(pid, type, first, count)` | `SYS_CAP_GRANT` |
 | `lookup(name)` | `SYS_PROC_LOOKUP` |
-| `write_text(text, length)` | `SYS_WRITE` |
+| `self()` | `SYS_GETPID` |
+| `write_text(text, length)` | `SYS_WRITE`, repeated until the whole text is written (a call takes at most 128 bytes) |
 | `exit_process(status)` | `SYS_EXIT` |
 | `port_in8(port)` | The `in` instruction (the process needs the port enabled) |
 
@@ -47,6 +48,8 @@ A driver that needs a new capability needs a new `cap_grant` in `userland/init/m
 | `EBP` | Argument 6 |
 
 All the other registers are preserved. `libc/include/sys/syscalls.h` has the inline `syscall()` that does the call.
+
+Programs cannot use floating point, MMX or SSE: the kernel sets `CR0.EM`, so those instructions fault and the kernel terminates the process. The programs are compiled with `-mno-sse -mno-mmx -mno-80387` so the compiler never emits them.
 
 ### Why the wrapper looks the way it does
 The sixth argument has to travel in `EBP`, which compilers often use as the frame pointer, and a compiler is free to address the local variables of a function through it. An inline assembly block that loads `EBP` and then reads one of its own operands from memory can end up reading from `(EBP - n)` with the new value of `EBP`, and fault. This happened: programs built by a compiler that keeps frame pointers by default died on their first system call with a page fault close to address 0.
@@ -81,12 +84,15 @@ include ../common.mk
 * `SRCS` are the sources of the program.
 * `LIBC_SRCS` picks the files of `libc/` to link with the program; there is no shared library.
 * The entry point is a function called `_start` declared `extern "C"`. It never returns: end with `exit_process`.
-* `common.mk` compiles freestanding, without exceptions, RTTI or stack protector, links at `0x400000` with `userland/linker.ld`, and tracks the headers each object includes, so changing a header rebuilds what depends on it.
+* `common.mk` compiles freestanding, without exceptions, RTTI, stack protector or FPU code, links at `0x400000` with `userland/linker.ld`, and tracks the headers each object includes, so changing a header rebuilds what depends on it.
+* `USER_EXTRA_FLAGS` adds compiler flags for every program, for example `make iso USER_EXTRA_FLAGS=-fno-omit-frame-pointer`.
+* `userland/linker.ld` produces two loadable segments: code and constants (read and execute) and data (read and write). The kernel seals the first one read only when it loads the program. A program without data has an empty second segment, which the loader accepts.
 
 The main Makefile passes the compiler, linker and assembler (`USER_CXX`, `USER_LD`, `USER_AS`) so the userland is built with the same toolchain as the kernel. When building one program by hand, pass them yourself.
 
 The programs run in a user-space limit of `0xC0000000` (ELF32). Their stack is the top 64 KiB below that limit, and `mmap` hands out addresses from `0x60000000` upward.
 
 ## Testing
-* `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and the `probe` result on the screen, the typed text on the screen, `kbd: ready` and the VGA driver detection on the serial log, and not one exception.
-* The same script runs in CI, on every push.
+* `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and `probe: 16/16 checks passed` on the screen, the typed text on the screen, `kbd: ready`, the VGA driver detection and the reaping of the processes that exit on the serial log, and not one exception.
+* Run it also with `USER_EXTRA_FLAGS=-fno-omit-frame-pointer`, which changes how the compiler addresses locals and caught a real bug in the system call wrapper.
+* Both variants run in CI, on every push.

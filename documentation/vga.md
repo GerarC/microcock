@@ -70,4 +70,4 @@ extern "C" void _start() {
 ```
 
 ### When the server is not there
-`sys_write` sends the text to the server in chunks of 20 bytes. If the server has died, the kernel notices, takes the screen back and writes to it directly, so the system keeps printing. Its mapping of the video memory is not returned to the frame allocator when the server dies, because device pages are marked as not owned.
+`sys_write` takes at most 128 bytes per call and sends the text to the server in chunks of 20 bytes. If the server has died, the kernel notices, takes the screen back and writes to it directly, so the system keeps printing. Its mapping of the video memory is not returned to the frame allocator when the server dies, because device pages are marked as not owned.

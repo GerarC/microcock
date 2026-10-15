@@ -60,10 +60,24 @@ static void grant_root_capabilities(Process &process) {
 * **Interrupts** (`SYS_IRQ_BIND`): the capability must cover the line; the timer line and the cascade line are reserved; a line has one owner. `SYS_IRQ_ACK` only works for the owner.
 * **Physical memory** (`SYS_MMAP` with `MAP_PHYS`): the capability must cover the range **and** none of its frames may be RAM. A process can map a device, but never the memory of the kernel or of another process. Device mappings are marked as not owned, so they are never given back to the frame allocator.
 
-A denied call fails with `-1` and logs a warning with the process id.
+A denied call fails with `-1` and is logged at `trace` level with the process id, so a program that keeps asking cannot flood the log.
+
+## Authority in messages
+Two message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
+
+* `IRQ_NOTIFICATION` can only come from the kernel; a program that sends one is refused.
+* `CAPABILITY_GRANTED` can only be sent by a process that holds at least one capability with the grant right (`CapabilitySet::holdsGrantAuthority`). In practice that is the root server. A driver that waits for it knows it came from there and does not need to check the sender.
 
 ## Testing it
-`userland/probe` runs nine checks from Ring 3 that must be denied or must work: it asks for a port, an interrupt line, a grant, the video memory and a RAM frame it holds no capability for, passes the kernel a kernel pointer and an unmapped pointer, checks that anonymous `mmap` returns zeroed memory that can be released only once, and tries to unmap a kernel address. `scripts/qemu_userland_test.sh` requires `probe: 9/9 checks passed`.
+`userland/probe` runs sixteen checks from Ring 3 that must be denied or must work:
+
+* it asks for a port, an interrupt line, a grant, the video memory and a RAM frame it holds no capability for,
+* it sends the two reserved message types and is refused, and sends itself an ordinary message that arrives with its own id as sender,
+* it passes the kernel a kernel pointer and an unmapped pointer, and writes a buffer larger than a call accepts,
+* it checks that anonymous `mmap` returns zeroed memory that can be released only once, that a request over the quota fails, that a released address is handed out again, and that the table of regions is bounded,
+* and it tries to unmap a kernel address.
+
+`scripts/qemu_userland_test.sh` requires `probe: 16/16 checks passed`.
 
 ## Current limits
 * The policy is fixed at boot: the kernel trusts the module named `init`, and `init` decides who gets what.
