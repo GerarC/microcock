@@ -6,11 +6,11 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 
 | Program | Role |
 |---------|------|
-| `init` | Root server. The only process born with authority; it grants the display and file servers their capabilities, reads the other programs from the `initrd` through `ramfs`, starts them with `SYS_SPAWN`, grants `kbd` its port and line, then exits |
+| `init` | Root server. The only process born with authority; it grants `ramfs` the `initrd`, reads `manifest.txt` through `ramfs` and does what each line says (starts programs with `SYS_SPAWN`, grants capabilities), then exits |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the display server |
-| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp` and `files.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 32/32 checks passed` |
+| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp` and `files.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 33/33 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
 | `fsclient` | Reads a file from the `initrd` and exits; `init` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |
@@ -21,10 +21,29 @@ The processes see each other only by name: `init` calls `cock::user::lookup("kbd
 1. The Makefile builds every `userland/*/Makefile` into `build/userland/<name>.elf`.
 2. It packs the files of the `initrd/` folder and, under `bin/`, every program that is not a boot module into `build/initrd.tar` (ustar). It writes a `grub.cfg` with one `module` line for each program of `USERLAND_BOOT_ORDER` (`init`, `ramfs`, `vga_driver`), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](memory_management.md)), so it never becomes a process.
 3. The kernel loads each module as a process and gives the root capabilities to the one called `init`.
-4. `init` grants `vga_driver` the screen and `ramfs` the `initrd`, and sends `CAPABILITY_GRANTED` to both. It then reads `bin/*.elf` through `ramfs` and starts each program with `SYS_SPAWN`; a spawned process is born with no capabilities, so `init` grants `kbd` its port and line and sends it `CAPABILITY_GRANTED`. `kbd` enables the port and binds the interrupt.
+4. `init` grants `ramfs` the `initrd` and sends it `CAPABILITY_GRANTED`; this is the only policy written in its code. It then reads `manifest.txt` through `ramfs`, parses it and runs each line in order (see below). A spawned process is born with no capabilities, so the grants of its line are what it gets. `vga_driver` maps the screen, and `kbd` enables the port and binds the interrupt.
 5. A key press travels: keyboard controller, IRQ 1, kernel (`IRQ_NOTIFICATION`), `kbd` reads the scan code and acknowledges the line, `kbd` sends `VIDEO_WRITE_CHAR`, `vga_driver` draws the character.
 
 A driver that needs a new capability needs a new `cap_grant` in `userland/init/main.cpp`; see [capabilities](capabilities.md). The display server is described in [VGA](vga.md) and the keyboard driver in [keyboard](keyboard.md).
+
+## The manifest
+`manifest.txt` in the initrd says which programs run and what authority each one gets. It is plain text, one entry per line; empty lines and lines that start with `#` are ignored. The parser is `shared/include/cock/abi/manifest.hpp`, which the host tests cover.
+
+```
+vga_driver caps=mem:0xA0000+0x20000
+fsclient path=bin/fsclient.elf repeat=10
+kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 peer=vga_driver
+```
+
+| Part | Meaning |
+|------|---------|
+| first word | The name of the entry. It is the process name; names are unique and at most 31 bytes |
+| `path=` | A file of the initrd that `init` reads and spawns. Without it the entry is a boot module that already runs, and `init` only grants it what the line says |
+| `caps=` | Comma separated grants: `io:first+count` (ports), `irq:line` and `mem:first+size` (physical memory). Numbers are decimal or `0x` hexadecimal. The count of `io` and `irq` defaults to 1, `mem` needs it. At most 4 grants |
+| `peer=` | Name of a process whose id travels in the `CAPABILITY_GRANTED` message (the display server for `kbd`) |
+| `repeat=` | Run the program that many times (1 to 32), one after the other, waiting for each to exit. Only for entries with `path=` |
+
+When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED` after granting. The kernel still checks every grant against what `init` holds, so a line cannot give more than `init` has. The parser rejects the whole file at the first bad line (unknown key, repeated key, bad number, range that wraps the address space, too many entries or grants, repeated name) and `init` then starts nothing and exits; the serial log shows the line number and the error. The file is at most 4096 bytes and 16 entries. Adding a driver means adding a line here, not editing `init`.
 
 ## The `cock::user` API
 `userland/lib/include/cock/user/api.hpp` wraps the system calls for the programs written in C++:

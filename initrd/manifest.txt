@@ -1,0 +1,6 @@
+vga_driver caps=mem:0xA0000+0x20000
+fsclient path=bin/fsclient.elf repeat=10
+aborter path=bin/aborter.elf
+hello path=bin/hello.elf
+kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 peer=vga_driver
+probe path=bin/probe.elf

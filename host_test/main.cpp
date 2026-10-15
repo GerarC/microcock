@@ -7,6 +7,7 @@ void testIntrusiveQueue();
 void testLinkedList();
 void testMessage();
 void testCapabilitySet();
+void testManifest();
 } // namespace host_test
 
 int main() {
@@ -15,6 +16,7 @@ int main() {
 	host_test::testLinkedList();
 	host_test::testMessage();
 	host_test::testCapabilitySet();
+	host_test::testManifest();
 
 	printf("host tests: %d checks, %d failed\n", host_test::checksRun,
 		   host_test::checksFailed);

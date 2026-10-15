@@ -56,6 +56,7 @@ bool sharedMemoryTableIsBounded();
 bool initrdFileReads();
 bool fileServerRefusesBadRequests();
 bool fileServerListsDirectories();
+bool manifestMatchesTheBoot();
 bool moduleIndexIsDenied();
 
 } // namespace probe
