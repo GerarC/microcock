@@ -39,6 +39,9 @@ enum class MessageType : uint32_t {
 	FS_WRITE = 20,                  /**< File server request: write the window into a file; arg0 request id, arg1 handle, arg2 offset, arg3 length. */
 	FS_UNLINK = 21,                 /**< File server request: delete the file at the path in the window; arg0 request id, arg1 path length. */
 	BLK_WRITE = 22,                 /**< Block server request: write the window to sectors; arg0 request id, arg1 device, arg2 first sector, arg3 sector count. */
+	FS_MKDIR = 23,                  /**< File server request: make the directory at the path in the window; arg0 request id, arg1 path length. */
+	FS_RMDIR = 24,                  /**< File server request: remove the empty directory at the path in the window; arg0 request id, arg1 path length. */
+	FS_RENAME = 25,                 /**< File server request: rename; the old path is at the start of the window and the new one at RENAME_NEW_OFFSET; arg0 request id, arg1 old length, arg2 new length. */
 };
 
 /**

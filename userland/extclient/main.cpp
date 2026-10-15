@@ -192,7 +192,7 @@ bool refusesBadPaths(Client &client) {
 }
 
 bool writesTheVolume(Client &client) {
-	cock::user::fs::WriteCheck check(client, SCRATCH_PATH, WRITTEN_BIG_BYTES);
+	cock::user::fs::WriteCheck check(client, SCRATCH_PATH, WRITTEN_BIG_BYTES, false);
 	return check.run() && check.creates(SPACED_NAME, SPACED_TEXT) &&
 		   check.reads(SPACED_NAME, SPACED_TEXT) && check.removes(SPACED_NAME) &&
 		   check.missing(SPACED_NAME) && check.creates(LONG_NAME, SPACED_TEXT) &&

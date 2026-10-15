@@ -128,6 +128,24 @@ constexpr char CASE_DISTANCE = LETTER_LOWER_A - LETTER_UPPER_A;
 constexpr size_t LONG_FIRST_INDEX = 1;
 constexpr size_t DOT_SECOND_BYTE = 1;
 constexpr size_t DOT_PADDING_START = 2;
+constexpr uint16_t LONG_PADDING_UNIT = 0xFFFF;
+constexpr char FORBIDDEN_LONG_CHARACTERS[] = "\"*/:<>?\\|";
+constexpr char DELETE_CHARACTER = 0x7F;
+constexpr char FIRST_PRINTABLE = 0x20;
+constexpr char TILDE = '~';
+constexpr char UNDERSCORE = '_';
+constexpr uint32_t UTF8_CONTINUATION_MASK = 0xC0;
+constexpr uint32_t UTF8_TWO_LEAD_MASK = 0xE0;
+constexpr uint32_t UTF8_THREE_LEAD_MASK = 0xF0;
+constexpr uint32_t UTF8_FOUR_LEAD_MASK = 0xF8;
+constexpr uint32_t UTF8_TWO_PAYLOAD_MASK = 0x1F;
+constexpr uint32_t UTF8_THREE_PAYLOAD_MASK = 0x0F;
+constexpr uint32_t UTF8_FOUR_PAYLOAD_MASK = 0x07;
+constexpr uint32_t MAX_CODE_POINT = 0x10FFFF;
+constexpr uint32_t SURROGATE_MASK = 0x3FF;
+constexpr uint32_t DECIMAL_RADIX = 10;
+constexpr uint32_t MAX_ALIAS_TAIL_DIGITS = 6;
+constexpr uint32_t MAX_ALIAS_TAIL = 999999;
 
 constexpr unsigned SHIFT_8 = 8;
 constexpr unsigned SHIFT_16 = 16;
@@ -353,8 +371,15 @@ inline void patchEntryLocation(uint8_t *raw, uint32_t cluster, uint32_t size) {
 	detail::writeLe32(raw + ENTRY_SIZE_OFFSET, size);
 }
 
+inline void touchEntry(uint8_t *raw, uint16_t date, uint16_t time) {
+	detail::writeLe16(raw + ENTRY_ACCESS_DATE_OFFSET, date);
+	detail::writeLe16(raw + ENTRY_WRITE_TIME_OFFSET, time);
+	detail::writeLe16(raw + ENTRY_WRITE_DATE_OFFSET, date);
+}
+
 inline void encodeEntry(uint8_t *raw, const uint8_t *shortName, uint8_t caseFlags,
-						uint8_t attributes, uint32_t cluster, uint32_t size) {
+						uint8_t attributes, uint32_t cluster, uint32_t size,
+						uint16_t date = FAT_EPOCH_DATE, uint16_t time = FAT_EPOCH_TIME) {
 	for (size_t index = 0; index < ENTRY_BYTES; index++)
 		raw[index] = 0;
 	for (size_t index = 0; index < ENTRY_SHORT_NAME_BYTES; index++)
@@ -362,11 +387,9 @@ inline void encodeEntry(uint8_t *raw, const uint8_t *shortName, uint8_t caseFlag
 
 	raw[ENTRY_ATTRIBUTES_OFFSET] = attributes;
 	raw[ENTRY_CASE_OFFSET] = caseFlags;
-	detail::writeLe16(raw + ENTRY_CREATE_TIME_OFFSET, FAT_EPOCH_TIME);
-	detail::writeLe16(raw + ENTRY_CREATE_DATE_OFFSET, FAT_EPOCH_DATE);
-	detail::writeLe16(raw + ENTRY_ACCESS_DATE_OFFSET, FAT_EPOCH_DATE);
-	detail::writeLe16(raw + ENTRY_WRITE_TIME_OFFSET, FAT_EPOCH_TIME);
-	detail::writeLe16(raw + ENTRY_WRITE_DATE_OFFSET, FAT_EPOCH_DATE);
+	detail::writeLe16(raw + ENTRY_CREATE_TIME_OFFSET, time);
+	detail::writeLe16(raw + ENTRY_CREATE_DATE_OFFSET, date);
+	touchEntry(raw, date, time);
 	patchEntryLocation(raw, cluster, size);
 }
 
@@ -384,6 +407,176 @@ inline uint8_t shortNameChecksum(const uint8_t *shortName) {
 					  CHECKSUM_BYTE_MASK) +
 			  shortName[index];
 	return sum;
+}
+
+enum class NamePlan : uint32_t {
+	SHORT = 0,
+	CASED = 1,
+	LOSSY = 2,
+};
+
+inline NamePlan planName(const char *name, size_t length, uint8_t *shortName,
+						 uint8_t &caseFlags) {
+	if (encodeShortName(name, length, shortName, caseFlags)) return NamePlan::SHORT;
+	if (length > MAX_SHORT_NAME_BYTES) return NamePlan::LOSSY;
+
+	char upper[MAX_SHORT_NAME_BYTES];
+	for (size_t index = 0; index < length; index++) {
+		char character = name[index];
+		upper[index] = character >= LETTER_LOWER_A && character <= LETTER_LOWER_Z
+						   ? char(character - CASE_DISTANCE)
+						   : character;
+	}
+	uint8_t ignored = 0;
+	if (!encodeShortName(upper, length, shortName, ignored)) return NamePlan::LOSSY;
+	caseFlags = 0;
+	return NamePlan::CASED;
+}
+
+inline void makeLossyAlias(const char *name, size_t length, uint32_t tail,
+						   uint8_t *shortName) {
+	for (size_t index = 0; index < ENTRY_SHORT_NAME_BYTES; index++)
+		shortName[index] = uint8_t(SPACE);
+
+	size_t start = 0;
+	while (start < length && name[start] == DOT)
+		start++;
+	size_t dot = length;
+	for (size_t index = start; index < length; index++)
+		if (name[index] == DOT) dot = index;
+
+	char digits[MAX_ALIAS_TAIL_DIGITS + 1];
+	size_t digitCount = 0;
+	for (uint32_t rest = tail; rest != 0; rest /= DECIMAL_RADIX)
+		digits[digitCount++] = char(DIGIT_FIRST + rest % DECIMAL_RADIX);
+	size_t keep = ENTRY_BASE_BYTES - 1 - digitCount;
+
+	size_t used = 0;
+	for (size_t index = start; index < dot && used < keep; index++) {
+		uint8_t byte = uint8_t(name[index]);
+		if (name[index] == SPACE || (byte & UTF8_CONTINUATION_MASK) == UTF8_CONTINUATION_MARK)
+			continue;
+		char character = name[index] >= LETTER_LOWER_A && name[index] <= LETTER_LOWER_Z
+							 ? char(name[index] - CASE_DISTANCE)
+							 : name[index];
+		shortName[used++] = uint8_t(isShortNameCharacter(character) ? character : UNDERSCORE);
+	}
+	if (used == 0) shortName[used++] = uint8_t(UNDERSCORE);
+	shortName[used++] = uint8_t(TILDE);
+	for (size_t index = digitCount; index > 0; index--)
+		shortName[used++] = uint8_t(digits[index - 1]);
+
+	size_t extensionUsed = 0;
+	for (size_t index = dot + 1; index < length && extensionUsed < ENTRY_EXTENSION_BYTES;
+		 index++) {
+		uint8_t byte = uint8_t(name[index]);
+		if (name[index] == SPACE || (byte & UTF8_CONTINUATION_MASK) == UTF8_CONTINUATION_MARK)
+			continue;
+		char character = name[index] >= LETTER_LOWER_A && name[index] <= LETTER_LOWER_Z
+							 ? char(name[index] - CASE_DISTANCE)
+							 : name[index];
+		shortName[ENTRY_BASE_BYTES + extensionUsed++] =
+			uint8_t(isShortNameCharacter(character) ? character : UNDERSCORE);
+	}
+}
+
+inline bool isForbiddenInLongName(uint32_t code) {
+	if (code < uint32_t(FIRST_PRINTABLE) || code == uint32_t(DELETE_CHARACTER)) return true;
+	for (size_t index = 0; FORBIDDEN_LONG_CHARACTERS[index] != '\0'; index++)
+		if (code == uint32_t(FORBIDDEN_LONG_CHARACTERS[index])) return true;
+	return false;
+}
+
+inline bool decodeUtf8Name(const char *text, size_t length, uint16_t *units, size_t capacity,
+						   size_t &count) {
+	count = 0;
+	size_t index = 0;
+	while (index < length) {
+		uint32_t lead = uint8_t(text[index]);
+		uint32_t code = 0;
+		size_t extra = 0;
+		uint32_t minimum = 0;
+		if (lead < UTF8_ONE_BYTE_LIMIT) {
+			code = lead;
+		} else if ((lead & UTF8_TWO_LEAD_MASK) == UTF8_TWO_BYTE_MARK) {
+			code = lead & UTF8_TWO_PAYLOAD_MASK;
+			extra = 1;
+			minimum = UTF8_ONE_BYTE_LIMIT;
+		} else if ((lead & UTF8_THREE_LEAD_MASK) == UTF8_THREE_BYTE_MARK) {
+			code = lead & UTF8_THREE_PAYLOAD_MASK;
+			extra = 2;
+			minimum = UTF8_TWO_BYTE_LIMIT;
+		} else if ((lead & UTF8_FOUR_LEAD_MASK) == UTF8_FOUR_BYTE_MARK) {
+			code = lead & UTF8_FOUR_PAYLOAD_MASK;
+			extra = 3;
+			minimum = UTF8_THREE_BYTE_LIMIT;
+		} else {
+			return false;
+		}
+		if (index + extra >= length) return false;
+		for (size_t step = 1; step <= extra; step++) {
+			uint32_t next = uint8_t(text[index + step]);
+			if ((next & UTF8_CONTINUATION_MASK) != UTF8_CONTINUATION_MARK) return false;
+			code = (code << UTF8_PAYLOAD_BITS) | (next & UTF8_PAYLOAD_MASK);
+		}
+		index += extra + 1;
+
+		if (code < minimum || code > MAX_CODE_POINT ||
+			(code >= HIGH_SURROGATE_FIRST && code <= LOW_SURROGATE_LAST) ||
+			isForbiddenInLongName(code))
+			return false;
+
+		if (code >= SUPPLEMENTARY_BASE) {
+			if (count + 2 > capacity) return false;
+			uint32_t offset = code - SUPPLEMENTARY_BASE;
+			units[count++] = uint16_t(HIGH_SURROGATE_FIRST + (offset >> SURROGATE_BITS));
+			units[count++] = uint16_t(LOW_SURROGATE_FIRST + (offset & SURROGATE_MASK));
+		} else {
+			if (count + 1 > capacity) return false;
+			units[count++] = uint16_t(code);
+		}
+	}
+
+	if (count == 0) return false;
+	uint16_t last = units[count - 1];
+	return last != uint16_t(DOT) && last != uint16_t(SPACE);
+}
+
+inline size_t longSlotOffset(size_t slot) {
+	if (slot < LONG_FIRST_GROUP_CHARS) return LONG_FIRST_GROUP_OFFSET + slot * LONG_CHAR_BYTES;
+	slot -= LONG_FIRST_GROUP_CHARS;
+	if (slot < LONG_SECOND_GROUP_CHARS)
+		return LONG_SECOND_GROUP_OFFSET + slot * LONG_CHAR_BYTES;
+	slot -= LONG_SECOND_GROUP_CHARS;
+	return LONG_THIRD_GROUP_OFFSET + slot * LONG_CHAR_BYTES;
+}
+
+inline size_t longEntryCount(size_t unitCount) {
+	return (unitCount + LONG_CHARS_PER_ENTRY - 1) / LONG_CHARS_PER_ENTRY;
+}
+
+inline void encodeLongEntry(uint8_t *raw, size_t sequence, bool last, uint8_t checksum,
+							const uint16_t *units, size_t unitCount) {
+	for (size_t index = 0; index < ENTRY_BYTES; index++)
+		raw[index] = 0;
+	raw[ENTRY_NAME_OFFSET] = uint8_t(sequence | (last ? LONG_LAST_FLAG : 0));
+	raw[ENTRY_ATTRIBUTES_OFFSET] = ATTRIBUTE_LONG_NAME;
+	raw[LONG_CHECKSUM_OFFSET] = checksum;
+
+	for (size_t slot = 0; slot < LONG_CHARS_PER_ENTRY; slot++) {
+		size_t position = (sequence - 1) * LONG_CHARS_PER_ENTRY + slot;
+		uint32_t value = position < unitCount    ? units[position]
+						 : position == unitCount ? uint32_t(LONG_NAME_END)
+												 : uint32_t(LONG_PADDING_UNIT);
+		detail::writeLe16(raw + longSlotOffset(slot), value);
+	}
+}
+
+inline void dotShortName(bool parent, uint8_t *shortName) {
+	for (size_t index = 0; index < ENTRY_SHORT_NAME_BYTES; index++)
+		shortName[index] = uint8_t(SPACE);
+	shortName[ENTRY_NAME_OFFSET] = uint8_t(DOT);
+	if (parent) shortName[DOT_SECOND_BYTE] = uint8_t(DOT);
 }
 
 class DirectoryParser {

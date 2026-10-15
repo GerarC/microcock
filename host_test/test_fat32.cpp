@@ -443,6 +443,153 @@ void checkBpbWriteFields() {
 	CHECK_EQ(SINGLE_SECTOR, bpb.fsInfoSector);
 }
 
+constexpr uint32_t SHORT_FILE_CLUSTER = 5;
+constexpr uint32_t SHORT_FILE_SIZE = 100;
+constexpr uint32_t TWO_DIGIT_TAIL = 12;
+constexpr uint32_t FIRST_TAIL = 1;
+constexpr size_t TOO_MANY_UNITS = MAX_NAME_CHARS + 1;
+constexpr size_t SURROGATE_PAIR_UNITS = 2;
+constexpr uint16_t SURROGATE_HIGH_UNIT = 0xD83D;
+constexpr uint16_t SURROGATE_LOW_UNIT = 0xDE00;
+constexpr uint16_t ACCENT_UNIT = 0x00E9;
+
+bool planned(const char *name, NamePlan expected, const char *shortName) {
+	uint8_t found[ENTRY_SHORT_NAME_BYTES];
+	uint8_t flags = 0;
+	if (planName(name, strlen(name), found, flags) != expected) return false;
+	return shortName == nullptr || memcmp(found, shortName, ENTRY_SHORT_NAME_BYTES) == 0;
+}
+
+bool alias(const char *name, uint32_t tail, const char *expected) {
+	uint8_t found[ENTRY_SHORT_NAME_BYTES];
+	makeLossyAlias(name, strlen(name), tail, found);
+	return memcmp(found, expected, ENTRY_SHORT_NAME_BYTES) == 0;
+}
+
+void checkNamePlans() {
+	CHECK_TRUE(planned("note.txt", NamePlan::SHORT, "NOTE    TXT"));
+	CHECK_TRUE(planned("Hello.txt", NamePlan::CASED, "HELLO   TXT"));
+	CHECK_TRUE(planned("Mixed Case.TXT", NamePlan::LOSSY, nullptr));
+	CHECK_TRUE(planned("longname_one.txt", NamePlan::LOSSY, nullptr));
+	CHECK_TRUE(planned("a.b.c", NamePlan::LOSSY, nullptr));
+	CHECK_TRUE(planned("12345678901.txt", NamePlan::LOSSY, nullptr));
+
+	CHECK_TRUE(alias("longname_one.txt", FIRST_TAIL, "LONGNA~1TXT"));
+	CHECK_TRUE(alias("longname_one.txt", TWO_DIGIT_TAIL, "LONGN~12TXT"));
+	CHECK_TRUE(alias("A long file name.txt", FIRST_TAIL, "ALONGF~1TXT"));
+	CHECK_TRUE(alias("caf\xC3\xA9 \xC3\xB1.txt", FIRST_TAIL, "CAF__~1 TXT"));
+	CHECK_TRUE(alias(".hidden", FIRST_TAIL, "HIDDEN~1   "));
+	CHECK_TRUE(alias("a.b.c", FIRST_TAIL, "A_B~1   C  "));
+}
+
+bool decodes(const char *name, const uint16_t *expected, size_t count) {
+	uint16_t units[MAX_NAME_CHARS];
+	size_t found = 0;
+	if (!decodeUtf8Name(name, strlen(name), units, MAX_NAME_CHARS, found) || found != count)
+		return false;
+	return memcmp(units, expected, count * sizeof(uint16_t)) == 0;
+}
+
+bool rejects(const char *name, size_t length) {
+	uint16_t units[MAX_NAME_CHARS];
+	size_t found = 0;
+	return !decodeUtf8Name(name, length, units, MAX_NAME_CHARS, found);
+}
+
+void checkLongNameEncoding() {
+	const uint16_t plain[] = {'a', 'b', 'c'};
+	const uint16_t accent[] = {'c', 'a', 'f', ACCENT_UNIT};
+	const uint16_t pair[] = {SURROGATE_HIGH_UNIT, SURROGATE_LOW_UNIT};
+	CHECK_TRUE(decodes("abc", plain, 3));
+	CHECK_TRUE(decodes("caf\xC3\xA9", accent, 4));
+	CHECK_TRUE(decodes("\xF0\x9F\x98\x80", pair, SURROGATE_PAIR_UNITS));
+
+	CHECK_TRUE(rejects("", 0));
+	CHECK_TRUE(rejects("\xC3", 1));
+	CHECK_TRUE(rejects("\xC0\x80", 2));
+	CHECK_TRUE(rejects("\xED\xA0\x80", 3));
+	CHECK_TRUE(rejects("\x80", 1));
+	CHECK_TRUE(rejects("bad*", 4));
+	CHECK_TRUE(rejects("a\"b", 3));
+	CHECK_TRUE(rejects("a.", 2));
+	CHECK_TRUE(rejects("a ", 2));
+	CHECK_TRUE(rejects("a\x01", 2));
+	CHECK_TRUE(rejects("a\\b", 3));
+
+	char tooLong[TOO_MANY_UNITS + 1];
+	memset(tooLong, 'a', TOO_MANY_UNITS);
+	tooLong[TOO_MANY_UNITS] = '\0';
+	CHECK_TRUE(rejects(tooLong, TOO_MANY_UNITS));
+}
+
+bool roundTrips(const char *name) {
+	uint8_t shortName[ENTRY_SHORT_NAME_BYTES];
+	uint8_t flags = 0;
+	if (planName(name, strlen(name), shortName, flags) == NamePlan::LOSSY)
+		makeLossyAlias(name, strlen(name), FIRST_TAIL, shortName);
+
+	uint16_t units[MAX_NAME_CHARS];
+	size_t unitCount = 0;
+	if (!decodeUtf8Name(name, strlen(name), units, MAX_NAME_CHARS, unitCount)) return false;
+
+	size_t entries = longEntryCount(unitCount);
+	DirectoryParser parser;
+	parser.reset();
+	DirEntry entry = {};
+	uint8_t raw[ENTRY_BYTES];
+	uint8_t checksum = shortNameChecksum(shortName);
+	for (size_t index = 0; index < entries; index++) {
+		encodeLongEntry(raw, entries - index, index == 0, checksum, units, unitCount);
+		if (parser.feed(raw, entry) != DirectoryParser::Result::SKIP) return false;
+	}
+	encodeEntry(raw, shortName, 0, ATTRIBUTE_ARCHIVE, SHORT_FILE_CLUSTER, SHORT_FILE_SIZE);
+	return parser.feed(raw, entry) == DirectoryParser::Result::ENTRY &&
+		   strcmp(entry.name, name) == 0 && entry.cluster == SHORT_FILE_CLUSTER &&
+		   entry.size == SHORT_FILE_SIZE;
+}
+
+void checkLongEntries() {
+	CHECK_EQ(size_t(1), longEntryCount(13));
+	CHECK_EQ(size_t(2), longEntryCount(14));
+	CHECK_EQ(size_t(20), longEntryCount(MAX_NAME_CHARS));
+
+	CHECK_TRUE(roundTrips("A long file name.txt"));
+	CHECK_TRUE(roundTrips("abcdefghijklm"));
+	CHECK_TRUE(roundTrips("abcdefghijklmn"));
+	CHECK_TRUE(roundTrips("caf\xC3\xA9 \xC3\xB1.txt"));
+	CHECK_TRUE(roundTrips("\xF0\x9F\x98\x80 smile.txt"));
+	CHECK_TRUE(roundTrips("Hello.txt"));
+	CHECK_TRUE(roundTrips("a-rather-long-file-name-for-testing-0.txt"));
+
+	uint8_t dot[ENTRY_SHORT_NAME_BYTES];
+	dotShortName(false, dot);
+	CHECK_TRUE(memcmp(dot, ".          ", ENTRY_SHORT_NAME_BYTES) == 0);
+	dotShortName(true, dot);
+	CHECK_TRUE(memcmp(dot, "..         ", ENTRY_SHORT_NAME_BYTES) == 0);
+}
+
+void checkTimestamps() {
+	uint8_t shortName[ENTRY_SHORT_NAME_BYTES];
+	uint8_t flags = 0;
+	CHECK_TRUE(encodeShortName("note.txt", 8, shortName, flags));
+
+	constexpr uint16_t DATE = 23887;
+	constexpr uint16_t TIME = 28079;
+	uint8_t raw[ENTRY_BYTES];
+	encodeEntry(raw, shortName, flags, ATTRIBUTE_ARCHIVE, NO_VALUE, NO_VALUE, DATE, TIME);
+	CHECK_EQ(DATE, detail::readLe16(raw + ENTRY_CREATE_DATE_OFFSET));
+	CHECK_EQ(TIME, detail::readLe16(raw + ENTRY_CREATE_TIME_OFFSET));
+	CHECK_EQ(DATE, detail::readLe16(raw + ENTRY_WRITE_DATE_OFFSET));
+
+	constexpr uint16_t LATER_DATE = 23888;
+	constexpr uint16_t LATER_TIME = 28080;
+	touchEntry(raw, LATER_DATE, LATER_TIME);
+	CHECK_EQ(DATE, detail::readLe16(raw + ENTRY_CREATE_DATE_OFFSET));
+	CHECK_EQ(LATER_DATE, detail::readLe16(raw + ENTRY_WRITE_DATE_OFFSET));
+	CHECK_EQ(LATER_DATE, detail::readLe16(raw + ENTRY_ACCESS_DATE_OFFSET));
+	CHECK_EQ(LATER_TIME, detail::readLe16(raw + ENTRY_WRITE_TIME_OFFSET));
+}
+
 } // namespace
 
 void testFat32() {
@@ -459,6 +606,10 @@ void testFat32() {
 	checkFatUpdates();
 	checkFsInfo();
 	checkBpbWriteFields();
+	checkNamePlans();
+	checkLongNameEncoding();
+	checkLongEntries();
+	checkTimestamps();
 }
 
 } // namespace host_test

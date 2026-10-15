@@ -72,6 +72,9 @@ constexpr size_t GD_FREE_INODES_OFFSET = 14;
 constexpr uint32_t ROOT_INODE = 2;
 constexpr size_t INODE_MODE_OFFSET = 0;
 constexpr size_t INODE_SIZE_OFFSET = 4;
+constexpr size_t INODE_ACCESS_TIME_OFFSET = 8;
+constexpr size_t INODE_CHANGE_TIME_OFFSET = 12;
+constexpr size_t INODE_MODIFY_TIME_OFFSET = 16;
 constexpr size_t INODE_DELETION_TIME_OFFSET = 20;
 constexpr uint32_t DELETION_TIME_MARK = 1000000000;
 constexpr size_t INODE_LINKS_OFFSET = 26;
@@ -93,6 +96,16 @@ constexpr uint32_t MODE_SYMLINK = 0xA000;
 constexpr uint32_t MODE_PERMISSIONS_644 = 0x01A4;
 constexpr uint32_t MODE_NEW_FILE = MODE_REGULAR | MODE_PERMISSIONS_644;
 constexpr uint32_t NEW_FILE_LINKS = 1;
+constexpr uint32_t MODE_PERMISSIONS_755 = 0x01ED;
+constexpr uint32_t MODE_NEW_DIRECTORY = MODE_DIRECTORY | MODE_PERMISSIONS_755;
+constexpr uint32_t NEW_DIRECTORY_LINKS = 2;
+constexpr size_t GD_USED_DIRECTORIES_OFFSET = 16;
+constexpr uint8_t DIRENT_TYPE_DIRECTORY = 2;
+constexpr uint8_t DIRENT_TYPE_SYMLINK = 7;
+constexpr char CURRENT_ENTRY_NAME[] = ".";
+constexpr char PARENT_ENTRY_NAME[] = "..";
+constexpr uint32_t CURRENT_ENTRY_BYTES = 1;
+constexpr uint32_t PARENT_ENTRY_BYTES = 2;
 constexpr uint32_t MAX_FILE_BYTES = 0x7FFFFFFF;
 constexpr uint32_t FAST_SYMLINK_BYTES = INODE_BLOCK_SLOTS * sizeof(uint32_t);
 
@@ -349,6 +362,17 @@ inline void encodeDirItem(uint8_t *raw, uint32_t inode, uint32_t recordBytes,
 	}
 	for (uint32_t index = 0; index < nameBytes; index++)
 		raw[DIRENT_NAME_OFFSET + index] = uint8_t(name[index]);
+}
+
+inline void initDirectoryBlock(uint8_t *block, uint32_t blockBytes, uint32_t self,
+							   uint32_t parent, bool fileType) {
+	for (uint32_t index = 0; index < blockBytes; index++)
+		block[index] = 0;
+	uint32_t dotBytes = direntBytes(CURRENT_ENTRY_BYTES);
+	encodeDirItem(block, self, dotBytes, CURRENT_ENTRY_NAME, CURRENT_ENTRY_BYTES, fileType,
+				  DIRENT_TYPE_DIRECTORY);
+	encodeDirItem(block + dotBytes, parent, blockBytes - dotBytes, PARENT_ENTRY_NAME,
+				  PARENT_ENTRY_BYTES, fileType, DIRENT_TYPE_DIRECTORY);
 }
 
 inline uint8_t bitMask(uint32_t index) { return uint8_t(FIRST_BIT << (index % BITS_PER_BYTE)); }

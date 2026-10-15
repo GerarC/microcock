@@ -70,6 +70,9 @@ struct FileServer {
 		case MessageType::FS_READ:
 		case MessageType::FS_WRITE:
 		case MessageType::FS_UNLINK:
+		case MessageType::FS_MKDIR:
+		case MessageType::FS_RMDIR:
+		case MessageType::FS_RENAME:
 		case MessageType::FS_STAT:
 		case MessageType::FS_READDIR:
 		case MessageType::FS_CLOSE:
@@ -90,6 +93,12 @@ struct FileServer {
 			return writeFile(*session, message);
 		case MessageType::FS_UNLINK:
 			return unlinkFile(*session, message);
+		case MessageType::FS_MKDIR:
+			return makeDirectory(*session, message);
+		case MessageType::FS_RMDIR:
+			return removeDirectory(*session, message);
+		case MessageType::FS_RENAME:
+			return renameEntry(*session, message);
 		case MessageType::FS_STAT:
 			return statFile(*session, message);
 		case MessageType::FS_READDIR:
@@ -137,9 +146,9 @@ struct FileServer {
 		return found.open ? &found : nullptr;
 	}
 
-	static bool copyPath(const Session &session, uint32_t length, char *path) {
+	static bool copyPath(const Session &session, size_t at, uint32_t length, char *path) {
 		if (length == 0 || length >= abi::fs::MAX_PATH_BYTES) return false;
-		memcpy(path, session.window, length);
+		memcpy(path, session.window + at, length);
 		path[length] = '\0';
 		return strlen(path) == length;
 	}
@@ -173,7 +182,7 @@ struct FileServer {
 		if (wantsWrite && !Backend::writable()) return reply(pid, id, Status::READ_ONLY);
 
 		char path[abi::fs::MAX_PATH_BYTES] = {};
-		if (!copyPath(session, length, path)) return reply(pid, id, Status::BAD_REQUEST);
+		if (!copyPath(session, 0, length, path)) return reply(pid, id, Status::BAD_REQUEST);
 
 		size_t slot = 0;
 		while (slot < MAX_HANDLES && session.handles[slot].open)
@@ -225,13 +234,67 @@ struct FileServer {
 		reply(pid, id, status, written);
 	}
 
+	static bool inUse(const Node &node) {
+		for (const Session &other : sessions) {
+			if (!other.used) continue;
+			for (size_t slot = 0; slot < MAX_HANDLES; slot++)
+				if (other.handles[slot].open && Backend::sameFile(other.handles[slot].node, node))
+					return true;
+		}
+		return false;
+	}
+
+	static void makeDirectory(Session &session, const Message &message) {
+		uint32_t pid = message.sender_pid;
+		uint32_t id = message.payload.args.arg0;
+		if (!Backend::writable()) return reply(pid, id, Status::READ_ONLY);
+
+		char path[abi::fs::MAX_PATH_BYTES] = {};
+		if (!copyPath(session, 0, message.payload.args.arg1, path))
+			return reply(pid, id, Status::BAD_REQUEST);
+		reply(pid, id, Backend::makeDirectory(path));
+	}
+
+	static void removeDirectory(Session &session, const Message &message) {
+		uint32_t pid = message.sender_pid;
+		uint32_t id = message.payload.args.arg0;
+		if (!Backend::writable()) return reply(pid, id, Status::READ_ONLY);
+
+		char path[abi::fs::MAX_PATH_BYTES] = {};
+		if (!copyPath(session, 0, message.payload.args.arg1, path))
+			return reply(pid, id, Status::BAD_REQUEST);
+
+		Node node = {};
+		if (!Backend::resolveLeaf(path, node)) return reply(pid, id, Status::NOT_FOUND);
+		if (node.type != FileType::DIRECTORY) return reply(pid, id, Status::UNSUPPORTED);
+		if (inUse(node)) return reply(pid, id, Status::BUSY);
+		reply(pid, id, Backend::removeDirectory(path));
+	}
+
+	static void renameEntry(Session &session, const Message &message) {
+		uint32_t pid = message.sender_pid;
+		uint32_t id = message.payload.args.arg0;
+		if (!Backend::writable()) return reply(pid, id, Status::READ_ONLY);
+
+		char from[abi::fs::MAX_PATH_BYTES] = {};
+		char to[abi::fs::MAX_PATH_BYTES] = {};
+		if (!copyPath(session, 0, message.payload.args.arg1, from) ||
+			!copyPath(session, abi::fs::RENAME_NEW_OFFSET, message.payload.args.arg2, to))
+			return reply(pid, id, Status::BAD_REQUEST);
+
+		Node node = {};
+		if (!Backend::resolveLeaf(from, node)) return reply(pid, id, Status::NOT_FOUND);
+		if (inUse(node)) return reply(pid, id, Status::BUSY);
+		reply(pid, id, Backend::rename(from, to));
+	}
+
 	static void unlinkFile(Session &session, const Message &message) {
 		uint32_t pid = message.sender_pid;
 		uint32_t id = message.payload.args.arg0;
 		if (!Backend::writable()) return reply(pid, id, Status::READ_ONLY);
 
 		char path[abi::fs::MAX_PATH_BYTES] = {};
-		if (!copyPath(session, message.payload.args.arg1, path))
+		if (!copyPath(session, 0, message.payload.args.arg1, path))
 			return reply(pid, id, Status::BAD_REQUEST);
 
 		Node node = {};

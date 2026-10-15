@@ -275,6 +275,9 @@ void handle(const Message &message) {
 	case MessageType::FS_READ:
 	case MessageType::FS_WRITE:
 	case MessageType::FS_UNLINK:
+	case MessageType::FS_MKDIR:
+	case MessageType::FS_RMDIR:
+	case MessageType::FS_RENAME:
 	case MessageType::FS_STAT:
 	case MessageType::FS_READDIR:
 	case MessageType::FS_CLOSE:
@@ -293,6 +296,9 @@ void handle(const Message &message) {
 		return readFile(*session, message);
 	case MessageType::FS_WRITE:
 	case MessageType::FS_UNLINK:
+	case MessageType::FS_MKDIR:
+	case MessageType::FS_RMDIR:
+	case MessageType::FS_RENAME:
 		return reply(pid, id, Status::READ_ONLY);
 	case MessageType::FS_STAT:
 		return statFile(*session, message);

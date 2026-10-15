@@ -83,8 +83,10 @@ class Client {
 
 	uint32_t open(const char *path, uint32_t flags = abi::fs::OPEN_READ_ONLY) {
 		size_t length = strlen(path);
-		if (view == nullptr || length == 0 || length >= abi::fs::MAX_PATH_BYTES)
+		if (view == nullptr || length == 0 || length >= abi::fs::MAX_PATH_BYTES) {
+			status = Status::BAD_REQUEST;
 			return abi::fs::NO_HANDLE;
+		}
 
 		memcpy(view, path, length);
 		view[length] = '\0';
@@ -97,7 +99,10 @@ class Client {
 	}
 
 	long write(uint32_t handle, uint32_t offset, const void *buffer, size_t length) {
-		if (view == nullptr) return WRITE_FAILED;
+		if (view == nullptr) {
+			status = Status::NOT_CONNECTED;
+			return WRITE_FAILED;
+		}
 		if (length > abi::fs::WINDOW_BYTES) length = abi::fs::WINDOW_BYTES;
 
 		memcpy(view, buffer, length);
@@ -109,21 +114,37 @@ class Client {
 		return static_cast<long>(reply.first);
 	}
 
-	bool unlink(const char *path) {
-		size_t length = strlen(path);
-		if (view == nullptr || length == 0 || length >= abi::fs::MAX_PATH_BYTES)
-			return false;
+	bool unlink(const char *path) { return pathCall(MessageType::FS_UNLINK, path); }
 
-		memcpy(view, path, length);
-		view[length] = '\0';
+	bool mkdir(const char *path) { return pathCall(MessageType::FS_MKDIR, path); }
+
+	bool rmdir(const char *path) { return pathCall(MessageType::FS_RMDIR, path); }
+
+	bool rename(const char *from, const char *to) {
+		size_t fromLength = strlen(from);
+		size_t toLength = strlen(to);
+		if (view == nullptr || fromLength == 0 || fromLength >= abi::fs::MAX_PATH_BYTES ||
+			toLength == 0 || toLength >= abi::fs::MAX_PATH_BYTES) {
+			status = Status::BAD_REQUEST;
+			return false;
+		}
+
+		memcpy(view, from, fromLength);
+		view[fromLength] = '\0';
+		memcpy(view + abi::fs::RENAME_NEW_OFFSET, to, toLength);
+		view[abi::fs::RENAME_NEW_OFFSET + toLength] = '\0';
 
 		Reply reply = {};
-		return call(MessageType::FS_UNLINK, static_cast<uint32_t>(length), 0, 0, reply) &&
+		return call(MessageType::FS_RENAME, static_cast<uint32_t>(fromLength),
+					static_cast<uint32_t>(toLength), 0, reply) &&
 			   reply.status == Status::OK;
 	}
 
 	long read(uint32_t handle, uint32_t offset, void *buffer, size_t length) {
-		if (view == nullptr) return READ_FAILED;
+		if (view == nullptr) {
+			status = Status::NOT_CONNECTED;
+			return READ_FAILED;
+		}
 		if (length > abi::fs::WINDOW_BYTES) length = abi::fs::WINDOW_BYTES;
 
 		Reply reply = {};
@@ -168,6 +189,21 @@ class Client {
 	}
 
   private:
+	bool pathCall(MessageType type, const char *path) {
+		size_t length = strlen(path);
+		if (view == nullptr || length == 0 || length >= abi::fs::MAX_PATH_BYTES) {
+			status = Status::BAD_REQUEST;
+			return false;
+		}
+
+		memcpy(view, path, length);
+		view[length] = '\0';
+
+		Reply reply = {};
+		return call(type, static_cast<uint32_t>(length), 0, 0, reply) &&
+			   reply.status == Status::OK;
+	}
+
 	uint32_t server = NO_PROCESS;
 	uint8_t *view = nullptr;
 	uint32_t nextId = 1;
