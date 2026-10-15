@@ -73,6 +73,12 @@ void Process::setName(const char *new_name) {
 void Process::attachThread(uint32_t thread_id) {
 	if (threadCount == 0) id = thread_id;
 	threadCount++;
+	liveThreads++;
+}
+
+bool Process::threadExited() {
+	if (liveThreads > 0) liveThreads--;
+	return liveThreads == 0;
 }
 
 bool Process::detachThread() {

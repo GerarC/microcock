@@ -1,6 +1,7 @@
 #ifndef CORE_PROCESS_HPP
 #define CORE_PROCESS_HPP
 
+#include <cock/abi/process.hpp>
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/memory/address.hpp>
 #include <cock/core/memory/memory_region.hpp>
@@ -17,6 +18,7 @@ class Process {
 	static constexpr size_t MAX_NAME_LENGTH = 32;
 	static constexpr size_t MAX_MAPPING_REGIONS = 32;
 	static constexpr size_t MAX_OWNED_PAGES = 0x1000;
+	static constexpr size_t MAX_THREADS = abi::process::MAX_THREADS_PER_PROCESS;
 
 	static void *operator new(size_t size);
 	static void operator delete(void *pointer);
@@ -49,6 +51,17 @@ class Process {
 	void attachThread(uint32_t thread_id);
 	bool detachThread();
 
+	size_t getLiveThreadCount() const { return liveThreads; }
+	bool canAttachThread() const { return threadCount < MAX_THREADS; }
+	bool threadExited();
+
+	uint32_t getParentId() const { return parentId; }
+	void setParentId(uint32_t parent) { parentId = parent; }
+	bool notifiesExit() const { return notifyExit; }
+	void setNotifiesExit(bool notify) { notifyExit = notify; }
+	uint32_t getExitStatus() const { return exitStatus; }
+	void setExitStatus(uint32_t status) { exitStatus = status; }
+
 	bool hasRegionSlot() const { return regionCount < MAX_MAPPING_REGIONS; }
 	bool canOwnPages(size_t pages) const {
 		return pages <= MAX_OWNED_PAGES - ownedPages;
@@ -77,6 +90,10 @@ class Process {
 	security::CapabilitySet capabilities;
 	char name[MAX_NAME_LENGTH] = {};
 	size_t threadCount = 0;
+	size_t liveThreads = 0;
+	uint32_t parentId = abi::process::NO_PARENT;
+	bool notifyExit = false;
+	uint32_t exitStatus = 0;
 	MemoryRegion regions[MAX_MAPPING_REGIONS] = {};
 	size_t regionCount = 0;
 	size_t ownedPages = 0;

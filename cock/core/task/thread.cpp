@@ -4,6 +4,7 @@
 #include <cock/core/memory/slab_pool.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/task/scheduler.hpp>
+#include <cock/core/task/futex.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
 #include <cock/core/task/timeouts.hpp>
@@ -79,19 +80,45 @@ Thread::Thread(Process &owner, VirtAddr entry_point, ThreadPriority priority) {
 	TaskManager::registerThread(this);
 }
 
-void Thread::initBase(ThreadPriority priority, ThreadType type,
-					  Process *owner) {
+Thread::Thread(Process &owner, VirtAddr entry_point, VirtAddr user_stack_base,
+			   size_t user_stack_size, void *kernel_stack,
+			   ThreadPriority priority) {
+	initBase(priority, ThreadType::USER, &owner, kernel_stack);
+	this->userStackBase = user_stack_base;
+	this->stackPointer = hal::prepare_user_thread_stack(
+		stackBase, THREAD_STACK_SIZE, user_stack_base.as<void>(),
+		user_stack_size, entry_point.as<void>(), nullptr);
+	TaskManager::registerThread(this);
+}
+
+Thread *Thread::createUser(Process &owner, VirtAddr entry_point,
+						   VirtAddr user_stack_base, size_t user_stack_size,
+						   ThreadPriority priority) {
+	if (owner.isKernel() || !owner.canAttachThread()) return nullptr;
+	if (!TaskManager::hasFreePid()) return nullptr;
+
+	void *kernel_stack = VirtualMemoryManager::allocStack(KERNEL_STACK_PAGES);
+	if (kernel_stack == nullptr) return nullptr;
+	return new Thread(owner, entry_point, user_stack_base, user_stack_size,
+					  kernel_stack, priority);
+}
+
+void Thread::initBase(ThreadPriority priority, ThreadType type, Process *owner,
+					  void *kernel_stack) {
 	this->id = TaskManager::allocatePID();
 	this->priority = priority;
 	this->type = type;
 	this->state = ThreadState::READY;
 	this->process = owner;
 	this->process->attachThread(this->id);
-	this->stackBase = VirtualMemoryManager::allocStack(KERNEL_STACK_PAGES);
+	this->stackBase = kernel_stack != nullptr
+						  ? kernel_stack
+						  : VirtualMemoryManager::allocStack(KERNEL_STACK_PAGES);
 	if (!this->stackBase) utils::panic("Thread: cannot allocate kernel stack");
 }
 
 Thread::~Thread() {
+	Futex::remove(this);
 	Timeouts::cancel(this);
 	irq::IrqRouting::release(id);
 	this->userStackBase = VirtAddr();

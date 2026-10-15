@@ -17,7 +17,7 @@ A **`Thread`** (`cock/core/task/thread.hpp`) is an execution context inside a pr
 * Every thread has a **16 KiB kernel stack** with an unmapped guard page below it.
 * User threads also get a **64 KiB user stack** at the top of the user-space limit of their process.
 * The kernel has its own process, which owns the kernel threads (the idle thread among them).
-* A user process has exactly **one thread** for now. The process id is the id of that first thread, so it is also the address used by IPC.
+* A user process has from 1 to 8 threads (`MAX_THREADS_PER_PROCESS`). The process id is the id of its **first** thread, so it is also the address used by IPC and by `SYS_PROC_ALIVE`; every other thread has an id and an inbox of its own, and a message carries the id of the thread that sent it. Once the first thread ends, the process id no longer receives messages even if other threads run.
 * Each thread carries, besides its inbox, a mask of **pending interrupt notifications** (see [ipc](ipc.md#interrupts-as-messages)).
 
 When the last thread of a user process is destroyed, the process is destroyed with it: its address space, the page tables and every owned frame go back to the PMM, and the IRQ lines it had bound are released.
@@ -58,6 +58,18 @@ void Scheduler::boostPriorities() {
 
 ### Blocking system calls
 A system call cannot sleep in the middle of a handler, because the kernel does not run nested interrupts. Instead, a handler that cannot finish calls `Scheduler::requestReschedule()` and `Scheduler::requestRestart()` and returns. The core then rewinds the saved instruction pointer by the size of the `int 0x80` instruction and switches to another thread. When the thread runs again, it executes the system call again from the start, with the same registers. `sys_ipc_recv` and the output path of `sys_write` work this way.
+
+## Threads
+The kernel provides only the mechanism: a thread, a stack, and a way to block. Everything else (a thread library, a mutex, a join) is built by the program.
+
+* `SYS_THREAD_CREATE(entry, stack_base, stack_size)` starts a thread of the caller process. The **program owns the stack**: the kernel checks that `entry` is a user address and that the stack is a writable user range of at least 8 KiB, and it never maps or frees user stacks. The thread starts at `entry` with `ESP` at the top of that range minus 4. The call fails, without panicking, when the process already has 8 threads (dead threads count until the reaper has freed them), when there is no free id or when kernel stack memory is out of reach. `userland/lib/include/cock/user/thread.hpp` (`thread_start`) writes an argument and a return address that ends the thread at the top of the stack, so a thread function is `void f(void *)` and may simply return.
+* `SYS_EXIT` ends the calling thread. The process ends when its last thread ends, and its exit status is the one given by that last thread. An exception ends only the faulting thread, with the status `FAULT_STATUS`; a program that cannot survive that must not share state between threads carelessly.
+* `SYS_GETTID` returns the id of the calling thread (`SYS_GETPID` returns the process id).
+* `SYS_FUTEX_WAIT(word, expected, milliseconds)` and `SYS_FUTEX_WAKE(word, count)` are the blocking primitive. `word` must be a 4 byte aligned, readable user address. The wait compares the word with `expected` with interrupts off: if it differs it returns `1` at once; if it is equal the thread joins the wait list (`Futex`, a FIFO keyed by process and address) and blocks. It returns `0` when woken and `2` when the time ran out (`0xFFFFFFFF` means no limit, `0` never waits). The wake takes up to `count` waiters of the **same process** on that address and returns how many it woke; a wake also cancels the timeout of each. The restart pattern of blocking calls applies: a thread that wakes runs the call again and finds the wake mark on the thread, not the word, so the word does not have to change. `~Thread` removes a dead waiter from the list.
+* `userland/lib/include/cock/user/mutex.hpp` is a mutex over the futex (three states: free, locked, locked with waiters).
+
+## Exit notifications
+`SYS_SPAWN` takes a flags argument; `SPAWN_NOTIFY_EXIT` asks the kernel to tell the spawner when the new process ends. The process keeps its parent id, the flag and an exit status. When its last thread ends, `TaskManager::notifyThreadDeath` sends the parent a `PROCESS_EXITED` message from `KERNEL_SENDER` (`arg0` the process id, `arg1` the status). It is opt-in because the inbox holds 16 messages: a spawner that starts many short programs and does not read would otherwise lose real replies. If the inbox is full the notice is dropped (logged at trace), and the parent still has `SYS_PROC_ALIVE`. `init` asks for it for the programs the manifest repeats (`repeat=`) and waits for the notice with a receive timeout; it prints `init: <name> exit notices N/M` when the run is over. Restarting a server that died is not done yet: the notice gives `init` what it needs, the policy is still to be written.
 
 ## Timeouts
 Timers live in the kernel because they need the timer interrupt and the scheduler; nothing a program can do replaces that, and the line of the timer is reserved. `Timeouts` (`cock/core/task/timeouts.*`) owns the tick counter and a list of armed threads, linked through `Thread::timerLink`, so arming never allocates. Each thread has a `TimeoutState` (`NONE`, `ARMED`, `EXPIRED`) and a `wakeTick`.

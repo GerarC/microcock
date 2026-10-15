@@ -29,6 +29,10 @@
     #define SYS_IPC_TRY_RECV     0x17C
     #define SYS_IPC_RECV_TIMEOUT 0x17D
     #define SYS_SLEEP            0x17E
+    #define SYS_THREAD_CREATE    0x17F
+    #define SYS_FUTEX_WAIT       0x180
+    #define SYS_FUTEX_WAKE       0x181
+    #define SYS_GETTID           0x182
 
     #ifdef __cplusplus
     extern "C" {

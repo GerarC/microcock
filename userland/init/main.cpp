@@ -27,6 +27,7 @@ constexpr size_t NO_BYTES = 0;
 constexpr uint32_t START_OFFSET = 0;
 constexpr long MORE_TO_READ = 1;
 constexpr uint32_t SUPERVISE_POLL_MILLISECONDS = 20;
+constexpr uint32_t NO_NOTICES = 0;
 
 char manifestText[cock::abi::manifest::MAX_FILE_BYTES];
 Manifest manifest;
@@ -63,7 +64,7 @@ bool loadManifest(Client &client, size_t &length) {
 	return loaded;
 }
 
-uint32_t spawnProgram(Client &client, const Entry &entry) {
+uint32_t spawnProgram(Client &client, const Entry &entry, bool notify) {
 	uint32_t handle = client.open(entry.path);
 	if (handle == cock::abi::fs::NO_HANDLE) {
 		printf("init: cannot open %s\n", entry.path);
@@ -79,7 +80,7 @@ uint32_t spawnProgram(Client &client, const Entry &entry) {
 						   MAP_PRIVATE | MAP_ANONYMOUS, NO_FILE, NO_BYTES);
 		if (image != MAP_FAILED) {
 			if (readInto(client, handle, static_cast<uint8_t *>(image), info.size))
-				pid = cock::user::spawn(image, info.size, entry.name);
+				pid = cock::user::spawn(image, info.size, entry.name, notify);
 			munmap(image, bytes);
 		}
 	}
@@ -103,6 +104,24 @@ void equip(const Entry &entry, uint32_t pid) {
 	announce(pid, peer, entry.argument);
 }
 
+bool awaitExit(uint32_t pid) {
+	Message message = {};
+	for (;;) {
+		cock::user::Received received =
+			cock::user::ipc_recv_timeout(message, SUPERVISE_POLL_MILLISECONDS);
+		if (received == cock::user::Received::MESSAGE) {
+			if (message.type == MessageType::PROCESS_EXITED &&
+				message.sender_pid == cock::ipc::KERNEL_SENDER &&
+				message.payload.args.arg0 == pid)
+				return true;
+			continue;
+		}
+		if (received == cock::user::Received::FAILED ||
+			!cock::user::process_alive(pid))
+			return false;
+	}
+}
+
 void runEntry(Client &client, const Entry &entry) {
 	if (entry.isBootModule()) {
 		uint32_t pid = cock::user::lookup(entry.name);
@@ -115,14 +134,17 @@ void runEntry(Client &client, const Entry &entry) {
 		return;
 	}
 
+	bool supervised = entry.repeat > cock::abi::manifest::DEFAULT_REPEAT;
+	uint32_t notices = NO_NOTICES;
 	for (uint32_t run = 0; run < entry.repeat; run++) {
-		uint32_t pid = spawnProgram(client, entry);
+		uint32_t pid = spawnProgram(client, entry, supervised);
 		if (pid == NO_PROCESS) return;
 		equip(entry, pid);
-		while (entry.repeat > cock::abi::manifest::DEFAULT_REPEAT &&
-			   cock::user::process_alive(pid))
-			cock::user::sleep_ms(SUPERVISE_POLL_MILLISECONDS);
+		if (supervised && awaitExit(pid)) notices++;
 	}
+	if (supervised)
+		printf("init: %s exit notices %u/%u\n", entry.name,
+			   static_cast<unsigned>(notices), static_cast<unsigned>(entry.repeat));
 }
 
 } // namespace

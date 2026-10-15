@@ -8,7 +8,7 @@ namespace cock::core::syscall {
 
 using arch::x86::SyscallNum;
 
-constexpr int MAX_X86_SYSCALLS = 0x180;
+constexpr int MAX_X86_SYSCALLS = 0x190;
 
 SystemCall syscall_table[MAX_X86_SYSCALLS] = {nullptr};
 
@@ -46,6 +46,10 @@ void SyscallManager::init() {
     syscall_table[SyscallNum::SYS_IPC_TRY_RECV] = sys_ipc_try_recv;
     syscall_table[SyscallNum::SYS_IPC_RECV_TIMEOUT] = sys_ipc_recv_timeout;
     syscall_table[SyscallNum::SYS_SLEEP] = sys_sleep;
+    syscall_table[SyscallNum::SYS_THREAD_CREATE] = sys_thread_create;
+    syscall_table[SyscallNum::SYS_FUTEX_WAIT] = sys_futex_wait;
+    syscall_table[SyscallNum::SYS_FUTEX_WAKE] = sys_futex_wake;
+    syscall_table[SyscallNum::SYS_GETTID] = sys_gettid;
 }
 
 SystemCall SyscallManager::getSyscall(size_t code){

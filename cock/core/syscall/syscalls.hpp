@@ -140,6 +140,29 @@ uintptr_t sys_ipc_recv_timeout(uintptr_t msg_ptr, uintptr_t milliseconds,
 uintptr_t sys_sleep(uintptr_t milliseconds, uintptr_t, uintptr_t, uintptr_t,
 					uintptr_t, uintptr_t);
 
+/**
+ * @brief Starts another thread of the calling process on a stack the caller
+ * owns; returns the thread id.
+ */
+uintptr_t sys_thread_create(uintptr_t entry, uintptr_t stack_base,
+							uintptr_t stack_size, uintptr_t, uintptr_t,
+							uintptr_t);
+
+uintptr_t sys_gettid(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
+					 uintptr_t);
+
+/**
+ * @brief Blocks while the word at the address still holds the expected value.
+ */
+uintptr_t sys_futex_wait(uintptr_t address, uintptr_t expected, uintptr_t milliseconds,
+						 uintptr_t, uintptr_t, uintptr_t);
+
+/**
+ * @brief Wakes up to count threads of the caller process waiting on the word.
+ */
+uintptr_t sys_futex_wake(uintptr_t address, uintptr_t count, uintptr_t, uintptr_t,
+						 uintptr_t, uintptr_t);
+
 } // namespace cock::core::syscall
 
 #endif

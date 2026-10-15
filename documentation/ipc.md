@@ -67,6 +67,7 @@ The kernel writes `sender_pid` and `target_pid` itself on delivery; whatever the
 | `SYS_PING`, `SYS_PONG`, `SYS_DEBUG`, `SYS_REGISTER_MAILBOX` | Reserved for tests, debugging and future use |
 | `VIDEO_WRITE_CHAR` | Write one character (`arg0`) on the display server |
 | `VIDEO_WRITE_STR` | Write `arg0` bytes that follow in `arg1` and the next arguments |
+| `PROCESS_EXITED` | The kernel tells the spawner that a process it asked about ended (`arg0` process id, `arg1` exit status, `0xFFFFFFFF` when an exception ended it). Only the kernel produces it; a program that tries to send one gets `-1` |
 | `IRQ_NOTIFICATION` | The kernel tells a driver that its interrupt line fired (`arg0` is the line). Only the kernel produces it, with `KERNEL_SENDER` as sender; a program that tries to send one gets `-1` |
 | `FS_CONNECT`, `FS_OPEN`, `FS_READ`, `FS_STAT`, `FS_READDIR`, `FS_CLOSE`, `FS_REPLY`, `FS_WRITE`, `FS_UNLINK`, `FS_MKDIR`, `FS_RMDIR`, `FS_RENAME`, `FS_LINK` | The file server protocol (values 9 to 15, 20, 21 and 23 to 26); see [file system](filesystem.md) |
 | `BLK_CONNECT`, `BLK_INFO`, `BLK_READ`, `BLK_REPLY`, `BLK_WRITE` | The block server protocol (values 16 to 19 and 22); see [block storage](block_storage.md) |
@@ -74,7 +75,7 @@ The kernel writes `sender_pid` and `target_pid` itself on delivery; whatever the
 | `CAPABILITY_GRANTED` | The root server tells a driver that its capabilities are in place (`arg0` is a peer process id). Only a process that holds a capability with the grant right can send it |
 
 ### Sending (`sys_ipc_send`)
-Before delivering, the system call checks that the sender may use the message type: `IRQ_NOTIFICATION` is refused to every program, and `CAPABILITY_GRANTED` is refused unless the sender holds grant authority. A server can therefore trust the type of a message it receives without checking who sent it. `IPC::deliver` then validates the target, stamps the message and pushes it into the inbox of the target. If the target was blocked waiting for a message (`WAITING_MSG`), it is set to `READY` and put back in the scheduler. The call fails, and the sender is told, when the target does not exist or its inbox is full.
+Before delivering, the system call checks that the sender may use the message type: `IRQ_NOTIFICATION` and `PROCESS_EXITED` are refused to every program, and `CAPABILITY_GRANTED` is refused unless the sender holds grant authority. A server can therefore trust the type of a message it receives without checking who sent it. `IPC::deliver` then validates the target, stamps the message and pushes it into the inbox of the target. If the target was blocked waiting for a message (`WAITING_MSG`), it is set to `READY` and put back in the scheduler. The call fails, and the sender is told, when the target does not exist or its inbox is full.
 
 ```cpp
 bool IPC::deliver(uint32_t to_pid, Message message) {
@@ -102,6 +103,8 @@ Pending interrupt notifications come first (see below): each one is delivered as
 
 ### Sleeping (`sys_sleep`)
 `SYS_SLEEP` (`0x17E`) takes `(milliseconds)` and blocks the thread (`BLOCKED`, so messages do not wake it, they wait in the inbox) for at least that long and less than one tick more. `0` yields the CPU. A time above `0x7FFFFFFF` returns `-1`.
+
+Threads and futexes (`SYS_THREAD_CREATE` `0x17F`, `SYS_FUTEX_WAIT` `0x180`, `SYS_FUTEX_WAKE` `0x181`, `SYS_GETTID` `0x182`) are described in [task management](task_management.md#threads).
 
 Both calls are driven by `Timeouts` (see [task management](task_management.md#timeouts)). The clock is the 100 Hz tick, so the resolution is 10 ms and a time is rounded up to whole ticks.
 

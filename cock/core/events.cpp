@@ -1,3 +1,4 @@
+#include <cock/abi/process.hpp>
 #include <cock/core/events.hpp>
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/irq/irq_routing.hpp>
@@ -52,6 +53,8 @@ uintptr_t on_exception(const ExceptionInfo &info, uintptr_t stack_pointer) {
 
 	Logger::error("Thread %d killed by exception",
 				  Scheduler::getCurrentThread()->getId());
+	Scheduler::getCurrentThread()->getProcess()->setExitStatus(
+		abi::process::FAULT_STATUS);
 	Scheduler::terminateCurrentThread();
 	return Scheduler::onYield(stack_pointer);
 }

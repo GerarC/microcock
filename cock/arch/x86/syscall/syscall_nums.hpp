@@ -31,6 +31,10 @@ enum SyscallNum : uint32_t {
     SYS_IPC_TRY_RECV        = 0x17C,
     SYS_IPC_RECV_TIMEOUT    = 0x17D,
     SYS_SLEEP               = 0x17E,
+    SYS_THREAD_CREATE       = 0x17F,
+    SYS_FUTEX_WAIT          = 0x180,
+    SYS_FUTEX_WAKE          = 0x181,
+    SYS_GETTID              = 0x182,
 };
 
 }
