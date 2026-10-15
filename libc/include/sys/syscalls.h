@@ -27,6 +27,8 @@
     #define SYS_SPAWN            0x17A
     #define SYS_PROC_ALIVE       0x17B
     #define SYS_IPC_TRY_RECV     0x17C
+    #define SYS_IPC_RECV_TIMEOUT 0x17D
+    #define SYS_SLEEP            0x17E
 
     #ifdef __cplusplus
     extern "C" {

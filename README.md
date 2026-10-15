@@ -81,6 +81,8 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_SPAWN` (0x17A): Start a process from an ELF image in the memory of the caller, with no capabilities; needs grant authority.
 * `SYS_PROC_ALIVE` (0x17B): Tell whether a process id is alive.
 * `SYS_IPC_TRY_RECV` (0x17C): Like `SYS_IPC_RECV` but returns 1 at once when there is nothing to receive.
+* `SYS_IPC_RECV_TIMEOUT` (0x17D): Like `SYS_IPC_RECV` but returns 1 when the given milliseconds pass with nothing to receive.
+* `SYS_SLEEP` (0x17E): Block the caller for at least the given milliseconds (10 ms resolution).
 
 ## Building and Running
 
@@ -250,7 +252,7 @@ In this order. Each item is one change with its tests and documentation.
 - [x] Fixed-size pools for threads and processes.
 
 **2. Microkernel features** (each needs the previous one)
-- [ ] Timers: `sleep` and receive with a timeout.
+- [x] Timers: `sleep` and receive with a timeout.
 - [ ] Threads, blocking primitives and exit notifications for `spawn`.
 - [ ] Synchronous IPC with a register fast path.
 - [ ] A console server that replaces `SYS_WRITE` and gives `SYS_READ` something to read.

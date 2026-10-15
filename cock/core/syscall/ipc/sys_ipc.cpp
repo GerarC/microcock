@@ -3,6 +3,7 @@
 #include <cock/core/task/ipc.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/thread.hpp>
+#include <cock/core/task/timeouts.hpp>
 #include <cock/ipc/message.hpp>
 #include <stdint.h>
 #include <string.h>
@@ -15,6 +16,8 @@ using core::task::IPC;
 using core::task::Scheduler;
 using core::task::Thread;
 using core::task::ThreadState;
+using core::task::TimeoutPhase;
+using core::task::Timeouts;
 using ipc::Message;
 using ipc::MessageType;
 
@@ -85,6 +88,24 @@ uintptr_t sys_ipc_recv(uintptr_t msg_ptr, uintptr_t, uintptr_t, uintptr_t,
 
 	memcpy(reinterpret_cast<void *>(msg_ptr), &message, sizeof(message));
 	return SUCCESS;
+}
+
+uintptr_t sys_ipc_recv_timeout(uintptr_t msg_ptr, uintptr_t milliseconds,
+							   uintptr_t, uintptr_t, uintptr_t, uintptr_t) {
+	Thread *current = Scheduler::getCurrentThread();
+	if (!current || !user_message_ok(*current, msg_ptr, true)) return FAILURE;
+	if (milliseconds > MAX_TIMEOUT_MILLISECONDS) return FAILURE;
+
+	Message message = {};
+	if (take_next(*current, message)) {
+		Timeouts::cancel(current);
+		memcpy(reinterpret_cast<void *>(msg_ptr), &message, sizeof(message));
+		return SUCCESS;
+	}
+
+	TimeoutPhase phase = Timeouts::wait(
+		*current, static_cast<uint32_t>(milliseconds), ThreadState::WAITING_MSG);
+	return phase == TimeoutPhase::TIMED_OUT ? NO_MESSAGE : SUCCESS;
 }
 
 } // namespace cock::core::syscall

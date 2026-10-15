@@ -17,6 +17,7 @@ namespace cock::test::task {
 extern void test_process();
 extern void test_scheduler();
 extern void test_reaper();
+extern void test_timeouts();
 } // namespace cock::test::task
 
 namespace cock::test::arch {
@@ -48,6 +49,7 @@ void run_all_tests() {
 	security::test_capabilities();
 	task::test_scheduler();
 	task::test_reaper();
+	task::test_timeouts();
 
 	Logger::info("<=== ENDING COCK TEST SUIT ===>\n");
 	TestRunner::print_summary();

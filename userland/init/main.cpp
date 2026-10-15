@@ -26,6 +26,7 @@ constexpr int NO_FILE = -1;
 constexpr size_t NO_BYTES = 0;
 constexpr uint32_t START_OFFSET = 0;
 constexpr long MORE_TO_READ = 1;
+constexpr uint32_t SUPERVISE_POLL_MILLISECONDS = 20;
 
 char manifestText[cock::abi::manifest::MAX_FILE_BYTES];
 Manifest manifest;
@@ -37,8 +38,6 @@ void announce(uint32_t pid, uint32_t peer, uint32_t argument = 0) {
 	message.payload.args.arg1 = argument;
 	cock::user::ipc_send(pid, message);
 }
-
-void yieldCpu() { syscall(SYS_SCHED_YIELD, 0, 0, 0, 0, 0, 0); }
 
 bool readInto(Client &client, uint32_t handle, uint8_t *destination, uint32_t size) {
 	uint32_t copied = START_OFFSET;
@@ -122,7 +121,7 @@ void runEntry(Client &client, const Entry &entry) {
 		equip(entry, pid);
 		while (entry.repeat > cock::abi::manifest::DEFAULT_REPEAT &&
 			   cock::user::process_alive(pid))
-			yieldCpu();
+			cock::user::sleep_ms(SUPERVISE_POLL_MILLISECONDS);
 	}
 }
 

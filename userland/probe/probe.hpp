@@ -40,6 +40,9 @@ bool capabilityGrantIsRefused();
 bool messageToSelfArrives();
 bool tryReceiveDoesNotBlock();
 bool processAliveReportsLiveness();
+bool receiveTimeoutBehaves();
+bool timeoutCallsRefuseBadInput();
+bool sleepReturnsAndKeepsMessages();
 
 bool oversizedWriteIsCut();
 bool printfFormatsAndLongLines();

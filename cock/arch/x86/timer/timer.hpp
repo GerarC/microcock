@@ -2,6 +2,7 @@
 #define ARCH_X86_TIMER_HPP
 
 #include <cock/arch/x86/utils/helpers.hpp>
+#include <hal/cpu.hpp>
 #include <stdint.h>
 
 namespace cock::arch::x86 {
@@ -24,7 +25,7 @@ enum class Output : uint16_t {
 class Timer {
   public:
 	/** @brief Target interrupt frequency in Hz (ticks per second). */
-	static constexpr uint32_t FREQUENCY = 100;
+	static constexpr uint32_t FREQUENCY = core::hal::TIMER_FREQUENCY_HZ;
 
 	/**
 	 * @brief Retrieves the total number of ticks elapsed since the timer was

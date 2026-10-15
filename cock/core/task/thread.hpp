@@ -53,6 +53,8 @@ enum class ThreadError { NONE = 0, GENERAL_FAULT = 1, TIMEOUT };
  */
 enum class ThreadState { READY, RUNNING, BLOCKED, WAITING_MSG, DEAD };
 
+enum class TimeoutState : uint8_t { NONE, ARMED, EXPIRED };
+
 /**
  * @brief Differentiates between Kernel (Ring 0) and User (Ring 3) threads.
  */
@@ -96,11 +98,19 @@ class Thread {
 	void *stackBase = nullptr;
 	RingBuffer<Message, THREAD_INBOX_CAPACITY + 1> inbox;
 	uint32_t pendingNotifications = 0;
+	uint64_t wakeTick = 0;
+	TimeoutState timeoutState = TimeoutState::NONE;
 	void initBase(ThreadPriority priority, ThreadType type, Process *owner);
 
   public:
 	Thread *link = nullptr;
+	Thread *timerLink = nullptr;
 	bool queued = false;
+
+	TimeoutState getTimeoutState() const { return timeoutState; }
+	void setTimeoutState(TimeoutState state) { timeoutState = state; }
+	uint64_t getWakeTick() const { return wakeTick; }
+	void setWakeTick(uint64_t tick) { wakeTick = tick; }
 
 	static void *operator new(size_t size);
 	static void operator delete(void *pointer);

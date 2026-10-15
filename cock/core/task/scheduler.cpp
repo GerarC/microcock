@@ -3,6 +3,7 @@
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
+#include <cock/core/task/timeouts.hpp>
 #include <cock/utils/logger.hpp>
 #include <cock/utils/panic.hpp>
 #include <stddef.h>
@@ -128,6 +129,8 @@ void Scheduler::boostPriorities() {
 
 uintptr_t Scheduler::onTick(uintptr_t current_stack_pointer) {
 	if (!initialized) return current_stack_pointer;
+
+	Timeouts::onTick();
 
 	if (++ticksSinceLastBoost >= BOOST_TICKS) {
 		boostPriorities();
