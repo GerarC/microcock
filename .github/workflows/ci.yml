@@ -17,6 +17,9 @@ jobs:
           sudo apt-get install -y nasm qemu-system-x86 grub-pc-bin grub-common \
             xorriso mtools gcc-multilib g++-multilib make python3
 
+      - name: Host tests
+        run: bash scripts/host_test.sh
+
       - name: Kernel tests
         run: bash scripts/qemu_test.sh HOST_TOOLCHAIN=1
 
