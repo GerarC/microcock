@@ -20,6 +20,7 @@ constexpr uintptr_t UNKNOWN_SYSCALL_RESULT = static_cast<uintptr_t>(-1);
 
 SyscallOutcome on_syscall(const SyscallRequest &request,
 						  uintptr_t stack_pointer) {
+	Scheduler::setSyscallFrame(stack_pointer);
 	SystemCall handler = SyscallManager::getSyscall(request.number);
 	if (handler == nullptr)
 		return {UNKNOWN_SYSCALL_RESULT, stack_pointer, true};

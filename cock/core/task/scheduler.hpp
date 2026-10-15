@@ -28,6 +28,10 @@ class Scheduler {
 	static void requestReschedule();
 	static bool takeRescheduleRequest();
 
+	static void requestHandoff(Thread *thread);
+	static void setSyscallFrame(uintptr_t frame) { syscallFrame = frame; }
+	static uintptr_t getSyscallFrame() { return syscallFrame; }
+
 	static void requestRestart();
 	static bool takeRestartRequest();
 	static void exitCurrentThread(ThreadResult result);
@@ -54,6 +58,8 @@ class Scheduler {
 	static bool initialized;
 	static bool rescheduleRequested;
 	static bool restartRequested;
+	static Thread *handoffTarget;
+	static uintptr_t syscallFrame;
 	static void boostPriorities();
 	static void enqueue(Thread *thread);
 	static Thread *dequeueNext();

@@ -50,6 +50,10 @@ void SyscallManager::init() {
     syscall_table[SyscallNum::SYS_FUTEX_WAIT] = sys_futex_wait;
     syscall_table[SyscallNum::SYS_FUTEX_WAKE] = sys_futex_wake;
     syscall_table[SyscallNum::SYS_GETTID] = sys_gettid;
+    syscall_table[SyscallNum::SYS_IPC_CALL] = sys_ipc_call;
+    syscall_table[SyscallNum::SYS_IPC_ACCEPT] = sys_ipc_accept;
+    syscall_table[SyscallNum::SYS_IPC_REPLY] = sys_ipc_reply;
+    syscall_table[SyscallNum::SYS_IPC_REPLY_WAIT] = sys_ipc_reply_wait;
 }
 
 SystemCall SyscallManager::getSyscall(size_t code){

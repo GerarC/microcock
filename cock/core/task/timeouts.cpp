@@ -1,5 +1,6 @@
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/task/scheduler.hpp>
+#include <cock/core/task/sync_ipc.hpp>
 #include <cock/core/task/timeouts.hpp>
 
 namespace cock::core::task {
@@ -63,6 +64,11 @@ void Timeouts::onTick() {
 		thread->setTimeoutState(TimeoutState::EXPIRED);
 
 		ThreadState state = thread->getState();
+		if (state == ThreadState::WAITING_CALL ||
+			state == ThreadState::WAITING_REPLY) {
+			SyncIpc::expire(*thread);
+			continue;
+		}
 		if (state == ThreadState::WAITING_MSG || state == ThreadState::BLOCKED) {
 			thread->setState(ThreadState::READY);
 			Scheduler::addThread(thread);

@@ -1,6 +1,7 @@
 #include <cock/core/hal/utils.hpp>
 #include <cock/core/task/ipc.hpp>
 #include <cock/core/task/scheduler.hpp>
+#include <cock/core/task/sync_ipc.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
 
@@ -30,6 +31,8 @@ bool IPC::deliverAs(uint32_t to_pid, Message message, uint32_t sender_pid) {
 	if (target->getState() == ThreadState::WAITING_MSG) {
 		target->setState(ThreadState::READY);
 		Scheduler::addThread(target);
+	} else if (target->getState() == ThreadState::WAITING_CALL) {
+		SyncIpc::wakeForMessage(*target);
 	}
 	hal::restore_interruptions(flags);
 	return true;
@@ -48,6 +51,8 @@ bool IPC::notify(uint32_t to_pid, uint32_t line) {
 	if (target->getState() == ThreadState::WAITING_MSG) {
 		target->setState(ThreadState::READY);
 		Scheduler::addThread(target);
+	} else if (target->getState() == ThreadState::WAITING_CALL) {
+		SyncIpc::wakeForMessage(*target);
 	}
 	hal::restore_interruptions(flags);
 	return true;

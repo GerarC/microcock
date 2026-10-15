@@ -33,6 +33,10 @@
     #define SYS_FUTEX_WAIT       0x180
     #define SYS_FUTEX_WAKE       0x181
     #define SYS_GETTID           0x182
+    #define SYS_IPC_CALL         0x183
+    #define SYS_IPC_ACCEPT       0x184
+    #define SYS_IPC_REPLY        0x185
+    #define SYS_IPC_REPLY_WAIT   0x186
 
     #ifdef __cplusplus
     extern "C" {
