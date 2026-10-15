@@ -1,9 +1,11 @@
 #include <cock/abi/block.hpp>
+#include <cock/abi/datetime.hpp>
 #include <cock/abi/ext2.hpp>
 #include <cock/abi/fs.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/block.hpp>
+#include <cock/user/clock.hpp>
 #include <cock/user/file_server.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -35,6 +37,8 @@ constexpr uint32_t NO_BLOCK = 0;
 constexpr uint32_t NO_LINKS = 0;
 constexpr uint32_t NO_SECTORS = 0;
 constexpr uint32_t FIRST_LEVEL = 1;
+constexpr uint32_t NOT_NEW = 0;
+constexpr uint32_t MAX_DEPTH = 256;
 constexpr char PATH_SEPARATOR = '/';
 constexpr char CURRENT_NAME[] = ".";
 constexpr char PARENT_NAME[] = "..";
@@ -68,6 +72,8 @@ struct Ext {
 	inline static cock::user::block::Client disk;
 	inline static uint32_t device = 0;
 	inline static bool readOnly = true;
+	inline static cock::user::Clock clock;
+	inline static bool clockReady = false;
 	inline static Superblock sb = {};
 	inline static uint8_t superblockBuffer[cock::abi::ext2::SUPERBLOCK_BYTES];
 	inline static uint8_t groupBuffer[SECTOR_BYTES];
@@ -412,11 +418,25 @@ struct Ext {
 		return flushSuperblock(true) ? status : Status::IO_ERROR;
 	}
 
-	static bool adjustGroup(uint32_t group, int32_t blocks, int32_t inodes) {
+	static uint32_t timestamp() {
+		cock::abi::datetime::DateTime now = {};
+		if (clockReady && clock.now(now)) return cock::abi::datetime::toUnix(now);
+		return cock::abi::ext2::DELETION_TIME_MARK;
+	}
+
+	static bool adjustGroup(uint32_t group, int32_t blocks, int32_t inodes,
+							int32_t directories = 0) {
 		uint32_t offset = 0;
 		if (!loadGroup(group, offset)) return false;
 
 		uint8_t *raw = groupBuffer + offset;
+		if (directories != 0) {
+			uint32_t used = cock::abi::ext2::detail::readLe16(
+				raw + cock::abi::ext2::GD_USED_DIRECTORIES_OFFSET);
+			cock::abi::ext2::detail::writeLe16(
+				raw + cock::abi::ext2::GD_USED_DIRECTORIES_OFFSET,
+				static_cast<uint32_t>(static_cast<int32_t>(used) + directories));
+		}
 		uint32_t freeBlocks =
 			cock::abi::ext2::detail::readLe16(raw + cock::abi::ext2::GD_FREE_BLOCKS_OFFSET);
 		uint32_t freeInodes =
@@ -571,23 +591,30 @@ struct Ext {
 		return true;
 	}
 
-	static bool storeInode(const Node &node, bool create, uint32_t deletionTime = 0) {
+	static bool storeInode(const Node &node, uint32_t newMode = NOT_NEW, bool deleted = false) {
 		uint32_t sector = 0;
 		uint32_t within = 0;
 		if (!inodeLocation(node.inode, sector, within) ||
 			!loadSector(sector, inodeBuffer, inodeLoaded))
 			return false;
 
+		uint32_t now = timestamp();
 		uint8_t *raw = inodeBuffer + within;
-		if (create) {
+		if (newMode != NOT_NEW) {
 			memset(raw, 0, sb.inodeBytes);
 			cock::abi::ext2::detail::writeLe16(raw + cock::abi::ext2::INODE_MODE_OFFSET,
-											   cock::abi::ext2::MODE_NEW_FILE);
+											   newMode);
+			cock::abi::ext2::detail::writeLe32(
+				raw + cock::abi::ext2::INODE_ACCESS_TIME_OFFSET, now);
 		}
 		cock::abi::ext2::detail::writeLe32(raw + cock::abi::ext2::INODE_SIZE_OFFSET,
 										   node.size);
+		cock::abi::ext2::detail::writeLe32(raw + cock::abi::ext2::INODE_CHANGE_TIME_OFFSET,
+										   now);
+		cock::abi::ext2::detail::writeLe32(raw + cock::abi::ext2::INODE_MODIFY_TIME_OFFSET,
+										   now);
 		cock::abi::ext2::detail::writeLe32(
-			raw + cock::abi::ext2::INODE_DELETION_TIME_OFFSET, deletionTime);
+			raw + cock::abi::ext2::INODE_DELETION_TIME_OFFSET, deleted ? now : 0);
 		cock::abi::ext2::detail::writeLe16(raw + cock::abi::ext2::INODE_LINKS_OFFSET,
 										   node.links);
 		cock::abi::ext2::detail::writeLe32(raw + cock::abi::ext2::INODE_SECTORS_OFFSET,
@@ -674,7 +701,7 @@ struct Ext {
 		return clean;
 	}
 
-	static Status emptyNode(Node &node, uint32_t deletionTime = 0) {
+	static Status emptyNode(Node &node, bool deleted = false) {
 		uint32_t previous[cock::abi::ext2::INODE_BLOCK_SLOTS];
 		memcpy(previous, node.blocks, sizeof(previous));
 		Node saved = node;
@@ -682,7 +709,7 @@ struct Ext {
 		memset(node.blocks, 0, sizeof(node.blocks));
 		node.size = NO_BYTES;
 		node.sectors = NO_SECTORS;
-		if (!storeInode(node, false, deletionTime)) {
+		if (!storeInode(node, NOT_NEW, deleted)) {
 			node = saved;
 			return Status::IO_ERROR;
 		}
@@ -717,7 +744,7 @@ struct Ext {
 	}
 
 	static Status addEntry(Node &directory, const char *name, uint32_t nameBytes,
-						   uint32_t inode) {
+						   uint32_t inode, uint8_t type) {
 		uint32_t need = cock::abi::ext2::direntBytes(nameBytes);
 		uint32_t blocks = directory.size / sb.blockBytes;
 		for (uint32_t fileBlock = 0; fileBlock < blocks; fileBlock++) {
@@ -738,7 +765,7 @@ struct Ext {
 							used);
 					cock::abi::ext2::encodeDirItem(
 						directoryBuffer + offset + used, inode, item.recordBytes - used, name,
-						nameBytes, sb.fileType, cock::abi::ext2::DIRENT_TYPE_REGULAR);
+						nameBytes, sb.fileType, type);
 					return storeDirectoryBlock(physical) ? Status::OK : Status::IO_ERROR;
 				}
 				offset += item.recordBytes;
@@ -749,17 +776,17 @@ struct Ext {
 		uint32_t sectors = directory.sectors;
 		Status mapped = mapForWrite(directory, blocks, false, physical);
 		if (mapped != Status::OK) {
-			if (directory.sectors != sectors) storeInode(directory, false);
+			if (directory.sectors != sectors) storeInode(directory);
 			return mapped;
 		}
 
 		memset(directoryBuffer, 0, sb.blockBytes);
 		cock::abi::ext2::encodeDirItem(directoryBuffer, inode, sb.blockBytes, name, nameBytes,
-									   sb.fileType, cock::abi::ext2::DIRENT_TYPE_REGULAR);
+									   sb.fileType, type);
 		if (!storeDirectoryBlock(physical)) return Status::IO_ERROR;
 
 		directory.size += sb.blockBytes;
-		return storeInode(directory, false) ? Status::OK : Status::IO_ERROR;
+		return storeInode(directory) ? Status::OK : Status::IO_ERROR;
 	}
 
 	static bool parentAndName(const char *path, Node &parent, char *name, size_t &nameBytes) {
@@ -803,9 +830,10 @@ struct Ext {
 		fresh.inode = number;
 		fresh.type = FileType::REGULAR;
 		fresh.links = cock::abi::ext2::NEW_FILE_LINKS;
-		if (!storeInode(fresh, true)) return Status::IO_ERROR;
+		if (!storeInode(fresh, cock::abi::ext2::MODE_NEW_FILE)) return Status::IO_ERROR;
 
-		Status added = addEntry(parent, name, static_cast<uint32_t>(nameBytes), number);
+		Status added = addEntry(parent, name, static_cast<uint32_t>(nameBytes), number,
+								cock::abi::ext2::DIRENT_TYPE_REGULAR);
 		if (added != Status::OK) {
 			freeInode(number);
 			return added;
@@ -839,6 +867,21 @@ struct Ext {
 		if (node.type != FileType::REGULAR) return Status::UNSUPPORTED;
 		if (node.size >= MAX_FILE_BYTES) return Status::UNSUPPORTED;
 
+		Status removed = removeEntry(where);
+		if (removed != Status::OK) return removed;
+
+		if (node.links > cock::abi::ext2::NEW_FILE_LINKS) {
+			node.links--;
+			return storeInode(node) ? Status::OK : Status::IO_ERROR;
+		}
+
+		node.links = NO_LINKS;
+		Status emptied = emptyNode(node, true);
+		if (emptied != Status::OK) return emptied;
+		return freeInode(node.inode) ? Status::OK : Status::IO_ERROR;
+	}
+
+	static Status removeEntry(const Where &where) {
 		if (!loadDirectoryBlock(where.physical)) return Status::IO_ERROR;
 		if (where.hasPrevious) {
 			uint8_t *record =
@@ -848,17 +891,183 @@ struct Ext {
 		} else {
 			cock::abi::ext2::detail::writeLe32(directoryBuffer + where.offset, 0);
 		}
-		if (!storeDirectoryBlock(where.physical)) return Status::IO_ERROR;
+		return storeDirectoryBlock(where.physical) ? Status::OK : Status::IO_ERROR;
+	}
 
-		if (node.links > cock::abi::ext2::NEW_FILE_LINKS) {
-			node.links--;
-			return storeInode(node, false) ? Status::OK : Status::IO_ERROR;
+	static bool isReservedName(const char *name) {
+		return strcmp(name, CURRENT_NAME) == 0 || strcmp(name, PARENT_NAME) == 0;
+	}
+
+	static uint8_t entryType(FileType type) {
+		if (type == FileType::DIRECTORY) return cock::abi::ext2::DIRENT_TYPE_DIRECTORY;
+		if (type == FileType::SYMLINK) return cock::abi::ext2::DIRENT_TYPE_SYMLINK;
+		return cock::abi::ext2::DIRENT_TYPE_REGULAR;
+	}
+
+	static Status makeDirectoryNode(const char *path) {
+		Node parent = {};
+		char name[MAX_NAME_BYTES + 1];
+		size_t nameBytes = 0;
+		if (!parentAndName(path, parent, name, nameBytes)) return Status::NOT_FOUND;
+		if (isReservedName(name)) return Status::BAD_REQUEST;
+
+		uint32_t existing = 0;
+		if (findEntry(parent, name, existing)) return Status::EXISTS;
+
+		uint32_t group = (parent.inode - 1) / sb.inodesPerGroup;
+		uint32_t number = 0;
+		Status taken = allocateInode(group, number);
+		if (taken != Status::OK) return taken;
+
+		uint32_t block = 0;
+		taken = allocateBlock(group, false, block);
+		if (taken != Status::OK) {
+			freeInode(number);
+			return taken;
 		}
 
+		cock::abi::ext2::initDirectoryBlock(directoryBuffer, sb.blockBytes, number, parent.inode,
+											sb.fileType);
+		if (!storeDirectoryBlock(block)) return Status::IO_ERROR;
+
+		Node fresh = {};
+		fresh.inode = number;
+		fresh.type = FileType::DIRECTORY;
+		fresh.size = sb.blockBytes;
+		fresh.links = cock::abi::ext2::NEW_DIRECTORY_LINKS;
+		fresh.sectors = sb.sectorsPerBlock();
+		fresh.blocks[0] = block;
+		if (!storeInode(fresh, cock::abi::ext2::MODE_NEW_DIRECTORY)) return Status::IO_ERROR;
+
+		Status added = addEntry(parent, name, static_cast<uint32_t>(nameBytes), number,
+								cock::abi::ext2::DIRENT_TYPE_DIRECTORY);
+		if (added != Status::OK) {
+			freeBlock(block);
+			freeInode(number);
+			return added;
+		}
+
+		parent.links++;
+		if (!storeInode(parent) ||
+			!adjustGroup((number - 1) / sb.inodesPerGroup, 0, 0, 1))
+			return Status::IO_ERROR;
+		return Status::OK;
+	}
+
+	static Status makeDirectory(const char *path) {
+		if (!begin()) return Status::IO_ERROR;
+		return end(makeDirectoryNode(path));
+	}
+
+	static Status removeDirectoryNode(const char *path) {
+		Node parent = {};
+		char name[MAX_NAME_BYTES + 1];
+		size_t nameBytes = 0;
+		if (!parentAndName(path, parent, name, nameBytes)) return Status::NOT_FOUND;
+
+		Where where = {};
+		if (!locateEntry(parent, name, where)) return Status::NOT_FOUND;
+
+		Node node = {};
+		if (!loadInode(where.inode, node)) return Status::IO_ERROR;
+		if (node.type != FileType::DIRECTORY || node.inode == cock::abi::ext2::ROOT_INODE)
+			return Status::UNSUPPORTED;
+
+		uint32_t offset = 0;
+		DirItem item = {};
+		while (nextEntry(node, offset, item))
+			if (!(item.nameBytes == cock::abi::ext2::CURRENT_ENTRY_BYTES &&
+				  memcmp(item.name, CURRENT_NAME, item.nameBytes) == 0) &&
+				!(item.nameBytes == cock::abi::ext2::PARENT_ENTRY_BYTES &&
+				  memcmp(item.name, PARENT_NAME, item.nameBytes) == 0))
+				return Status::NOT_EMPTY;
+
+		if (!locateEntry(parent, name, where)) return Status::IO_ERROR;
+		Status removed = removeEntry(where);
+		if (removed != Status::OK) return removed;
+
+		if (parent.links > 0) parent.links--;
+		if (!storeInode(parent)) return Status::IO_ERROR;
+
 		node.links = NO_LINKS;
-		Status emptied = emptyNode(node, cock::abi::ext2::DELETION_TIME_MARK);
+		Status emptied = emptyNode(node, true);
 		if (emptied != Status::OK) return emptied;
-		return freeInode(node.inode) ? Status::OK : Status::IO_ERROR;
+		if (!freeInode(node.inode) ||
+			!adjustGroup((node.inode - 1) / sb.inodesPerGroup, 0, 0, -1))
+			return Status::IO_ERROR;
+		return Status::OK;
+	}
+
+	static Status removeDirectory(const char *path) {
+		if (!begin()) return Status::IO_ERROR;
+		return end(removeDirectoryNode(path));
+	}
+
+	static bool isAncestor(uint32_t directory, uint32_t start) {
+		uint32_t current = start;
+		for (uint32_t depth = 0; depth < MAX_DEPTH; depth++) {
+			if (current == directory) return true;
+			if (current == cock::abi::ext2::ROOT_INODE) return false;
+
+			Node node = {};
+			uint32_t up = 0;
+			if (!loadInode(current, node) || !findEntry(node, PARENT_NAME, up)) return true;
+			current = up;
+		}
+		return true;
+	}
+
+	static Status renameNode(const char *from, const char *to) {
+		Node oldParent = {};
+		char oldName[MAX_NAME_BYTES + 1];
+		size_t oldBytes = 0;
+		if (!parentAndName(from, oldParent, oldName, oldBytes)) return Status::NOT_FOUND;
+
+		Where where = {};
+		if (!locateEntry(oldParent, oldName, where)) return Status::NOT_FOUND;
+		Node node = {};
+		if (!loadInode(where.inode, node)) return Status::IO_ERROR;
+
+		Node newParent = {};
+		char newName[MAX_NAME_BYTES + 1];
+		size_t newBytes = 0;
+		if (!parentAndName(to, newParent, newName, newBytes)) return Status::NOT_FOUND;
+		if (isReservedName(newName) || isReservedName(oldName)) return Status::BAD_REQUEST;
+		if (node.type == FileType::DIRECTORY && isAncestor(node.inode, newParent.inode))
+			return Status::BAD_REQUEST;
+
+		uint32_t existing = 0;
+		if (findEntry(newParent, newName, existing)) return Status::EXISTS;
+
+		Status added = addEntry(newParent, newName, static_cast<uint32_t>(newBytes), node.inode,
+								entryType(node.type));
+		if (added != Status::OK) return added;
+
+		if (!locateEntry(oldParent, oldName, where)) return Status::IO_ERROR;
+		Status removed = removeEntry(where);
+		if (removed != Status::OK) return removed;
+		if (node.type != FileType::DIRECTORY) return Status::OK;
+
+		uint32_t physical = 0;
+		if (!physicalBlock(node, 0, physical) || physical == 0 || !loadDirectoryBlock(physical))
+			return Status::IO_ERROR;
+		uint32_t dotBytes = cock::abi::ext2::direntBytes(cock::abi::ext2::CURRENT_ENTRY_BYTES);
+		cock::abi::ext2::detail::writeLe32(directoryBuffer + dotBytes, newParent.inode);
+		if (!storeDirectoryBlock(physical)) return Status::IO_ERROR;
+
+		if (oldParent.inode == newParent.inode) return Status::OK;
+		Node before = {};
+		Node after = {};
+		if (!loadInode(oldParent.inode, before) || !loadInode(newParent.inode, after))
+			return Status::IO_ERROR;
+		if (before.links > 0) before.links--;
+		after.links++;
+		return storeInode(before) && storeInode(after) ? Status::OK : Status::IO_ERROR;
+	}
+
+	static Status rename(const char *from, const char *to) {
+		if (!begin()) return Status::IO_ERROR;
+		return end(renameNode(from, to));
 	}
 
 	static Status unlink(const char *path) {
@@ -916,7 +1125,7 @@ struct Ext {
 		written = done;
 		if (offset + done > node.size) node.size = offset + done;
 		if ((node.size != originalSize || node.sectors != originalSectors) &&
-			!storeInode(node, false))
+			!storeInode(node))
 			result = Status::IO_ERROR;
 		if (done > 0 && result == Status::NO_SPACE) result = Status::OK;
 		return result;
@@ -969,6 +1178,7 @@ struct Ext {
 
 		device = candidate;
 		readOnly = info.kind == cock::abi::block::DeviceKind::DISK;
+		clockReady = clock.init();
 		cock::abi::ext2::Error error =
 			cock::abi::ext2::parseSuperblock(superblockBuffer, info.sectorCount, sb);
 		if (error != cock::abi::ext2::Error::NONE) {

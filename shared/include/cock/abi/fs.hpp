@@ -15,6 +15,7 @@ constexpr size_t WINDOW_PAGE_BYTES = 0x1000;
 constexpr size_t WINDOW_PAGES = 1;
 constexpr size_t WINDOW_BYTES = WINDOW_PAGES * WINDOW_PAGE_BYTES;
 constexpr size_t MAX_PATH_BYTES = 128;
+constexpr size_t RENAME_NEW_OFFSET = MAX_PATH_BYTES;
 
 constexpr uint32_t OPEN_READ_ONLY = 0;
 constexpr uint32_t OPEN_WRITE = 1;
@@ -38,6 +39,8 @@ enum class Status : uint32_t {
 	READ_ONLY = 9,
 	BUSY = 10,
 	EXISTS = 11,
+	NOT_EMPTY = 12,
+	CROSS_DEVICE = 13,
 };
 
 enum class FileType : uint32_t {
@@ -46,7 +49,7 @@ enum class FileType : uint32_t {
 	SYMLINK = 2,
 };
 
-static_assert(WINDOW_BYTES > MAX_PATH_BYTES, "the window must hold a path");
+static_assert(WINDOW_BYTES >= RENAME_NEW_OFFSET + MAX_PATH_BYTES, "the window must hold two paths");
 
 inline bool splitPath(const char *path, char *parent, size_t parentCapacity,
 					  const char *&leaf, size_t &leafBytes) {

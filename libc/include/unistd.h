@@ -20,6 +20,8 @@ ssize_t write(int fd, const void *buf, size_t count);
 int close(int fd);
 off_t lseek(int fd, off_t offset, int whence);
 int unlink(const char *path);
+int rmdir(const char *path);
+int rename(const char *from, const char *to);
 __attribute__((__noreturn__)) void _exit(int status);
 
 #ifdef __cplusplus

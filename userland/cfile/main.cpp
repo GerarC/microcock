@@ -1,7 +1,12 @@
+#include <cock/ipc/message.hpp>
+#include <cock/user/api.hpp>
+#include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 namespace {
@@ -11,6 +16,16 @@ constexpr char EXT_GONE[] = "/ext/scratch/cgone.txt";
 constexpr char FAT_FILE[] = "/fat/SCRATCH/cfile.txt";
 constexpr char FAT_GONE[] = "/fat/SCRATCH/cgone.txt";
 constexpr char MISSING_FILE[] = "/ext/scratch/cmissing.txt";
+constexpr char ROOT_FILE[] = "/hello.txt";
+constexpr char CROSSED_FILE[] = "/crossed.txt";
+constexpr char EXT_SCRATCH[] = "/ext/scratch";
+constexpr char FAT_SCRATCH[] = "/fat/SCRATCH";
+constexpr char DIRECTORY_NAME[] = "cdir";
+constexpr char RENAMED_DIRECTORY_NAME[] = "cdir2";
+constexpr char INNER_NAME[] = "inner.txt";
+constexpr char MOVED_NAME[] = "moved.txt";
+constexpr uint32_t PING_MARK = 0x70696E67;
+constexpr mode_t NO_MODE = 0;
 constexpr char FIRST_TEXT[] = "C library wrote this";
 constexpr char SECOND_TEXT[] = ", then appended";
 constexpr char REPLACED_TEXT[] = "wrote";
@@ -87,12 +102,65 @@ bool worksOn(const char *file, const char *gone) {
 	return ok;
 }
 
+
+bool failsWith(int result, int expected) { return result < 0 && errno == expected; }
+
 bool refusesBadCalls() {
 	char buffer[BUFFER_BYTES];
-	return open(MISSING_FILE, O_RDONLY) < 0 && open(EXT_FILE, O_RDONLY | O_ACCMODE) < 0 &&
-		   open(nullptr, O_RDONLY) < 0 && read(INVALID_DESCRIPTOR, buffer, sizeof(buffer)) < 0 &&
-		   write(INVALID_DESCRIPTOR, buffer, sizeof(buffer)) < 0 && close(INVALID_DESCRIPTOR) < 0 &&
-		   lseek(INVALID_DESCRIPTOR, NO_OFFSET, SEEK_SET) < 0;
+	return failsWith(open(MISSING_FILE, O_RDONLY), ENOENT) &&
+		   failsWith(open(EXT_FILE, O_RDONLY | O_ACCMODE), EINVAL) &&
+		   failsWith(open(nullptr, O_RDONLY), EINVAL) &&
+		   failsWith(static_cast<int>(read(INVALID_DESCRIPTOR, buffer, sizeof(buffer))), EBADF) &&
+		   failsWith(static_cast<int>(write(INVALID_DESCRIPTOR, buffer, sizeof(buffer))), EBADF) &&
+		   failsWith(close(INVALID_DESCRIPTOR), EBADF) &&
+		   failsWith(lseek(INVALID_DESCRIPTOR, NO_OFFSET, SEEK_SET), EBADF) &&
+		   failsWith(open(ROOT_FILE, O_WRONLY), EROFS) && failsWith(unlink(MISSING_FILE), ENOENT) &&
+		   failsWith(rename(EXT_FILE, CROSSED_FILE), EXDEV);
+}
+
+void join(char *path, const char *base, const char *name) {
+	size_t length = strlen(base);
+	memcpy(path, base, length);
+	path[length] = '/';
+	memcpy(path + length + sizeof(char), name, strlen(name) + sizeof(char));
+}
+
+bool worksOnDirectories(const char *base) {
+	char directory[BUFFER_BYTES];
+	char inner[BUFFER_BYTES];
+	char moved[BUFFER_BYTES];
+	char renamed[BUFFER_BYTES];
+	join(directory, base, DIRECTORY_NAME);
+	join(inner, directory, INNER_NAME);
+	join(moved, directory, MOVED_NAME);
+	join(renamed, base, RENAMED_DIRECTORY_NAME);
+
+	bool ok = mkdir(directory, NO_MODE) == 0 && failsWith(mkdir(directory, NO_MODE), EEXIST);
+	int fd = open(inner, O_WRONLY | O_CREAT);
+	ok = ok && fd >= 0 && writesAll(fd, FIRST_TEXT, FIRST_BYTES) && close(fd) == 0;
+	ok = ok && failsWith(rmdir(directory), ENOTEMPTY) && rename(inner, moved) == 0 &&
+		 readsBack(moved, CHECKED_TEXT, FIRST_BYTES) && failsWith(open(inner, O_RDONLY), ENOENT);
+	ok = ok && rename(directory, renamed) == 0 && failsWith(rmdir(directory), ENOENT);
+
+	char movedAgain[BUFFER_BYTES];
+	join(movedAgain, renamed, MOVED_NAME);
+	ok = ok && readsBack(movedAgain, CHECKED_TEXT, FIRST_BYTES) && unlink(movedAgain) == 0 &&
+		 rmdir(renamed) == 0 && failsWith(rmdir(renamed), ENOENT);
+	return ok;
+}
+
+bool keepsForeignMessages() {
+	cock::ipc::Message ping = {};
+	ping.type = cock::ipc::MessageType::SYS_PING;
+	ping.payload.args.arg0 = PING_MARK;
+	if (!cock::user::ipc_send(cock::user::self(), ping)) return false;
+
+	int fd = open(EXT_FILE, O_RDONLY);
+	if (fd < 0 || close(fd) != 0) return false;
+
+	cock::ipc::Message received = {};
+	return cock::user::ipc_recv(received) && received.type == cock::ipc::MessageType::SYS_PING &&
+		   received.payload.args.arg0 == PING_MARK;
 }
 
 }
@@ -102,7 +170,11 @@ extern "C" void _start() {
 	if (served) puts("cfile: ext ok");
 	served = served && worksOn(FAT_FILE, FAT_GONE);
 	if (served) puts("cfile: fat ok");
+	served = served && worksOnDirectories(EXT_SCRATCH) && worksOnDirectories(FAT_SCRATCH);
+	if (served) puts("cfile: directories ok");
 	served = served && refusesBadCalls();
+	if (served) puts("cfile: errors ok");
+	served = served && keepsForeignMessages();
 
 	puts(served ? "cfile: ok" : "cfile: refused");
 	_exit(served ? EXIT_SERVED : EXIT_REFUSED);

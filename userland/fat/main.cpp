@@ -3,7 +3,9 @@
 #include <cock/abi/fs.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <cock/abi/datetime.hpp>
 #include <cock/user/block.hpp>
+#include <cock/user/clock.hpp>
 #include <cock/user/file_server.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -94,6 +96,8 @@ struct Fat {
 	inline static uint8_t dataBuffer[cock::abi::fat32::SECTOR_BYTES];
 	inline static uint8_t fsInfoBuffer[cock::abi::fat32::SECTOR_BYTES];
 	inline static uint8_t zeros[cock::abi::block::WINDOW_BYTES];
+	inline static cock::user::Clock clock;
+	inline static bool clockReady = false;
 	inline static bool fsInfoValid = false;
 	inline static bool fsInfoDirty = false;
 	inline static bool freeKnown = false;
@@ -422,53 +426,173 @@ struct Fat {
 		return true;
 	}
 
-	static Status findFreeSlot(uint32_t directory, Spot &slot) {
+	static void currentStamp(uint16_t &date, uint16_t &time) {
+		cock::abi::datetime::DateTime now = {};
+		if (clockReady && clock.now(now)) {
+			date = cock::abi::datetime::toFatDate(now);
+			time = cock::abi::datetime::toFatTime(now);
+			return;
+		}
+		date = cock::abi::fat32::FAT_EPOCH_DATE;
+		time = cock::abi::fat32::FAT_EPOCH_TIME;
+	}
+
+	static bool isFreeEntry(uint8_t first) {
+		return first == cock::abi::fat32::DIRECTORY_END ||
+			   first == cock::abi::fat32::DIRECTORY_DELETED;
+	}
+
+	static Status findFreeRun(uint32_t directory, size_t needed, Spot &start) {
+		Cursor cursor = {directory, 0, 0, 0};
+		const uint8_t *raw = nullptr;
+		Spot here = {};
+		Spot runStart = {};
+		size_t run = 0;
+		for (;;) {
+			Walk step = nextRaw(cursor, raw, here);
+			if (step == Walk::FAILED) return Status::IO_ERROR;
+			if (step == Walk::END) break;
+
+			if (!isFreeEntry(raw[cock::abi::fat32::ENTRY_NAME_OFFSET])) {
+				run = 0;
+				continue;
+			}
+			if (run == 0) runStart = here;
+			if (++run >= needed) {
+				start = runStart;
+				return Status::OK;
+			}
+		}
+
+		uint32_t last = cursor.cluster;
+		const size_t perCluster = size_t(bpb.sectorsPerCluster) * cock::abi::fat32::ENTRIES_PER_SECTOR;
+		while (run < needed) {
+			uint32_t added = NO_CLUSTER;
+			Status allocated = allocateCluster(NO_CLUSTER, added);
+			if (allocated != Status::OK) return allocated;
+			if (!zeroCluster(added) || !setLink(last, added)) return Status::IO_ERROR;
+			if (run == 0) runStart = {added, 0, 0};
+			run += perCluster;
+			last = added;
+		}
+		start = runStart;
+		return Status::OK;
+	}
+
+	static Status shortNameTaken(uint32_t directory, const uint8_t *shortName, bool &taken) {
+		taken = false;
 		Cursor cursor = {directory, 0, 0, 0};
 		const uint8_t *raw = nullptr;
 		Spot here = {};
 		for (;;) {
 			Walk step = nextRaw(cursor, raw, here);
 			if (step == Walk::FAILED) return Status::IO_ERROR;
-			if (step == Walk::END) break;
+			if (step == Walk::END) return Status::OK;
 
 			uint8_t first = raw[cock::abi::fat32::ENTRY_NAME_OFFSET];
-			if (first == cock::abi::fat32::DIRECTORY_END ||
-				first == cock::abi::fat32::DIRECTORY_DELETED) {
-				slot = here;
+			if (first == cock::abi::fat32::DIRECTORY_END) return Status::OK;
+			if (first == cock::abi::fat32::DIRECTORY_DELETED) continue;
+			uint8_t attributes = raw[cock::abi::fat32::ENTRY_ATTRIBUTES_OFFSET];
+			if ((attributes & cock::abi::fat32::ATTRIBUTE_LONG_NAME_MASK) ==
+				cock::abi::fat32::ATTRIBUTE_LONG_NAME)
+				continue;
+			if (memcmp(raw, shortName, cock::abi::fat32::ENTRY_SHORT_NAME_BYTES) == 0) {
+				taken = true;
 				return Status::OK;
 			}
 		}
+	}
 
-		uint32_t added = NO_CLUSTER;
-		Status allocated = allocateCluster(NO_CLUSTER, added);
-		if (allocated != Status::OK) return allocated;
-		if (!zeroCluster(added) || !setLink(cursor.cluster, added)) return Status::IO_ERROR;
-		slot = {added, 0, 0};
+	static Status writeEntryAt(const Spot &spot, const uint8_t *entry) {
+		uint32_t sector = spotSector(spot);
+		if (!loadDirectory(sector)) return Status::IO_ERROR;
+		memcpy(directoryBuffer + size_t(spot.entry) * cock::abi::fat32::ENTRY_BYTES, entry,
+			   cock::abi::fat32::ENTRY_BYTES);
+		return storeDirectory(sector) ? Status::OK : Status::IO_ERROR;
+	}
+
+	static Status placeEntry(uint32_t directory, const char *name, size_t nameBytes,
+							 const uint8_t *entryTemplate, Spot &where) {
+		uint8_t shortName[cock::abi::fat32::ENTRY_SHORT_NAME_BYTES];
+		uint8_t caseFlags = 0;
+		cock::abi::fat32::NamePlan plan =
+			cock::abi::fat32::planName(name, nameBytes, shortName, caseFlags);
+
+		uint16_t units[cock::abi::fat32::MAX_NAME_CHARS];
+		size_t unitCount = 0;
+		size_t longEntries = 0;
+		if (plan != cock::abi::fat32::NamePlan::SHORT) {
+			if (!cock::abi::fat32::decodeUtf8Name(name, nameBytes, units, cock::abi::fat32::MAX_NAME_CHARS,
+												  unitCount))
+				return Status::BAD_REQUEST;
+			longEntries = cock::abi::fat32::longEntryCount(unitCount);
+		}
+
+		bool taken = false;
+		if (plan == cock::abi::fat32::NamePlan::LOSSY) {
+			uint32_t tail = 1;
+			for (;; tail++) {
+				if (tail > cock::abi::fat32::MAX_ALIAS_TAIL) return Status::NO_SPACE;
+				cock::abi::fat32::makeLossyAlias(name, nameBytes, tail, shortName);
+				Status checked = shortNameTaken(directory, shortName, taken);
+				if (checked != Status::OK) return checked;
+				if (!taken) break;
+			}
+		} else {
+			Status checked = shortNameTaken(directory, shortName, taken);
+			if (checked != Status::OK) return checked;
+			if (taken) return Status::EXISTS;
+		}
+
+		Spot start = {};
+		Status found = findFreeRun(directory, longEntries + 1, start);
+		if (found != Status::OK) return found;
+
+		Spot shortSpot = start;
+		for (size_t step = 0; step < longEntries; step++)
+			if (!stepSpot(shortSpot)) return Status::IO_ERROR;
+
+		uint8_t entry[cock::abi::fat32::ENTRY_BYTES];
+		memcpy(entry, entryTemplate, sizeof(entry));
+		memcpy(entry + cock::abi::fat32::ENTRY_NAME_OFFSET, shortName,
+			   cock::abi::fat32::ENTRY_SHORT_NAME_BYTES);
+		entry[cock::abi::fat32::ENTRY_CASE_OFFSET] = caseFlags;
+		Status written = writeEntryAt(shortSpot, entry);
+		if (written != Status::OK) return written;
+
+		uint8_t checksum = cock::abi::fat32::shortNameChecksum(shortName);
+		Spot at = start;
+		for (size_t index = 0; index < longEntries; index++) {
+			cock::abi::fat32::encodeLongEntry(entry, longEntries - index, index == 0, checksum,
+											  units, unitCount);
+			written = writeEntryAt(at, entry);
+			if (written != Status::OK) return written;
+			if (!stepSpot(at)) return Status::IO_ERROR;
+		}
+		where = shortSpot;
 		return Status::OK;
 	}
 
-	static Status addEntry(uint32_t directory, const uint8_t *shortName, uint8_t caseFlags,
-						   Spot &where) {
-		Spot slot = {};
-		Status found = findFreeSlot(directory, slot);
-		if (found != Status::OK) return found;
-
-		uint32_t sector = spotSector(slot);
-		if (!loadDirectory(sector)) return Status::IO_ERROR;
-		cock::abi::fat32::encodeEntry(
-			directoryBuffer + size_t(slot.entry) * cock::abi::fat32::ENTRY_BYTES, shortName,
-			caseFlags, cock::abi::fat32::ATTRIBUTE_ARCHIVE, NO_CLUSTER, NO_BYTES);
-		if (!storeDirectory(sector)) return Status::IO_ERROR;
-		where = slot;
-		return Status::OK;
+	static void buildTemplate(uint8_t *entry, uint8_t attributes, uint32_t cluster) {
+		uint8_t blank[cock::abi::fat32::ENTRY_SHORT_NAME_BYTES];
+		memset(blank, cock::abi::fat32::SPACE, sizeof(blank));
+		uint16_t date = 0;
+		uint16_t time = 0;
+		currentStamp(date, time);
+		cock::abi::fat32::encodeEntry(entry, blank, 0, attributes, cluster, NO_BYTES, date, time);
 	}
 
 	static Status commitEntry(const Node &node) {
 		uint32_t sector = spotSector(node.entry);
 		if (!loadDirectory(sector)) return Status::IO_ERROR;
-		cock::abi::fat32::patchEntryLocation(
-			directoryBuffer + size_t(node.entry.entry) * cock::abi::fat32::ENTRY_BYTES,
-			node.cluster, node.size);
+
+		uint8_t *raw =
+			directoryBuffer + size_t(node.entry.entry) * cock::abi::fat32::ENTRY_BYTES;
+		uint16_t date = 0;
+		uint16_t time = 0;
+		currentStamp(date, time);
+		cock::abi::fat32::patchEntryLocation(raw, node.cluster, node.size);
+		cock::abi::fat32::touchEntry(raw, date, time);
 		return storeDirectory(sector) ? Status::OK : Status::IO_ERROR;
 	}
 
@@ -486,22 +610,187 @@ struct Fat {
 		return true;
 	}
 
-	static Status create(const char *path, Node &node) {
+	static Status parentAndName(const char *path, Node &parent, char *name, size_t &nameBytes) {
 		char parentPath[cock::abi::fs::MAX_PATH_BYTES];
 		const char *leaf = nullptr;
-		size_t leafBytes = 0;
-		if (!cock::abi::fs::splitPath(path, parentPath, sizeof(parentPath), leaf, leafBytes))
+		if (!cock::abi::fs::splitPath(path, parentPath, sizeof(parentPath), leaf, nameBytes))
 			return Status::BAD_REQUEST;
 
-		char name[cock::abi::fat32::MAX_SHORT_NAME_BYTES + 1];
-		uint8_t shortName[cock::abi::fat32::ENTRY_SHORT_NAME_BYTES];
-		uint8_t caseFlags = 0;
-		if (leafBytes >= sizeof(name)) return Status::UNSUPPORTED;
-		memcpy(name, leaf, leafBytes);
-		name[leafBytes] = '\0';
-		if (!cock::abi::fat32::encodeShortName(name, leafBytes, shortName, caseFlags))
-			return Status::UNSUPPORTED;
+		memcpy(name, leaf, nameBytes);
+		name[nameBytes] = '\0';
+		if (!resolve(parentPath, parent) || parent.type != FileType::DIRECTORY)
+			return Status::NOT_FOUND;
+		return Status::OK;
+	}
 
+	static Status create(const char *path, Node &node) {
+		Node parent = {};
+		char name[cock::abi::fs::MAX_PATH_BYTES];
+		size_t nameBytes = 0;
+		Status located = parentAndName(path, parent, name, nameBytes);
+		if (located != Status::OK) return located;
+
+		Found existing = {};
+		if (findInDirectory(parent.cluster, name, existing)) return Status::EXISTS;
+
+		uint8_t entry[cock::abi::fat32::ENTRY_BYTES];
+		buildTemplate(entry, cock::abi::fat32::ATTRIBUTE_ARCHIVE, NO_CLUSTER);
+		Spot where = {};
+		Status added = placeEntry(parent.cluster, name, nameBytes, entry, where);
+		flushFsInfo();
+		if (added != Status::OK) return added;
+
+		node = {NO_CLUSTER, NO_BYTES, FileType::REGULAR, where};
+		return Status::OK;
+	}
+
+	static Status makeDirectory(const char *path) {
+		Node parent = {};
+		char name[cock::abi::fs::MAX_PATH_BYTES];
+		size_t nameBytes = 0;
+		Status located = parentAndName(path, parent, name, nameBytes);
+		if (located != Status::OK) return located;
+
+		Found existing = {};
+		if (findInDirectory(parent.cluster, name, existing)) return Status::EXISTS;
+
+		uint32_t cluster = NO_CLUSTER;
+		Status allocated = allocateCluster(NO_CLUSTER, cluster);
+		if (allocated != Status::OK) {
+			flushFsInfo();
+			return allocated;
+		}
+
+		uint8_t sector[cock::abi::fat32::SECTOR_BYTES] = {};
+		uint8_t dotName[cock::abi::fat32::ENTRY_SHORT_NAME_BYTES];
+		uint16_t date = 0;
+		uint16_t time = 0;
+		currentStamp(date, time);
+		cock::abi::fat32::dotShortName(false, dotName);
+		cock::abi::fat32::encodeEntry(sector, dotName, 0, cock::abi::fat32::ATTRIBUTE_DIRECTORY,
+									  cluster, NO_BYTES, date, time);
+		cock::abi::fat32::dotShortName(true, dotName);
+		cock::abi::fat32::encodeEntry(
+			sector + cock::abi::fat32::ENTRY_BYTES, dotName, 0,
+			cock::abi::fat32::ATTRIBUTE_DIRECTORY,
+			parent.cluster == bpb.rootCluster ? NO_CLUSTER : parent.cluster, NO_BYTES, date, time);
+
+		Status placed = Status::IO_ERROR;
+		if (zeroCluster(cluster) &&
+			disk.write(device, bpb.clusterSector(cluster), SINGLE_SECTOR, sector)) {
+			uint8_t entry[cock::abi::fat32::ENTRY_BYTES];
+			buildTemplate(entry, cock::abi::fat32::ATTRIBUTE_DIRECTORY, cluster);
+			Spot where = {};
+			placed = placeEntry(parent.cluster, name, nameBytes, entry, where);
+		}
+		if (placed != Status::OK) freeChain(cluster);
+		flushFsInfo();
+		return placed;
+	}
+
+	static Status deleteEntries(const Found &leaf) {
+		Spot at = leaf.firstEntry;
+		for (;;) {
+			uint32_t sector = spotSector(at);
+			if (!loadDirectory(sector)) return Status::IO_ERROR;
+			directoryBuffer[size_t(at.entry) * cock::abi::fat32::ENTRY_BYTES +
+							cock::abi::fat32::ENTRY_NAME_OFFSET] =
+				cock::abi::fat32::DIRECTORY_DELETED;
+			if (!storeDirectory(sector)) return Status::IO_ERROR;
+			if (sameSpot(at, leaf.shortEntry)) return Status::OK;
+			if (!stepSpot(at)) return Status::IO_ERROR;
+		}
+	}
+
+	static Status isEmptyDirectory(uint32_t directory, bool &empty) {
+		empty = true;
+		Cursor cursor = {directory, 0, 0, 0};
+		const uint8_t *raw = nullptr;
+		Spot here = {};
+		for (;;) {
+			Walk step = nextRaw(cursor, raw, here);
+			if (step == Walk::FAILED) return Status::IO_ERROR;
+			if (step == Walk::END) return Status::OK;
+
+			uint8_t first = raw[cock::abi::fat32::ENTRY_NAME_OFFSET];
+			if (first == cock::abi::fat32::DIRECTORY_END) return Status::OK;
+			if (first == cock::abi::fat32::DIRECTORY_DELETED) continue;
+
+			uint8_t attributes = raw[cock::abi::fat32::ENTRY_ATTRIBUTES_OFFSET];
+			if ((attributes & cock::abi::fat32::ATTRIBUTE_LONG_NAME_MASK) ==
+					cock::abi::fat32::ATTRIBUTE_LONG_NAME ||
+				(attributes & cock::abi::fat32::ATTRIBUTE_VOLUME_LABEL) != 0)
+				continue;
+			if (first == uint8_t(cock::abi::fat32::DOT) &&
+				(raw[cock::abi::fat32::DOT_SECOND_BYTE] == uint8_t(cock::abi::fat32::SPACE) ||
+				 raw[cock::abi::fat32::DOT_SECOND_BYTE] == uint8_t(cock::abi::fat32::DOT)))
+				continue;
+			empty = false;
+			return Status::OK;
+		}
+	}
+
+	static Status removeDirectory(const char *path) {
+		Node node = {};
+		Found leaf = {};
+		if (!walk(path, node, leaf) || node.type != FileType::DIRECTORY ||
+			node.cluster == bpb.rootCluster)
+			return Status::NOT_FOUND;
+
+		bool empty = false;
+		Status scanned = isEmptyDirectory(node.cluster, empty);
+		if (scanned != Status::OK) return scanned;
+		if (!empty) return Status::NOT_EMPTY;
+
+		Status deleted = deleteEntries(leaf);
+		if (deleted != Status::OK) return deleted;
+		bool freed = freeChain(node.cluster);
+		flushFsInfo();
+		return freed ? Status::OK : Status::IO_ERROR;
+	}
+
+	static bool nextComponent(const char *&cursor, char *component, size_t capacity) {
+		while (*cursor == PATH_SEPARATOR)
+			cursor++;
+		if (*cursor == '\0') return false;
+
+		size_t length = 0;
+		while (*cursor != '\0' && *cursor != PATH_SEPARATOR) {
+			if (length + 1 >= capacity) return false;
+			component[length++] = *cursor++;
+		}
+		component[length] = '\0';
+		return true;
+	}
+
+	static bool isInside(const char *ancestor, const char *path) {
+		char first[cock::abi::fs::MAX_PATH_BYTES];
+		char second[cock::abi::fs::MAX_PATH_BYTES];
+		while (nextComponent(ancestor, first, sizeof(first))) {
+			if (!nextComponent(path, second, sizeof(second)) ||
+				!cock::abi::fat32::namesEqual(first, second))
+				return false;
+		}
+		return true;
+	}
+
+	static Status rename(const char *from, const char *to) {
+		Node source = {};
+		Found leaf = {};
+		if (!walk(from, source, leaf)) return Status::NOT_FOUND;
+		if (source.cluster == bpb.rootCluster) return Status::BAD_REQUEST;
+
+		char parentPath[cock::abi::fs::MAX_PATH_BYTES];
+		const char *target = nullptr;
+		size_t targetBytes = 0;
+		if (!cock::abi::fs::splitPath(to, parentPath, sizeof(parentPath), target, targetBytes))
+			return Status::BAD_REQUEST;
+		if (source.type == FileType::DIRECTORY && isInside(from, parentPath))
+			return Status::BAD_REQUEST;
+
+		char name[cock::abi::fs::MAX_PATH_BYTES];
+		memcpy(name, target, targetBytes);
+		name[targetBytes] = '\0';
 		Node parent = {};
 		if (!resolve(parentPath, parent) || parent.type != FileType::DIRECTORY)
 			return Status::NOT_FOUND;
@@ -509,13 +798,30 @@ struct Fat {
 		Found existing = {};
 		if (findInDirectory(parent.cluster, name, existing)) return Status::EXISTS;
 
-		Spot where = {};
-		Status added = addEntry(parent.cluster, shortName, caseFlags, where);
-		flushFsInfo();
-		if (added != Status::OK) return added;
+		uint32_t sector = spotSector(leaf.shortEntry);
+		if (!loadDirectory(sector)) return Status::IO_ERROR;
+		uint8_t entry[cock::abi::fat32::ENTRY_BYTES];
+		memcpy(entry,
+			   directoryBuffer + size_t(leaf.shortEntry.entry) * cock::abi::fat32::ENTRY_BYTES,
+			   sizeof(entry));
 
-		node = {NO_CLUSTER, NO_BYTES, FileType::REGULAR, where};
-		return Status::OK;
+		Spot where = {};
+		Status placed = placeEntry(parent.cluster, name, targetBytes, entry, where);
+		if (placed == Status::OK) placed = deleteEntries(leaf);
+		if (placed == Status::OK && source.type == FileType::DIRECTORY) {
+			Spot dotDot = {source.cluster, 0, 1};
+			uint32_t dotSector = spotSector(dotDot);
+			if (!loadDirectory(dotSector)) {
+				placed = Status::IO_ERROR;
+			} else {
+				cock::abi::fat32::patchEntryLocation(
+					directoryBuffer + size_t(dotDot.entry) * cock::abi::fat32::ENTRY_BYTES,
+					parent.cluster == bpb.rootCluster ? NO_CLUSTER : parent.cluster, NO_BYTES);
+				if (!storeDirectory(dotSector)) placed = Status::IO_ERROR;
+			}
+		}
+		flushFsInfo();
+		return placed;
 	}
 
 	static Status truncate(Node &node) {
@@ -642,17 +948,8 @@ struct Fat {
 		if (!walk(path, node, leaf)) return Status::NOT_FOUND;
 		if (node.type != FileType::REGULAR) return Status::UNSUPPORTED;
 
-		Spot at = leaf.firstEntry;
-		for (;;) {
-			uint32_t sector = spotSector(at);
-			if (!loadDirectory(sector)) return Status::IO_ERROR;
-			directoryBuffer[size_t(at.entry) * cock::abi::fat32::ENTRY_BYTES +
-							cock::abi::fat32::ENTRY_NAME_OFFSET] =
-				cock::abi::fat32::DIRECTORY_DELETED;
-			if (!storeDirectory(sector)) return Status::IO_ERROR;
-			if (sameSpot(at, leaf.shortEntry)) break;
-			if (!stepSpot(at)) return Status::IO_ERROR;
-		}
+		Status deleted = deleteEntries(leaf);
+		if (deleted != Status::OK) return deleted;
 
 		bool freed = node.cluster == NO_CLUSTER || freeChain(node.cluster);
 		flushFsInfo();
@@ -674,6 +971,7 @@ struct Fat {
 		bpb = found;
 		device = candidate;
 		readOnly = info.kind == cock::abi::block::DeviceKind::DISK;
+		clockReady = clock.init();
 		loadFsInfo();
 		return true;
 	}

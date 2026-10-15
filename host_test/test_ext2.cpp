@@ -385,6 +385,30 @@ void checkDirectoryEncoding() {
 	CHECK_EQ(uint8_t(0), plain[DIRENT_TYPE_OFFSET]);
 }
 
+void checkDirectoryBlock() {
+	constexpr uint32_t SELF_INODE = 30;
+	constexpr uint32_t PARENT_INODE = 2;
+	constexpr uint32_t DOT_RECORD = 12;
+	uint8_t block[BLOCK_BYTES];
+	memset(block, FULL_BYTE, sizeof(block));
+	initDirectoryBlock(block, BLOCK_BYTES, SELF_INODE, PARENT_INODE, true);
+
+	DirItem item = {};
+	CHECK_TRUE(parseDirItem(block, BLOCK_BYTES, 0, true, item));
+	CHECK_EQ(SELF_INODE, item.inode);
+	CHECK_EQ(DOT_RECORD, item.recordBytes);
+	CHECK_EQ(CURRENT_ENTRY_BYTES, item.nameBytes);
+	CHECK_TRUE(memcmp(item.name, CURRENT_ENTRY_NAME, item.nameBytes) == 0);
+	CHECK_EQ(uint8_t(DIRENT_TYPE_DIRECTORY), block[DIRENT_TYPE_OFFSET]);
+
+	CHECK_TRUE(parseDirItem(block, BLOCK_BYTES, DOT_RECORD, true, item));
+	CHECK_EQ(PARENT_INODE, item.inode);
+	CHECK_EQ(BLOCK_BYTES - DOT_RECORD, item.recordBytes);
+	CHECK_EQ(PARENT_ENTRY_BYTES, item.nameBytes);
+	CHECK_TRUE(memcmp(item.name, PARENT_ENTRY_NAME, item.nameBytes) == 0);
+	CHECK_FALSE(parseDirItem(block, BLOCK_BYTES, BLOCK_BYTES, true, item));
+}
+
 void checkBitmaps() {
 	uint8_t bitmap[BITMAP_BYTES];
 	memset(bitmap, FULL_BYTE, sizeof(bitmap));
@@ -419,6 +443,7 @@ void testExt2() {
 	checkWritableVolumes();
 	checkInodeFields();
 	checkDirectoryEncoding();
+	checkDirectoryBlock();
 	checkBitmaps();
 }
 

@@ -26,7 +26,27 @@ inline bool ipc_send(uint32_t pid, const ipc::Message &message) {
 				   0, 0, 0) == SUCCESS;
 }
 
+constexpr size_t STASH_CAPACITY = 16;
+constexpr size_t FIRST_STASHED = 0;
+
+inline ipc::Message stashedMessages[STASH_CAPACITY];
+inline size_t stashedCount = 0;
+
+inline void stash_message(const ipc::Message &message) {
+	if (stashedCount < STASH_CAPACITY) stashedMessages[stashedCount++] = message;
+}
+
+inline bool take_stashed(ipc::Message &message) {
+	if (stashedCount == 0) return false;
+	message = stashedMessages[FIRST_STASHED];
+	stashedCount--;
+	for (size_t index = 0; index < stashedCount; index++)
+		stashedMessages[index] = stashedMessages[index + 1];
+	return true;
+}
+
 inline bool ipc_recv(ipc::Message &message) {
+	if (take_stashed(message)) return true;
 	return syscall(SYS_IPC_RECV, reinterpret_cast<uintptr_t>(&message), 0, 0, 0,
 				   0, 0) == SUCCESS;
 }

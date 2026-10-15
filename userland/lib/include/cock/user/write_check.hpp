@@ -12,15 +12,16 @@ namespace cock::user::fs {
 
 class WriteCheck {
   public:
-	WriteCheck(Client &client, const char *directory, uint32_t bigBytes)
-		: client(client), directory(directory), bigBytes(bigBytes) {}
+	WriteCheck(Client &client, const char *directory, uint32_t bigBytes, bool windowsNames)
+		: client(client), directory(directory), bigBytes(bigBytes), windowsNames(windowsNames) {}
 
 	bool run() {
 		return step(1, createsAndReadsBack()) && step(2, reopensWithoutTruncating()) &&
 			   step(3, writesALargeFile()) && step(4, overwritesAndAppends()) &&
 			   step(5, protectsOpenFiles()) && step(6, truncates()) &&
 			   step(7, deletes()) && step(8, keepsAFile()) && step(9, refusesBadRequests()) &&
-			   step(10, lists());
+			   step(10, lists()) && step(11, managesDirectories()) &&
+			   step(12, usesLongNames()) && step(13, aliasesDoNotCollide());
 	}
 
 	bool refuses(const char *path, uint32_t flags, abi::fs::Status expected) {
@@ -99,6 +100,8 @@ class WriteCheck {
 	Client &client;
 	const char *directory;
 	uint32_t bigBytes;
+	bool windowsNames;
+	char scratchPath[PATH_BYTES] = {};
 
 	static bool step(unsigned number, bool passed) {
 		if (!passed) printf("writecheck: step %u failed\n", number);
@@ -276,6 +279,156 @@ class WriteCheck {
 		ok = ok && !client.unlink(directory) && client.lastStatus() == abi::fs::Status::UNSUPPORTED;
 		ok = ok && refuses(ROOT_NEW_FILE, WRITE_CREATE, abi::fs::Status::READ_ONLY);
 		return ok;
+	}
+
+	bool makes(const char *name) {
+		char path[PATH_BYTES];
+		return join(path, name) && client.mkdir(path);
+	}
+
+	bool removesDirectory(const char *name) {
+		char path[PATH_BYTES];
+		return join(path, name) && client.rmdir(path);
+	}
+
+	bool renames(const char *from, const char *to) {
+		char first[PATH_BYTES];
+		char second[PATH_BYTES];
+		return join(first, from) && join(second, to) && client.rename(first, second);
+	}
+
+	bool failsWith(bool succeeded, abi::fs::Status expected) {
+		return !succeeded && client.lastStatus() == expected;
+	}
+
+	bool listed(const char *relative, const char *wanted) {
+		char path[PATH_BYTES];
+		bool joined = relative[0] == '\0' ? true : join(path, relative);
+		uint32_t handle = client.open(relative[0] == '\0' ? directory : path);
+		if (!joined || handle == abi::fs::NO_HANDLE) return false;
+
+		bool found = false;
+		bool sawDots = false;
+		uint32_t index = START;
+		char name[TEXT_BYTES * 2] = {};
+		abi::fs::FileType type = abi::fs::FileType::REGULAR;
+		while (client.readdir(handle, index, name, sizeof(name), type)) {
+			index++;
+			if (strcmp(name, wanted) == 0) found = true;
+			if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) sawDots = true;
+		}
+		return client.close(handle) && found && !sawDots;
+	}
+
+	bool managesDirectories() {
+		constexpr char INNER_TEXT[] = "inner file\n";
+		constexpr char TREE_TEXT[] = "tree survives\n";
+		constexpr char CROSSED[] = "/crossed.txt";
+		bool ok = makes("sub") && failsWith(makes("sub"), abi::fs::Status::EXISTS) &&
+				  failsWith(makes("nodir/deep"), abi::fs::Status::NOT_FOUND) &&
+				  failsWith(makes("note.txt/under"), abi::fs::Status::NOT_FOUND);
+		ok = ok && creates("sub/inner.txt", INNER_TEXT) && reads("sub/inner.txt", INNER_TEXT) &&
+			 listed("sub", "inner.txt") && listed("", "sub");
+		ok = ok && failsWith(removesDirectory("sub"), abi::fs::Status::NOT_EMPTY) &&
+			 failsWith(removesDirectory(NOTE_NAME), abi::fs::Status::UNSUPPORTED) &&
+			 failsWith(removesDirectory("absent"), abi::fs::Status::NOT_FOUND);
+		ok = ok && renames("sub/inner.txt", "sub/moved.txt") &&
+			 reads("sub/moved.txt", INNER_TEXT) && missing("sub/inner.txt");
+		ok = ok && makes("sub2") && renames("sub/moved.txt", "sub2/final.txt") &&
+			 reads("sub2/final.txt", INNER_TEXT);
+		ok = ok && failsWith(renames(NOTE_NAME, KEEP_NAME), abi::fs::Status::EXISTS) &&
+			 failsWith(renames("absent.txt", "other.txt"), abi::fs::Status::NOT_FOUND) &&
+			 failsWith(renames(NOTE_NAME, "nodir/x.txt"), abi::fs::Status::NOT_FOUND);
+
+		ok = ok && renames("sub2", "sub/inside") && reads("sub/inside/final.txt", INNER_TEXT) &&
+			 missing("sub2/final.txt") && listed("sub", "inside");
+		ok = ok && failsWith(renames("sub", "sub/inside/x"), abi::fs::Status::BAD_REQUEST) &&
+			 failsWith(renames("sub", "sub/again"), abi::fs::Status::BAD_REQUEST);
+
+		uint32_t reader = openNamed("sub/inside/final.txt", abi::fs::OPEN_READ_ONLY);
+		ok = ok && reader != abi::fs::NO_HANDLE &&
+			 failsWith(renames("sub/inside/final.txt", "sub/inside/other.txt"),
+					   abi::fs::Status::BUSY);
+		if (reader != abi::fs::NO_HANDLE) ok = client.close(reader) && ok;
+		uint32_t directoryHandle = openNamed("sub", abi::fs::OPEN_READ_ONLY);
+		ok = ok && directoryHandle != abi::fs::NO_HANDLE &&
+			 failsWith(removesDirectory("sub"), abi::fs::Status::BUSY);
+		if (directoryHandle != abi::fs::NO_HANDLE) ok = client.close(directoryHandle) && ok;
+
+		ok = ok && removes("sub/inside/final.txt") && removesDirectory("sub/inside") &&
+			 removesDirectory("sub") && missing("sub");
+		char first[PATH_BYTES];
+		ok = ok && join(first, KEEP_NAME) &&
+			 failsWith(client.rename(first, CROSSED), abi::fs::Status::CROSS_DEVICE);
+
+		ok = ok && makes("keepdir") && creates("keepdir/tmp.txt", TREE_TEXT) &&
+			 renames("keepdir/tmp.txt", "keepdir/stay.txt") && reads("keepdir/stay.txt", TREE_TEXT);
+		return ok;
+	}
+
+	bool usesLongNames() {
+		constexpr char LONG_NAME[] = "A long file name.txt";
+		constexpr char MIXED_NAME[] = "Mixed Case.TXT";
+		constexpr char UNICODE_NAME[] = "caf\xC3\xA9 \xC3\xB1.txt";
+		constexpr char RENAMED_NAME[] = "renamed long name.txt";
+		constexpr char PERSIST_NAME[] = "Persist Long Name.txt";
+		constexpr char LONG_TEXT[] = "long names work\n";
+		constexpr char PERSIST_TEXT[] = "long name on disk\n";
+		constexpr char SPREAD_PREFIX[] = "a-rather-long-file-name-for-testing-";
+		constexpr uint32_t SPREAD_FILES = 4;
+		constexpr char DIGIT_FIRST = '0';
+		constexpr char SPREAD_SUFFIX[] = ".txt";
+		bool ok = creates(LONG_NAME, LONG_TEXT) && reads(LONG_NAME, LONG_TEXT) &&
+				  listed("", LONG_NAME);
+		ok = ok && creates(MIXED_NAME, LONG_TEXT) && reads(MIXED_NAME, LONG_TEXT) &&
+			 creates(UNICODE_NAME, LONG_TEXT) && reads(UNICODE_NAME, LONG_TEXT) &&
+			 listed("", UNICODE_NAME);
+		ok = ok && renames(MIXED_NAME, RENAMED_NAME) && reads(RENAMED_NAME, LONG_TEXT) &&
+			 missing(MIXED_NAME) && listed("", RENAMED_NAME);
+		ok = ok && removes(LONG_NAME) && removes(UNICODE_NAME) && removes(RENAMED_NAME) &&
+			 missing(LONG_NAME);
+
+		char name[PATH_BYTES];
+		size_t prefix = strlen(SPREAD_PREFIX);
+		memcpy(name, SPREAD_PREFIX, prefix);
+		memcpy(name + prefix + sizeof(char), SPREAD_SUFFIX, sizeof(SPREAD_SUFFIX));
+		for (uint32_t index = 0; ok && index < SPREAD_FILES; index++) {
+			name[prefix] = static_cast<char>(DIGIT_FIRST + index);
+			ok = creates(name, LONG_TEXT);
+		}
+		for (uint32_t index = 0; ok && index < SPREAD_FILES; index++) {
+			name[prefix] = static_cast<char>(DIGIT_FIRST + index);
+			ok = reads(name, LONG_TEXT) && listed("", name);
+		}
+		for (uint32_t index = 0; ok && index < SPREAD_FILES; index++) {
+			name[prefix] = static_cast<char>(DIGIT_FIRST + index);
+			ok = removes(name);
+		}
+
+		if (windowsNames) {
+			ok = ok && refuses(pathOf("bad*name.txt"), WRITE_CREATE, abi::fs::Status::BAD_REQUEST) &&
+				 refuses(pathOf("trailing dot."), WRITE_CREATE, abi::fs::Status::BAD_REQUEST) &&
+				 refuses(pathOf("trailing space "), WRITE_CREATE, abi::fs::Status::BAD_REQUEST) &&
+				 refuses(pathOf("quote\"d.txt"), WRITE_CREATE, abi::fs::Status::BAD_REQUEST);
+		}
+		return ok && creates(PERSIST_NAME, PERSIST_TEXT) && reads(PERSIST_NAME, PERSIST_TEXT);
+	}
+
+	const char *pathOf(const char *name) {
+		join(scratchPath, name);
+		return scratchPath;
+	}
+
+	bool aliasesDoNotCollide() {
+		constexpr char FIRST_NAME[] = "longname_one.txt";
+		constexpr char SECOND_NAME[] = "longname_two.txt";
+		constexpr char THIRD_NAME[] = "longname_three.txt";
+		constexpr char TEXT[] = "alias\n";
+		bool ok = creates(FIRST_NAME, TEXT) && creates(SECOND_NAME, TEXT) &&
+				  reads(FIRST_NAME, TEXT) && reads(SECOND_NAME, TEXT);
+		ok = ok && removes(FIRST_NAME) && creates(THIRD_NAME, TEXT) && reads(THIRD_NAME, TEXT) &&
+			 listed("", SECOND_NAME) && listed("", THIRD_NAME);
+		return ok && removes(SECOND_NAME) && removes(THIRD_NAME) && missing(FIRST_NAME);
 	}
 
 	bool lists() {

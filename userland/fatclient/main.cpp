@@ -43,8 +43,6 @@ constexpr size_t CHUNK_BYTES = 4096;
 constexpr size_t TEXT_BYTES = 64;
 constexpr uint32_t LISTED_ENTRIES = 6;
 constexpr char SCRATCH_PATH[] = "/fat/SCRATCH";
-constexpr char MIXED_CASE_PATH[] = "/fat/SCRATCH/MixedCase.txt";
-constexpr char LONG_NEW_PATH[] = "/fat/SCRATCH/a new long name.txt";
 constexpr uint32_t WRITTEN_BIG_BYTES = 40000;
 constexpr uint32_t START_OFFSET = 0;
 constexpr uintptr_t EXIT_SERVED = 0;
@@ -143,13 +141,8 @@ bool refusesBadPaths(Client &client) {
 }
 
 bool writesTheVolume(Client &client) {
-	cock::user::fs::WriteCheck check(client, SCRATCH_PATH, WRITTEN_BIG_BYTES);
-	return check.run() &&
-		   check.refuses(MIXED_CASE_PATH,
-						 cock::abi::fs::OPEN_WRITE | cock::abi::fs::OPEN_CREATE,
-						 cock::abi::fs::Status::UNSUPPORTED) &&
-		   check.refuses(LONG_NEW_PATH, cock::abi::fs::OPEN_WRITE | cock::abi::fs::OPEN_CREATE,
-						 cock::abi::fs::Status::UNSUPPORTED);
+	cock::user::fs::WriteCheck check(client, SCRATCH_PATH, WRITTEN_BIG_BYTES, true);
+	return check.run();
 }
 
 }
