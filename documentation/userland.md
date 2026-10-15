@@ -4,7 +4,7 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 
 ## Programs
 
-The programs that exist only to test the system (`probe`, `hello`, `aborter`, `syncbench`, `fsclient`, `fatclient`, `extclient`, `blkclient`, `cfile`, `mute`, `muteclient`) live in `test/userland/`, not in `userland/`. Their Makefiles include `../../../userland/common.mk` and the root Makefile builds both folders into `build/userland`. The helper `write_check.hpp` they share is in `test/userland/lib/include/cock/user/`.
+The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fixture files `hello.txt` and `docs/note.txt`); only `scripts/qemu_userland_test.sh` builds with it. The programs that exist only to test the system (`probe`, `hello`, `aborter`, `syncbench`, `fsclient`, `fatclient`, `extclient`, `blkclient`, `cfile`, `mute`, `muteclient`) live in `test/userland/`, not in `userland/`. Their Makefiles include `../../../userland/common.mk` and the root Makefile builds both folders into `build/userland`. The helper `write_check.hpp` they share is in `test/userland/lib/include/cock/user/`.
 
 | Program | Role |
 |---------|------|
@@ -31,8 +31,8 @@ The programs that exist only to test the system (`probe`, `hello`, `aborter`, `s
 The processes see each other only by name: `init` calls `cock::user::lookup("kbd")` to get a process id. The kernel names a process after its module.
 
 ## How the system starts the userland
-1. The Makefile builds every `userland/*/Makefile` into `build/userland/<name>.elf`.
-2. It packs the files of the `initrd/` folder and, under `bin/`, every program that is not a boot module into `build/initrd.tar` (ustar). It writes a `grub.cfg` with one `module` line for each program of `USERLAND_BOOT_ORDER` (`init`, `ramfs`, `vga_driver`), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](memory_management.md)), so it never becomes a process.
+1. The Makefile builds every `userland/*/Makefile` into `build/userland/<name>.elf`. With `TEST_INITRD=1` it also builds `test/userland/*/Makefile`.
+2. It packs the files of the `initrd/` folder and, under `bin/`, every program of those folders that is not a boot module into `build/initrd.tar` (ustar). With `TEST_INITRD=1` the files of `test/initrd/` are added, and the `manifest.conf` and `mounts.conf` of the two folders are joined (system lines first), so a normal `make iso` boots the system with no test program and `make iso TEST_INITRD=1` boots the same system plus the tests. It writes a `grub.cfg` with one `module` line for each program of `USERLAND_BOOT_ORDER` (`init`, `ramfs`, `vga_driver`), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](memory_management.md)), so it never becomes a process.
 3. The kernel loads each module as a process and gives the root capabilities to the one called `init`.
 4. `init` grants `ramfs` the `initrd` and sends it `CAPABILITY_GRANTED`; this is the only policy written in its code. It then reads `manifest.conf` through `ramfs`, parses it and runs each line in order (see below). A spawned process is born with no capabilities, so the grants of its line are what it gets. `vga_driver` maps the screen, and `kbd` enables the port and binds the interrupt.
 5. A key press travels: keyboard controller, IRQ 1, kernel (`IRQ_NOTIFICATION`), `kbd` reads the scan code and acknowledges the line, `kbd` sends `VIDEO_WRITE_CHAR`, `vga_driver` draws the character.

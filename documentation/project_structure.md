@@ -46,6 +46,7 @@ The codebase strictly separates the architecture-dependent code, the kernel core
 ├── test/                           # Every test
 │   ├── cock/                       # In-kernel test suites
 │   ├── host/                       # Tests of shared/ and CapabilitySet, run on the host
+│   ├── initrd/                     # Manifest lines, mounts and files that only the test boot adds to the initrd
 │   └── userland/                   # Test programs (probe, hello, aborter, fsclient, fatclient, extclient, blkclient, cfile, mute, muteclient) and lib/include/cock/user/write_check.hpp
 ├── scripts/                        # QEMU based and host test runners
 └── Makefile                        # Master build system
