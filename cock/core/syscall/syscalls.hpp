@@ -107,6 +107,9 @@ uintptr_t sys_shm_map(uintptr_t id, uintptr_t writable, uintptr_t, uintptr_t,
 uintptr_t sys_shm_release(uintptr_t id, uintptr_t, uintptr_t, uintptr_t,
 						  uintptr_t, uintptr_t);
 
+uintptr_t sys_module_open(uintptr_t name_ptr, uintptr_t length, uintptr_t,
+						  uintptr_t, uintptr_t, uintptr_t);
+
 } // namespace cock::core::syscall
 
 #endif

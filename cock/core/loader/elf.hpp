@@ -12,6 +12,8 @@ struct LoadedImage {
 	memory::VirtAddr user_space_limit;
 };
 
+bool has_elf_magic(const void *image, size_t size);
+
 bool load_executable(const void *image, size_t size,
 					 memory::PhysAddr address_space, LoadedImage &out);
 

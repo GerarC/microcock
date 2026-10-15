@@ -18,6 +18,7 @@ struct Capability {
 | `IO_PORTS` | First port and number of ports | `SYS_REQUEST_RESOURCE` |
 | `IRQ` | First line and number of lines | `SYS_IRQ_BIND` |
 | `PHYSICAL_MEMORY` | First physical address and length in bytes | `SYS_MMAP` with `MAP_PHYS` |
+| `BOOT_MODULE` | First module index and number of modules | `SYS_MODULE_OPEN` |
 
 The type numbers are part of the ABI and live in `shared/include/cock/abi/capability.hpp`, so the kernel and userland agree on them.
 
@@ -81,7 +82,7 @@ Two message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
 * it asks for objects of no pages and of too many pages, for an unknown object and for a share with an unknown process, and is refused,
 * and it fills the table of shared memory objects and finds it bounded.
 
-`scripts/qemu_userland_test.sh` requires `probe: 25/25 checks passed`.
+`scripts/qemu_userland_test.sh` requires `probe: 26/26 checks passed`.
 
 ## Current limits
 * The policy is fixed at boot: the kernel trusts the module named `init`, and `init` decides who gets what.

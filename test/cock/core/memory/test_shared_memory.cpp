@@ -1,19 +1,27 @@
+#include <cock/abi/capability.hpp>
+#include <cock/core/loader/elf.hpp>
 #include <cock/core/memory/address.hpp>
 #include <cock/core/memory/shared_memory.hpp>
 #include <cock/core/memory/vmm.hpp>
+#include <cock/core/security/capability.hpp>
 #include <cock/core/task/process.hpp>
 #include <hal/address_space.hpp>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include <test/test_framework.hpp>
 
 namespace cock::test::memory {
 
+using abi::CapabilityType;
+using core::loader::has_elf_magic;
 using core::memory::NO_SHARED_OBJECT;
 using core::memory::PhysAddr;
 using core::memory::SharedMemory;
 using core::memory::VirtAddr;
 using core::memory::VirtualMemoryManager;
+using core::security::Capability;
+using core::security::CapabilitySet;
 using core::task::Process;
 
 namespace {
@@ -28,6 +36,22 @@ constexpr size_t SINGLE_PAGE = 1;
 constexpr size_t NO_OBJECTS = 0;
 constexpr uint32_t UNKNOWN_OBJECT = SharedMemory::MAX_OBJECTS + 1;
 constexpr size_t PAGES_LEFT_IN_QUOTA = 2;
+constexpr uintptr_t FAKE_MODULE_BASE = 0x00800000;
+constexpr uintptr_t FAKE_MODULE_MISALIGNMENT = 0x10;
+constexpr size_t FAKE_MODULE_PAGES = 3;
+constexpr size_t FAKE_MODULE_INDEX = 5;
+constexpr size_t OTHER_MODULE_INDEX = 6;
+constexpr size_t NO_MODULE_INDEX = 0;
+constexpr uint64_t SINGLE_MODULE = 1;
+constexpr uint64_t FIRST_MODULE = 0;
+constexpr uint64_t ALL_MODULES = 8;
+constexpr const char *FAKE_MODULE_NAME = "initrd";
+constexpr const char *UNKNOWN_MODULE_NAME = "missing";
+constexpr const char *EMPTY_MODULE_NAME = "";
+constexpr const char *TOO_LONG_MODULE_NAME = "a-module-name-that-is-longer-than-the-table-allows";
+constexpr const char ELF_START[] = {0x7F, 'E', 'L', 'F'};
+constexpr const char TEXT_START[] = "tar!";
+constexpr const char SHORT_START[] = {0x7F, 'E'};
 
 Process *makeProcess(uint32_t pid) {
 	PhysAddr space = VirtualMemoryManager::createAddressSpace();
@@ -170,6 +194,93 @@ void checkLimits() {
 	delete creator;
 }
 
+void checkBootModules() {
+	EXPECT_TRUE(has_elf_magic(ELF_START, sizeof(ELF_START)));
+	EXPECT_FALSE(has_elf_magic(TEXT_START, sizeof(TEXT_START)));
+	EXPECT_FALSE(has_elf_magic(SHORT_START, sizeof(SHORT_START)));
+	EXPECT_FALSE(has_elf_magic(ELF_START, NO_PAGES));
+	EXPECT_FALSE(has_elf_magic(nullptr, sizeof(ELF_START)));
+
+	PhysAddr base{FAKE_MODULE_BASE};
+	EXPECT_EQ(NO_SHARED_OBJECT, SharedMemory::createFixed(nullptr, FAKE_MODULE_INDEX, base, FAKE_MODULE_PAGES));
+	EXPECT_EQ(NO_SHARED_OBJECT, SharedMemory::createFixed(EMPTY_MODULE_NAME, FAKE_MODULE_INDEX, base, FAKE_MODULE_PAGES));
+	EXPECT_EQ(NO_SHARED_OBJECT, SharedMemory::createFixed(TOO_LONG_MODULE_NAME, FAKE_MODULE_INDEX, base, FAKE_MODULE_PAGES));
+	EXPECT_EQ(NO_SHARED_OBJECT, SharedMemory::createFixed(FAKE_MODULE_NAME, FAKE_MODULE_INDEX, base, NO_PAGES));
+	EXPECT_EQ(NO_SHARED_OBJECT, SharedMemory::createFixed(FAKE_MODULE_NAME, FAKE_MODULE_INDEX, base, SharedMemory::MAX_OBJECT_PAGES + 1));
+	EXPECT_EQ(NO_SHARED_OBJECT, SharedMemory::createFixed(FAKE_MODULE_NAME, FAKE_MODULE_INDEX, PhysAddr(), FAKE_MODULE_PAGES));
+	EXPECT_EQ(NO_SHARED_OBJECT, SharedMemory::createFixed(FAKE_MODULE_NAME, FAKE_MODULE_INDEX, PhysAddr{FAKE_MODULE_BASE + FAKE_MODULE_MISALIGNMENT}, FAKE_MODULE_PAGES));
+
+	size_t baseline = SharedMemory::objectCount();
+	uint32_t object = SharedMemory::createFixed(FAKE_MODULE_NAME, FAKE_MODULE_INDEX, base, FAKE_MODULE_PAGES);
+	EXPECT_NEQ(NO_SHARED_OBJECT, object);
+	EXPECT_EQ(baseline + 1, SharedMemory::objectCount());
+	EXPECT_EQ(FAKE_MODULE_PAGES, SharedMemory::pageCount(object));
+	EXPECT_EQ(NO_SHARED_OBJECT, SharedMemory::createFixed(FAKE_MODULE_NAME, OTHER_MODULE_INDEX, base, FAKE_MODULE_PAGES));
+
+	for (size_t idx = 0; idx < FAKE_MODULE_PAGES; idx++)
+		EXPECT_EQ(FAKE_MODULE_BASE + idx * core::hal::PAGE_SIZE, SharedMemory::frame(object, idx).raw());
+
+	size_t found_index = NO_MODULE_INDEX;
+	EXPECT_EQ(object, SharedMemory::findModule(FAKE_MODULE_NAME, &found_index));
+	EXPECT_EQ(FAKE_MODULE_INDEX, found_index);
+	EXPECT_EQ(NO_SHARED_OBJECT, SharedMemory::findModule(UNKNOWN_MODULE_NAME, &found_index));
+	EXPECT_EQ(NO_SHARED_OBJECT, SharedMemory::findModule(nullptr, &found_index));
+
+	EXPECT_FALSE(SharedMemory::mayMap(object, CREATOR_PID, false));
+	EXPECT_FALSE(SharedMemory::attach(NO_SHARED_OBJECT, CREATOR_PID));
+	EXPECT_TRUE(SharedMemory::attach(object, CREATOR_PID));
+	EXPECT_TRUE(SharedMemory::attach(object, CREATOR_PID));
+	EXPECT_TRUE(SharedMemory::mayMap(object, CREATOR_PID, false));
+	EXPECT_FALSE(SharedMemory::mayMap(object, CREATOR_PID, true));
+	EXPECT_FALSE(SharedMemory::share(object, CREATOR_PID, READER_PID, true));
+	EXPECT_TRUE(SharedMemory::share(object, CREATOR_PID, READER_PID, false));
+	EXPECT_FALSE(SharedMemory::mayMap(object, READER_PID, true));
+
+	EXPECT_TRUE(SharedMemory::release(object, CREATOR_PID));
+	EXPECT_TRUE(SharedMemory::release(object, READER_PID));
+	SharedMemory::mapped(object);
+	SharedMemory::unmapped(object);
+	EXPECT_EQ(baseline + 1, SharedMemory::objectCount());
+	EXPECT_EQ(FAKE_MODULE_PAGES, SharedMemory::pageCount(object));
+	EXPECT_EQ(FAKE_MODULE_BASE, SharedMemory::frame(object, 0).raw());
+	EXPECT_FALSE(SharedMemory::attach(UNKNOWN_OBJECT, CREATOR_PID));
+
+	Process *owner = makeProcess(THIRD_PID);
+	EXPECT_NOT_NULL(owner);
+	if (owner == nullptr) return;
+
+	uint32_t plain = SharedMemory::create(*owner, SINGLE_PAGE);
+	EXPECT_NEQ(NO_SHARED_OBJECT, plain);
+	EXPECT_FALSE(SharedMemory::attach(plain, STRANGER_PID));
+	EXPECT_TRUE(SharedMemory::release(plain, THIRD_PID));
+	delete owner;
+}
+
+void checkBootModuleCapability() {
+	CapabilitySet set;
+	EXPECT_FALSE(set.covers(CapabilityType::BOOT_MODULE, FAKE_MODULE_INDEX, SINGLE_MODULE));
+
+	Capability one;
+	one.type = CapabilityType::BOOT_MODULE;
+	one.first = FAKE_MODULE_INDEX;
+	one.count = SINGLE_MODULE;
+	EXPECT_TRUE(set.add(one));
+	EXPECT_TRUE(set.covers(CapabilityType::BOOT_MODULE, FAKE_MODULE_INDEX, SINGLE_MODULE));
+	EXPECT_FALSE(set.covers(CapabilityType::BOOT_MODULE, OTHER_MODULE_INDEX, SINGLE_MODULE));
+	EXPECT_FALSE(set.covers(CapabilityType::IO_PORTS, FAKE_MODULE_INDEX, SINGLE_MODULE));
+	EXPECT_FALSE(set.mayGrant(CapabilityType::BOOT_MODULE, FAKE_MODULE_INDEX, SINGLE_MODULE));
+
+	CapabilitySet root;
+	Capability all;
+	all.type = CapabilityType::BOOT_MODULE;
+	all.first = FIRST_MODULE;
+	all.count = ALL_MODULES;
+	all.flags = core::security::CAPABILITY_FLAG_GRANT;
+	EXPECT_TRUE(root.add(all));
+	EXPECT_TRUE(root.mayGrant(CapabilityType::BOOT_MODULE, FAKE_MODULE_INDEX, SINGLE_MODULE));
+	EXPECT_FALSE(root.covers(CapabilityType::BOOT_MODULE, ALL_MODULES, SINGLE_MODULE));
+}
+
 } // namespace
 
 void test_shared_memory() {
@@ -178,6 +289,8 @@ void test_shared_memory() {
 	checkMappingsKeepTheObject();
 	checkProcessDeath();
 	checkLimits();
+	checkBootModuleCapability();
+	checkBootModules();
 	TestRunner::end_suite();
 }
 

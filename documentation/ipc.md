@@ -24,11 +24,14 @@ void SyscallManager::init() {
 	syscall_table[SyscallNum::SYS_SHM_SHARE] = sys_shm_share;
 	syscall_table[SyscallNum::SYS_SHM_MAP] = sys_shm_map;
 	syscall_table[SyscallNum::SYS_SHM_RELEASE] = sys_shm_release;
+	syscall_table[SyscallNum::SYS_MODULE_OPEN] = sys_module_open;
 	...
 }
 ```
 
 The shared memory calls (`SYS_SHM_*`, numbers `0x174` to `0x177`) move bulk data between processes, which a message of six arguments cannot do: a process creates an object, shares it with the pid of another process by IPC, and the other process maps it. See [memory management](memory_management.md).
+
+`SYS_MODULE_OPEN` (`0x178`) gives a process holding the `BOOT_MODULE` capability the id of a data boot module, as a read only shared memory object.
 
 The full table with the numbers is in the [README](../README.md). The value a handler returns goes back in `EAX`; `-1` means failure. An unknown number returns `-1` as well.
 

@@ -32,6 +32,11 @@ bool try_load(const uint8_t *base, size_t size, memory::PhysAddr address_space,
 
 } // namespace
 
+bool has_elf_magic(const void *image, size_t size) {
+	return image != nullptr && size >= ELF_MAGIC_SIZE &&
+		   memcmp(image, ELF_MAGIC, ELF_MAGIC_SIZE) == 0;
+}
+
 bool load_executable(const void *image, size_t size,
 					 memory::PhysAddr address_space, LoadedImage &out) {
 	out = LoadedImage{};

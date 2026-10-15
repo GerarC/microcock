@@ -1,6 +1,7 @@
 #ifndef CORE_BOOT_MODULE_HPP
 #define CORE_BOOT_MODULE_HPP
 
+#include <cock/core/memory/address.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -17,6 +18,7 @@ struct BootModule {
 							memory. */
 	size_t size;		 /**< Size of the module in bytes. */
 	const char *name; /**< Name or command line string passed to the module. */
+	memory::PhysAddr physical_address; /**< Physical address where the module starts. */
 };
 } // namespace cock::core::boot
 

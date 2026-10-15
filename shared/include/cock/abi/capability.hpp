@@ -10,6 +10,7 @@ enum class CapabilityType : uint8_t {
 	IO_PORTS = 1,
 	IRQ = 2,
 	PHYSICAL_MEMORY = 3,
+	BOOT_MODULE = 4,
 };
 
 } // namespace cock::abi
