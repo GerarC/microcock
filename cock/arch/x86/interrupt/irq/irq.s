@@ -1,3 +1,7 @@
+%define STACK_ALIGNMENT_MASK -16
+%define ARGUMENT_PADDING 12
+%define KERNEL_DATA_SELECTOR 0x10
+
 section .text
 
 extern irq_handler
@@ -17,13 +21,16 @@ irq_common_stub:
     push eax
     push dword 0
 
-    mov ax, 0x10
+    mov ax, KERNEL_DATA_SELECTOR
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
-    push esp
+    mov ebp, esp
+    and esp, STACK_ALIGNMENT_MASK
+    sub esp, ARGUMENT_PADDING
+    push ebp
 
     call irq_handler
 

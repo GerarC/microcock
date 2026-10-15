@@ -11,7 +11,7 @@ LIBC_SRCS = $(LIBC)/sys/mman/mmap.cpp $(LIBC)/string/memcpy.cpp $(LIBC)/string/m
 OBJ = $(addprefix $(OUT_DIR)/vga_driver_,$(addsuffix .o,$(notdir $(basename $(SRCS) $(LIBC_SRCS)))))
 
 INCLUDE_FLAGS = -I$(LIBC)/include -I../../shared/include -I.
-CXX_FLAGS = -std=gnu++20 -ffreestanding -nostdlib -fno-exceptions -fno-rtti -fno-stack-protector -fno-pie -fno-asynchronous-unwind-tables $(INCLUDE_FLAGS) -O2
+CXX_FLAGS = -std=gnu++20 -ffreestanding -nostdlib -fno-exceptions -fno-rtti -fno-stack-protector -fno-pie -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables $(INCLUDE_FLAGS) -O2
 
 all: $(TARGET)
 
