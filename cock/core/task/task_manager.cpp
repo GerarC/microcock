@@ -1,37 +1,44 @@
+#include <cock/core/hal/interrupt_guard.hpp>
+#include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
 #include <cock/utils/logger.hpp>
 #include <cock/utils/panic.hpp>
-#include <cock/core/task/task_manager.hpp>
 #include <stdint.h>
 #include <string.h>
 
 namespace cock::core::task {
 
 using cock::utils::Logger;
+using hal::InterruptGuard;
+
 Thread *TaskManager::registry[MAX_PROCESSES];
-LinkedList<uint32_t> TaskManager::freePIDs;
-LinkedList<uint32_t> TaskManager::graveyard;
+uint32_t TaskManager::freePids[MAX_PROCESSES];
+size_t TaskManager::freePidCount = 0;
+ThreadQueue TaskManager::graveyard;
 
 void TaskManager::init() {
-	memset(registry, 0, MAX_PROCESSES);
-	freePIDs.clear();
+	InterruptGuard guard;
 
-	for (uint32_t pid = 0; pid < MAX_PROCESSES; pid++)
-		freePIDs.append(pid);
+	memset(registry, 0, sizeof(registry));
+	freePidCount = 0;
+
+	for (uint32_t pid = MAX_PROCESSES; pid > 0; pid--)
+		freePids[freePidCount++] = pid - 1;
 
 	Logger::debug("TaskManager initialized.");
 }
 
-
 uint32_t TaskManager::allocatePID() {
-	uint32_t pid;
-	if (freePIDs.popFront(pid)) return pid;
-	utils::panic("TaskManager: Out of PIDs");
-	return 0;
+	InterruptGuard guard;
+
+	if (freePidCount == 0) utils::panic("TaskManager: Out of PIDs");
+	return freePids[--freePidCount];
 }
 
 bool TaskManager::registerThread(Thread *thread) {
 	if (!thread || thread->getId() >= MAX_PROCESSES) return false;
+
+	InterruptGuard guard;
 	uint32_t pid = thread->getId();
 	if (registry[pid] != nullptr) return false;
 	registry[pid] = thread;
@@ -42,16 +49,28 @@ Thread *TaskManager::getThreadByPID(uint32_t pid) {
 	return (pid < MAX_PROCESSES) ? registry[pid] : nullptr;
 }
 
-void TaskManager::notifyThreadDeath(uint32_t pid){
-    graveyard.append(pid);
+void TaskManager::notifyThreadDeath(Thread *thread) {
+	if (!thread) return;
+
+	InterruptGuard guard;
+	graveyard.push(thread);
 }
 
 void TaskManager::buryDeadThreads() {
-	uint32_t dead_pid;
-	while (graveyard.popFront(dead_pid)) {
-		Thread *thread = registry[dead_pid];
+	for (;;) {
+		Thread *thread = nullptr;
+		{
+			InterruptGuard guard;
+			thread = graveyard.pop();
+			if (!thread) return;
+			registry[thread->getId()] = nullptr;
+		}
+
+		uint32_t pid = thread->getId();
 		delete thread;
-		freePIDs.append(dead_pid);
+
+		InterruptGuard guard;
+		freePids[freePidCount++] = pid;
 	}
 }
 

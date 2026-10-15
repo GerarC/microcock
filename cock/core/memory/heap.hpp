@@ -1,19 +1,37 @@
 #ifndef CORE_HEAP_HPP
 #define CORE_HEAP_HPP
+#include <hal/page.hpp>
 #include <stddef.h>
 
 namespace cock::core::memory {
 
-typedef struct memory_block_t {
-	size_t size;
-	bool is_free;
-	struct memory_block_t *next;
-} MemoryBlock;
+constexpr size_t HEAP_ALIGNMENT = alignof(max_align_t);
+
+static_assert(HEAP_ALIGNMENT >= 2 && (HEAP_ALIGNMENT & (HEAP_ALIGNMENT - 1)) == 0,
+			  "heap alignment must be a power of two");
+
+struct alignas(HEAP_ALIGNMENT) MemoryBlock {
+	static constexpr size_t FREE_FLAG = 1;
+
+	size_t size_and_state;
+	MemoryBlock *next;
+
+	size_t size() const { return size_and_state & ~FREE_FLAG; }
+	bool isFree() const { return (size_and_state & FREE_FLAG) != 0; }
+
+	void set(size_t size, bool is_free) {
+		size_and_state = size | (is_free ? FREE_FLAG : 0);
+	}
+	void setSize(size_t size) { set(size, isFree()); }
+	void setFree(bool is_free) { set(size(), is_free); }
+};
+
+static_assert(sizeof(MemoryBlock) % HEAP_ALIGNMENT == 0,
+			  "block header must keep payloads aligned");
 
 class Heap {
   private:
-	static constexpr size_t PAGE_SIZE = 0x1000;
-	static constexpr size_t ALIGNMENT = 0x0008;
+	static constexpr size_t ALIGNMENT = HEAP_ALIGNMENT;
 	static inline size_t alignUp(size_t size) {
 		return (size + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
 	}

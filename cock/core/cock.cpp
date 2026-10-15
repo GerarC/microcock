@@ -7,7 +7,7 @@
 #include <cock/core/task/thread.hpp>
 #include <cock/core/version.hpp>
 #include <cock/utils/logger.hpp>
-#include <cock/core/hal/loader.hpp>
+#include <cock/core/loader/elf.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -26,7 +26,8 @@ using core::task::ThreadPriority;
 using core::task::ThreadResult;
 using core::boot::BootModule;
 using core::memory::VirtualMemoryManager;
-using core::hal::load_executable;
+using core::loader::load_executable;
+using core::loader::LoadedImage;
 using utils::Logger;
 using utils::LogLevel;
 
@@ -56,15 +57,25 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
 	Scheduler::init();
 
 	Thread *idle_thread = new Thread(kernel_idle, ThreadPriority::IDLE);
-	Scheduler::addThread(idle_thread);
+	Scheduler::setIdleThread(idle_thread);
 
     for (size_t i = 0; i < mod_count; i++) {
         Logger::info("Loading module: %s", modules[i].name);
-        
+
         uintptr_t new_cr3 = VirtualMemoryManager::createAddressSpace();
-        uintptr_t entry = load_executable(modules[i].start_address, new_cr3);
-        
-        Thread *app_thread = new Thread(entry, new_cr3, ThreadPriority::NORMAL);
+        if (!new_cr3) {
+            Logger::error("Cannot create an address space for module %s", modules[i].name);
+            continue;
+        }
+
+        LoadedImage image;
+        if (!load_executable(modules[i].start_address, modules[i].size, new_cr3, image)) {
+            Logger::error("Cannot load module %s", modules[i].name);
+            VirtualMemoryManager::destroyAddressSpace(new_cr3);
+            continue;
+        }
+
+        Thread *app_thread = new Thread(image.entry, new_cr3, image.user_space_limit, ThreadPriority::NORMAL);
         Scheduler::addThread(app_thread);
     }
 

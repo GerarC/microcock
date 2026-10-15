@@ -4,15 +4,12 @@ extern isr_handler
 
 %macro isr_err_stub 1
 isr_stub_%1:
-    cli
     push dword %1
     jmp isr_common_stub
-    iret 
 %endmacro
 
 %macro isr_no_err_stub 1
 isr_stub_%1:
-    cli
     push dword 0
     push dword %1
     jmp isr_common_stub
@@ -20,10 +17,16 @@ isr_stub_%1:
 
 isr_common_stub:
     pusha
+    cld
 
-    mov eax, ds 
+    mov eax, ds
     push eax
+
+    xor eax, eax
+    cmp dword [esp + 36], 14
+    jne .save_cr2
     mov eax, cr2
+.save_cr2:
     push eax
 
     mov ax, 0x10
@@ -48,7 +51,6 @@ isr_common_stub:
 
     popa
     add esp, 8
-    sti 
     iret
 
 
@@ -73,7 +75,7 @@ isr_err_stub    17
 isr_no_err_stub 18
 isr_no_err_stub 19
 isr_no_err_stub 20
-isr_no_err_stub 21
+isr_err_stub    21
 isr_no_err_stub 22
 isr_no_err_stub 23
 isr_no_err_stub 24
@@ -81,20 +83,17 @@ isr_no_err_stub 25
 isr_no_err_stub 26
 isr_no_err_stub 27
 isr_no_err_stub 28
-isr_no_err_stub 29
+isr_err_stub    29
 isr_err_stub    30
 isr_no_err_stub 31
 
 global isr_stub_128
 isr_no_err_stub 128
 
-global isr_stub_177
-isr_no_err_stub 177
-
 
 section .rodata
 
-%define ISR_COUNT 32    
+%define ISR_COUNT 32
 
 global isr_stub_table
 isr_stub_table:

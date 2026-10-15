@@ -14,7 +14,7 @@ template <typename TYPE> class Iterator {
 	TYPE &operator*() { return current->data; }
 
 	Iterator &operator++() {
-		if (current) current->next;
+		if (current) current = current->next;
 		return *this;
 	}
 
@@ -25,11 +25,11 @@ template <typename TYPE> class Iterator {
 	}
 
 	Iterator &operator--() {
-		if (current) current->prev;
+		if (current) current = current->prev;
 		return *this;
 	}
 
-	Iterator &operator--(int) {
+	Iterator operator--(int) {
 		Iterator temp = *this;
 		--(*this);
 		return temp;

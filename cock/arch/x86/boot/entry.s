@@ -115,9 +115,7 @@ higher_half:
     ; set the stack in the top
     mov esp, stack_top
 
-    mov edi, ebp
-    add edi, 0xC0000000
-    push edi    ; boot_info
+    push ebp
     push esi    ; magic
 
     xor ebp, ebp

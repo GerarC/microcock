@@ -4,6 +4,12 @@
 #include <stdint.h>
 namespace cock::arch::x86 {
 
+constexpr uint32_t MULTIBOOT_BOOTLOADER_MAGIC = 0x2BADB002;
+constexpr uint32_t MULTIBOOT_FLAG_MEMORY = 1u << 0;
+constexpr uint32_t MULTIBOOT_FLAG_CMDLINE = 1u << 2;
+constexpr uint32_t MULTIBOOT_FLAG_MODULES = 1u << 3;
+constexpr uint32_t MULTIBOOT_FLAG_MMAP = 1u << 6;
+
 typedef struct _multiboot_aout_symbol_table_t {
 	uint32_t tabsize;
 	uint32_t strsize;

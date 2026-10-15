@@ -5,8 +5,6 @@
 
 namespace cock::arch::x86::utils {
 
-constexpr uintptr_t KERNEL_START = 0xC0000000;
-
 /**
  * Structure to capture Registers on Interruption triggering
  * */
@@ -39,6 +37,20 @@ static inline uint32_t read_cr2() {
     uint32_t val;
     asm volatile("mov %%cr2, %0" : "=r"(val));
     return val;
+}
+
+static inline uint32_t read_cr3() {
+    uint32_t val;
+    asm volatile("mov %%cr3, %0" : "=r"(val));
+    return val;
+}
+
+static inline void invalidate_page(uintptr_t address) {
+    asm volatile("invlpg (%0)" ::"r"(address) : "memory");
+}
+
+static inline void io_wait() {
+    asm volatile("outb %%al, $0x80" : : "a"(0));
 }
 
 }

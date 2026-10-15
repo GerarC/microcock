@@ -7,6 +7,10 @@ extern void test_heap();
 extern void test_new_operator();
 } // namespace cock::test::memory
 
+namespace cock::test::loader {
+extern void test_elf_loader();
+} // namespace cock::test::loader
+
 namespace cock::test {
 using utils::Logger;
 
@@ -15,6 +19,7 @@ void run_all_tests() {
 
 	memory::test_heap();
 	memory::test_new_operator();
+	loader::test_elf_loader();
 
 	Logger::info("<=== ENDING COCK TEST SUIT ===>\n");
 	TestRunner::print_summary();

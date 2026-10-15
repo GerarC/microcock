@@ -54,7 +54,6 @@ typedef struct __attribute__((packed)) _task_state_segement_entry {
 
 class GDT {
   public:
-	GDT();
 	static void init();
     static void setKernelStack(uint32_t stack_pointer);
     static void setIOPM(const uint8_t* thread_iopm);
