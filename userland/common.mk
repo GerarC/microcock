@@ -18,15 +18,17 @@ vpath %.cpp . $(addprefix $(LIBC)/,$(dir $(LIBC_SRCS)))
 
 all: $(TARGET)
 
-$(TARGET): $(OBJ)
+$(TARGET): $(OBJ) $(LINKER_SCRIPT)
 	@echo "  [LD ] $@"
 	@$(USER_LD) -m elf_i386 -T $(LINKER_SCRIPT) $(OBJ) -o $@
 
 $(OUT_DIR)/$(NAME)_%.o: %.cpp
 	@echo "  [CXX] $<"
-	@$(USER_CXX) $(CXX_FLAGS) -c $< -o $@
+	@$(USER_CXX) $(CXX_FLAGS) -MMD -MP -c $< -o $@
 
 clean:
-	rm -f $(OBJ) $(TARGET)
+	rm -f $(OBJ) $(OBJ:.o=.d) $(TARGET)
 
 .PHONY: all clean
+
+-include $(OBJ:.o=.d)

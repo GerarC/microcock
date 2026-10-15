@@ -25,10 +25,12 @@
 
     static inline uintptr_t syscall(uint32_t num, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t a4, uintptr_t a5, uintptr_t a6) {
         uintptr_t ret = num;
+        uintptr_t last_args[2] = {a5, a6};
+        uintptr_t *last_args_pointer = last_args;
         __asm__ volatile(
-            "xchg %%ebp, %[sixth]; int $0x80; xchg %%ebp, %[sixth]"
-            : "+a"(ret), [sixth] "+m"(a6)
-            : "b"(a1), "c"(a2), "d"(a3), "S"(a4), "D"(a5)
+            "push %%ebp; mov 4(%%edi), %%ebp; mov (%%edi), %%edi; int $0x80; pop %%ebp"
+            : "+a"(ret), "+D"(last_args_pointer)
+            : "b"(a1), "c"(a2), "d"(a3), "S"(a4), "m"(last_args)
             : "memory"
         );
         return ret;
