@@ -1,6 +1,6 @@
 #include <cock/arch/x86/boot/boot_memory.hpp>
 #include <cock/arch/x86/memory/layout.hpp>
-#include <cock/arch/x86/utils/helpers.hpp>
+#include <hal/cpu.hpp>
 
 namespace cock::arch::x86 {
 
@@ -31,7 +31,7 @@ void *BootMemory::map(uint32_t phys, uint32_t size) {
 	for (uint32_t idx = 0; idx < pages; idx++) {
 		window.entries[nextPage + idx] =
 			(first + idx * PAGE_SIZE) | PRESENT | WRITEABLE;
-		utils::invalidate_page(base + idx * PAGE_SIZE);
+		core::hal::invalidate_page(base + idx * PAGE_SIZE);
 	}
 	nextPage += pages;
 

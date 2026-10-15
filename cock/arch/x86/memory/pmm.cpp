@@ -2,7 +2,7 @@
 #include <cock/arch/x86/memory/layout.hpp>
 #include <cock/arch/x86/memory/paging.hpp>
 #include <cock/arch/x86/memory/pmm.hpp>
-#include <cock/arch/x86/utils/helpers.hpp>
+#include <hal/cpu.hpp>
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/utils/logger.hpp>
 #include <cock/utils/panic.hpp>
@@ -198,7 +198,7 @@ void PhysicalMemoryManager::init(const MBInfo *boot_info,
 }
 
 void PhysicalMemoryManager::invalidatePage(uint32_t virtual_address) {
-	utils::invalidate_page(virtual_address);
+	core::hal::invalidate_page(virtual_address);
 }
 
 uint32_t PhysicalMemoryManager::allocFrame() {
@@ -361,7 +361,7 @@ uint32_t PhysicalMemoryManager::createAddressSpace() {
 
 void PhysicalMemoryManager::destroyAddressSpace(uint32_t pd_phys) {
 	if (pd_phys == NULL_PTR || pd_phys == getKernelDirectory()) return;
-	if (pd_phys == utils::read_cr3()) return;
+	if (pd_phys == core::hal::read_page_table_root()) return;
 
 	InterruptGuard guard;
 

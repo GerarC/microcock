@@ -5,7 +5,7 @@
 
 namespace cock::arch::x86 {
 
-using utils::out_port_b;
+using core::hal::port_out8;
 using  cock::utils::Logger;
 
 constexpr uint32_t INITIAL_TICKS = 0;
@@ -30,10 +30,10 @@ void Timer::init() {
 	// Mhz 11931816666
 	uint32_t divisor = BASE_FREQUENCY / FREQUENCY;
 
-	out_port_b(static_cast<uint16_t>(Output::COMMAND_REGISTER), 0x36);
-	out_port_b(static_cast<uint16_t>(Output::CHANNEL0),
+	port_out8(static_cast<uint16_t>(Output::COMMAND_REGISTER), 0x36);
+	port_out8(static_cast<uint16_t>(Output::CHANNEL0),
 			   static_cast<uint8_t>(divisor & 0xFF));
-	out_port_b(static_cast<uint16_t>(Output::CHANNEL0),
+	port_out8(static_cast<uint16_t>(Output::CHANNEL0),
 			   static_cast<uint8_t>((divisor >> 8) & 0xFF));
 
 	irq_install_handler(IRQ0_INDEX, &Timer::onIrq0);

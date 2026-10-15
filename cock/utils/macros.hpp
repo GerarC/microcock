@@ -1,0 +1,6 @@
+#ifndef COCK_UTILS_MACROS_HPP
+#define COCK_UTILS_MACROS_HPP
+
+#define FOR_ETERNAL for (;;)
+
+#endif // !COCK_UTILS_MACROS_HPP

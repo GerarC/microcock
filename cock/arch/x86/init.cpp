@@ -9,9 +9,9 @@
 #include <cock/arch/x86/timer/timer.hpp>
 #include <cock/core/cock.hpp>
 #include <cock/core/syscall/syscall_manager.hpp>
-#include <cock/driver/vga.hpp>
 #include <cock/utils/logger.hpp>
 #include <cock/utils/panic.hpp>
+#include <hal/console.hpp>
 #include <stdint.h>
 
 #if defined(__linux__)
@@ -21,7 +21,6 @@
 namespace cock::arch::x86 {
 
 using cock::core::syscall::SyscallManager;
-using cock::driver::vga_instance;
 using cock::utils::Logger;
 using cock::utils::panic;
 
@@ -29,14 +28,13 @@ constexpr uint8_t PIC_MASTER_OFFSET = 0x20;
 constexpr uint8_t PIC_SLAVE_OFFSET = 0x28;
 
 extern "C" void call_global_constructors();
-void video_init();
 MBInfo *boot_memory_init(uint32_t magic, uint32_t boot_info_phys);
 void core_init(MBInfo *boot_info, uint32_t boot_info_phys);
 void interrupts_init();
 
 extern "C" void init_cock(uint32_t magic, uint32_t boot_info_phys) {
 
-	video_init();
+	core::hal::console_init();
 	MBInfo *boot_info = boot_memory_init(magic, boot_info_phys);
 	core_init(boot_info, boot_info_phys);
 	call_global_constructors();
@@ -44,13 +42,6 @@ extern "C" void init_cock(uint32_t magic, uint32_t boot_info_phys) {
 
 	MultibootModuleLoader::init(boot_info);
 	cock_main(MultibootModuleLoader::getModules(), MultibootModuleLoader::getCount());
-}
-
-void video_init() {
-	static driver::VGA vga;
-	vga_instance = &vga;
-	vga_instance->init();
-	vga_instance->clear();
 }
 
 MBInfo *boot_memory_init(uint32_t magic, uint32_t boot_info_phys) {

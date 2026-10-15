@@ -1,3 +1,4 @@
+#include <cock/utils/macros.hpp>
 #include <cock/utils/panic.hpp>
 #include <cock/utils/ssp.hpp>
 
@@ -11,6 +12,6 @@ extern "C" __attribute__((noreturn)) void __stack_chk_fail(void) {
 #elif __is_cock_kernel
 	panic("Stack smashing detected");
 #endif
-	for (;;)
+	FOR_ETERNAL
 		__asm__ volatile("cli; hlt");
 }

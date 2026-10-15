@@ -1,19 +1,36 @@
 ARCH          = x86
 AS            = nasm -felf32
+QEMU          = qemu-system-i386
+
+ifdef HOST_TOOLCHAIN
+CXX           = g++ -m32 -U__linux__ -fno-pie -no-pie -fno-asynchronous-unwind-tables -mstack-protector-guard=global
+LD            = ld -m elf_i386
+else
 CXX           = i686-elf-g++
+LD            = i686-elf-ld
+endif
+
 CPP_FLAGS   = -std=gnu++20 -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti \
               -D__is_cock_kernel -D__is_libc -D__is_libk \
               -Ilibc/include -Ilibcxx/include -Ishared/include -I. \
               -Icock/arch/$(ARCH)/include \
               -fstack-protector-all -fno-use-cxa-atexit \
+              -fno-tree-loop-distribute-patterns \
               -mno-sse -mno-sse2 -mno-mmx -mno-80387 \
               -MMD -MP
 TEST_FLAGS  = -DCOCK_TEST_MODE
+
+ifdef USE_LTO
+CPP_FLAGS += -flto
+endif
 
 LN_FLAGS      = -ffreestanding -O2 -nostdlib
 LN_LIBS       = -lgcc
 BUILD         = build
 PROJECT        = cock
+
+QEMU_DEBUG_EXIT = -device isa-debug-exit,iobase=0xf4,iosize=0x04
+QEMU_HEADLESS   = -display none -serial stdio -no-reboot $(QEMU_DEBUG_EXIT)
 
 VERSION_MAJOR := 0
 VERSION_MINOR := 0
@@ -42,10 +59,11 @@ CRTEND_OBJ    := $(shell $(CXX) $(CPP_FLAGS) -print-file-name=crtend.o)
 
 OBJ_CPP        = $(patsubst %.cpp,$(BUILD)/%.occ,$(CPP_SOURCES))
 OBJ_ASM        = $(patsubst %.s,$(BUILD)/%.os,$(ASM_SOURCES))
-OBJ_CORE    = $(OBJ_CPP) $(OBJ_ASM) 
+OBJ_CORE    = $(OBJ_CPP) $(OBJ_ASM)
 OBJ            = $(OBJ_CORE) $(CRTBEGIN_OBJ) $(CRTEND_OBJ)
 LINKER_I686 = cock/arch/x86/linker.ld
 
+USERLAND_BOOT_ORDER = init
 USERLAND_MAKEFILES := $(wildcard userland/*/Makefile)
 USERLAND_PROJECTS  := $(patsubst %/Makefile,%,$(USERLAND_MAKEFILES))
 
@@ -56,7 +74,7 @@ userland: $(USERLAND_PROJECTS)
 $(USERLAND_PROJECTS):
 	@echo "[USR] Building project: $@"
 	@mkdir -p $(BUILD)/userland
-	@$(MAKE) -C $@ OUT_DIR=$(abspath $(BUILD)/userland)
+	@$(MAKE) -C $@ OUT_DIR=$(abspath $(BUILD)/userland) USER_CXX="$(CXX)" USER_LD="$(LD)" USER_AS="$(AS)"
 
 # Ensure build dir exists
 $(BUILD):
@@ -74,33 +92,46 @@ $(BUILD)/%.occ: %.cpp | $(BUILD)
 	@mkdir -p $(dir $@)
 	@$(CXX) -c $< -o $@ $(CPP_FLAGS)
 
-$(BUILD)/$(PROJECT).bin: $(OBJ) 
-	@echo "[LD ] $@: $(OBJ)"
+$(BUILD)/$(PROJECT).bin: $(OBJ)
+	@echo "[LD ] $@"
 	@$(CXX) -T $(LINKER_I686) -o $@ $(LN_FLAGS) $(OBJ) $(LN_LIBS)
 
 $(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin userland
 	@echo "[ISO] creating ISO"
 	@mkdir -p build/isodir/boot/grub
 	@cp $< build/isodir/boot/$(PROJECT).bin
-	@echo menuentry "cock" { > build/isodir/boot/grub/grub.cfg
+	@echo "set timeout=0" > build/isodir/boot/grub/grub.cfg
+	@echo "set default=0" >> build/isodir/boot/grub/grub.cfg
+	@echo 'menuentry "cock" {' >> build/isodir/boot/grub/grub.cfg
 	@echo "    multiboot /boot/$(PROJECT).bin" >> build/isodir/boot/grub/grub.cfg
 	@if ls build/userland/*.elf 1> /dev/null 2>&1; then \
 		cp build/userland/*.elf build/isodir/boot/; \
+		for name in $(USERLAND_BOOT_ORDER); do \
+			if [ -f build/userland/$$name.elf ]; then \
+				echo "    module /boot/$$name.elf \"$$name\"" >> build/isodir/boot/grub/grub.cfg; \
+			fi; \
+		done; \
 		for elf in build/userland/*.elf; do \
-			filename=$$(basename $$elf); \
-			modname=$${filename%.*}; \
-			echo "    module /boot/$$filename \"$$modname\"" >> build/isodir/boot/grub/grub.cfg; \
+			name=$$(basename $$elf .elf); \
+			case " $(USERLAND_BOOT_ORDER) " in \
+				*" $$name "*) ;; \
+				*) echo "    module /boot/$$name.elf \"$$name\"" >> build/isodir/boot/grub/grub.cfg ;; \
+			esac; \
 		done; \
 	fi
-	@echo } >> build/isodir/boot/grub/grub.cfg
-	@grub-mkrescue -o build/cock.iso build/isodir
+
+	@echo '}' >> build/isodir/boot/grub/grub.cfg
+	@grub-mkrescue -o build/cock.iso build/isodir 2> /dev/null
 
 
 iso: $(BUILD)/$(PROJECT).iso
 
 run: $(BUILD)/$(PROJECT).iso
 	@echo "[RUN] Launching QEMU"
-	@qemu-system-i386 -cdrom $<
+	@$(QEMU) -cdrom $< -serial stdio
+
+run-headless: $(BUILD)/$(PROJECT).iso
+	@$(QEMU) -cdrom $< $(QEMU_HEADLESS)
 
 test: clean
 	@echo "[TST] Compiling and running in TEST MODE"
@@ -108,7 +139,7 @@ test: clean
 	@$(MAKE) clean
 
 clean:
-	@echo "[CLN] Cleaning builder folder" 
+	@echo "[CLN] Cleaning builder folder"
 	@rm -fr $(BUILD)
 
 help:
@@ -116,14 +147,19 @@ help:
 	@echo " Micro$(PROJECT) - Build System"
 	@echo "================================================================"
 	@echo "Available commands:"
-	@echo "  make        - Compile the kernel and generate the binary file"
-	@echo "  make iso    - Build the bootable ISO image with GRUB"
-	@echo "  make run    - Build the ISO and launch it using QEMU"
-	@echo "  make test   - Clean, compile with test flags, and run in QEMU"
-	@echo "  make clean  - Remove the build directory and all compiled files"
-	@echo "  make help   - Show this help message"
+	@echo "  make              - Compile the kernel and generate the binary file"
+	@echo "  make iso          - Build the bootable ISO image with GRUB"
+	@echo "  make run          - Build the ISO and launch it using QEMU"
+	@echo "  make run-headless - Same as run, without a window (serial on stdout)"
+	@echo "  make test         - Clean, compile with test flags, and run in QEMU"
+	@echo "  make clean        - Remove the build directory and all compiled files"
+	@echo "  make help         - Show this help message"
+	@echo "Options:"
+	@echo "  HOST_TOOLCHAIN=1  - Use the host g++/ld (-m32) instead of i686-elf-*"
+	@echo "  TEST_BUILD=1      - Build the in-kernel test suite"
+	@echo "  USE_LTO=1         - Enable link time optimization"
 	@echo "================================================================"
 
-.PHONY: all clean iso run test make userland $(USERLAND_PROJECTS)
- 
+.PHONY: all clean iso run run-headless test make userland $(USERLAND_PROJECTS)
+
 -include $(OBJ_CPP:.occ=.d)
