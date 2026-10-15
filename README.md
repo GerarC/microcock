@@ -236,7 +236,7 @@ The file system lives outside the kernel, as servers that talk by IPC. The kerne
 - [x] **F7** FAT32 server (read only first) and a `vfs` with a mount table.
 - [x] **F8** `ext` server, ext2 read only.
 - [x] **F9** Writing for FAT32 and ext2.
-- [ ] **F10** `open`, `read`, `write` and `close` in the C library, over the file client.
+- [x] **F10** `open`, `read`, `write` and `close` in the C library, over the file client.
 
 ### After that
 - [ ] Capabilities as data: the boot policy comes from the manifest, plus revocation, a capability for IPC and a policy for DMA-capable ports.
