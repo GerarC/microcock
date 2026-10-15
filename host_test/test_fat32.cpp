@@ -31,15 +31,12 @@ constexpr uint32_t FILE_SIZE = 20000;
 constexpr uint8_t FILE_ATTRIBUTES = 0x20;
 constexpr char LONG_NAME_TEXT[] = "A long file name.txt";
 constexpr size_t LONG_NAME_LENGTH = sizeof(LONG_NAME_TEXT) - sizeof(char);
-constexpr char SHORT_TEXT[] = "ab";
 constexpr size_t SECOND_PART = 1;
 constexpr uint8_t SECOND_PART_INDEX = 2;
 constexpr uint8_t SECOND_PART_ORDER = LONG_LAST_FLAG | SECOND_PART_INDEX;
 constexpr uint8_t FIRST_PART_ORDER = 1;
 constexpr uint8_t WRONG_CHECKSUM_DELTA = 1;
 constexpr uint8_t PADDING_LOW = 0xFF;
-constexpr uint8_t WIDE_LOW = 0x34;
-constexpr uint8_t WIDE_HIGH = 0x12;
 constexpr uint8_t HIGH_CLUSTER_SHIFT = 16;
 constexpr uint8_t LOW_BYTE_MASK = 0xFF;
 constexpr uint8_t BYTE_BITS = 8;
@@ -278,15 +275,52 @@ void checkLongNames() {
 	CHECK_TRUE(parser.feed(shortRaw, entry) == DirectoryParser::Result::ENTRY);
 	CHECK_TRUE(strcmp(entry.name, "ALONGF~1.TXT") == 0);
 
-	putLong(first, FIRST_PART_ORDER, checksum, LONG_NAME_TEXT, LONG_NAME_LENGTH, 0);
-	uint8_t single[ENTRY_BYTES];
-	putLong(single, LONG_LAST_FLAG | FIRST_PART_ORDER, checksum, SHORT_TEXT, sizeof(SHORT_TEXT) - sizeof(char), 0);
-	single[LONG_FIRST_GROUP_OFFSET] = WIDE_LOW;
-	single[LONG_FIRST_GROUP_OFFSET + 1] = WIDE_HIGH;
-	parser.feed(single, entry);
-	CHECK_TRUE(parser.feed(shortRaw, entry) == DirectoryParser::Result::ENTRY);
-	CHECK_EQ(UNKNOWN_CHARACTER, entry.name[0]);
-	CHECK_EQ(SHORT_TEXT[1], entry.name[1]);
+}
+
+void putUnits(uint8_t *raw, uint8_t checksum, const uint16_t *units, size_t count) {
+	memset(raw, 0, ENTRY_BYTES);
+	raw[ENTRY_NAME_OFFSET] = LONG_LAST_FLAG | FIRST_PART_ORDER;
+	raw[ENTRY_ATTRIBUTES_OFFSET] = ATTRIBUTE_LONG_NAME;
+	raw[LONG_CHECKSUM_OFFSET] = checksum;
+	for (size_t slot = 0; slot < LONG_CHARS_PER_ENTRY; slot++) {
+		uint8_t *target = raw + longCharOffset(slot);
+		if (slot < count) {
+			putLe16(target, units[slot]);
+		} else if (slot == count) {
+			putLe16(target, LONG_NAME_END);
+		} else {
+			target[0] = PADDING_LOW;
+			target[1] = PADDING_LOW;
+		}
+	}
+}
+
+bool namedAs(const uint16_t *units, size_t count, const char *expected) {
+	DirectoryParser parser;
+	parser.reset();
+	uint8_t shortRaw[ENTRY_BYTES];
+	uint8_t longRaw[ENTRY_BYTES];
+	DirEntry entry = {};
+	putShort(shortRaw, "NAME    TXT", FILE_ATTRIBUTES, 0);
+	putUnits(longRaw, shortNameChecksum(shortRaw), units, count);
+	parser.feed(longRaw, entry);
+	return parser.feed(shortRaw, entry) == DirectoryParser::Result::ENTRY &&
+		   strcmp(entry.name, expected) == 0;
+}
+
+void checkUnicodeNames() {
+	const uint16_t accent[] = {0x00F1, 'a'};
+	const uint16_t twoByte[] = {0x00E9};
+	const uint16_t threeByte[] = {0x1234};
+	const uint16_t pair[] = {0xD83D, 0xDE00};
+	const uint16_t lonelyHigh[] = {0xD83D, 'a'};
+	const uint16_t lonelyLow[] = {0xDE00};
+	CHECK_TRUE(namedAs(accent, 2, "\xC3\xB1" "a"));
+	CHECK_TRUE(namedAs(twoByte, 1, "\xC3\xA9"));
+	CHECK_TRUE(namedAs(threeByte, 1, "\xE1\x88\xB4"));
+	CHECK_TRUE(namedAs(pair, 2, "\xF0\x9F\x98\x80"));
+	CHECK_TRUE(namedAs(lonelyHigh, 2, "?a"));
+	CHECK_TRUE(namedAs(lonelyLow, 1, "?"));
 }
 
 } // namespace
@@ -299,6 +333,7 @@ void testFat32() {
 	checkShortNames();
 	checkSkippedEntries();
 	checkLongNames();
+	checkUnicodeNames();
 }
 
 } // namespace host_test

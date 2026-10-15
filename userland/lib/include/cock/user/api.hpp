@@ -14,6 +14,7 @@ constexpr uint32_t NO_PROCESS = 0xFFFFFFFF;
 constexpr uint32_t NO_SHM = 0xFFFFFFFF;
 constexpr uint32_t NO_MODULE = 0xFFFFFFFF;
 constexpr uintptr_t SUCCESS = 0;
+constexpr uintptr_t NO_MESSAGE = 1;
 constexpr int STDOUT_FILE = 1;
 
 inline uint32_t self() {
@@ -28,6 +29,19 @@ inline bool ipc_send(uint32_t pid, const ipc::Message &message) {
 inline bool ipc_recv(ipc::Message &message) {
 	return syscall(SYS_IPC_RECV, reinterpret_cast<uintptr_t>(&message), 0, 0, 0,
 				   0, 0) == SUCCESS;
+}
+
+enum class Received : uint32_t {
+	MESSAGE,
+	EMPTY,
+	FAILED,
+};
+
+inline Received ipc_try_recv(ipc::Message &message) {
+	uintptr_t result = syscall(SYS_IPC_TRY_RECV, reinterpret_cast<uintptr_t>(&message),
+							   0, 0, 0, 0, 0);
+	if (result == SUCCESS) return Received::MESSAGE;
+	return result == NO_MESSAGE ? Received::EMPTY : Received::FAILED;
 }
 
 inline bool request_ports(uint32_t first, uint32_t count) {

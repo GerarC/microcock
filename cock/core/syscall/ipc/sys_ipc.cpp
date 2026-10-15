@@ -20,6 +20,7 @@ using ipc::MessageType;
 
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 constexpr uintptr_t SUCCESS = 0;
+constexpr uintptr_t NO_MESSAGE = 1;
 
 static bool sender_may_use(const Thread &thread, MessageType type) {
 	if (type == MessageType::IRQ_NOTIFICATION) return false;
@@ -45,19 +46,37 @@ uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
 																: FAILURE;
 }
 
+static bool take_next(Thread &thread, Message &message) {
+	uint32_t line = 0;
+	if (thread.takeNotification(line)) {
+		message.sender_pid = ipc::KERNEL_SENDER;
+		message.target_pid = thread.getId();
+		message.type = MessageType::IRQ_NOTIFICATION;
+		message.payload.args.arg0 = line;
+		return true;
+	}
+	return thread.getNextMessage(message);
+}
+
+uintptr_t sys_ipc_try_recv(uintptr_t msg_ptr, uintptr_t, uintptr_t, uintptr_t,
+						   uintptr_t, uintptr_t) {
+	Thread *current = Scheduler::getCurrentThread();
+	if (!current || !user_message_ok(*current, msg_ptr, true)) return FAILURE;
+
+	Message message = {};
+	if (!take_next(*current, message)) return NO_MESSAGE;
+
+	memcpy(reinterpret_cast<void *>(msg_ptr), &message, sizeof(message));
+	return SUCCESS;
+}
+
 uintptr_t sys_ipc_recv(uintptr_t msg_ptr, uintptr_t, uintptr_t, uintptr_t,
 					   uintptr_t, uintptr_t) {
 	Thread *current = Scheduler::getCurrentThread();
 	if (!current || !user_message_ok(*current, msg_ptr, true)) return FAILURE;
 
 	Message message = {};
-	uint32_t line = 0;
-	if (current->takeNotification(line)) {
-		message.sender_pid = ipc::KERNEL_SENDER;
-		message.target_pid = current->getId();
-		message.type = MessageType::IRQ_NOTIFICATION;
-		message.payload.args.arg0 = line;
-	} else if (!current->getNextMessage(message)) {
+	if (!take_next(*current, message)) {
 		current->setState(ThreadState::WAITING_MSG);
 		Scheduler::requestReschedule();
 		Scheduler::requestRestart();

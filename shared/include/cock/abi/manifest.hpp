@@ -29,6 +29,8 @@ struct Entry {
 	Grant grants[MAX_GRANTS];
 	size_t grantCount;
 	uint32_t repeat;
+	uint32_t argument;
+	bool hasArgument;
 
 	bool isBootModule() const { return path[0] == '\0'; }
 	bool hasPeer() const { return peer[0] != '\0'; }
@@ -76,6 +78,7 @@ constexpr const char *KEY_PATH = "path";
 constexpr const char *KEY_PEER = "peer";
 constexpr const char *KEY_REPEAT = "repeat";
 constexpr const char *KEY_CAPS = "caps";
+constexpr const char *KEY_ARGUMENT = "arg";
 constexpr const char *TYPE_IO = "io";
 constexpr const char *TYPE_IRQ = "irq";
 constexpr const char *TYPE_MEMORY = "mem";
@@ -226,6 +229,7 @@ inline Error parseLine(Slice line, Entry &entry) {
 	bool seenPeer = false;
 	bool seenRepeat = false;
 	bool seenCaps = false;
+	bool seenArgument = false;
 
 	for (Slice token = nextToken(rest); !token.empty(); token = nextToken(rest)) {
 		Slice key;
@@ -246,6 +250,11 @@ inline Error parseLine(Slice line, Entry &entry) {
 			if (!parseNumber(value, entry.repeat) || entry.repeat == 0 ||
 				entry.repeat > MAX_REPEAT)
 				return Error::BAD_VALUE;
+		} else if (key.equals(KEY_ARGUMENT)) {
+			if (seenArgument) return Error::DUPLICATE_KEY;
+			seenArgument = true;
+			if (!parseNumber(value, entry.argument)) return Error::BAD_VALUE;
+			entry.hasArgument = true;
 		} else if (key.equals(KEY_CAPS)) {
 			if (seenCaps) return Error::DUPLICATE_KEY;
 			seenCaps = true;

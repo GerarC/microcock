@@ -43,6 +43,7 @@ void SyscallManager::init() {
     syscall_table[SyscallNum::SYS_MODULE_INDEX] = sys_module_index;
     syscall_table[SyscallNum::SYS_SPAWN] = sys_spawn;
     syscall_table[SyscallNum::SYS_PROC_ALIVE] = sys_proc_alive;
+    syscall_table[SyscallNum::SYS_IPC_TRY_RECV] = sys_ipc_try_recv;
 }
 
 SystemCall SyscallManager::getSyscall(size_t code){

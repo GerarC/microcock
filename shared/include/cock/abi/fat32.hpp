@@ -71,10 +71,25 @@ constexpr size_t LONG_SECOND_GROUP_OFFSET = 14;
 constexpr size_t LONG_SECOND_GROUP_CHARS = 6;
 constexpr size_t LONG_THIRD_GROUP_OFFSET = 28;
 constexpr size_t LONG_THIRD_GROUP_CHARS = 2;
-constexpr uint16_t LONG_ASCII_LIMIT = 0x80;
+constexpr uint32_t UTF8_ONE_BYTE_LIMIT = 0x80;
+constexpr uint32_t UTF8_TWO_BYTE_LIMIT = 0x800;
+constexpr uint32_t UTF8_THREE_BYTE_LIMIT = 0x10000;
+constexpr uint32_t UTF8_TWO_BYTE_MARK = 0xC0;
+constexpr uint32_t UTF8_THREE_BYTE_MARK = 0xE0;
+constexpr uint32_t UTF8_FOUR_BYTE_MARK = 0xF0;
+constexpr uint32_t UTF8_CONTINUATION_MARK = 0x80;
+constexpr uint32_t UTF8_PAYLOAD_MASK = 0x3F;
+constexpr unsigned UTF8_PAYLOAD_BITS = 6;
+constexpr uint32_t HIGH_SURROGATE_FIRST = 0xD800;
+constexpr uint32_t HIGH_SURROGATE_LAST = 0xDBFF;
+constexpr uint32_t LOW_SURROGATE_FIRST = 0xDC00;
+constexpr uint32_t LOW_SURROGATE_LAST = 0xDFFF;
+constexpr uint32_t SUPPLEMENTARY_BASE = 0x10000;
+constexpr unsigned SURROGATE_BITS = 10;
 constexpr uint16_t LONG_NAME_END = 0x0000;
 constexpr size_t MAX_NAME_CHARS = LONG_MAX_ENTRIES * LONG_CHARS_PER_ENTRY;
-constexpr size_t MAX_NAME_BYTES = MAX_NAME_CHARS + 1;
+constexpr size_t UTF8_MAX_UNIT_BYTES = 3;
+constexpr size_t MAX_NAME_BYTES = MAX_NAME_CHARS * UTF8_MAX_UNIT_BYTES + 1;
 constexpr unsigned CHECKSUM_RIGHT_SHIFT = 1;
 constexpr unsigned CHECKSUM_LEFT_SHIFT = 7;
 constexpr uint8_t CHECKSUM_BYTE_MASK = 0xFF;
@@ -313,12 +328,53 @@ class DirectoryParser {
 			target[index] = detail::readLe16(source + index * LONG_CHAR_BYTES);
 	}
 
+	static size_t encode(uint32_t code, char *target) {
+		if (code < UTF8_ONE_BYTE_LIMIT) {
+			target[0] = char(code);
+			return 1;
+		}
+		if (code < UTF8_TWO_BYTE_LIMIT) {
+			target[0] = char(UTF8_TWO_BYTE_MARK | (code >> UTF8_PAYLOAD_BITS));
+			target[1] = char(UTF8_CONTINUATION_MARK | (code & UTF8_PAYLOAD_MASK));
+			return 2;
+		}
+		if (code < UTF8_THREE_BYTE_LIMIT) {
+			target[0] = char(UTF8_THREE_BYTE_MARK | (code >> (2 * UTF8_PAYLOAD_BITS)));
+			target[1] = char(UTF8_CONTINUATION_MARK |
+							 ((code >> UTF8_PAYLOAD_BITS) & UTF8_PAYLOAD_MASK));
+			target[2] = char(UTF8_CONTINUATION_MARK | (code & UTF8_PAYLOAD_MASK));
+			return 3;
+		}
+		target[0] = char(UTF8_FOUR_BYTE_MARK | (code >> (3 * UTF8_PAYLOAD_BITS)));
+		target[1] = char(UTF8_CONTINUATION_MARK |
+						 ((code >> (2 * UTF8_PAYLOAD_BITS)) & UTF8_PAYLOAD_MASK));
+		target[2] = char(UTF8_CONTINUATION_MARK |
+						 ((code >> UTF8_PAYLOAD_BITS) & UTF8_PAYLOAD_MASK));
+		target[3] = char(UTF8_CONTINUATION_MARK | (code & UTF8_PAYLOAD_MASK));
+		return 4;
+	}
+
 	void copyLongName(DirEntry &entry) const {
 		size_t length = 0;
-		for (; length < longLength && longName[length] != LONG_NAME_END; length++)
-			entry.name[length] = longName[length] < LONG_ASCII_LIMIT
-									 ? char(longName[length])
-									 : UNKNOWN_CHARACTER;
+		size_t index = 0;
+		while (index < longLength && longName[index] != LONG_NAME_END) {
+			uint32_t unit = longName[index++];
+			uint32_t code = unit;
+			if (unit >= HIGH_SURROGATE_FIRST && unit <= HIGH_SURROGATE_LAST) {
+				uint32_t next = index < longLength ? longName[index] : LONG_NAME_END;
+				if (next >= LOW_SURROGATE_FIRST && next <= LOW_SURROGATE_LAST) {
+					code = SUPPLEMENTARY_BASE +
+						   (((unit - HIGH_SURROGATE_FIRST) << SURROGATE_BITS) |
+							(next - LOW_SURROGATE_FIRST));
+					index++;
+				} else {
+					code = uint32_t(UNKNOWN_CHARACTER);
+				}
+			} else if (unit >= LOW_SURROGATE_FIRST && unit <= LOW_SURROGATE_LAST) {
+				code = uint32_t(UNKNOWN_CHARACTER);
+			}
+			length += encode(code, entry.name + length);
+		}
 		entry.name[length] = '\0';
 	}
 

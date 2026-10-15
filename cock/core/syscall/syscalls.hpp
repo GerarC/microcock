@@ -82,6 +82,12 @@ uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
 uintptr_t sys_ipc_recv(uintptr_t msg_ptr, uintptr_t, uintptr_t, uintptr_t,
 					   uintptr_t, uintptr_t);
 
+/**
+ * @brief Takes the next message or notification without blocking; returns 1 when there is none.
+ */
+uintptr_t sys_ipc_try_recv(uintptr_t msg_ptr, uintptr_t, uintptr_t, uintptr_t,
+						   uintptr_t, uintptr_t);
+
 uintptr_t sys_cap_grant(uintptr_t target_pid, uintptr_t type, uintptr_t first,
 						uintptr_t count, uintptr_t, uintptr_t);
 

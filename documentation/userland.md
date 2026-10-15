@@ -10,7 +10,7 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `init` can read the manifest) |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the display server |
-| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp` and `files.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 33/33 checks passed` |
+| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp` and `files.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 34/34 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
 | `fsclient` | Reads a file from the `initrd` and exits; `init` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |
@@ -18,6 +18,8 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 | `fat` | FAT32 server over the block protocol; see [FAT32](fat32.md) |
 | `vfs` | The file server clients talk to: mount table of `/` (`ramfs`) and `/fat` (`fat`); see [file system](filesystem.md#the-vfs-server) |
 | `fatclient` | Reads files, a long name, a nested file, a multi-cluster file and a listing from `/fat`, and checks the refusals; the end to end test requires its output |
+| `mute` | Test server: reads one message and exits without answering |
+| `muteclient` | Checks that requests to a dead server fail instead of hanging, through `vfs` and directly |
 | `blkclient` | Lists the devices of `ata` and reads the first sector of the first partition; the end to end test checks its output |
 
 The processes see each other only by name: `init` calls `cock::user::lookup("kbd")` to get a process id. The kernel names a process after its module.
@@ -46,6 +48,7 @@ kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 peer=vga_driver
 | `path=` | A file of the initrd that `init` reads and spawns. Without it the entry is a boot module that already runs, and `init` only grants it what the line says |
 | `caps=` | Comma separated grants: `io:first+count` (ports), `irq:line` and `mem:first+size` (physical memory). Numbers are decimal or `0x` hexadecimal. The count of `io` and `irq` defaults to 1, `mem` needs it. At most 4 grants |
 | `peer=` | Name of a process whose id travels in the `CAPABILITY_GRANTED` message (the display server for `kbd`) |
+| `arg=` | A number (decimal or `0x`) that travels in the second argument of the `CAPABILITY_GRANTED` message, for a server that needs one value (the device of `fat`). It makes `init` send the message even when the line has no grants or peer |
 | `repeat=` | Run the program that many times (1 to 32), one after the other, waiting for each to exit. Only for entries with `path=` |
 
 When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED` after granting. The kernel still checks every grant against what `init` holds, so a line cannot give more than `init` has. The parser rejects the whole file at the first bad line (unknown key, repeated key, bad number, range that wraps the address space, too many entries or grants, repeated name) and `init` then starts nothing and exits; the serial log shows the line number and the error. The file is at most 4096 bytes and 16 entries. Adding a driver means adding a line here, not editing `init`.
@@ -66,6 +69,7 @@ When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED
 | `module_index(name)` | `SYS_MODULE_INDEX` |
 | `spawn(image, size, name)` | `SYS_SPAWN` |
 | `process_alive(pid)` | `SYS_PROC_ALIVE` |
+| `ipc_try_recv(message)` | `SYS_IPC_TRY_RECV`; `Received::MESSAGE`, `EMPTY` or `FAILED` |
 | `self()` | `SYS_GETPID` |
 | `write_text(text, length)` | `SYS_WRITE`, repeated until the whole text is written (a call takes at most 128 bytes) |
 | `exit_process(status)` | `SYS_EXIT` |
