@@ -136,6 +136,14 @@ inline uint8_t port_in8(uint16_t port) {
 	return value;
 }
 
+inline void port_out8(uint16_t port, uint8_t value) {
+	__asm__ volatile("outb %0, %1" : : "a"(value), "Nd"(port));
+}
+
+inline void port_read_words(uint16_t port, void *buffer, size_t words) {
+	__asm__ volatile("rep insw" : "+D"(buffer), "+c"(words) : "d"(port) : "memory");
+}
+
 } // namespace cock::user
 
 #endif // !COCK_USER_API_HPP
