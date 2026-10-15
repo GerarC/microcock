@@ -206,4 +206,10 @@ int rename(const char *from, const char *to) {
 	return client.rename(from, to) ? SUCCESS : failFromServer();
 }
 
+int link(const char *existing, const char *name) {
+	if (existing == nullptr || name == nullptr) return failWith(EINVAL);
+	if (!ensureConnected()) return failWith(ENOTCONN);
+	return client.link(existing, name) ? SUCCESS : failFromServer();
+}
+
 }

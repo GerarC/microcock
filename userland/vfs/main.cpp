@@ -307,6 +307,29 @@ void renameEntry(Session &session, const Message &message) {
 	reply(pid, id, Status::OK);
 }
 
+void linkEntry(Session &session, const Message &message) {
+	uint32_t pid = message.sender_pid;
+	uint32_t id = message.payload.args.arg0;
+
+	char fullFrom[cock::abi::fs::MAX_PATH_BYTES + SEPARATOR_BYTES] = {};
+	char fullTo[cock::abi::fs::MAX_PATH_BYTES + SEPARATOR_BYTES] = {};
+	const char *restFrom = nullptr;
+	const char *restTo = nullptr;
+	size_t fromIndex = NOT_FOUND_MOUNT;
+	size_t toIndex = NOT_FOUND_MOUNT;
+	Status routed =
+		route(session, 0, message.payload.args.arg1, fullFrom, fromIndex, restFrom);
+	if (routed != Status::OK) return reply(pid, id, routed);
+	routed = route(session, cock::abi::fs::RENAME_NEW_OFFSET, message.payload.args.arg2, fullTo,
+				   toIndex, restTo);
+	if (routed != Status::OK) return reply(pid, id, routed);
+	if (fromIndex != toIndex) return reply(pid, id, Status::CROSS_DEVICE);
+
+	if (!mounts[fromIndex].client.link(restFrom, restTo))
+		return reply(pid, id, failure(fromIndex));
+	reply(pid, id, Status::OK);
+}
+
 void unlinkFile(Session &session, const Message &message) {
 	uint32_t pid = message.sender_pid;
 	uint32_t id = message.payload.args.arg0;
@@ -437,6 +460,7 @@ void handle(const Message &message) {
 	case MessageType::FS_MKDIR:
 	case MessageType::FS_RMDIR:
 	case MessageType::FS_RENAME:
+	case MessageType::FS_LINK:
 	case MessageType::FS_STAT:
 	case MessageType::FS_READDIR:
 	case MessageType::FS_CLOSE:
@@ -463,6 +487,8 @@ void handle(const Message &message) {
 		return pathRequest(*session, message, &Client::rmdir);
 	case MessageType::FS_RENAME:
 		return renameEntry(*session, message);
+	case MessageType::FS_LINK:
+		return linkEntry(*session, message);
 	case MessageType::FS_STAT:
 		return statFile(message);
 	case MessageType::FS_READDIR:

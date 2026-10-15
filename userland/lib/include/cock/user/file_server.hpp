@@ -73,6 +73,7 @@ struct FileServer {
 		case MessageType::FS_MKDIR:
 		case MessageType::FS_RMDIR:
 		case MessageType::FS_RENAME:
+		case MessageType::FS_LINK:
 		case MessageType::FS_STAT:
 		case MessageType::FS_READDIR:
 		case MessageType::FS_CLOSE:
@@ -99,6 +100,8 @@ struct FileServer {
 			return removeDirectory(*session, message);
 		case MessageType::FS_RENAME:
 			return renameEntry(*session, message);
+		case MessageType::FS_LINK:
+			return linkEntry(*session, message);
 		case MessageType::FS_STAT:
 			return statFile(*session, message);
 		case MessageType::FS_READDIR:
@@ -285,7 +288,27 @@ struct FileServer {
 		Node node = {};
 		if (!Backend::resolveLeaf(from, node)) return reply(pid, id, Status::NOT_FOUND);
 		if (inUse(node)) return reply(pid, id, Status::BUSY);
+		Node target = {};
+		if (Backend::resolveLeaf(to, target) && inUse(target)) return reply(pid, id, Status::BUSY);
 		reply(pid, id, Backend::rename(from, to));
+	}
+
+	static void linkEntry(Session &session, const Message &message) {
+		uint32_t pid = message.sender_pid;
+		uint32_t id = message.payload.args.arg0;
+		if (!Backend::writable()) return reply(pid, id, Status::READ_ONLY);
+
+		char existing[abi::fs::MAX_PATH_BYTES] = {};
+		char name[abi::fs::MAX_PATH_BYTES] = {};
+		if (!copyPath(session, 0, message.payload.args.arg1, existing) ||
+			!copyPath(session, abi::fs::RENAME_NEW_OFFSET, message.payload.args.arg2, name))
+			return reply(pid, id, Status::BAD_REQUEST);
+
+		Node node = {};
+		if (!Backend::resolveLeaf(existing, node)) return reply(pid, id, Status::NOT_FOUND);
+		if (node.type != FileType::REGULAR) return reply(pid, id, Status::UNSUPPORTED);
+		if (inUse(node)) return reply(pid, id, Status::BUSY);
+		reply(pid, id, Backend::link(existing, name));
 	}
 
 	static void unlinkFile(Session &session, const Message &message) {

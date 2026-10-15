@@ -42,6 +42,9 @@ enum class MessageType : uint32_t {
 	FS_MKDIR = 23,                  /**< File server request: make the directory at the path in the window; arg0 request id, arg1 path length. */
 	FS_RMDIR = 24,                  /**< File server request: remove the empty directory at the path in the window; arg0 request id, arg1 path length. */
 	FS_RENAME = 25,                 /**< File server request: rename; the old path is at the start of the window and the new one at RENAME_NEW_OFFSET; arg0 request id, arg1 old length, arg2 new length. */
+	RTC_READ = 27,                  /**< Clock server request: read the date and time; arg0 is the request id. */
+	RTC_REPLY = 28,                 /**< Clock server answer; arg0 request id, arg1 status, arg2 packed date, arg3 packed time. */
+	FS_LINK = 26,                   /**< File server request: make a hard link; the existing path is at the start of the window and the new name at RENAME_NEW_OFFSET; arg0 request id, arg1 existing length, arg2 new length. */
 };
 
 /**

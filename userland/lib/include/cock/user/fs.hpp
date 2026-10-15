@@ -121,6 +121,14 @@ class Client {
 	bool rmdir(const char *path) { return pathCall(MessageType::FS_RMDIR, path); }
 
 	bool rename(const char *from, const char *to) {
+		return twoPathCall(MessageType::FS_RENAME, from, to);
+	}
+
+	bool link(const char *existing, const char *name) {
+		return twoPathCall(MessageType::FS_LINK, existing, name);
+	}
+
+	bool twoPathCall(MessageType type, const char *from, const char *to) {
 		size_t fromLength = strlen(from);
 		size_t toLength = strlen(to);
 		if (view == nullptr || fromLength == 0 || fromLength >= abi::fs::MAX_PATH_BYTES ||
@@ -135,7 +143,7 @@ class Client {
 		view[abi::fs::RENAME_NEW_OFFSET + toLength] = '\0';
 
 		Reply reply = {};
-		return call(MessageType::FS_RENAME, static_cast<uint32_t>(fromLength),
+		return call(type, static_cast<uint32_t>(fromLength),
 					static_cast<uint32_t>(toLength), 0, reply) &&
 			   reply.status == Status::OK;
 	}
