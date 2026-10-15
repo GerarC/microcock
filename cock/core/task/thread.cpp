@@ -10,16 +10,15 @@
 
 namespace cock::core::task {
 
-using cock::core::memory::VirtualMemoryManager;
 using cock::core::memory::PhysAddr;
 using cock::core::memory::VirtAddr;
+using cock::core::memory::VirtualMemoryManager;
 using cock::core::memory::VMMPermission;
 using cock::utils::Logger;
 using hal::InterruptGuard;
 
 Thread::Thread(ThreadFunction entry_point, ThreadPriority priority) {
-	initBase(priority, ThreadType::KERNEL);
-	this->addressSpace = VirtualMemoryManager::getKernelDirectory();
+	initBase(priority, ThreadType::KERNEL, TaskManager::getKernelProcess());
 	this->stackPointer =
 		hal::prepare_thread_stack(stackBase, THREAD_STACK_SIZE,
 								  reinterpret_cast<void *>(&Thread::wrapper),
@@ -28,30 +27,30 @@ Thread::Thread(ThreadFunction entry_point, ThreadPriority priority) {
 	Logger::trace("Thread %d created", id);
 }
 
-Thread::Thread(VirtAddr entry_point, PhysAddr address_space,
-			   VirtAddr user_space_limit, ThreadPriority priority) {
-	if (address_space.isNull()) utils::panic("Thread: invalid address space");
-	if (user_space_limit.raw() <= USER_STACK_SIZE ||
-		user_space_limit > memory::USER_SPACE_END)
+Thread::Thread(Process &owner, VirtAddr entry_point, ThreadPriority priority) {
+	if (owner.isKernel()) utils::panic("Thread: user thread in kernel process");
+	if (owner.getThreadCount() != 0)
+		utils::panic("Thread: a user process supports a single thread");
+
+	VirtAddr limit = owner.getUserSpaceLimit();
+	if (limit.raw() <= USER_STACK_SIZE || limit > memory::USER_SPACE_END)
 		utils::panic("Thread: invalid user space limit");
 
-	initBase(priority, ThreadType::USER);
-	this->addressSpace = address_space;
-	this->userSpaceLimit = user_space_limit;
-	this->mmapCursor = VirtAddr(hal::USER_MMAP_BASE);
+	initBase(priority, ThreadType::USER, &owner);
 
 	{
 		InterruptGuard guard;
 		PhysAddr old_cr3 = hal::get_current_address_space();
-		hal::switch_address_space(this->addressSpace);
+		hal::switch_address_space(owner.getAddressSpace());
 
 		this->userStackBase = VirtualMemoryManager::mapPagesAt(
-			VirtAddr(user_space_limit.raw() - USER_STACK_SIZE), USER_PAGES,
-			VMMPermission::USER_DATA, user_space_limit);
+			VirtAddr(limit.raw() - USER_STACK_SIZE), USER_PAGES,
+			VMMPermission::USER_DATA, limit);
 
 		hal::switch_address_space(old_cr3);
 	}
-	if (this->userStackBase.isNull()) utils::panic("Thread: cannot map user stack");
+	if (this->userStackBase.isNull())
+		utils::panic("Thread: cannot map user stack");
 
 	this->stackPointer = hal::prepare_user_thread_stack(
 		stackBase, THREAD_STACK_SIZE, this->userStackBase.as<void>(),
@@ -60,29 +59,29 @@ Thread::Thread(VirtAddr entry_point, PhysAddr address_space,
 	TaskManager::registerThread(this);
 }
 
-void Thread::initBase(ThreadPriority priority, ThreadType type) {
+void Thread::initBase(ThreadPriority priority, ThreadType type,
+					  Process *owner) {
 	this->id = TaskManager::allocatePID();
 	this->priority = priority;
 	this->type = type;
 	this->state = ThreadState::READY;
+	this->process = owner;
+	this->process->attachThread(this->id);
 	this->stackBase = VirtualMemoryManager::allocStack(KERNEL_STACK_PAGES);
 	if (!this->stackBase) utils::panic("Thread: cannot allocate kernel stack");
-	this->archContext = hal::create_thread_context();
 }
 
 Thread::~Thread() {
-	if (type == ThreadType::USER && !addressSpace.isNull() &&
-		addressSpace != VirtualMemoryManager::getKernelDirectory())
-		VirtualMemoryManager::destroyAddressSpace(addressSpace);
 	this->userStackBase = VirtAddr();
 
 	if (stackBase != nullptr) {
 		VirtualMemoryManager::freeStack(stackBase, KERNEL_STACK_PAGES);
 		this->stackBase = nullptr;
 	}
-	if (this->archContext != nullptr) {
-		hal::destroy_thread_context(this->archContext);
-		this->archContext = nullptr;
+	if (process != nullptr) {
+		bool was_last = process->detachThread();
+		if (was_last && !process->isKernel()) delete process;
+		this->process = nullptr;
 	}
 }
 

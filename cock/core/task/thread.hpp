@@ -1,11 +1,10 @@
 #ifndef CORE_THREAD_HPP
 #define CORE_THREAD_HPP
 
-#include "cock/data_structure/ll.hpp"
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/memory/vmm.hpp>
+#include <cock/core/task/process.hpp>
 #include <cock/data_structure/intrusive_queue.hpp>
-#include <cock/core/memory/memory_region.hpp>
 #include <cock/data_structure/ring_buffer.hpp>
 #include <cock/ipc/message.hpp>
 #include <hal/page.hpp>
@@ -24,10 +23,7 @@ constexpr size_t USER_PAGES =
 constexpr size_t USER_STACK_SIZE = USER_PAGES << hal::PAGE_SHIFT;
 constexpr size_t THREAD_MESSAGE_BUFFER_SIZE = 0x10;
 
-using cock::core::hal::ArchThreadContext;
 using cock::data_structure::IntrusiveQueue;
-using cock::core::memory::MemoryRegion;
-using cock::data_structure::LinkedList;
 using cock::data_structure::RingBuffer;
 using ipc::Message;
 
@@ -92,22 +88,18 @@ class Thread {
 	ThreadType type = ThreadType::KERNEL;
 	memory::VirtAddr userStackBase;
 	uintptr_t stackPointer = 0;
-	memory::PhysAddr addressSpace;
-	memory::VirtAddr userSpaceLimit;
+	Process *process = nullptr;
 	void *stackBase = nullptr;
 	RingBuffer<Message, THREAD_MESSAGE_BUFFER_SIZE> inbox;
-	LinkedList<MemoryRegion> mapped_pages;
-	memory::VirtAddr mmapCursor;
-	void initBase(ThreadPriority priority, ThreadType type);
-	ArchThreadContext archContext = nullptr;
+	void initBase(ThreadPriority priority, ThreadType type, Process *owner);
 
   public:
 	Thread *link = nullptr;
 	bool queued = false;
 
 	Thread(ThreadFunction entry_point, ThreadPriority priority);
-	Thread(memory::VirtAddr entry_point, memory::PhysAddr address_space,
-		   memory::VirtAddr user_space_limit, ThreadPriority priority);
+	Thread(Process &owner, memory::VirtAddr entry_point,
+		   ThreadPriority priority);
 	~Thread();
 
 	uint32_t getId() const { return this->id; }
@@ -123,11 +115,6 @@ class Thread {
 	uintptr_t getStackPointer() const { return stackPointer; }
 	void setStackPointer(uintptr_t stackPointer) {
 		this->stackPointer = stackPointer;
-	}
-
-	ArchThreadContext getArchContext() const { return archContext; }
-	void setArchContext(ArchThreadContext context) {
-		this->archContext = context;
 	}
 
 	uintptr_t getKernelStackTop() const {
@@ -148,30 +135,13 @@ class Thread {
 	bool getNextMessage(Message &out) { return inbox.pop(out); }
 	bool hasMessages() const { return !inbox.isEmpty(); }
 
-	memory::PhysAddr getAddressSpace() const { return addressSpace; }
-	memory::VirtAddr getUserSpaceLimit() const { return userSpaceLimit; }
-
-	/**
-	 * @brief Registers dynamically allocated memory to track and prevent memory
-	 * leaks upon thread death.
-	 */
-	void addMemoryRegion(memory::VirtAddr addr, size_t pages) {
-		mapped_pages.append({addr.raw(), pages});
+	Process *getProcess() const { return process; }
+	memory::PhysAddr getAddressSpace() const {
+		return process->getAddressSpace();
 	}
-	void removeMemoryRegion(memory::VirtAddr addr) {
-		mapped_pages.remove({addr.raw(), 0});
+	memory::VirtAddr getUserSpaceLimit() const {
+		return process->getUserSpaceLimit();
 	}
-
-	bool takeMemoryRegion(memory::VirtAddr addr, size_t pages) {
-		auto found = mapped_pages.find({addr.raw(), 0});
-		if (found == mapped_pages.end() || (*found).page_count != pages)
-			return false;
-		mapped_pages.remove({addr.raw(), 0});
-		return true;
-	}
-
-	memory::VirtAddr getMmapCursor() const { return mmapCursor; }
-	void setMmapCursor(memory::VirtAddr cursor) { mmapCursor = cursor; }
 
 	static void wrapper(ThreadFunction userFunc);
 	static void yield();

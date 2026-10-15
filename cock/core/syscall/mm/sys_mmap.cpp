@@ -13,6 +13,7 @@ using core::memory::PhysAddr;
 using core::memory::VirtAddr;
 using core::memory::VirtualMemoryManager;
 using core::memory::VMMPermission;
+using core::task::Process;
 using core::task::Scheduler;
 using core::task::Thread;
 using utils::Logger;
@@ -35,7 +36,8 @@ static uintptr_t image_limit(const Thread &thread) {
 }
 
 static uintptr_t map_anonymous(Thread &current, size_t pages) {
-	VirtAddr base = current.getMmapCursor();
+	Process &process = *current.getProcess();
+	VirtAddr base = process.getMmapCursor();
 	if (pages > (image_limit(current) - base.raw()) >> hal::PAGE_SHIFT)
 		return FAILURE;
 
@@ -43,8 +45,8 @@ static uintptr_t map_anonymous(Thread &current, size_t pages) {
 		base, pages, VMMPermission::USER_DATA, current.getUserSpaceLimit());
 	if (mapped.isNull()) return FAILURE;
 
-	current.setMmapCursor(base + (pages << hal::PAGE_SHIFT));
-	current.addMemoryRegion(base, pages);
+	process.setMmapCursor(base + (pages << hal::PAGE_SHIFT));
+	process.addMemoryRegion(base, pages);
 	return base.raw();
 }
 
@@ -79,7 +81,7 @@ static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 			return FAILURE;
 		}
 	}
-	current.addMemoryRegion(virt, pages);
+	current.getProcess()->addMemoryRegion(virt, pages);
 	return virt.raw();
 }
 
@@ -107,7 +109,7 @@ uintptr_t sys_munmap(uintptr_t addr, uintptr_t length, uintptr_t, uintptr_t,
 		return FAILURE;
 
 	VirtAddr region(addr);
-	if (!current->takeMemoryRegion(region, pages)) return FAILURE;
+	if (!current->getProcess()->takeMemoryRegion(region, pages)) return FAILURE;
 	VirtualMemoryManager::freePages(region.as<void>(), pages);
 	return 0;
 }

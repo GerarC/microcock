@@ -1,6 +1,7 @@
 #ifndef CORE_TASK_MANAGER_HPP
 #define CORE_TASK_MANAGER_HPP
 
+#include <cock/core/task/process.hpp>
 #include <cock/core/task/thread.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -22,6 +23,7 @@ class TaskManager {
 	static uint32_t freePids[MAX_PROCESSES];
 	static size_t freePidCount;
 	static ThreadQueue graveyard;
+	static Process *kernelProcess;
 
   public:
 	/**
@@ -33,6 +35,7 @@ class TaskManager {
 	 * @brief Allocates the next available unique Process ID.
 	 * @return A unique uint32_t PID. Panics if no PIDs are available.
 	 */
+	static Process *getKernelProcess();
 	static uint32_t allocatePID();
 
 	/**

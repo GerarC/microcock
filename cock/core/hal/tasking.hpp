@@ -3,16 +3,11 @@
 
 #include <cock/core/memory/address.hpp>
 #include <hal/cpu.hpp>
+#include <hal/process_context.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
 namespace cock::core::hal {
-
-/**
- * @brief Opaque pointer to architecture-specific thread contexts (e.g.,
- * registers, IOPM).
- */
-typedef void *ArchThreadContext;
 
 /**
  * @brief Prepares a fresh stack for a Ring 0 Kernel thread.
@@ -56,20 +51,22 @@ inline memory::PhysAddr get_current_address_space() {
 	return memory::PhysAddr(read_page_table_root());
 }
 
-ArchThreadContext create_thread_context();
-void destroy_thread_context(ArchThreadContext context);
+/**
+ * @brief Resets a process context so it grants no hardware resource.
+ */
+void init_process_context(ArchProcessContext &context);
 
 /**
  * @brief Grants a thread access to specific hardware resources (e.g., I/O ports
  * via TSS IOPM).
  */
-bool grant_hardware_resource(ArchThreadContext context, uint32_t resource_id,
+bool grant_hardware_resource(ArchProcessContext &context, uint32_t resource_id,
 							 uint32_t size);
 
 /**
  * @brief Applies the architecture-specific context (like IOPM) to the CPU.
  */
-void apply_thread_context(ArchThreadContext context);
+void apply_process_context(const ArchProcessContext &context);
 
 } // namespace cock::core::hal
 

@@ -15,6 +15,7 @@ Thread *TaskManager::registry[MAX_PROCESSES];
 uint32_t TaskManager::freePids[MAX_PROCESSES];
 size_t TaskManager::freePidCount = 0;
 ThreadQueue TaskManager::graveyard;
+Process *TaskManager::kernelProcess = nullptr;
 
 void TaskManager::init() {
 	InterruptGuard guard;
@@ -25,8 +26,12 @@ void TaskManager::init() {
 	for (uint32_t pid = MAX_PROCESSES; pid > 0; pid--)
 		freePids[freePidCount++] = pid - 1;
 
+	if (kernelProcess == nullptr) kernelProcess = Process::createKernel();
+
 	Logger::debug("TaskManager initialized.");
 }
+
+Process *TaskManager::getKernelProcess() { return kernelProcess; }
 
 uint32_t TaskManager::allocatePID() {
 	InterruptGuard guard;
