@@ -1,5 +1,6 @@
 #ifndef CORE_VIRT_MM_HPP
 #define CORE_VIRT_MM_HPP
+#include <cock/core/memory/address.hpp>
 #include <hal/address_space.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -7,6 +8,7 @@
 namespace cock::core::memory {
 
 constexpr uintptr_t USER_SPACE_LIMIT = hal::USER_SPACE_LIMIT;
+constexpr VirtAddr USER_SPACE_END = USER_SPACE_LIMIT_ADDRESS;
 
 /**
  * @brief Defines access control and execution permissions for virtual memory
@@ -63,38 +65,38 @@ class VirtualMemoryManager {
 	/**
 	 * @brief Maps a specific physical address to a target virtual address.
 	 */
-	static bool map(uintptr_t phys, uintptr_t virt, VMMPermission permission);
+	static bool map(PhysAddr phys, VirtAddr virt, VMMPermission permission);
 
 	/**
 	 * @brief Removes the mapping for a virtual address.
 	 */
-	static void unmap(uintptr_t virt);
+	static void unmap(VirtAddr virt);
 
 	/**
 	 * @brief Clones the Kernel's page directory to create a new isolated User
 	 * address space.
 	 * @return The physical address of the newly created Page Directory.
 	 */
-	static uintptr_t createAddressSpace();
-	static void destroyAddressSpace(uintptr_t address_space);
+	static PhysAddr createAddressSpace();
+	static void destroyAddressSpace(PhysAddr address_space);
 
-	static uintptr_t getKernelDirectory();
+	static PhysAddr getKernelDirectory();
 
 	/**
 	 * @brief Maps newly allocated physical frames at a specific predefined
 	 * virtual address.
 	 */
-	static void *mapPagesAt(uintptr_t vaddr, size_t num_pages,
-							VMMPermission permission, uintptr_t user_limit);
+	static VirtAddr mapPagesAt(VirtAddr vaddr, size_t num_pages,
+							   VMMPermission permission, VirtAddr user_limit);
 
-	static bool isUserRangeValid(uintptr_t ptr, size_t length, bool write,
-								 uintptr_t user_limit);
+	static bool isUserRangeValid(VirtAddr ptr, size_t length, bool write,
+								 VirtAddr user_limit);
 
 	/**
 	 * @brief Resolves a virtual address to its underlying physical address.
 	 * @return The physical address, or 0 if unmapped.
 	 */
-	static uintptr_t getPhysicalAddress(uintptr_t virt);
+	static PhysAddr getPhysicalAddress(VirtAddr virt);
 };
 
 } // namespace cock::core::memory

@@ -90,14 +90,14 @@ class Thread {
 	ThreadState state = ThreadState::READY;
 	ThreadPriority priority = ThreadPriority::NORMAL;
 	ThreadType type = ThreadType::KERNEL;
-	void *userStackBase = nullptr;
+	memory::VirtAddr userStackBase;
 	uintptr_t stackPointer = 0;
-	uintptr_t addressSpace = 0;
-	uintptr_t userSpaceLimit = 0;
+	memory::PhysAddr addressSpace;
+	memory::VirtAddr userSpaceLimit;
 	void *stackBase = nullptr;
 	RingBuffer<Message, THREAD_MESSAGE_BUFFER_SIZE> inbox;
 	LinkedList<MemoryRegion> mapped_pages;
-	uintptr_t mmapCursor = 0;
+	memory::VirtAddr mmapCursor;
 	void initBase(ThreadPriority priority, ThreadType type);
 	ArchThreadContext archContext = nullptr;
 
@@ -106,8 +106,8 @@ class Thread {
 	bool queued = false;
 
 	Thread(ThreadFunction entry_point, ThreadPriority priority);
-	Thread(uintptr_t entry_point, uintptr_t address_space,
-		   uintptr_t user_space_limit, ThreadPriority priority);
+	Thread(memory::VirtAddr entry_point, memory::PhysAddr address_space,
+		   memory::VirtAddr user_space_limit, ThreadPriority priority);
 	~Thread();
 
 	uint32_t getId() const { return this->id; }
@@ -134,8 +134,8 @@ class Thread {
 		return reinterpret_cast<uintptr_t>(stackBase) + THREAD_STACK_SIZE;
 	}
 
-	void *getUserStackBase() const { return userStackBase; }
-	void setUserStackBase(void *base) { userStackBase = base; }
+	memory::VirtAddr getUserStackBase() const { return userStackBase; }
+	void setUserStackBase(memory::VirtAddr base) { userStackBase = base; }
 
 	void setEntryPoint(void *entry) {
 		hal::update_thread_entry(stackPointer, entry);
@@ -148,28 +148,30 @@ class Thread {
 	bool getNextMessage(Message &out) { return inbox.pop(out); }
 	bool hasMessages() const { return !inbox.isEmpty(); }
 
-	uintptr_t getAddressSpace() const { return addressSpace; }
-	uintptr_t getUserSpaceLimit() const { return userSpaceLimit; }
+	memory::PhysAddr getAddressSpace() const { return addressSpace; }
+	memory::VirtAddr getUserSpaceLimit() const { return userSpaceLimit; }
 
 	/**
 	 * @brief Registers dynamically allocated memory to track and prevent memory
 	 * leaks upon thread death.
 	 */
-	void addMemoryRegion(uintptr_t addr, size_t pages) {
-		mapped_pages.append({addr, pages});
+	void addMemoryRegion(memory::VirtAddr addr, size_t pages) {
+		mapped_pages.append({addr.raw(), pages});
 	}
-	void removeMemoryRegion(uintptr_t addr) { mapped_pages.remove({addr, 0}); }
+	void removeMemoryRegion(memory::VirtAddr addr) {
+		mapped_pages.remove({addr.raw(), 0});
+	}
 
-	bool takeMemoryRegion(uintptr_t addr, size_t pages) {
-		auto found = mapped_pages.find({addr, 0});
+	bool takeMemoryRegion(memory::VirtAddr addr, size_t pages) {
+		auto found = mapped_pages.find({addr.raw(), 0});
 		if (found == mapped_pages.end() || (*found).page_count != pages)
 			return false;
-		mapped_pages.remove({addr, 0});
+		mapped_pages.remove({addr.raw(), 0});
 		return true;
 	}
 
-	uintptr_t getMmapCursor() const { return mmapCursor; }
-	void setMmapCursor(uintptr_t cursor) { mmapCursor = cursor; }
+	memory::VirtAddr getMmapCursor() const { return mmapCursor; }
+	void setMmapCursor(memory::VirtAddr cursor) { mmapCursor = cursor; }
 
 	static void wrapper(ThreadFunction userFunc);
 	static void yield();

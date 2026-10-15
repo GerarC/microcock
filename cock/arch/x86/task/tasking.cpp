@@ -91,10 +91,4 @@ void update_thread_entry(uintptr_t context_ptr, void *new_entry) {
 	regs->eip = reinterpret_cast<uint32_t>(new_entry);
 }
 
-void switch_address_space(uintptr_t pd_phys) {
-	write_page_table_root(static_cast<uint32_t>(pd_phys));
-}
-
-uintptr_t get_current_address_space() { return read_page_table_root(); }
-
 } // namespace cock::core::hal

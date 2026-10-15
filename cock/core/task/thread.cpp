@@ -11,6 +11,8 @@
 namespace cock::core::task {
 
 using cock::core::memory::VirtualMemoryManager;
+using cock::core::memory::PhysAddr;
+using cock::core::memory::VirtAddr;
 using cock::core::memory::VMMPermission;
 using cock::utils::Logger;
 using hal::InterruptGuard;
@@ -26,34 +28,34 @@ Thread::Thread(ThreadFunction entry_point, ThreadPriority priority) {
 	Logger::trace("Thread %d created", id);
 }
 
-Thread::Thread(uintptr_t entry_point, uintptr_t address_space,
-			   uintptr_t user_space_limit, ThreadPriority priority) {
-	if (address_space == 0) utils::panic("Thread: invalid address space");
-	if (user_space_limit <= USER_STACK_SIZE ||
-		user_space_limit > memory::USER_SPACE_LIMIT)
+Thread::Thread(VirtAddr entry_point, PhysAddr address_space,
+			   VirtAddr user_space_limit, ThreadPriority priority) {
+	if (address_space.isNull()) utils::panic("Thread: invalid address space");
+	if (user_space_limit.raw() <= USER_STACK_SIZE ||
+		user_space_limit > memory::USER_SPACE_END)
 		utils::panic("Thread: invalid user space limit");
 
 	initBase(priority, ThreadType::USER);
 	this->addressSpace = address_space;
 	this->userSpaceLimit = user_space_limit;
-	this->mmapCursor = hal::USER_MMAP_BASE;
+	this->mmapCursor = VirtAddr(hal::USER_MMAP_BASE);
 
 	{
 		InterruptGuard guard;
-		uintptr_t old_cr3 = hal::get_current_address_space();
+		PhysAddr old_cr3 = hal::get_current_address_space();
 		hal::switch_address_space(this->addressSpace);
 
 		this->userStackBase = VirtualMemoryManager::mapPagesAt(
-			user_space_limit - USER_STACK_SIZE, USER_PAGES,
+			VirtAddr(user_space_limit.raw() - USER_STACK_SIZE), USER_PAGES,
 			VMMPermission::USER_DATA, user_space_limit);
 
 		hal::switch_address_space(old_cr3);
 	}
-	if (!this->userStackBase) utils::panic("Thread: cannot map user stack");
+	if (this->userStackBase.isNull()) utils::panic("Thread: cannot map user stack");
 
 	this->stackPointer = hal::prepare_user_thread_stack(
-		stackBase, THREAD_STACK_SIZE, this->userStackBase, USER_STACK_SIZE,
-		reinterpret_cast<void *>(entry_point), nullptr);
+		stackBase, THREAD_STACK_SIZE, this->userStackBase.as<void>(),
+		USER_STACK_SIZE, entry_point.as<void>(), nullptr);
 
 	TaskManager::registerThread(this);
 }
@@ -69,10 +71,10 @@ void Thread::initBase(ThreadPriority priority, ThreadType type) {
 }
 
 Thread::~Thread() {
-	if (type == ThreadType::USER && addressSpace != 0 &&
+	if (type == ThreadType::USER && !addressSpace.isNull() &&
 		addressSpace != VirtualMemoryManager::getKernelDirectory())
 		VirtualMemoryManager::destroyAddressSpace(addressSpace);
-	this->userStackBase = nullptr;
+	this->userStackBase = VirtAddr();
 
 	if (stackBase != nullptr) {
 		VirtualMemoryManager::freeStack(stackBase, KERNEL_STACK_PAGES);

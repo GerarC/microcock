@@ -9,6 +9,7 @@
 
 namespace cock::core::syscall {
 
+using core::memory::VirtAddr;
 using core::memory::VirtualMemoryManager;
 using core::task::IPC;
 using core::task::Scheduler;
@@ -19,7 +20,7 @@ constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 constexpr uintptr_t SUCCESS = 0;
 
 static bool user_message_ok(const Thread &thread, uintptr_t ptr, bool write) {
-	return VirtualMemoryManager::isUserRangeValid(ptr, sizeof(Message), write,
+	return VirtualMemoryManager::isUserRangeValid(VirtAddr(ptr), sizeof(Message), write,
 												  thread.getUserSpaceLimit());
 }
 

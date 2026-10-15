@@ -26,6 +26,7 @@ using core::task::Thread;
 using core::task::ThreadPriority;
 using core::task::ThreadResult;
 using core::boot::BootModule;
+using core::memory::PhysAddr;
 using core::memory::VirtualMemoryManager;
 using core::loader::load_executable;
 using core::loader::LoadedImage;
@@ -67,8 +68,8 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
     for (size_t i = 0; i < mod_count; i++) {
         Logger::info("Loading module: %s", modules[i].name);
 
-        uintptr_t new_cr3 = VirtualMemoryManager::createAddressSpace();
-        if (!new_cr3) {
+        PhysAddr new_cr3 = VirtualMemoryManager::createAddressSpace();
+        if (new_cr3.isNull()) {
             Logger::error("Cannot create an address space for module %s", modules[i].name);
             continue;
         }

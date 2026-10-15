@@ -8,6 +8,7 @@
 namespace cock::arch::x86 {
 
 using core::boot::BootModule;
+using core::memory::PhysAddr;
 using cock::utils::Logger;
 
 constexpr uint32_t MODULE_NAME_MAP_SIZE = 0x100;
@@ -25,7 +26,8 @@ void MultibootModuleLoader::init(const MBInfo *boot_info) {
 
     uint32_t requested = boot_info->mods_count;
     const MBModuleList *mod_list = static_cast<const MBModuleList *>(
-        BootMemory::map(boot_info->mods_address, requested * sizeof(MBModuleList)));
+        BootMemory::map(PhysAddr(boot_info->mods_address),
+                       requested * sizeof(MBModuleList)));
     if (!mod_list) {
         Logger::error("Module list is unreachable");
         return;
@@ -33,7 +35,7 @@ void MultibootModuleLoader::init(const MBInfo *boot_info) {
 
     for (uint32_t i = 0; i < requested && modCount < MAX_MODULE_NUM; i++) {
         uint32_t size = mod_list[i].mod_end - mod_list[i].mod_start;
-        void *start = BootMemory::map(mod_list[i].mod_start, size);
+        void *start = BootMemory::map(PhysAddr(mod_list[i].mod_start), size);
         if (!start) {
             Logger::error("Module %u is unreachable", i);
             continue;
@@ -42,7 +44,7 @@ void MultibootModuleLoader::init(const MBInfo *boot_info) {
         const char *name = UNNAMED_MODULE;
         if (mod_list[i].cmdline) {
             const char *mapped = static_cast<const char *>(
-                BootMemory::map(mod_list[i].cmdline, MODULE_NAME_MAP_SIZE));
+                BootMemory::map(PhysAddr(mod_list[i].cmdline), MODULE_NAME_MAP_SIZE));
             if (mapped) name = mapped;
         }
 

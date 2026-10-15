@@ -4,6 +4,8 @@
 
 namespace cock::arch::x86 {
 
+using core::memory::PhysAddr;
+
 PageTable BootMemory::window;
 uint32_t BootMemory::nextPage = 0;
 
@@ -14,7 +16,8 @@ void BootMemory::init() {
 		window_phys | PRESENT | WRITEABLE;
 }
 
-void *BootMemory::map(uint32_t phys, uint32_t size) {
+void *BootMemory::map(PhysAddr address, uint32_t size) {
+	uint32_t phys = address.raw();
 	if (size == 0) size = 1;
 
 	uint32_t end = phys + size;

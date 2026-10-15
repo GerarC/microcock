@@ -16,6 +16,7 @@ using core::task::Scheduler;
 using core::task::Thread;
 using ipc::Message;
 using ipc::MessageType;
+using memory::VirtAddr;
 using memory::VirtualMemoryManager;
 
 constexpr uintptr_t STDOUT_FD = 1;
@@ -48,7 +49,7 @@ uintptr_t sys_write(uintptr_t fd, uintptr_t buf_ptr, uintptr_t count, uintptr_t,
 
 	Thread *current = Scheduler::getCurrentThread();
 	if (!current) return FAILURE;
-	if (!VirtualMemoryManager::isUserRangeValid(buf_ptr, count, false,
+	if (!VirtualMemoryManager::isUserRangeValid(VirtAddr(buf_ptr), count, false,
 												current->getUserSpaceLimit()))
 		return FAILURE;
 

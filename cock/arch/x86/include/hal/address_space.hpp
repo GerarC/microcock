@@ -5,6 +5,9 @@
 
 namespace cock::core::hal {
 
+using PhysicalRaw = uint32_t;
+using VirtualRaw = uintptr_t;
+
 constexpr uintptr_t USER_SPACE_LIMIT_ELF32 = 0xC0000000;
 constexpr uintptr_t USER_SPACE_LIMIT_ELF64 = 0;
 constexpr uintptr_t USER_SPACE_LIMIT =

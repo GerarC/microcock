@@ -2,6 +2,7 @@
 #define ARCH_X86_BOOT_MEMORY_HPP
 
 #include <cock/arch/x86/memory/paging.hpp>
+#include <cock/core/memory/address.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -10,7 +11,7 @@ namespace cock::arch::x86 {
 class BootMemory {
   public:
 	static void init();
-	static void *map(uint32_t phys, uint32_t size);
+	static void *map(core::memory::PhysAddr phys, uint32_t size);
 
   private:
 	static PageTable window;

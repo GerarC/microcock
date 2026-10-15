@@ -9,6 +9,8 @@
 
 namespace cock::core::syscall {
 
+using core::memory::PhysAddr;
+using core::memory::VirtAddr;
 using core::memory::VirtualMemoryManager;
 using core::memory::VMMPermission;
 using core::task::Scheduler;
@@ -29,21 +31,21 @@ static bool pages_for(uintptr_t length, size_t &pages) {
 }
 
 static uintptr_t image_limit(const Thread &thread) {
-	return thread.getUserSpaceLimit() - task::USER_STACK_SIZE;
+	return thread.getUserSpaceLimit().raw() - task::USER_STACK_SIZE;
 }
 
 static uintptr_t map_anonymous(Thread &current, size_t pages) {
-	uintptr_t base = current.getMmapCursor();
-	if (pages > (image_limit(current) - base) >> hal::PAGE_SHIFT)
+	VirtAddr base = current.getMmapCursor();
+	if (pages > (image_limit(current) - base.raw()) >> hal::PAGE_SHIFT)
 		return FAILURE;
 
-	void *mapped = VirtualMemoryManager::mapPagesAt(
+	VirtAddr mapped = VirtualMemoryManager::mapPagesAt(
 		base, pages, VMMPermission::USER_DATA, current.getUserSpaceLimit());
-	if (!mapped) return FAILURE;
+	if (mapped.isNull()) return FAILURE;
 
 	current.setMmapCursor(base + (pages << hal::PAGE_SHIFT));
 	current.addMemoryRegion(base, pages);
-	return base;
+	return base.raw();
 }
 
 static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
@@ -53,32 +55,32 @@ static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 		return FAILURE;
 	}
 
-	uintptr_t virt = addr & ~hal::PAGE_MASK;
-	uintptr_t phys = offset & ~hal::PAGE_MASK;
+	VirtAddr virt = VirtAddr(addr).pageBase();
+	PhysAddr phys = PhysAddr(static_cast<hal::PhysicalRaw>(offset)).pageBase();
 	size_t span = pages << hal::PAGE_SHIFT;
 
-	if (phys < LEGACY_VIDEO_START || phys > LEGACY_VIDEO_END ||
-		span > LEGACY_VIDEO_END - phys) {
+	if (phys.raw() < LEGACY_VIDEO_START || phys.raw() > LEGACY_VIDEO_END ||
+		span > LEGACY_VIDEO_END - phys.raw()) {
 		Logger::warn("sys_mmap: PID %d tried to map physical 0x%x outside the "
 					 "video window",
-					 current.getId(), phys);
+					 current.getId(), phys.raw());
 		return FAILURE;
 	}
-	if (virt < MIN_USER_ADDRESS || virt > image_limit(current) ||
-		span > image_limit(current) - virt)
+	if (virt.raw() < MIN_USER_ADDRESS || virt.raw() > image_limit(current) ||
+		span > image_limit(current) - virt.raw())
 		return FAILURE;
 
 	for (size_t idx = 0; idx < pages; idx++) {
-		uintptr_t step = idx << hal::PAGE_SHIFT;
+		size_t step = idx << hal::PAGE_SHIFT;
 		if (!VirtualMemoryManager::map(
 				phys + step, virt + step,
 				VMMPermission::USER_DATA | VMMPermission::DEVICE)) {
-			VirtualMemoryManager::freePages(reinterpret_cast<void *>(virt), idx);
+			VirtualMemoryManager::freePages(virt.as<void>(), idx);
 			return FAILURE;
 		}
 	}
 	current.addMemoryRegion(virt, pages);
-	return virt;
+	return virt.raw();
 }
 
 uintptr_t sys_mmap(uintptr_t addr, uintptr_t length, uintptr_t prot,
@@ -104,8 +106,9 @@ uintptr_t sys_munmap(uintptr_t addr, uintptr_t length, uintptr_t, uintptr_t,
 	if (!current || (addr & hal::PAGE_MASK) != 0 || !pages_for(length, pages))
 		return FAILURE;
 
-	if (!current->takeMemoryRegion(addr, pages)) return FAILURE;
-	VirtualMemoryManager::freePages(reinterpret_cast<void *>(addr), pages);
+	VirtAddr region(addr);
+	if (!current->takeMemoryRegion(region, pages)) return FAILURE;
+	VirtualMemoryManager::freePages(region.as<void>(), pages);
 	return 0;
 }
 

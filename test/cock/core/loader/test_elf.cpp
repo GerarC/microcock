@@ -32,6 +32,8 @@ using core::loader::ELF_TYPE_EXEC;
 using core::loader::ELF_VERSION_CURRENT;
 using core::loader::load_executable;
 using core::loader::LoadedImage;
+using core::memory::PhysAddr;
+using core::memory::VirtAddr;
 using core::memory::VirtualMemoryManager;
 
 namespace {
@@ -57,6 +59,11 @@ constexpr uint16_t MACHINE_STEP = 1;
 constexpr uint32_t FLAG_READ = 4;
 constexpr uint32_t FLAGS_READ_WRITE = ELF_PF_WRITE | FLAG_READ;
 constexpr uint32_t HEADER_VERSION = 1;
+
+bool user_range_ok(uintptr_t ptr, size_t length, bool write, uintptr_t limit) {
+	return VirtualMemoryManager::isUserRangeValid(VirtAddr(ptr), length, write,
+												  VirtAddr(limit));
+}
 
 template <typename Format> struct File {
 	typename Format::Header header;
@@ -96,20 +103,20 @@ void make_valid(File<Format> &file, uintptr_t vaddr, uint32_t flags) {
 }
 
 template <typename Format>
-bool loads(const File<Format> &file, uintptr_t address_space,
+bool loads(const File<Format> &file, PhysAddr address_space,
 		   LoadedImage &out) {
 	return load_executable(&file, sizeof(file), address_space, out);
 }
 
 template <typename Format>
-bool rejected(const File<Format> &file, uintptr_t address_space,
+bool rejected(const File<Format> &file, PhysAddr address_space,
 			  size_t size = sizeof(File<Format>)) {
 	LoadedImage out;
 	bool result = load_executable(&file, size, address_space, out);
-	return !result && out.entry == 0 && out.user_space_limit == 0;
+	return !result && out.entry.isNull() && out.user_space_limit.isNull();
 }
 
-template <typename Format> void check_rejections(uintptr_t as) {
+template <typename Format> void check_rejections(PhysAddr as) {
 	constexpr uintptr_t limit = Format::USER_SPACE_LIMIT;
 	constexpr uintptr_t image_limit = limit - core::task::USER_STACK_SIZE;
 	File<Format> file;
@@ -177,20 +184,20 @@ template <typename Format> void check_rejections(uintptr_t as) {
 	EXPECT_TRUE(rejected(file, as));
 }
 
-template <typename Format> void check_load(uintptr_t as) {
+template <typename Format> void check_load(PhysAddr as) {
 	constexpr uintptr_t limit = Format::USER_SPACE_LIMIT;
 	File<Format> file;
 	LoadedImage out;
 
 	make_valid(file, CODE_ADDRESS, FLAGS_READ_WRITE);
 	EXPECT_TRUE(loads(file, as, out));
-	EXPECT_EQ(CODE_ADDRESS, out.entry);
-	EXPECT_EQ(limit, out.user_space_limit);
+	EXPECT_EQ(CODE_ADDRESS, out.entry.raw());
+	EXPECT_EQ(limit, out.user_space_limit.raw());
 
-	uintptr_t old_cr3 = core::hal::get_current_address_space();
+	PhysAddr old_cr3 = core::hal::get_current_address_space();
 	core::hal::switch_address_space(as);
 
-	bool writable = VirtualMemoryManager::isUserRangeValid(
+	bool writable = user_range_ok(
 		CODE_ADDRESS, MEMORY_SIZE, true, limit);
 	bool intact = writable;
 	if (writable) {
@@ -207,16 +214,16 @@ template <typename Format> void check_load(uintptr_t as) {
 
 	make_valid(file, READONLY_ADDRESS, FLAG_READ);
 	EXPECT_TRUE(loads(file, as, out));
-	EXPECT_EQ(READONLY_ADDRESS, out.entry);
+	EXPECT_EQ(READONLY_ADDRESS, out.entry.raw());
 
 	core::hal::switch_address_space(as);
-	bool read_ok = VirtualMemoryManager::isUserRangeValid(
+	bool read_ok = user_range_ok(
 		READONLY_ADDRESS, MEMORY_SIZE, false, limit);
-	bool write_ok = VirtualMemoryManager::isUserRangeValid(
+	bool write_ok = user_range_ok(
 		READONLY_ADDRESS, MEMORY_SIZE, true, limit);
-	bool under_small_limit = VirtualMemoryManager::isUserRangeValid(
+	bool under_small_limit = user_range_ok(
 		READONLY_ADDRESS, PAYLOAD_SIZE, false, PER_PROCESS_LIMIT);
-	bool crossing_limit = VirtualMemoryManager::isUserRangeValid(
+	bool crossing_limit = user_range_ok(
 		limit - core::hal::PAGE_SIZE, TWO_PAGES * core::hal::PAGE_SIZE, false,
 		limit);
 	core::hal::switch_address_space(old_cr3);
@@ -228,7 +235,7 @@ template <typename Format> void check_load(uintptr_t as) {
 }
 
 template <typename Small, typename Large>
-void check_class_limits(uintptr_t as) {
+void check_class_limits(PhysAddr as) {
 	constexpr uintptr_t small_limit = Small::USER_SPACE_LIMIT;
 	constexpr uintptr_t middle =
 		small_limit - core::task::USER_STACK_SIZE + core::hal::PAGE_SIZE;
@@ -241,10 +248,10 @@ void check_class_limits(uintptr_t as) {
 
 	make_valid(large_file, middle, FLAGS_READ_WRITE);
 	EXPECT_TRUE(loads(large_file, as, out));
-	EXPECT_EQ(Large::USER_SPACE_LIMIT, out.user_space_limit);
+	EXPECT_EQ(Large::USER_SPACE_LIMIT, out.user_space_limit.raw());
 }
 
-template <typename Format> void check_unsupported(uintptr_t as) {
+template <typename Format> void check_unsupported(PhysAddr as) {
 	File<Format> file;
 	make_valid(file, CODE_ADDRESS, FLAGS_READ_WRITE);
 	EXPECT_TRUE(rejected(file, as));
@@ -255,9 +262,9 @@ template <typename Format> void check_unsupported(uintptr_t as) {
 void test_elf_loader() {
 	TestRunner::begin_suite("ELF loader (ELF32 / ELF64)");
 
-	uintptr_t as = VirtualMemoryManager::createAddressSpace();
-	EXPECT_TRUE(as != NULL_ADDRESS);
-	if (as == NULL_ADDRESS) {
+	PhysAddr as = VirtualMemoryManager::createAddressSpace();
+	EXPECT_FALSE(as.isNull());
+	if (as.isNull()) {
 		TestRunner::end_suite();
 		return;
 	}
@@ -268,7 +275,7 @@ void test_elf_loader() {
 	File<Elf32> probe;
 	make_valid(probe, CODE_ADDRESS, FLAGS_READ_WRITE);
 	EXPECT_FALSE(load_executable(nullptr, sizeof(probe), as, out));
-	EXPECT_FALSE(load_executable(&probe, sizeof(probe), NULL_ADDRESS, out));
+	EXPECT_FALSE(load_executable(&probe, sizeof(probe), PhysAddr(), out));
 	probe.header.ident[ELF_IDENT_CLASS] = UNKNOWN_CLASS;
 	EXPECT_TRUE(rejected(probe, as));
 
