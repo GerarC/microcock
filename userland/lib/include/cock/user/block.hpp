@@ -30,6 +30,8 @@ struct DeviceInfo {
 
 class Client {
   public:
+	void (*onForeign)(const Message &) = nullptr;
+
 	bool connect() {
 		server = lookup(abi::block::SERVER_NAME);
 		if (server == NO_PROCESS) return false;
@@ -86,10 +88,13 @@ class Client {
 		if (!ipc_send(server, request)) return false;
 
 		Message answer = {};
-		do {
+		for (;;) {
 			if (!ipc_recv(answer)) return false;
-		} while (answer.type != MessageType::BLK_REPLY || answer.sender_pid != server ||
-				 answer.payload.args.arg0 != id);
+			if (answer.type == MessageType::BLK_REPLY && answer.sender_pid == server &&
+				answer.payload.args.arg0 == id)
+				break;
+			if (onForeign != nullptr) onForeign(answer);
+		}
 
 		reply.status = static_cast<Status>(answer.payload.args.arg1);
 		reply.first = answer.payload.args.arg2;

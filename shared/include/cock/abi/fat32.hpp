@@ -1,0 +1,357 @@
+#ifndef SHARED_COCK_ABI_FAT32_HPP
+#define SHARED_COCK_ABI_FAT32_HPP
+
+#include <stddef.h>
+#include <stdint.h>
+
+namespace cock::abi::fat32 {
+
+constexpr size_t SECTOR_BYTES = 512;
+constexpr size_t ENTRY_BYTES = 32;
+constexpr size_t ENTRIES_PER_SECTOR = SECTOR_BYTES / ENTRY_BYTES;
+constexpr size_t FAT_ENTRY_BYTES = 4;
+constexpr size_t FAT_ENTRIES_PER_SECTOR = SECTOR_BYTES / FAT_ENTRY_BYTES;
+
+constexpr size_t BPB_SECTOR_BYTES_OFFSET = 11;
+constexpr size_t BPB_CLUSTER_SECTORS_OFFSET = 13;
+constexpr size_t BPB_RESERVED_OFFSET = 14;
+constexpr size_t BPB_FAT_COUNT_OFFSET = 16;
+constexpr size_t BPB_ROOT_ENTRIES_OFFSET = 17;
+constexpr size_t BPB_TOTAL16_OFFSET = 19;
+constexpr size_t BPB_FAT_SIZE16_OFFSET = 22;
+constexpr size_t BPB_TOTAL32_OFFSET = 32;
+constexpr size_t BPB_FAT_SIZE32_OFFSET = 36;
+constexpr size_t BPB_VERSION_OFFSET = 42;
+constexpr size_t BPB_ROOT_CLUSTER_OFFSET = 44;
+constexpr size_t BPB_SIGNATURE_OFFSET = 510;
+constexpr uint8_t BPB_SIGNATURE_FIRST = 0x55;
+constexpr uint8_t BPB_SIGNATURE_SECOND = 0xAA;
+constexpr size_t BPB_SIGNATURE_SECOND_STEP = 1;
+constexpr uint32_t MAX_CLUSTER_SECTORS = 128;
+constexpr uint32_t MAX_FAT_COUNT = 4;
+constexpr uint32_t MIN_FAT32_CLUSTERS = 65525;
+constexpr uint32_t MAX_FAT32_CLUSTERS = 0x0FFFFFF5;
+constexpr uint32_t FIRST_DATA_CLUSTER = 2;
+
+constexpr uint32_t FAT_VALUE_MASK = 0x0FFFFFFF;
+constexpr uint32_t FAT_END_OF_CHAIN_MIN = 0x0FFFFFF8;
+constexpr uint32_t FAT_BAD_CLUSTER = 0x0FFFFFF7;
+
+constexpr uint8_t DIRECTORY_END = 0x00;
+constexpr uint8_t DIRECTORY_DELETED = 0xE5;
+constexpr uint8_t DIRECTORY_KANJI_ESCAPE = 0x05;
+constexpr size_t ENTRY_NAME_OFFSET = 0;
+constexpr size_t ENTRY_BASE_BYTES = 8;
+constexpr size_t ENTRY_EXTENSION_BYTES = 3;
+constexpr size_t ENTRY_SHORT_NAME_BYTES = ENTRY_BASE_BYTES + ENTRY_EXTENSION_BYTES;
+constexpr size_t ENTRY_ATTRIBUTES_OFFSET = 11;
+constexpr size_t ENTRY_CASE_OFFSET = 12;
+constexpr size_t ENTRY_CLUSTER_HIGH_OFFSET = 20;
+constexpr size_t ENTRY_CLUSTER_LOW_OFFSET = 26;
+constexpr size_t ENTRY_SIZE_OFFSET = 28;
+constexpr uint8_t CASE_LOWER_BASE = 0x08;
+constexpr uint8_t CASE_LOWER_EXTENSION = 0x10;
+constexpr uint8_t ATTRIBUTE_VOLUME_LABEL = 0x08;
+constexpr uint8_t ATTRIBUTE_DIRECTORY = 0x10;
+constexpr uint8_t ATTRIBUTE_LONG_NAME = 0x0F;
+constexpr uint8_t ATTRIBUTE_LONG_NAME_MASK = 0x3F;
+constexpr char SPACE = ' ';
+constexpr char DOT = '.';
+constexpr char UNKNOWN_CHARACTER = '?';
+
+constexpr uint8_t LONG_LAST_FLAG = 0x40;
+constexpr uint8_t LONG_INDEX_MASK = 0x1F;
+constexpr size_t LONG_CHECKSUM_OFFSET = 13;
+constexpr size_t LONG_CHARS_PER_ENTRY = 13;
+constexpr size_t LONG_MAX_ENTRIES = 20;
+constexpr size_t LONG_CHAR_BYTES = 2;
+constexpr size_t LONG_FIRST_GROUP_OFFSET = 1;
+constexpr size_t LONG_FIRST_GROUP_CHARS = 5;
+constexpr size_t LONG_SECOND_GROUP_OFFSET = 14;
+constexpr size_t LONG_SECOND_GROUP_CHARS = 6;
+constexpr size_t LONG_THIRD_GROUP_OFFSET = 28;
+constexpr size_t LONG_THIRD_GROUP_CHARS = 2;
+constexpr uint16_t LONG_ASCII_LIMIT = 0x80;
+constexpr uint16_t LONG_NAME_END = 0x0000;
+constexpr size_t MAX_NAME_CHARS = LONG_MAX_ENTRIES * LONG_CHARS_PER_ENTRY;
+constexpr size_t MAX_NAME_BYTES = MAX_NAME_CHARS + 1;
+constexpr unsigned CHECKSUM_RIGHT_SHIFT = 1;
+constexpr unsigned CHECKSUM_LEFT_SHIFT = 7;
+constexpr uint8_t CHECKSUM_BYTE_MASK = 0xFF;
+constexpr char LETTER_UPPER_A = 'A';
+constexpr char LETTER_UPPER_Z = 'Z';
+constexpr char LETTER_LOWER_A = 'a';
+constexpr char CASE_DISTANCE = LETTER_LOWER_A - LETTER_UPPER_A;
+constexpr size_t LONG_FIRST_INDEX = 1;
+constexpr size_t DOT_SECOND_BYTE = 1;
+constexpr size_t DOT_PADDING_START = 2;
+
+constexpr unsigned SHIFT_8 = 8;
+constexpr unsigned SHIFT_16 = 16;
+constexpr unsigned SHIFT_24 = 24;
+constexpr size_t THIRD_BYTE = 2;
+constexpr size_t FOURTH_BYTE = 3;
+
+enum class BpbError : uint32_t {
+	NONE = 0,
+	BAD_SIGNATURE,
+	BAD_SECTOR_SIZE,
+	BAD_CLUSTER_SIZE,
+	BAD_LAYOUT,
+	NOT_FAT32,
+};
+
+struct Bpb {
+	uint32_t sectorsPerCluster;
+	uint32_t reservedSectors;
+	uint32_t fatSectors;
+	uint32_t rootCluster;
+	uint32_t clusterCount;
+	uint32_t dataStart;
+	uint32_t totalSectors;
+
+	uint32_t clusterBytes() const { return sectorsPerCluster * uint32_t(SECTOR_BYTES); }
+
+	bool isDataCluster(uint32_t cluster) const {
+		return cluster >= FIRST_DATA_CLUSTER && cluster - FIRST_DATA_CLUSTER < clusterCount;
+	}
+
+	uint32_t clusterSector(uint32_t cluster) const {
+		return dataStart + (cluster - FIRST_DATA_CLUSTER) * sectorsPerCluster;
+	}
+};
+
+struct DirEntry {
+	char name[MAX_NAME_BYTES];
+	uint8_t attributes;
+	uint32_t cluster;
+	uint32_t size;
+
+	bool isDirectory() const { return (attributes & ATTRIBUTE_DIRECTORY) != 0; }
+};
+
+namespace detail {
+
+inline uint16_t readLe16(const uint8_t *bytes) {
+	return uint16_t(uint16_t(bytes[0]) | uint16_t(uint16_t(bytes[1]) << SHIFT_8));
+}
+
+inline uint32_t readLe32(const uint8_t *bytes) {
+	return uint32_t(bytes[0]) | (uint32_t(bytes[1]) << SHIFT_8) |
+		   (uint32_t(bytes[THIRD_BYTE]) << SHIFT_16) |
+		   (uint32_t(bytes[FOURTH_BYTE]) << SHIFT_24);
+}
+
+inline bool isPowerOfTwo(uint32_t value) { return value != 0 && (value & (value - 1)) == 0; }
+
+inline char lower(char character) {
+	return character >= LETTER_UPPER_A && character <= LETTER_UPPER_Z ? char(character + CASE_DISTANCE) : character;
+}
+
+} // namespace detail
+
+inline BpbError parseBpb(const uint8_t *sector, uint64_t partitionSectors, Bpb &bpb) {
+	if (sector[BPB_SIGNATURE_OFFSET] != BPB_SIGNATURE_FIRST ||
+		sector[BPB_SIGNATURE_OFFSET + BPB_SIGNATURE_SECOND_STEP] != BPB_SIGNATURE_SECOND)
+		return BpbError::BAD_SIGNATURE;
+	if (detail::readLe16(sector + BPB_SECTOR_BYTES_OFFSET) != SECTOR_BYTES)
+		return BpbError::BAD_SECTOR_SIZE;
+
+	uint32_t clusterSectors = sector[BPB_CLUSTER_SECTORS_OFFSET];
+	if (!detail::isPowerOfTwo(clusterSectors) || clusterSectors > MAX_CLUSTER_SECTORS)
+		return BpbError::BAD_CLUSTER_SIZE;
+
+	uint32_t reserved = detail::readLe16(sector + BPB_RESERVED_OFFSET);
+	uint32_t fatCount = sector[BPB_FAT_COUNT_OFFSET];
+	uint32_t fatSize = detail::readLe32(sector + BPB_FAT_SIZE32_OFFSET);
+	uint32_t total = detail::readLe16(sector + BPB_TOTAL16_OFFSET);
+	if (total == 0) total = detail::readLe32(sector + BPB_TOTAL32_OFFSET);
+
+	if (detail::readLe16(sector + BPB_ROOT_ENTRIES_OFFSET) != 0 ||
+		detail::readLe16(sector + BPB_FAT_SIZE16_OFFSET) != 0 || fatSize == 0)
+		return BpbError::NOT_FAT32;
+	if (detail::readLe16(sector + BPB_VERSION_OFFSET) != 0) return BpbError::BAD_LAYOUT;
+	if (reserved == 0 || fatCount == 0 || fatCount > MAX_FAT_COUNT || total == 0 ||
+		total > partitionSectors)
+		return BpbError::BAD_LAYOUT;
+
+	uint64_t overhead = uint64_t(reserved) + uint64_t(fatCount) * fatSize;
+	if (overhead >= total) return BpbError::BAD_LAYOUT;
+
+	uint32_t dataSectors = total - static_cast<uint32_t>(overhead);
+	uint32_t clusters = dataSectors / clusterSectors;
+	if (clusters < MIN_FAT32_CLUSTERS) return BpbError::NOT_FAT32;
+	if (clusters >= MAX_FAT32_CLUSTERS) return BpbError::BAD_LAYOUT;
+	if (uint64_t(fatSize) * FAT_ENTRIES_PER_SECTOR < uint64_t(clusters) + FIRST_DATA_CLUSTER)
+		return BpbError::BAD_LAYOUT;
+
+	uint32_t root = detail::readLe32(sector + BPB_ROOT_CLUSTER_OFFSET);
+	if (root < FIRST_DATA_CLUSTER || root - FIRST_DATA_CLUSTER >= clusters)
+		return BpbError::BAD_LAYOUT;
+
+	bpb.sectorsPerCluster = clusterSectors;
+	bpb.reservedSectors = reserved;
+	bpb.fatSectors = fatSize;
+	bpb.rootCluster = root;
+	bpb.clusterCount = clusters;
+	bpb.dataStart = static_cast<uint32_t>(overhead);
+	bpb.totalSectors = total;
+	return BpbError::NONE;
+}
+
+inline uint32_t fatValue(const uint8_t *fatSector, uint32_t indexInSector) {
+	return detail::readLe32(fatSector + size_t(indexInSector) * FAT_ENTRY_BYTES) &
+		   FAT_VALUE_MASK;
+}
+
+inline bool isEndOfChain(uint32_t value) { return value >= FAT_END_OF_CHAIN_MIN; }
+
+inline bool namesEqual(const char *first, const char *second) {
+	size_t index = 0;
+	for (; first[index] != '\0' && second[index] != '\0'; index++)
+		if (detail::lower(first[index]) != detail::lower(second[index])) return false;
+	return first[index] == second[index];
+}
+
+inline uint8_t shortNameChecksum(const uint8_t *shortName) {
+	uint8_t sum = 0;
+	for (size_t index = 0; index < ENTRY_SHORT_NAME_BYTES; index++)
+		sum = uint8_t(((sum >> CHECKSUM_RIGHT_SHIFT) | (sum << CHECKSUM_LEFT_SHIFT)) &
+					  CHECKSUM_BYTE_MASK) +
+			  shortName[index];
+	return sum;
+}
+
+class DirectoryParser {
+  public:
+	enum class Result : uint32_t {
+		SKIP = 0,
+		ENTRY = 1,
+		END = 2,
+	};
+
+	void reset() { clearLongName(); }
+
+	Result feed(const uint8_t *raw, DirEntry &entry) {
+		if (raw[ENTRY_NAME_OFFSET] == DIRECTORY_END) return Result::END;
+		if (raw[ENTRY_NAME_OFFSET] == DIRECTORY_DELETED) {
+			clearLongName();
+			return Result::SKIP;
+		}
+
+		uint8_t attributes = raw[ENTRY_ATTRIBUTES_OFFSET];
+		if ((attributes & ATTRIBUTE_LONG_NAME_MASK) == ATTRIBUTE_LONG_NAME) {
+			addLongPart(raw);
+			return Result::SKIP;
+		}
+
+		bool labeled = (attributes & ATTRIBUTE_VOLUME_LABEL) != 0;
+		bool useLong = nextIndex == LONG_FIRST_INDEX && checksum == shortNameChecksum(raw);
+		bool dotEntry = raw[ENTRY_NAME_OFFSET] == uint8_t(DOT);
+		if (labeled || (dotEntry && !useLong && isDotName(raw))) {
+			clearLongName();
+			return Result::SKIP;
+		}
+
+		if (useLong)
+			copyLongName(entry);
+		else
+			buildShortName(raw, entry);
+		clearLongName();
+
+		entry.attributes = attributes;
+		entry.cluster = (uint32_t(detail::readLe16(raw + ENTRY_CLUSTER_HIGH_OFFSET))
+						 << SHIFT_16) |
+						detail::readLe16(raw + ENTRY_CLUSTER_LOW_OFFSET);
+		entry.size = detail::readLe32(raw + ENTRY_SIZE_OFFSET);
+		return Result::ENTRY;
+	}
+
+  private:
+	uint16_t longName[MAX_NAME_CHARS + 1];
+	size_t nextIndex = 0;
+	size_t longLength = 0;
+	uint8_t checksum = 0;
+
+	void clearLongName() {
+		nextIndex = 0;
+		longLength = 0;
+	}
+
+	static bool isDotName(const uint8_t *raw) {
+		if (raw[DOT_SECOND_BYTE] == uint8_t(SPACE)) return true;
+		if (raw[DOT_SECOND_BYTE] != uint8_t(DOT)) return false;
+		for (size_t index = DOT_PADDING_START; index < ENTRY_SHORT_NAME_BYTES; index++)
+			if (raw[index] != uint8_t(SPACE)) return false;
+		return true;
+	}
+
+	void addLongPart(const uint8_t *raw) {
+		uint8_t order = raw[ENTRY_NAME_OFFSET];
+		size_t index = order & LONG_INDEX_MASK;
+		if ((order & LONG_LAST_FLAG) != 0) {
+			if (index == 0 || index > LONG_MAX_ENTRIES) return clearLongName();
+			clearLongName();
+			checksum = raw[LONG_CHECKSUM_OFFSET];
+			longLength = index * LONG_CHARS_PER_ENTRY;
+		} else if (nextIndex == 0 || index != nextIndex - 1 ||
+				   raw[LONG_CHECKSUM_OFFSET] != checksum) {
+			return clearLongName();
+		}
+
+		nextIndex = index;
+		uint16_t *target = longName + (index - 1) * LONG_CHARS_PER_ENTRY;
+		copyGroup(raw + LONG_FIRST_GROUP_OFFSET, LONG_FIRST_GROUP_CHARS, target);
+		copyGroup(raw + LONG_SECOND_GROUP_OFFSET, LONG_SECOND_GROUP_CHARS,
+				  target + LONG_FIRST_GROUP_CHARS);
+		copyGroup(raw + LONG_THIRD_GROUP_OFFSET, LONG_THIRD_GROUP_CHARS,
+				  target + LONG_FIRST_GROUP_CHARS + LONG_SECOND_GROUP_CHARS);
+	}
+
+	static void copyGroup(const uint8_t *source, size_t chars, uint16_t *target) {
+		for (size_t index = 0; index < chars; index++)
+			target[index] = detail::readLe16(source + index * LONG_CHAR_BYTES);
+	}
+
+	void copyLongName(DirEntry &entry) const {
+		size_t length = 0;
+		for (; length < longLength && longName[length] != LONG_NAME_END; length++)
+			entry.name[length] = longName[length] < LONG_ASCII_LIMIT
+									 ? char(longName[length])
+									 : UNKNOWN_CHARACTER;
+		entry.name[length] = '\0';
+	}
+
+	static void buildShortName(const uint8_t *raw, DirEntry &entry) {
+		uint8_t flags = raw[ENTRY_CASE_OFFSET];
+		size_t length = 0;
+		size_t baseLength = ENTRY_BASE_BYTES;
+		while (baseLength > 0 && raw[baseLength - 1] == uint8_t(SPACE))
+			baseLength--;
+		for (size_t index = 0; index < baseLength; index++) {
+			char character = char(raw[index]);
+			if (index == ENTRY_NAME_OFFSET && raw[ENTRY_NAME_OFFSET] == DIRECTORY_KANJI_ESCAPE)
+				character = char(DIRECTORY_DELETED);
+			entry.name[length++] = (flags & CASE_LOWER_BASE) != 0
+									   ? detail::lower(character)
+									   : character;
+		}
+
+		size_t extensionLength = ENTRY_EXTENSION_BYTES;
+		while (extensionLength > 0 &&
+			   raw[ENTRY_BASE_BYTES + extensionLength - 1] == uint8_t(SPACE))
+			extensionLength--;
+		if (extensionLength > 0) entry.name[length++] = DOT;
+		for (size_t index = 0; index < extensionLength; index++) {
+			char character = char(raw[ENTRY_BASE_BYTES + index]);
+			entry.name[length++] = (flags & CASE_LOWER_EXTENSION) != 0
+									   ? detail::lower(character)
+									   : character;
+		}
+		entry.name[length] = '\0';
+	}
+};
+
+} // namespace cock::abi::fat32
+
+#endif // !SHARED_COCK_ABI_FAT32_HPP

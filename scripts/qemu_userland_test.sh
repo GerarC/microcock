@@ -11,14 +11,14 @@ FILE_CLIENT_RUNS=10
 DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
 EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 33/33 checks passed|abCd"
-EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|init: manifest has 8 entries|init: configured vga_driver|init: started kbd|init: started ata|init: started probe|kbd: ready|VGA driver detected|reaped"
+EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|init: manifest has 11 entries|init: configured vga_driver|init: started kbd|init: started ata|init: started fat|init: started vfs|vfs: 2 mounts|init: started probe|kbd: ready|VGA driver detected|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"
 case "$DISK_SCHEME" in
 	gpt) PARTITION_KIND=$KIND_GPT_PARTITION ;;
 	*) PARTITION_KIND=$KIND_MBR_PARTITION ;;
 esac
-EXPECTED_SERIAL_TEXT="$EXPECTED_SERIAL_TEXT|ata: $DISK_SECTORS sectors, $DEVICE_COUNT devices|blkclient: device 0: kind $KIND_DISK first $DISK_FIRST_SECTOR sectors $DISK_SECTORS|blkclient: device 1: kind $PARTITION_KIND first $FIRST_START sectors $FIRST_SECTORS|blkclient: device 2: kind $PARTITION_KIND first $SECOND_START sectors $SECOND_SECTORS|blkclient: sector says $MARKER_TEXT|blkclient: ok"
+EXPECTED_SERIAL_TEXT="$EXPECTED_SERIAL_TEXT|ata: $DISK_SECTORS sectors, $DEVICE_COUNT devices|blkclient: device 0: kind $KIND_DISK first $DISK_FIRST_SECTOR sectors $DISK_SECTORS|blkclient: device 1: kind $PARTITION_KIND first $FIRST_START sectors $FIRST_SECTORS|blkclient: device 2: kind $PARTITION_KIND first $SECOND_START sectors $SECOND_SECTORS|blkclient: sector says $MARKER_TEXT|blkclient: ok|fat: device $FAT_DEVICE,|fatclient: hello says $FAT_HELLO_TEXT|fatclient: ok"
 
 make clean "$@" > /dev/null
 make iso "$@" || exit 2

@@ -90,7 +90,7 @@ To build and run MicroCOCK, you need a standard i686-elf cross-compiler toolchai
 * `nasm`
 * `grub-mkrescue` (and `xorriso`, `mtools`)
 * `qemu-system-i386`
-* `python3` and `sfdisk` from `util-linux` (only for the userland end to end test, which builds a test disk)
+* `python3`, `sfdisk` from `util-linux` and `mformat`/`mcopy` from `mtools` (only for the userland end to end test, which builds a test disk)
 
 Without a cross-compiler, the host `g++` and `ld` with `-m32` work too (`HOST_TOOLCHAIN=1`); install `gcc-multilib` and `g++-multilib`.
 
@@ -232,7 +232,7 @@ The file system lives outside the kernel, as servers that talk by IPC. The kerne
 - [x] **F4** `spawn`: `init` starts the programs from files instead of from boot modules, and `ramfs` releases the sessions of dead clients.
 - [x] **F5** A manifest read by `init` that lists each program and its capabilities. Adding a driver becomes adding a line.
 - [x] **F6** ATA driver (PIO), a block protocol and partition tables (MBR and GPT).
-- [ ] **F7** FAT32 server (read only first) and a `vfs` with a mount table.
+- [x] **F7** FAT32 server (read only first) and a `vfs` with a mount table.
 - [ ] **F8** `ext` server, ext2 read only.
 - [ ] **F9** Writing for FAT32 and ext2.
 - [ ] **F10** `open`, `read`, `write` and `close` in the C library, over the file client.
@@ -258,3 +258,4 @@ For more detailed information regarding specific subsystems, please check the `d
 * [VGA](documentation/vga.md): Kernel console and the userland display server.
 * [Keyboard](documentation/keyboard.md): The PS/2 driver in userland and how an interrupt reaches it.
 * [Block storage](documentation/block_storage.md): The ATA driver, partition tables and the block protocol.
+* [FAT32](documentation/fat32.md): The FAT32 server and how the `vfs` joins it to the initrd.

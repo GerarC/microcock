@@ -6,7 +6,9 @@
 
 namespace cock::abi::fs {
 
-constexpr const char *SERVER_NAME = "ramfs";
+constexpr const char *SERVER_NAME = "vfs";
+constexpr const char *RAMFS_SERVER_NAME = "ramfs";
+constexpr const char *FAT_SERVER_NAME = "fat";
 constexpr const char *INITRD_MODULE_NAME = "initrd";
 
 constexpr size_t WINDOW_PAGE_BYTES = 0x1000;
@@ -27,6 +29,7 @@ enum class Status : uint32_t {
 	OUT_OF_RANGE = 5,
 	NO_SPACE = 6,
 	UNSUPPORTED = 7,
+	IO_ERROR = 8,
 };
 
 enum class FileType : uint32_t {
