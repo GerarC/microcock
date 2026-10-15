@@ -208,7 +208,8 @@ The path the project follows, in order. `[x]` is done, `[ ]` is planned.
 ### Next
 - [x] Tests for the physical memory manager, the scheduler, IPC and the reaper, and host-side tests for the shared data structures.
 - [x] **C library basics for programs:** `printf` with buffered output, and `malloc`, `calloc`, `realloc`, `free` and `operator new`.
-- [ ] A separate stack for double fault and NMI, and a generation counter in process ids.
+- [x] A separate stack for double fault and NMI.
+- [ ] A generation counter in process ids.
 
 ### File system
 The file system lives outside the kernel, as servers that talk by IPC. The kernel only gains small general mechanisms. The first one is a read-only initial RAM disk; a disk comes after it, on the same protocol.

@@ -26,7 +26,7 @@ void IDT::init() {
 }
 ```
 
-Every gate is an interrupt gate, so the CPU clears the interrupt flag on entry and handlers never nest. Only the system call gate (`0x80`) can be raised from Ring 3; an `int` to any other vector from a program is a general protection fault.
+The gates of vector 2 (NMI) and vector 8 (double fault) are task gates (`0x85`) whose selectors point to the fault TSSs of the GDT, so those two run on their own stack; see [gdt](gdt.md#fault-tasks). Every other gate is an interrupt gate, so the CPU clears the interrupt flag on entry and handlers never nest. Only the system call gate (`0x80`) can be raised from Ring 3; an `int` to any other vector from a program is a general protection fault.
 
 ## The stubs
 `isr.s` and `irq.s` hold one small stub per vector. All of them go through a common path that:
