@@ -16,9 +16,17 @@ using core::task::Scheduler;
 using core::task::Thread;
 using core::task::ThreadState;
 using ipc::Message;
+using ipc::MessageType;
 
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 constexpr uintptr_t SUCCESS = 0;
+
+static bool sender_may_use(const Thread &thread, MessageType type) {
+	if (type == MessageType::IRQ_NOTIFICATION) return false;
+	if (type == MessageType::CAPABILITY_GRANTED)
+		return thread.getProcess()->getCapabilities().holdsGrantAuthority();
+	return true;
+}
 
 static bool user_message_ok(const Thread &thread, uintptr_t ptr, bool write) {
 	return VirtualMemoryManager::isUserRangeValid(VirtAddr(ptr), sizeof(Message), write,
@@ -32,6 +40,7 @@ uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
 
 	Message message;
 	memcpy(&message, reinterpret_cast<const void *>(msg_ptr), sizeof(message));
+	if (!sender_may_use(*current, message.type)) return FAILURE;
 	return IPC::deliver(static_cast<uint32_t>(to_pid), message) ? SUCCESS
 																: FAILURE;
 }
@@ -42,7 +51,13 @@ uintptr_t sys_ipc_recv(uintptr_t msg_ptr, uintptr_t, uintptr_t, uintptr_t,
 	if (!current || !user_message_ok(*current, msg_ptr, true)) return FAILURE;
 
 	Message message = {};
-	if (!current->getNextMessage(message)) {
+	uint32_t line = 0;
+	if (current->takeNotification(line)) {
+		message.sender_pid = ipc::KERNEL_SENDER;
+		message.target_pid = current->getId();
+		message.type = MessageType::IRQ_NOTIFICATION;
+		message.payload.args.arg0 = line;
+	} else if (!current->getNextMessage(message)) {
 		current->setState(ThreadState::WAITING_MSG);
 		Scheduler::requestReschedule();
 		Scheduler::requestRestart();

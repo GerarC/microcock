@@ -7,6 +7,7 @@
 #include <cock/data_structure/intrusive_queue.hpp>
 #include <cock/data_structure/ring_buffer.hpp>
 #include <cock/ipc/message.hpp>
+#include <hal/interrupt.hpp>
 #include <hal/page.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -22,6 +23,9 @@ constexpr size_t USER_PAGES =
 	(MIN_USER_STACK_BYTES + hal::PAGE_MASK) >> hal::PAGE_SHIFT;
 constexpr size_t USER_STACK_SIZE = USER_PAGES << hal::PAGE_SHIFT;
 constexpr size_t THREAD_MESSAGE_BUFFER_SIZE = 0x10;
+
+static_assert(hal::IRQ_LINE_COUNT <= sizeof(uint32_t) * 8,
+			  "every interrupt line needs a bit in the pending mask");
 
 using cock::data_structure::IntrusiveQueue;
 using cock::data_structure::RingBuffer;
@@ -91,6 +95,7 @@ class Thread {
 	Process *process = nullptr;
 	void *stackBase = nullptr;
 	RingBuffer<Message, THREAD_MESSAGE_BUFFER_SIZE> inbox;
+	uint32_t pendingNotifications = 0;
 	void initBase(ThreadPriority priority, ThreadType type, Process *owner);
 
   public:
@@ -134,6 +139,17 @@ class Thread {
 	bool receiveMessage(const Message &msg) { return inbox.push(msg); }
 	bool getNextMessage(Message &out) { return inbox.pop(out); }
 	bool hasMessages() const { return !inbox.isEmpty(); }
+
+	void raiseNotification(uint32_t line) {
+		pendingNotifications |= uint32_t{1} << line;
+	}
+	bool takeNotification(uint32_t &line) {
+		if (pendingNotifications == 0) return false;
+		line = static_cast<uint32_t>(__builtin_ctz(pendingNotifications));
+		pendingNotifications &= ~(uint32_t{1} << line);
+		return true;
+	}
+	bool hasNotifications() const { return pendingNotifications != 0; }
 
 	Process *getProcess() const { return process; }
 	memory::PhysAddr getAddressSpace() const {

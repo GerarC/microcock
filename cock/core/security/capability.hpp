@@ -45,6 +45,15 @@ class CapabilitySet {
 		return find(type, first, count, true);
 	}
 
+	bool holdsGrantAuthority() const {
+		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++) {
+			if (entries[idx].type != CapabilityType::NONE &&
+				(entries[idx].flags & CAPABILITY_FLAG_GRANT))
+				return true;
+		}
+		return false;
+	}
+
 	void clear() {
 		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++)
 			entries[idx] = Capability();

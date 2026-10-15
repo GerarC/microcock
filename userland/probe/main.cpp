@@ -5,6 +5,8 @@
 #include <sys/mman.h>
 
 using cock::abi::CapabilityType;
+using cock::ipc::Message;
+using cock::ipc::MessageType;
 
 namespace {
 
@@ -25,7 +27,8 @@ constexpr uint8_t TEST_PATTERN = 0x5A;
 constexpr unsigned DECIMAL_BASE = 10;
 constexpr size_t NUMBER_BUFFER_SIZE = 12;
 constexpr long WRITE_FAILED = -1;
-constexpr size_t CHECK_COUNT = 9;
+constexpr size_t CHECK_COUNT = 12;
+constexpr uint32_t PING_VALUE = 0x5EED;
 constexpr int MUNMAP_FAILED = -1;
 constexpr uintptr_t EXIT_ALL_PASSED = 0;
 constexpr uintptr_t EXIT_SOME_FAILED = 1;
@@ -62,6 +65,27 @@ bool anonymousMemoryWorks() {
 	return zeroed && kept && released && !releasedTwice;
 }
 
+bool refusesReservedMessage(MessageType type) {
+	Message message = {};
+	message.type = type;
+	return !cock::user::ipc_send(cock::user::self(), message);
+}
+
+bool messageToSelfArrives() {
+	uint32_t self = cock::user::self();
+
+	Message sent = {};
+	sent.type = MessageType::SYS_PING;
+	sent.payload.args.arg0 = PING_VALUE;
+	if (!cock::user::ipc_send(self, sent)) return false;
+
+	Message received = {};
+	if (!cock::user::ipc_recv(received)) return false;
+	return received.type == MessageType::SYS_PING &&
+		   received.sender_pid == self &&
+		   received.payload.args.arg0 == PING_VALUE;
+}
+
 } // namespace
 
 extern "C" void _start() {
@@ -83,7 +107,10 @@ extern "C" void _start() {
 			PROBE_LENGTH) == WRITE_FAILED,
 		anonymousMemoryWorks(),
 		munmap(reinterpret_cast<void *>(KERNEL_ADDRESS), PAGE_BYTES) ==
-			MUNMAP_FAILED};
+			MUNMAP_FAILED,
+		refusesReservedMessage(MessageType::IRQ_NOTIFICATION),
+		refusesReservedMessage(MessageType::CAPABILITY_GRANTED),
+		messageToSelfArrives()};
 
 	unsigned passed = 0;
 	for (size_t idx = 0; idx < CHECK_COUNT; idx++) {
