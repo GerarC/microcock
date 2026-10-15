@@ -38,6 +38,20 @@ void update_thread_entry(uintptr_t context_ptr, void *new_entry);
 
 void rewind_syscall(uintptr_t context_ptr);
 
+constexpr size_t SYSCALL_FRAME_VALUES = 5;
+
+struct SyscallFrame {
+	uintptr_t result;
+	uintptr_t values[SYSCALL_FRAME_VALUES];
+};
+
+/**
+ * @brief Reads and writes the registers a system call returns in: the result
+ * and five values, in the saved context of a thread that is inside a call.
+ */
+void read_syscall_frame(uintptr_t context_ptr, SyscallFrame &frame);
+void write_syscall_frame(uintptr_t context_ptr, const SyscallFrame &frame);
+
 /**
  * @brief Performs a hardware page directory switch (writes to CR3 on x86).
  */

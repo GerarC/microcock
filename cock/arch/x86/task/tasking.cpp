@@ -85,6 +85,28 @@ uintptr_t prepare_user_thread_stack(void *kernel_stack_base,
 
 void set_kernel_stack(uintptr_t stack_top) { GDT::setKernelStack(stack_top); }
 
+void read_syscall_frame(uintptr_t context_ptr, SyscallFrame &frame) {
+	const InterruptRegisters *regs =
+		reinterpret_cast<const InterruptRegisters *>(context_ptr);
+	frame.result = regs->eax;
+	frame.values[0] = regs->ebx;
+	frame.values[1] = regs->ecx;
+	frame.values[2] = regs->edx;
+	frame.values[3] = regs->esi;
+	frame.values[4] = regs->edi;
+}
+
+void write_syscall_frame(uintptr_t context_ptr, const SyscallFrame &frame) {
+	InterruptRegisters *regs =
+		reinterpret_cast<InterruptRegisters *>(context_ptr);
+	regs->eax = static_cast<uint32_t>(frame.result);
+	regs->ebx = static_cast<uint32_t>(frame.values[0]);
+	regs->ecx = static_cast<uint32_t>(frame.values[1]);
+	regs->edx = static_cast<uint32_t>(frame.values[2]);
+	regs->esi = static_cast<uint32_t>(frame.values[3]);
+	regs->edi = static_cast<uint32_t>(frame.values[4]);
+}
+
 void rewind_syscall(uintptr_t context_ptr) {
 	InterruptRegisters *regs =
 		reinterpret_cast<InterruptRegisters *>(context_ptr);

@@ -1,6 +1,7 @@
 #ifndef CORE_THREAD_HPP
 #define CORE_THREAD_HPP
 
+#include <cock/abi/call.hpp>
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/task/process.hpp>
@@ -52,7 +53,15 @@ enum class ThreadError { NONE = 0, GENERAL_FAULT = 1, TIMEOUT };
 /**
  * @brief Represents the current execution state of a thread.
  */
-enum class ThreadState { READY, RUNNING, BLOCKED, WAITING_MSG, DEAD };
+enum class ThreadState {
+	READY,
+	RUNNING,
+	BLOCKED,
+	WAITING_MSG,
+	WAITING_CALL,
+	WAITING_REPLY,
+	DEAD
+};
 
 enum class TimeoutState : uint8_t { NONE, ARMED, EXPIRED };
 
@@ -113,6 +122,11 @@ class Thread {
 	Thread *link = nullptr;
 	Thread *timerLink = nullptr;
 	Thread *futexLink = nullptr;
+	Thread *callLink = nullptr;
+	Thread *callers = nullptr;
+	Thread *serving = nullptr;
+	Thread *callTarget = nullptr;
+	uint32_t callWords[abi::call::WORD_COUNT] = {};
 	bool queued = false;
 
 	static Thread *createUser(Process &owner, memory::VirtAddr entry_point,

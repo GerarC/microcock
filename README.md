@@ -87,6 +87,7 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_FUTEX_WAIT` (0x180): Block while a 32 bit word still holds an expected value, with an optional timeout.
 * `SYS_FUTEX_WAKE` (0x181): Wake up to a given number of threads of the caller process waiting on a word.
 * `SYS_GETTID` (0x182): Retrieve the id of the calling thread.
+* `SYS_IPC_CALL` (0x183), `SYS_IPC_ACCEPT` (0x184), `SYS_IPC_REPLY` (0x185), `SYS_IPC_REPLY_WAIT` (0x186): Synchronous calls with four words in registers each way, a direct switch to the server and an optional timeout. `accept` also wakes for an asynchronous message or an interrupt.
 
 ## Building and Running
 
@@ -259,8 +260,9 @@ In this order. Each item is one change with its tests and documentation.
 **2. Microkernel features** (each needs the previous one)
 - [x] Timers: `sleep` and receive with a timeout.
 - [x] Threads, blocking primitives and exit notifications for `spawn`.
-- [ ] Synchronous IPC with a register fast path.
+- [x] Synchronous IPC with a register fast path.
 - [ ] A console server that replaces `SYS_WRITE` and gives `SYS_READ` something to read.
+- [ ] A minimal shell with built-in commands (raises the version to 0.2.0).
 - [ ] Locking in `malloc` and a shared `crt0`.
 
 **3. Capabilities as data**

@@ -48,6 +48,12 @@ bool threadsShareMemoryUnderMutex();
 bool futexWakesEveryWaiterAndThreadsAreBounded();
 bool futexAndThreadCallsRefuseBadInput();
 
+bool synchronousCallsRoundTrip();
+bool queuedCallsAreServedInOrderAndMisuseIsRefused();
+bool deadServerFailsEveryCaller();
+bool callTimeoutExpiresAndLateReplyFails();
+bool acceptWaitsForMessagesAndTimesOut();
+
 bool oversizedWriteIsCut();
 bool printfFormatsAndLongLines();
 

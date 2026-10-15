@@ -108,6 +108,30 @@ Threads and futexes (`SYS_THREAD_CREATE` `0x17F`, `SYS_FUTEX_WAIT` `0x180`, `SYS
 
 Both calls are driven by `Timeouts` (see [task management](task_management.md#timeouts)). The clock is the 100 Hz tick, so the resolution is 10 ms and a time is rounded up to whole ticks.
 
+## Synchronous calls
+Besides the asynchronous messages, a thread can **call** another and wait for the answer. The request and the answer are four 32 bit words that travel in registers: nothing is copied through user memory, so there is no pointer to validate, and the kernel writes the answer straight into the saved registers of the thread that waits. The call is a separate channel: it carries no message type and does not go through `sender_may_use`; the server learns who called from the id the kernel stamps.
+
+| Call | Number | Registers in | Registers out |
+|------|--------|--------------|---------------|
+| `SYS_IPC_CALL` | `0x183` | `EBX` target thread id, `ECX`, `EDX`, `ESI`, `EDI` the four words, `EBP` milliseconds | `EAX` status, `EBX` id of the replier, `ECX` to `EDI` the four words of the answer |
+| `SYS_IPC_ACCEPT` | `0x184` | `EBP` milliseconds | `EAX` status, `EBX` id of the caller, `ECX` to `EDI` the four words of the request |
+| `SYS_IPC_REPLY` | `0x185` | `ECX` to `EDI` the four words of the answer | `EAX` 0, or -1 when no call is being served |
+| `SYS_IPC_REPLY_WAIT` | `0x186` | `ECX` to `EDI` the answer, `EBP` milliseconds | the same as `SYS_IPC_ACCEPT`; with no call being served it only waits |
+
+`EAX` is `0` when the registers hold a call (or the answer), `1` when the time ran out, `2` when the wait ended because an asynchronous message or an interrupt notification is pending (fetch it with `SYS_IPC_TRY_RECV`), and `-1` on failure. The time is in milliseconds; `0xFFFFFFFF` means no limit and `0` never waits; anything else above `0x7FFFFFFF` is refused with `-1`.
+
+`userland/lib/include/cock/user/call.hpp` wraps them (`ipc_call`, `ipc_accept`, `ipc_reply`, `ipc_reply_wait`, each with an optional time) and returns a `CallResult` with `status` (`OK`, `TIMED_OUT`, `MESSAGE_PENDING`, `FAILED`). A server is `accept`, then a loop of `reply_wait`. Because the time travels in `EBP`, the wrapper packs the fourth word and the time in a small array and loads them like the C system call wrapper does, so it is safe with `-fno-omit-frame-pointer`.
+
+How it works (`cock/core/task/sync_ipc.*`):
+
+* A caller is queued on the target thread (first come, first served) and set to `WAITING_REPLY`. A server with nothing queued is set to `WAITING_CALL`. Each thread keeps the call it serves (`serving`); only that thread can reply to it, so a reply cannot be forged and a call cannot be answered twice.
+* **Direct handoff.** When a call finds the server in `WAITING_CALL`, the request is written into the server registers and the scheduler runs the server next, without going through the ready queues or looking at priorities (`Scheduler::requestHandoff`). `reply_wait` does the same toward the caller when nobody else is queued. A round trip is two system calls and two switches.
+* The call fails at once (-1) when the target does not exist, is dead, or is the caller itself. When the **server dies** (an `exit` or an exception) every caller queued on it and the one being served wake up with -1.
+* **One wait point for everything.** A thread in `WAITING_CALL` is also woken by an asynchronous message or an interrupt notification (`IPC::deliver` and `IPC::notify` call `SyncIpc::wakeForMessage`), and `accept` returns at once with `2` if one is already pending. Calls come first. A driver can therefore serve calls and handle its interrupt in one loop: when `accept` returns `2`, it empties the inbox with `SYS_IPC_TRY_RECV`.
+* **Timeouts.** A time arms the thread with `Timeouts` and, when it runs out, `SyncIpc::expire` cleans up where the thread was: a caller still queued leaves the queue of the server; a caller being served is detached (`serving` is cleared), so the late answer of the server fails with `-1` instead of reaching a thread that has moved on; a waiting server just returns `1`. Anything that ends the wait first (an answer, a message, the death of the server) cancels the timeout. A call with time `0` is not sent at all.
+
+`test/userland/syncbench` measures 2000 round trips between two threads of one process, with the asynchronous path (`ipc_send` and `ipc_recv` on both sides) and with calls. In QEMU it printed about 37000 cycles per round trip for the asynchronous path and about 10000 for the synchronous one (QEMU timing is not hardware timing; the test only requires the synchronous path to be faster).
+
 ## Interrupts as messages
 A driver in userland handles a hardware interrupt like this:
 

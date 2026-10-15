@@ -4,7 +4,7 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 
 ## Programs
 
-The programs that exist only to test the system (`probe`, `hello`, `aborter`, `fsclient`, `fatclient`, `extclient`, `blkclient`, `cfile`, `mute`, `muteclient`) live in `test/userland/`, not in `userland/`. Their Makefiles include `../../../userland/common.mk` and the root Makefile builds both folders into `build/userland`. The helper `write_check.hpp` they share is in `test/userland/lib/include/cock/user/`.
+The programs that exist only to test the system (`probe`, `hello`, `aborter`, `syncbench`, `fsclient`, `fatclient`, `extclient`, `blkclient`, `cfile`, `mute`, `muteclient`) live in `test/userland/`, not in `userland/`. Their Makefiles include `../../../userland/common.mk` and the root Makefile builds both folders into `build/userland`. The helper `write_check.hpp` they share is in `test/userland/lib/include/cock/user/`.
 
 | Program | Role |
 |---------|------|
@@ -12,7 +12,7 @@ The programs that exist only to test the system (`probe`, `hello`, `aborter`, `f
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `init` can read the manifest) |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the display server |
-| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp`, `files.cpp` and `threads.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 40/40 checks passed` |
+| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp`, `files.cpp` and `threads.cpp` and `sync.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 45/45 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
 | `fsclient` | Reads a file from the `initrd` and exits; `init` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |
@@ -79,6 +79,7 @@ When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED
 | `ipc_recv_timeout(message, milliseconds)` | `SYS_IPC_RECV_TIMEOUT`; the same results, `EMPTY` when the time ran out; like `ipc_try_recv` it reads only the kernel inbox |
 | `sleep_ms(milliseconds)` | `SYS_SLEEP`; true when it slept (resolution 10 ms) |
 | `thread_start(function, argument, stack, size)` (`thread.hpp`), `thread_create_raw`, `gettid()` | `SYS_THREAD_CREATE` and `SYS_GETTID`; the program provides the stack; the thread function is `void f(void *)` and may return |
+| `ipc_call(target, words)`, `ipc_accept()`, `ipc_reply(words)`, `ipc_reply_wait(words)` (`call.hpp`) | Synchronous calls in registers, four words each way, an optional time in milliseconds, `CallStatus` `OK`, `TIMED_OUT`, `MESSAGE_PENDING` or `FAILED`; see [ipc](ipc.md#synchronous-calls) |
 | `futex_wait(word, expected, ms)`, `futex_wake(word, count)`, `Mutex` (`mutex.hpp`) | `SYS_FUTEX_WAIT` and `SYS_FUTEX_WAKE`; see [task management](task_management.md#threads) |
 | `Clock` (`clock.hpp`), `init()`, `now(time)` | Asks the `rtc` server for the date and time (a program needs no port capability; `onForeign` receives the messages that arrive while it waits); `abi/datetime.hpp` converts it to Unix seconds and to FAT date and time. `Cmos` (`cmos.hpp`) is the reader of the ports `0x70` and `0x71` that only `rtc` uses |
 | `self()` | `SYS_GETPID` |

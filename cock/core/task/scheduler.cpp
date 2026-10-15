@@ -23,6 +23,8 @@ uint32_t Scheduler::ticksSinceLastBoost = 0;
 bool Scheduler::initialized = false;
 bool Scheduler::rescheduleRequested = false;
 bool Scheduler::restartRequested = false;
+Thread *Scheduler::handoffTarget = nullptr;
+uintptr_t Scheduler::syscallFrame = 0;
 
 void Scheduler::init() {
 	currentThread = nullptr;
@@ -30,6 +32,7 @@ void Scheduler::init() {
 	currentTicks = 0;
 	ticksSinceLastBoost = 0;
 	initialized = true;
+	handoffTarget = nullptr;
 	Logger::debug("Scheduler Initialized with MLFQ");
 }
 
@@ -86,6 +89,8 @@ bool Scheduler::takeRescheduleRequest() {
 	rescheduleRequested = false;
 	return requested;
 }
+
+void Scheduler::requestHandoff(Thread *thread) { handoffTarget = thread; }
 
 void Scheduler::requestRestart() { restartRequested = true; }
 
@@ -174,7 +179,14 @@ uintptr_t Scheduler::switchFrom(uintptr_t current_stack_pointer,
 			enqueue(previous);
 	}
 
-	Thread *next = dequeueNext();
+	Thread *next = nullptr;
+	if (handoffTarget != nullptr) {
+		if (handoffTarget->getState() == ThreadState::READY &&
+			!handoffTarget->queued)
+			next = handoffTarget;
+		handoffTarget = nullptr;
+	}
+	if (!next) next = dequeueNext();
 	if (!next) next = idleThread;
 	if (!next) utils::panic("No runnable threads! System Halted.");
 

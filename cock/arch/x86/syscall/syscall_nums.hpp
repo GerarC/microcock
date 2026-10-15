@@ -35,6 +35,10 @@ enum SyscallNum : uint32_t {
     SYS_FUTEX_WAIT          = 0x180,
     SYS_FUTEX_WAKE          = 0x181,
     SYS_GETTID              = 0x182,
+    SYS_IPC_CALL            = 0x183,
+    SYS_IPC_ACCEPT          = 0x184,
+    SYS_IPC_REPLY           = 0x185,
+    SYS_IPC_REPLY_WAIT      = 0x186,
 };
 
 }

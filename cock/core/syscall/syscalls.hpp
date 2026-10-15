@@ -148,6 +148,32 @@ uintptr_t sys_thread_create(uintptr_t entry, uintptr_t stack_base,
 							uintptr_t stack_size, uintptr_t, uintptr_t,
 							uintptr_t);
 
+/**
+ * @brief Synchronous call: sends four words to a thread and blocks until it
+ * replies; the answer comes back in the registers of the call.
+ */
+uintptr_t sys_ipc_call(uintptr_t target, uintptr_t word0, uintptr_t word1,
+					   uintptr_t word2, uintptr_t word3, uintptr_t milliseconds);
+
+/**
+ * @brief Waits for the next synchronous call; the caller id and the four
+ * words come back in the registers of the call.
+ */
+uintptr_t sys_ipc_accept(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
+						 uintptr_t milliseconds);
+
+/**
+ * @brief Answers the call being served with four words.
+ */
+uintptr_t sys_ipc_reply(uintptr_t, uintptr_t word0, uintptr_t word1, uintptr_t word2,
+						uintptr_t word3, uintptr_t);
+
+/**
+ * @brief Answers the call being served, if any, and waits for the next one.
+ */
+uintptr_t sys_ipc_reply_wait(uintptr_t, uintptr_t word0, uintptr_t word1,
+							 uintptr_t word2, uintptr_t word3, uintptr_t milliseconds);
+
 uintptr_t sys_gettid(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
 					 uintptr_t);
 
