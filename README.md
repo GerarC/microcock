@@ -182,6 +182,42 @@ so this is the space where I put those references that really helped me to move 
 ##### Videos
 - [OliveStem OS course](https://www.youtube.com/playlist?list=PL2EF13wm-hWAglI8rRbdsCPq_wRpYvQQy): my man olive basically help me to have a path to follow. Interrupts, Keyboard, Multiboot, Memory management and other things at the beginnig where possible because of him.
 
+## Roadmap
+
+The path the project follows, in order. `[x]` is done, `[ ]` is planned.
+
+### Done
+- [x] Boot, memory management (PMM, paging, VMM, heap), scheduler, IPC, ELF32 and ELF64 loader.
+- [x] Zero-cost HAL, `PhysAddr` and `VirtAddr`, processes with their own context, lazy I/O permission bitmap.
+- [x] Drivers in Ring 3: VGA server and PS/2 keyboard, with capabilities and interrupts delivered as notifications.
+- [x] Hardening: authenticated reserved messages, per-process memory limits, reaper thread, write-protected kernel image, FPU disabled for programs.
+- [x] QEMU based tests and CI.
+
+### Next
+- [ ] Tests for the physical memory manager, the scheduler, IPC and the reaper, and host-side tests for the shared data structures.
+- [ ] **C library basics for programs:** `printf` with buffered output, and `malloc`, `calloc`, `realloc`, `free` and `operator new`.
+- [ ] A separate stack for double fault and NMI, and a generation counter in process ids.
+
+### File system
+The file system lives outside the kernel, as servers that talk by IPC. The kernel only gains small general mechanisms. The first one is a read-only initial RAM disk; a disk comes after it, on the same protocol.
+- [ ] **F1** Shared memory between processes (the way to move file data).
+- [ ] **F2** Data boot modules, a capability to open them, and an `initrd` built as a tar archive.
+- [ ] **F3** `ramfs` server and a client library: a program reads a file from the initrd.
+- [ ] **F4** `spawn`: `init` starts the drivers from files instead of from boot modules.
+- [ ] **F5** A manifest read by `init` that lists each program and its capabilities. Adding a driver becomes adding a line.
+- [ ] **F6** ATA driver (PIO), a block protocol and partition tables (MBR and GPT).
+- [ ] **F7** FAT32 server (read only first) and a `vfs` with a mount table.
+- [ ] **F8** `ext` server, ext2 read only.
+- [ ] **F9** Writing for FAT32 and ext2.
+- [ ] **F10** `open`, `read`, `write` and `close` in the C library, over the file client.
+
+### After that
+- [ ] Capabilities as data: the boot policy comes from the manifest, plus revocation, a capability for IPC and a policy for DMA-capable ports.
+- [ ] Timers and `sleep`, threads, synchronous IPC with a register fast path, and a console server that replaces `SYS_WRITE`.
+- [ ] A syscall fuzzer that runs in Ring 3 and fails on any kernel panic.
+- [ ] Smaller debts: reuse of kernel address ranges, pools for threads and processes, compile-time log filtering, `-Werror`.
+- [ ] Platform: APIC and IOAPIC, PAE with NX and memory above 4 GiB, SMP, an x86_64 port.
+
 ## Documentation
 For more detailed information regarding specific subsystems, please check the `documentation/` folder:
 * [Project Structure](documentation/project_structure.md): Directory layout and the HAL.
