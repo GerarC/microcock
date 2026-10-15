@@ -37,6 +37,7 @@ constexpr uint32_t EMPTY_RANGE = 0;
 constexpr uint32_t BITS_PER_BYTE = 8;
 
 bool portGranted(const ArchProcessContext &context, uint32_t port) {
+	if (context.iopm == nullptr) return false;
 	return (context.iopm[port / BITS_PER_BYTE] &
 			(1u << (port % BITS_PER_BYTE))) == 0;
 }
@@ -135,12 +136,14 @@ void checkPortGrants() {
 	uint32_t initial_version = context.version;
 
 	EXPECT_EQ(static_cast<uint32_t>(0), context.iopm_bytes);
+	EXPECT_TRUE(context.iopm == nullptr);
 	EXPECT_FALSE(portGranted(context, KEYBOARD_DATA_PORT));
 
 	EXPECT_TRUE(core::hal::grant_hardware_resource(context, KEYBOARD_DATA_PORT,
 												   SINGLE_PORT));
 	EXPECT_TRUE(context.version != initial_version);
 	EXPECT_EQ(KEYBOARD_DATA_PORT / BITS_PER_BYTE + 1, context.iopm_bytes);
+	EXPECT_NOT_NULL(context.iopm);
 	EXPECT_TRUE(portGranted(context, KEYBOARD_DATA_PORT));
 	EXPECT_FALSE(portGranted(context, KEYBOARD_NEXT_PORT));
 

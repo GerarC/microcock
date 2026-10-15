@@ -1,4 +1,6 @@
 #include <cock/core/memory/shared_memory.hpp>
+#include <cock/core/memory/slab_pool.hpp>
+#include <cock/utils/panic.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/task/process.hpp>
 #include <hal/address_space.hpp>
@@ -11,6 +13,15 @@ using memory::PhysAddr;
 using memory::SharedMemory;
 using memory::VirtAddr;
 using memory::VirtualMemoryManager;
+using utils::panic;
+
+namespace {
+
+constexpr size_t PROCESS_POOL_CHUNK_PAGES = 4;
+
+using ProcessPool = memory::SlabPool<Process, PROCESS_POOL_CHUNK_PAGES>;
+
+} // namespace
 
 Process::Process(PhysAddr address_space, VirtAddr user_space_limit,
 				 bool is_kernel)
@@ -19,7 +30,17 @@ Process::Process(PhysAddr address_space, VirtAddr user_space_limit,
 	hal::init_process_context(context);
 }
 
+void *Process::operator new(size_t size) {
+	if (size != sizeof(Process)) panic("process allocation of the wrong size");
+	void *slot = ProcessPool::allocate();
+	if (slot == nullptr) panic("process pool out of memory");
+	return slot;
+}
+
+void Process::operator delete(void *pointer) { ProcessPool::release(pointer); }
+
 Process::~Process() {
+	hal::release_process_context(context);
 	if (kernel) return;
 
 	VirtualMemoryManager::destroyAddressSpace(addressSpace);

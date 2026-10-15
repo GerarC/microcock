@@ -231,4 +231,16 @@ void PhysicalMemoryManager::freeFrame(PhysAddr address) {
 	if (frame / BITS_PER_WORD < searchHint) searchHint = frame / BITS_PER_WORD;
 }
 
+void PhysicalMemoryManager::releaseBootFrame(PhysAddr address) {
+	InterruptGuard guard;
+
+	uint32_t frame = static_cast<uint32_t>(address.frameNumber());
+	if (frame >= frameLimit || !isRam(address) || !testFrame(frame) || testAllocated(frame))
+		return;
+
+	clearFrame(frame);
+	freeFrames++;
+	if (frame / BITS_PER_WORD < searchHint) searchHint = frame / BITS_PER_WORD;
+}
+
 } // namespace cock::arch::x86

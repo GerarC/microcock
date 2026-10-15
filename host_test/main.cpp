@@ -14,6 +14,7 @@ void testMounts();
 void testExt2();
 void testFs();
 void testDatetime();
+void testRangePool();
 } // namespace host_test
 
 int main() {
@@ -29,6 +30,7 @@ int main() {
 	host_test::testExt2();
 	host_test::testFs();
 	host_test::testDatetime();
+	host_test::testRangePool();
 
 	printf("host tests: %d checks, %d failed\n", host_test::checksRun,
 		   host_test::checksFailed);

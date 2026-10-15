@@ -102,6 +102,9 @@ class Thread {
 	Thread *link = nullptr;
 	bool queued = false;
 
+	static void *operator new(size_t size);
+	static void operator delete(void *pointer);
+
 	Thread(ThreadFunction entry_point, ThreadPriority priority);
 	Thread(Process &owner, memory::VirtAddr entry_point,
 		   ThreadPriority priority);

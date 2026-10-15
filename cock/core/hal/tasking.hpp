@@ -55,6 +55,8 @@ inline memory::PhysAddr get_current_address_space() {
 
 void init_process_context(ArchProcessContext &context);
 
+void release_process_context(ArchProcessContext &context);
+
 /**
  * @brief Grants a thread access to specific hardware resources (e.g., I/O ports
  * via TSS IOPM).

@@ -19,6 +19,8 @@ using core::memory::VirtualMemoryManager;
 namespace {
 
 int writableData = 1;
+constexpr size_t LARGE_RANGE_PAGES = 3;
+constexpr size_t SMALL_RANGE_PAGES = 2;
 
 bool present(uint32_t flags) { return (flags & PageFlag::PRESENT) != 0; }
 
@@ -64,6 +66,28 @@ void checkProtectPage() {
 	VirtualMemoryManager::freePages(heap_page, 1);
 }
 
+void checkRangesAreReused() {
+	uintptr_t before = VirtualMemoryManager::kernelRangeEnd();
+	void *first = VirtualMemoryManager::allocPages(LARGE_RANGE_PAGES);
+	void *second = VirtualMemoryManager::allocPages(SMALL_RANGE_PAGES);
+	EXPECT_NOT_NULL(first);
+	EXPECT_NOT_NULL(second);
+	if (first == nullptr || second == nullptr) return;
+
+	VirtualMemoryManager::freePages(first, LARGE_RANGE_PAGES);
+	EXPECT_FALSE(present(Paging::getPageFlags(VirtAddr::of(first))));
+	void *again = VirtualMemoryManager::allocPages(LARGE_RANGE_PAGES);
+	EXPECT_TRUE(again == first);
+
+	void *stack = VirtualMemoryManager::allocStack(SMALL_RANGE_PAGES);
+	EXPECT_NOT_NULL(stack);
+	VirtualMemoryManager::freeStack(stack, SMALL_RANGE_PAGES);
+
+	VirtualMemoryManager::freePages(second, SMALL_RANGE_PAGES);
+	VirtualMemoryManager::freePages(again, LARGE_RANGE_PAGES);
+	EXPECT_EQ(before, VirtualMemoryManager::kernelRangeEnd());
+}
+
 } // namespace
 
 void test_paging() {
@@ -71,6 +95,7 @@ void test_paging() {
 	checkKernelImageProtection();
 	checkFpuIsDisabled();
 	checkProtectPage();
+	checkRangesAreReused();
 	TestRunner::end_suite();
 }
 

@@ -12,6 +12,7 @@ class BootMemory {
   public:
 	static void init();
 	static void *map(core::memory::PhysAddr phys, uint32_t size);
+	static void release();
 
   private:
 	static PageTable window;

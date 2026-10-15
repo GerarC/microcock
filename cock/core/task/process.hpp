@@ -18,6 +18,9 @@ class Process {
 	static constexpr size_t MAX_MAPPING_REGIONS = 32;
 	static constexpr size_t MAX_OWNED_PAGES = 0x1000;
 
+	static void *operator new(size_t size);
+	static void operator delete(void *pointer);
+
 	static Process *createKernel();
 	static Process *create(memory::PhysAddr address_space,
 						   memory::VirtAddr user_space_limit);

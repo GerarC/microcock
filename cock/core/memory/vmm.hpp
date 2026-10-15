@@ -62,6 +62,14 @@ class VirtualMemoryManager {
 	static void freePages(void *vaddr, size_t page_count);
 	static void *allocStack(size_t page_count);
 	static void freeStack(void *base, size_t page_count);
+	static uintptr_t kernelRangeEnd();
+
+	/**
+	 * @brief Gives back the whole pages of a physical range that the boot
+	 * reserved (a boot module that was already copied). A partial page at
+	 * either end stays reserved.
+	 */
+	static void releaseBootFrames(PhysAddr start, size_t bytes);
 
 	/**
 	 * @brief Maps a specific physical address to a target virtual address.
