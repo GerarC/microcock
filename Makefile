@@ -65,7 +65,8 @@ LINKER_I686 = cock/arch/x86/linker.ld
 
 USERLAND_BOOT_ORDER = init
 INITRD_DIR = initrd
-INITRD_FILES := $(wildcard $(INITRD_DIR)/*)
+INITRD_FILES := $(shell find $(INITRD_DIR) -type f)
+INITRD_ENTRIES := $(notdir $(wildcard $(INITRD_DIR)/*))
 INITRD_IMAGE = $(BUILD)/initrd.tar
 INITRD_MODULE = initrd
 USERLAND_MAKEFILES := $(wildcard userland/*/Makefile)
@@ -102,7 +103,7 @@ $(BUILD)/$(PROJECT).bin: $(OBJ)
 
 $(INITRD_IMAGE): $(INITRD_FILES) | $(BUILD)
 	@echo "[TAR] $@"
-	@tar --format=ustar --owner=root --group=root --numeric-owner -cf $@ -C $(INITRD_DIR) $(notdir $(INITRD_FILES))
+	@tar --format=ustar --owner=root --group=root --numeric-owner -cf $@ -C $(INITRD_DIR) $(INITRD_ENTRIES)
 
 $(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin userland $(INITRD_IMAGE)
 	@echo "[ISO] creating ISO"

@@ -30,6 +30,7 @@ enum class MessageType : uint32_t {
 	FS_READ = 11,                   /**< File server request: read into the window; arg0 request id, arg1 handle, arg2 offset, arg3 length. */
 	FS_STAT = 12,                   /**< File server request: size and type of a handle; arg0 request id, arg1 handle. */
 	FS_CLOSE = 13,                  /**< File server request: drop a handle; arg0 request id, arg1 handle. */
+	FS_READDIR = 15,                /**< File server request: name of the entry at an index of a directory; arg0 request id, arg1 handle, arg2 index. */
 	FS_REPLY = 14,                  /**< File server answer; arg0 request id, arg1 status, arg2 and arg3 values. */
 };
 

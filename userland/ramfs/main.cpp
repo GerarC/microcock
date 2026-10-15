@@ -30,6 +30,8 @@ constexpr char PATH_SEPARATOR = '/';
 constexpr uint32_t OCTAL_BASE = 8;
 constexpr uint32_t MAX_ARCHIVE_BYTES = 0x80000;
 
+constexpr size_t ROOT_ENTRY = 0;
+constexpr size_t FIRST_FILE_ENTRY = 1;
 constexpr size_t MAX_ENTRIES = 64;
 constexpr size_t MAX_CLIENTS = 8;
 constexpr size_t MAX_HANDLES = 16;
@@ -54,7 +56,7 @@ struct Session {
 
 const uint8_t *archive = nullptr;
 Entry entries[MAX_ENTRIES];
-size_t entryCount = 0;
+size_t entryCount = FIRST_FILE_ENTRY;
 Session sessions[MAX_CLIENTS];
 Message pending[MAX_PENDING];
 size_t pendingCount = 0;
@@ -74,6 +76,7 @@ bool parseOctal(const uint8_t *field, size_t length, uint32_t &value) {
 }
 
 void buildIndex() {
+	entries[ROOT_ENTRY].type = FileType::DIRECTORY;
 	uint32_t position = 0;
 	while (entryCount < MAX_ENTRIES &&
 		   position + TAR_BLOCK_BYTES <= MAX_ARCHIVE_BYTES) {
@@ -161,9 +164,10 @@ const Entry *findEntry(const char *path) {
 	size_t length = strlen(path);
 	while (length > 0 && path[length - 1] == PATH_SEPARATOR)
 		length--;
-	if (length == 0 || length > TAR_NAME_BYTES) return nullptr;
+	if (length > TAR_NAME_BYTES) return nullptr;
+	if (length == 0) return &entries[ROOT_ENTRY];
 
-	for (size_t idx = 0; idx < entryCount; idx++) {
+	for (size_t idx = FIRST_FILE_ENTRY; idx < entryCount; idx++) {
 		if (strlen(entries[idx].name) == length &&
 			memcmp(entries[idx].name, path, length) == 0)
 			return &entries[idx];
@@ -230,6 +234,43 @@ void statFile(Session &session, const Message &message) {
 	reply(pid, id, Status::OK, entry->size, static_cast<uint32_t>(entry->type));
 }
 
+bool isChild(const Entry &directory, const Entry &candidate, const char *&name) {
+	name = candidate.name;
+	size_t prefix = strlen(directory.name);
+	if (prefix > 0) {
+		if (strlen(name) <= prefix + 1 || memcmp(name, directory.name, prefix) != 0 ||
+			name[prefix] != PATH_SEPARATOR)
+			return false;
+		name += prefix + 1;
+	}
+	for (const char *cursor = name; *cursor != '\0'; cursor++)
+		if (*cursor == PATH_SEPARATOR) return false;
+	return true;
+}
+
+void listDirectory(Session &session, const Message &message) {
+	uint32_t pid = message.sender_pid;
+	uint32_t id = message.payload.args.arg0;
+	const Entry *directory = handleEntry(session, message.payload.args.arg1);
+	if (directory == nullptr) return reply(pid, id, Status::BAD_HANDLE);
+	if (directory->type != FileType::DIRECTORY)
+		return reply(pid, id, Status::UNSUPPORTED);
+
+	uint32_t wanted = message.payload.args.arg2;
+	uint32_t seen = 0;
+	for (size_t idx = FIRST_FILE_ENTRY; idx < entryCount; idx++) {
+		const char *name = nullptr;
+		if (!isChild(*directory, entries[idx], name)) continue;
+		if (seen++ != wanted) continue;
+
+		size_t length = strlen(name);
+		memcpy(session.window, name, length + 1);
+		return reply(pid, id, Status::OK, static_cast<uint32_t>(length),
+					 static_cast<uint32_t>(entries[idx].type));
+	}
+	reply(pid, id, Status::OUT_OF_RANGE);
+}
+
 void closeFile(Session &session, const Message &message) {
 	uint32_t pid = message.sender_pid;
 	uint32_t id = message.payload.args.arg0;
@@ -251,6 +292,7 @@ void handle(const Message &message) {
 	case MessageType::FS_OPEN:
 	case MessageType::FS_READ:
 	case MessageType::FS_STAT:
+	case MessageType::FS_READDIR:
 	case MessageType::FS_CLOSE:
 		break;
 	default:
@@ -267,6 +309,8 @@ void handle(const Message &message) {
 		return readFile(*session, message);
 	case MessageType::FS_STAT:
 		return statFile(*session, message);
+	case MessageType::FS_READDIR:
+		return listDirectory(*session, message);
 	default:
 		return closeFile(*session, message);
 	}

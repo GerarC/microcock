@@ -10,7 +10,7 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the display server |
-| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp` and `files.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 29/29 checks passed` |
+| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp` and `files.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 30/30 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |
 
@@ -100,7 +100,7 @@ The main Makefile passes the compiler, linker and assembler (`USER_CXX`, `USER_L
 The programs run in a user-space limit of `0xC0000000` (ELF32). Their stack is the top 64 KiB below that limit, and `mmap` hands out addresses from `0x60000000` upward.
 
 ## Testing
-* `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and `probe: 26/26 checks passed` on the screen, the typed text on the screen, the `printf` sample line `probe: printf -42 4294967295 FF hi Z 0xBEEF` and the `abort()` message of `aborter` on the serial log, `kbd: ready`, the VGA driver detection and the reaping of the processes that exit on the serial log, and not one exception.
+* `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and `probe: 30/30 checks passed` on the screen, the typed text on the screen, the `printf` sample line `probe: printf -42 4294967295 FF hi Z 0xBEEF` and the `abort()` message of `aborter` on the serial log, `kbd: ready`, the VGA driver detection and the reaping of the processes that exit on the serial log, and not one exception.
 * Run it also with `USER_EXTRA_FLAGS=-fno-omit-frame-pointer`, which changes how the compiler addresses locals and caught a real bug in the system call wrapper.
 * Both variants run in CI, on every push.
 * `bash scripts/host_test.sh` builds `host_test/` with the host compiler and runs it; it needs no emulator and checks the ring buffer, the intrusive queue, the linked list, the message layout and the capability table.

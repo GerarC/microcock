@@ -98,6 +98,20 @@ class Client {
 		return static_cast<long>(reply.first);
 	}
 
+	bool readdir(uint32_t handle, uint32_t index, char *name, size_t size,
+				 FileType &type) {
+		Reply reply = {};
+		if (view == nullptr || size == 0 ||
+			!call(MessageType::FS_READDIR, handle, index, 0, reply) ||
+			reply.status != Status::OK || reply.first >= size ||
+			reply.first >= abi::fs::WINDOW_BYTES)
+			return false;
+
+		memcpy(name, view, reply.first + sizeof(char));
+		type = static_cast<FileType>(reply.second);
+		return true;
+	}
+
 	bool stat(uint32_t handle, FileInfo &info) {
 		Reply reply = {};
 		if (!call(MessageType::FS_STAT, handle, 0, 0, reply) ||

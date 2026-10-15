@@ -16,7 +16,10 @@ Every request carries a request id in `arg0`; the reply (`FS_REPLY`) echoes it i
 | `FS_OPEN` | `arg1` path length, `arg2` flags (read only is 0) | handle |
 | `FS_READ` | `arg1` handle, `arg2` offset, `arg3` length | bytes copied into the window (0 at the end of the file) |
 | `FS_STAT` | `arg1` handle | size, type |
+| `FS_READDIR` | `arg1` handle of a directory, `arg2` index | name length, type (the name is in the window, ended by a zero) |
 | `FS_CLOSE` | `arg1` handle | none |
+
+`FS_OPEN` accepts a directory: `/` is the root and `docs` or `docs/` a subdirectory. `FS_READDIR` lists the direct children of a directory in archive order and answers `OUT_OF_RANGE` past the last one; on a regular file it answers `UNSUPPORTED`, as `FS_READ` does on a directory.
 
 Statuses: `OK`, `NOT_CONNECTED`, `BAD_REQUEST`, `NOT_FOUND`, `BAD_HANDLE`, `OUT_OF_RANGE`, `NO_SPACE`, `UNSUPPORTED`.
 
@@ -27,7 +30,7 @@ Paths and data never travel in the message. On `FS_CONNECT` the **server** creat
 The server keeps up to 8 sessions keyed by the kernel stamped `sender_pid`, each with 16 handles. A handle is the slot number plus one, valid only in the session that opened it. A second `FS_CONNECT` from the same process resets its handles and returns the same window. Sessions are not freed when a client dies yet, so the table is bounded by 8 clients over the life of the server.
 
 ## Client library
-`userland/lib/include/cock/user/fs.hpp` offers `cock::user::fs::Client` with `connect`, `open`, `read`, `stat`, `close` and the raw `call`. A program that uses it lists `string/memcpy.cpp` and `string/strlen.cpp` in `LIBC_SRCS`.
+`userland/lib/include/cock/user/fs.hpp` offers `cock::user::fs::Client` with `connect`, `open`, `read`, `readdir`, `stat`, `close` and the raw `call`. A program that uses it lists `string/memcpy.cpp` and `string/strlen.cpp` in `LIBC_SRCS`.
 
 ## Tests
-`probe` checks that the file of the initrd reads back whole and in pieces (`initrdFileReads`, which also prints it), that the server refuses bad paths, handles, offsets, flags and lengths (`fileServerRefusesBadRequests`), and that a program without authority cannot call `SYS_MODULE_INDEX` (`moduleIndexIsDenied`).
+`probe` checks that the file of the initrd reads back whole and in pieces (`initrdFileReads`, which also prints it), that `fileServerListsDirectories` lists the root and a subdirectory and reads a nested file, that the server refuses bad paths, handles, offsets, flags and lengths (`fileServerRefusesBadRequests`), and that a program without authority cannot call `SYS_MODULE_INDEX` (`moduleIndexIsDenied`).
