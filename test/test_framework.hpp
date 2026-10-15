@@ -2,8 +2,12 @@
 #define COCK_TEST_FRAMEWORK_HPP
 
 #include <cock/utils/logger.hpp>
+#include <stdint.h>
 
 namespace cock::test {
+
+constexpr uint8_t EXIT_CODE_SUCCESS = 0x10;
+constexpr uint8_t EXIT_CODE_FAILURE = 0x11;
 
 class TestRunner {
 public:

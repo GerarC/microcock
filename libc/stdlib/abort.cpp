@@ -1,3 +1,4 @@
+#include <cock/utils/macros.hpp>
 #include <stdlib.h>
 
 #if defined(__is_libk)
@@ -5,8 +6,6 @@
 #else
 #include <stdio.h>
 #endif
-
-#define FOR_ETERNAL for (;;)
 
 #if defined(__is_libk)
 using cock::utils::panic;

@@ -1,6 +1,7 @@
 #ifndef CORE_HAL_TASKING_HPP
 #define CORE_HAL_TASKING_HPP
 
+#include <hal/cpu.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -16,8 +17,6 @@ uintptr_t prepare_user_thread_stack(void *kernel_stack_base,
 									void *user_stack_base,
 									size_t user_stack_size, void *entry_point,
 									void *user_arg);
-void yield();
-
 void set_kernel_stack(uintptr_t stack_top);
 void update_thread_entry(uintptr_t context_ptr, void *new_entry);
 void switch_address_space(uintptr_t pd_phys);

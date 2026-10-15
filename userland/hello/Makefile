@@ -1,4 +1,6 @@
 OUT_DIR ?= .
+USER_AS ?= nasm -felf32
+USER_LD ?= i686-elf-ld
 
 TARGET = $(OUT_DIR)/hello.elf
 OBJ    = $(OUT_DIR)/hello.o
@@ -7,8 +9,8 @@ all: $(TARGET)
 
 $(TARGET): $(OBJ)
 	@echo "  [LD ] $@"
-	@i686-elf-ld -m elf_i386 $< -o $@
+	@$(USER_LD) -m elf_i386 $< -o $@
 
 $(OUT_DIR)/hello.o: main.s
 	@echo "  [ASM] $<"
-	@nasm -f elf32 $< -o $@
+	@$(USER_AS) $< -o $@

@@ -1,12 +1,13 @@
 #include <cock/utils/logger.hpp>
 #include <cock/arch/x86/interrupt/irq/irq.hpp>
 #include <cock/arch/x86/keyboard/keyboard.hpp>
+#include <hal/cpu.hpp>
 #include <stdio.h>
 
 namespace cock::arch::x86 {
 
 using cock::utils::Logger;
-using utils::in_port_b;
+using core::hal::port_in8;
 
 constexpr size_t ASCII_SIZE = 0x80;
 
@@ -101,7 +102,7 @@ void Keyboard::init() {
  * Retrieves a key from the PS/2 data port and get its code and if it's pressed
  * */
 Key Keyboard::getKey() {
-	uint8_t raw = in_port_b(static_cast<uint16_t>(PS2Port::DATA));
+	uint8_t raw = port_in8(static_cast<uint16_t>(PS2Port::DATA));
 	return {.code = static_cast<KeyCode>(raw & CODE_MASK),
 			.pressed = (raw & PRESSED_MASK) == IS_PRESSED};
 }

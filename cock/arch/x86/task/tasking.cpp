@@ -1,7 +1,7 @@
 #include <cock/arch/x86/gdt/gdt.hpp>
 #include <cock/arch/x86/gdt/segments.hpp>
-#include <cock/arch/x86/syscall/syscall_nums.hpp>
 #include <cock/arch/x86/utils/helpers.hpp>
+#include <hal/cpu.hpp>
 #include <cock/core/hal/tasking.hpp>
 #include <stdint.h>
 #include <string.h>
@@ -12,11 +12,9 @@ using arch::x86::EFLAGS_INTERRUPTS_ENABLED;
 using arch::x86::GDT;
 using arch::x86::KERNEL_CODE_SELECTOR;
 using arch::x86::KERNEL_DATA_SELECTOR;
-using arch::x86::SyscallNum;
 using arch::x86::USER_CODE_SELECTOR;
 using arch::x86::USER_DATA_SELECTOR;
 using arch::x86::utils::InterruptRegisters;
-using arch::x86::utils::read_cr3;
 
 constexpr uint32_t DUMMY_ADDRESS = 0x00000000;
 constexpr uint32_t BLANK = 0x0;
@@ -85,9 +83,6 @@ uintptr_t prepare_user_thread_stack(void *kernel_stack_base,
 	return context_ptr;
 }
 
-void yield() {
-    __asm__ volatile("int $128" : : "a"(SyscallNum::SYS_SCHED_YIELD) : "memory");
-}
 void set_kernel_stack(uintptr_t stack_top) { GDT::setKernelStack(stack_top); }
 
 void update_thread_entry(uintptr_t context_ptr, void *new_entry) {
@@ -97,9 +92,9 @@ void update_thread_entry(uintptr_t context_ptr, void *new_entry) {
 }
 
 void switch_address_space(uintptr_t pd_phys) {
-	__asm__ volatile("mov %0, %%cr3" ::"r"(pd_phys) : "memory");
+	write_page_table_root(static_cast<uint32_t>(pd_phys));
 }
 
-uintptr_t get_current_address_space() { return read_cr3(); }
+uintptr_t get_current_address_space() { return read_page_table_root(); }
 
 } // namespace cock::core::hal
