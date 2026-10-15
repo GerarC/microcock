@@ -17,10 +17,15 @@ class SharedMemory {
 	static constexpr size_t MAX_OBJECTS = 32;
 	static constexpr size_t MAX_OBJECT_PAGES = 128;
 	static constexpr size_t MAX_HOLDERS = 8;
+	static constexpr size_t MAX_NAME_LENGTH = 32;
 
 	static uint32_t create(task::Process &creator, size_t pages);
 	static bool share(uint32_t id, uint32_t from_pid, uint32_t target_pid,
 					  bool writable);
+	static uint32_t createFixed(const char *name, size_t module_index,
+								PhysAddr base, size_t pages);
+	static uint32_t findModule(const char *name, size_t *module_index);
+	static bool attach(uint32_t id, uint32_t pid);
 	static bool release(uint32_t id, uint32_t pid);
 	static void dropProcess(task::Process &process);
 
@@ -41,6 +46,9 @@ class SharedMemory {
 
 	struct Object {
 		bool used;
+		bool fixed;
+		size_t moduleIndex;
+		char name[MAX_NAME_LENGTH];
 		task::Process *payer;
 		size_t pages;
 		size_t mappings;

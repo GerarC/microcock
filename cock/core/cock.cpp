@@ -11,8 +11,10 @@
 #include <cock/core/version.hpp>
 #include <cock/utils/logger.hpp>
 #include <cock/core/loader/elf.hpp>
+#include <cock/core/memory/shared_memory.hpp>
 #include <hal/console.hpp>
 #include <hal/interrupt.hpp>
+#include <hal/page.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -37,7 +39,9 @@ using core::task::ThreadState;
 using core::boot::BootModule;
 using core::memory::PhysAddr;
 using core::memory::VirtualMemoryManager;
+using core::loader::has_elf_magic;
 using core::loader::load_executable;
+using core::memory::SharedMemory;
 using core::loader::LoadedImage;
 using utils::Logger;
 using utils::LogLevel;
@@ -47,7 +51,7 @@ uint32_t vga_server_pid = 0;
 constexpr const char *VGA_DRIVER_MODULE = "vga_driver";
 constexpr const char *ROOT_SERVER_MODULE = "init";
 
-static void grant_root_capabilities(Process &process) {
+static void grant_root_capabilities(Process &process, size_t module_count) {
 	Capability ports;
 	ports.type = CapabilityType::IO_PORTS;
 	ports.flags = CAPABILITY_FLAG_GRANT;
@@ -63,9 +67,27 @@ static void grant_root_capabilities(Process &process) {
 	memory.flags = CAPABILITY_FLAG_GRANT;
 	memory.count = core::hal::PHYSICAL_ADDRESS_SPACE_SIZE;
 
+	Capability modules;
+	modules.type = CapabilityType::BOOT_MODULE;
+	modules.flags = CAPABILITY_FLAG_GRANT;
+	modules.count = module_count;
+
 	process.getCapabilities().add(ports);
 	process.getCapabilities().add(irqs);
 	process.getCapabilities().add(memory);
+	process.getCapabilities().add(modules);
+}
+
+static void register_data_module(const BootModule &module, size_t index) {
+	size_t pages = (module.size + core::hal::PAGE_MASK) >> core::hal::PAGE_SHIFT;
+	uint32_t object =
+		SharedMemory::createFixed(module.name, index, module.physical_address, pages);
+	if (object == core::memory::NO_SHARED_OBJECT) {
+		Logger::error("Cannot keep data module %s", module.name);
+		return;
+	}
+	Logger::info("Data module %s: %u bytes, object %u", module.name,
+				 static_cast<unsigned>(module.size), static_cast<unsigned>(object));
 }
 
 ThreadResult kernel_idle() {
@@ -108,6 +130,11 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
 	Scheduler::setIdleThread(idle_thread);
 
     for (size_t i = 0; i < mod_count; i++) {
+        if (!has_elf_magic(modules[i].start_address, modules[i].size)) {
+            register_data_module(modules[i], i);
+            continue;
+        }
+
         Logger::info("Loading module: %s", modules[i].name);
 
         PhysAddr new_cr3 = VirtualMemoryManager::createAddressSpace();
@@ -126,7 +153,7 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
         Process *process = Process::create(new_cr3, image.user_space_limit);
         process->setName(modules[i].name);
         if (strcmp(modules[i].name, ROOT_SERVER_MODULE) == 0)
-            grant_root_capabilities(*process);
+            grant_root_capabilities(*process, mod_count);
         Thread *app_thread = new Thread(*process, image.entry, ThreadPriority::NORMAL);
         if (strcmp(modules[i].name, VGA_DRIVER_MODULE) == 0) {
             core::hal::console_detach();

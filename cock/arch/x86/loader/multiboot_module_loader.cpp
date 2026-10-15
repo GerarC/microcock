@@ -51,6 +51,7 @@ void MultibootModuleLoader::init(const MBInfo *boot_info) {
         modules[modCount].start_address = start;
         modules[modCount].size = size;
         modules[modCount].name = name;
+        modules[modCount].physical_address = PhysAddr(mod_list[i].mod_start);
         modCount++;
     }
 }

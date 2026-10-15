@@ -24,6 +24,7 @@ enum SyscallNum : uint32_t {
     SYS_SHM_SHARE           = 0x175,
     SYS_SHM_MAP             = 0x176,
     SYS_SHM_RELEASE         = 0x177,
+    SYS_MODULE_OPEN         = 0x178,
 };
 
 }

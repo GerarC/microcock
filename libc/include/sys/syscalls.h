@@ -22,6 +22,7 @@
     #define SYS_SHM_SHARE        0x175
     #define SYS_SHM_MAP          0x176
     #define SYS_SHM_RELEASE      0x177
+    #define SYS_MODULE_OPEN      0x178
 
     #ifdef __cplusplus
     extern "C" {

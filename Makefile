@@ -34,7 +34,7 @@ QEMU_HEADLESS   = -display none -serial stdio -no-reboot $(QEMU_DEBUG_EXIT)
 
 VERSION_MAJOR := 0
 VERSION_MINOR := 1
-VERSION_PATCH := 1
+VERSION_PATCH := 2
 VERSION_STAGE := "\"Pre-alfa\""
 GIT_HASH := "\"$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)\""
 BUILD_DATE := "\"$(shell date +%Y-%m-%d)\""
@@ -64,6 +64,10 @@ OBJ            = $(OBJ_CORE) $(CRTBEGIN_OBJ) $(CRTEND_OBJ)
 LINKER_I686 = cock/arch/x86/linker.ld
 
 USERLAND_BOOT_ORDER = init
+INITRD_DIR = initrd
+INITRD_FILES := $(wildcard $(INITRD_DIR)/*)
+INITRD_IMAGE = $(BUILD)/initrd.tar
+INITRD_MODULE = initrd
 USERLAND_MAKEFILES := $(wildcard userland/*/Makefile)
 USERLAND_PROJECTS  := $(patsubst %/Makefile,%,$(USERLAND_MAKEFILES))
 
@@ -96,7 +100,11 @@ $(BUILD)/$(PROJECT).bin: $(OBJ)
 	@echo "[LD ] $@"
 	@$(CXX) -T $(LINKER_I686) -o $@ $(LN_FLAGS) $(OBJ) $(LN_LIBS)
 
-$(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin userland
+$(INITRD_IMAGE): $(INITRD_FILES) | $(BUILD)
+	@echo "[TAR] $@"
+	@tar --format=ustar --owner=root --group=root --numeric-owner -cf $@ -C $(INITRD_DIR) $(notdir $(INITRD_FILES))
+
+$(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin userland $(INITRD_IMAGE)
 	@echo "[ISO] creating ISO"
 	@mkdir -p build/isodir/boot/grub
 	@cp $< build/isodir/boot/$(PROJECT).bin
@@ -119,6 +127,8 @@ $(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin userland
 			esac; \
 		done; \
 	fi
+	@cp $(INITRD_IMAGE) build/isodir/boot/$(INITRD_MODULE).tar
+	@echo "    module /boot/$(INITRD_MODULE).tar \"$(INITRD_MODULE)\"" >> build/isodir/boot/grub/grub.cfg
 
 	@echo '}' >> build/isodir/boot/grub/grub.cfg
 	@grub-mkrescue -o build/cock.iso build/isodir 2> /dev/null
