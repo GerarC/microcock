@@ -18,6 +18,8 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 | `fat` | FAT32 server over the block protocol; see [FAT32](fat32.md) |
 | `vfs` | The file server clients talk to: mount table of `/` (`ramfs`) and `/fat` (`fat`); see [file system](filesystem.md#the-vfs-server) |
 | `fatclient` | Reads files, a long name, a nested file, a multi-cluster file and a listing from `/fat`, and checks the refusals; the end to end test requires its output |
+| `ext` | ext2 server over the block protocol; the manifest also starts it as `ext4probe` on the ext4 volume to show that it is refused; see [ext2](ext2.md) |
+| `extclient` | Reads files at every level of the block map, a sparse file, listings, symbolic links and the refusals from `/ext`; the end to end test requires its output |
 | `mute` | Test server: reads one message and exits without answering |
 | `muteclient` | Checks that requests to a dead server fail instead of hanging, through `vfs` and directly |
 | `blkclient` | Lists the devices of `ata` and reads the first sector of the first partition; the end to end test checks its output |
@@ -51,7 +53,7 @@ kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 peer=vga_driver
 | `arg=` | A number (decimal or `0x`) that travels in the second argument of the `CAPABILITY_GRANTED` message, for a server that needs one value (the device of `fat`). It makes `init` send the message even when the line has no grants or peer |
 | `repeat=` | Run the program that many times (1 to 32), one after the other, waiting for each to exit. Only for entries with `path=` |
 
-When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED` after granting. The kernel still checks every grant against what `init` holds, so a line cannot give more than `init` has. The parser rejects the whole file at the first bad line (unknown key, repeated key, bad number, range that wraps the address space, too many entries or grants, repeated name) and `init` then starts nothing and exits; the serial log shows the line number and the error. The file is at most 4096 bytes and 16 entries. Adding a driver means adding a line here, not editing `init`.
+When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED` after granting. The kernel still checks every grant against what `init` holds, so a line cannot give more than `init` has. The parser rejects the whole file at the first bad line (unknown key, repeated key, bad number, range that wraps the address space, too many entries or grants, repeated name) and `init` then starts nothing and exits; the serial log shows the line number and the error. The file is at most 4096 bytes and 32 entries. Adding a driver means adding a line here, not editing `init`.
 
 ## The `cock::user` API
 `userland/lib/include/cock/user/api.hpp` wraps the system calls for the programs written in C++:
@@ -135,4 +137,4 @@ The programs run in a user-space limit of `0xC0000000` (ELF32). Their stack is t
 * `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and `probe: 30/30 checks passed` on the screen, the typed text on the screen, the lines of the block driver and its client (see [block storage](block_storage.md#tests); the script attaches a test disk and accepts `DISK_SCHEME=gpt`), the `printf` sample line `probe: printf -42 4294967295 FF hi Z 0xBEEF` and the `abort()` message of `aborter` on the serial log, `kbd: ready`, the VGA driver detection and the reaping of the processes that exit on the serial log, and not one exception.
 * Run it also with `USER_EXTRA_FLAGS=-fno-omit-frame-pointer`, which changes how the compiler addresses locals and caught a real bug in the system call wrapper.
 * Both variants run in CI, on every push.
-* `bash scripts/host_test.sh` builds `host_test/` with the host compiler and runs it; it needs no emulator and checks the ring buffer, the intrusive queue, the linked list, the message layout, the capability table, the manifest parser, the partition table parsers and the FAT32 parser.
+* `bash scripts/host_test.sh` builds `host_test/` with the host compiler and runs it; it needs no emulator and checks the ring buffer, the intrusive queue, the linked list, the message layout, the capability table, the manifest parser, the mount table parser, the partition table parsers, the FAT32 parser and the ext2 parser.
