@@ -48,3 +48,5 @@ compile_commands.json
 *.dwo
 microcock.txt
 documentation/api/
+FIXES.md
+REVIEW.md
