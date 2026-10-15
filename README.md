@@ -135,6 +135,7 @@ Build options:
 |--------|--------|
 | `HOST_TOOLCHAIN=1` | Use the host `g++ -m32` and `ld -m elf_i386` instead of `i686-elf-*` |
 | `USE_LTO=1` | Link time optimization (the kernel text shrinks about a quarter) |
+| `LOG_LEVEL=<level>` | Lowest kernel log level compiled in: `TRACE` (default), `DEBUG`, `INFO`, `WARN`, `ERROR` or `FATAL`. Calls below it generate no code |
 | `TEST_BUILD=1` | Build the in-kernel test suite |
 | `USER_EXTRA_FLAGS=...` | Extra compiler flags for the userland programs, for example `-fno-omit-frame-pointer` |
 
@@ -238,11 +239,28 @@ The file system lives outside the kernel, as servers that talk by IPC. The kerne
 - [x] **F9** Writing for FAT32 and ext2.
 - [x] **F10** `open`, `read`, `write` and `close` in the C library, over the file client.
 
-### After that
-- [ ] Capabilities as data: the boot policy comes from the manifest, plus revocation, a capability for IPC and a policy for DMA-capable ports.
-- [ ] Timers and `sleep`, threads, synchronous IPC with a register fast path, and a console server that replaces `SYS_WRITE`.
-- [ ] A syscall fuzzer that runs in Ring 3 and fails on any kernel panic.
-- [ ] Smaller debts: reuse of kernel address ranges, pools for threads and processes, compile-time log filtering, `-Werror`.
+### What comes next
+In this order. Each item is one change with its tests and documentation.
+
+**1. Smaller debts**
+- [x] `-Werror` in the kernel and userland builds, and names for the remaining literals of the early files.
+- [x] Compile-time filtering of log levels.
+- [x] File system follow-ups: `rename` over an existing name, hard links for ext2, the clean flag of FAT, the superblock write time of ext2, a single owner of the clock (`rtc`) and a run of the whole suite with LTO. Symbolic links are postponed until something needs them.
+- [x] Reuse of kernel address ranges, and freeing the early boot memory.
+- [x] Fixed-size pools for threads and processes.
+
+**2. Microkernel features** (each needs the previous one)
+- [ ] Timers: `sleep` and receive with a timeout.
+- [ ] Threads, blocking primitives and exit notifications for `spawn`.
+- [ ] Synchronous IPC with a register fast path.
+- [ ] A console server that replaces `SYS_WRITE` and gives `SYS_READ` something to read.
+- [ ] Locking in `malloc` and a shared `crt0`.
+
+**3. Capabilities as data**
+- [ ] The kernel stops knowing the name `init`; revocation; a capability for IPC (which also decides who may write the disk); a policy for DMA-capable ports.
+
+**4. Later**
+- [ ] A syscall fuzzer that runs in Ring 3 and fails on any kernel panic (postponed until requested).
 - [ ] Platform: APIC and IOAPIC, PAE with NX and memory above 4 GiB, SMP, an x86_64 port.
 
 ## Documentation
