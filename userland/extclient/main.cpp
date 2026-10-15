@@ -1,6 +1,7 @@
 #include <cock/abi/fs.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/fs.hpp>
+#include <cock/user/write_check.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -49,6 +50,12 @@ constexpr uint32_t DIRECT_BOUNDARY_OFFSET = 12280;
 constexpr uint32_t DOUBLE_BOUNDARY_OFFSET = 274420;
 constexpr size_t BOUNDARY_BYTES = 30;
 constexpr uint32_t MANY_ENTRIES = 120;
+constexpr char SCRATCH_PATH[] = "/ext/scratch";
+constexpr char SPACED_NAME[] = "Name With SPACES and Caps.TXT";
+constexpr char SPACED_TEXT[] = "ext names are bytes\n";
+constexpr char LONG_NAME[] =
+	"a-file-name-that-is-long-enough-to-need-a-lot-of-the-directory-record-0123456789.txt";
+constexpr uint32_t WRITTEN_BIG_BYTES = 300000;
 constexpr size_t CHUNK_BYTES = 4096;
 constexpr size_t TEXT_BYTES = 64;
 constexpr uint32_t START_OFFSET = 0;
@@ -184,6 +191,14 @@ bool refusesBadPaths(Client &client) {
 		   client.open(THROUGH_FILE_PATH) == cock::abi::fs::NO_HANDLE;
 }
 
+bool writesTheVolume(Client &client) {
+	cock::user::fs::WriteCheck check(client, SCRATCH_PATH, WRITTEN_BIG_BYTES);
+	return check.run() && check.creates(SPACED_NAME, SPACED_TEXT) &&
+		   check.reads(SPACED_NAME, SPACED_TEXT) && check.removes(SPACED_NAME) &&
+		   check.missing(SPACED_NAME) && check.creates(LONG_NAME, SPACED_TEXT) &&
+		   check.reads(LONG_NAME, SPACED_TEXT) && check.removes(LONG_NAME);
+}
+
 }
 
 extern "C" void _start() {
@@ -202,6 +217,7 @@ extern "C" void _start() {
 	served = served && listsALargeDirectory(client);
 	served = served && followsLinks(client);
 	served = served && refusesBadPaths(client);
+	served = served && writesTheVolume(client);
 
 	puts(served ? "extclient: ok" : "extclient: refused");
 	cock::user::exit_process(served ? EXIT_SERVED : EXIT_REFUSED);

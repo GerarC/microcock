@@ -13,6 +13,7 @@ constexpr size_t WINDOW_PAGE_BYTES = 0x1000;
 constexpr size_t WINDOW_PAGES = 1;
 constexpr size_t WINDOW_BYTES = WINDOW_PAGES * WINDOW_PAGE_BYTES;
 constexpr uint32_t MAX_SECTORS_PER_READ = WINDOW_BYTES / SECTOR_BYTES;
+constexpr uint32_t MAX_SECTORS_PER_WRITE = MAX_SECTORS_PER_READ;
 
 constexpr uint32_t DISK_DEVICE = 0;
 constexpr uint32_t MAX_PARTITIONS = 16;
@@ -27,6 +28,7 @@ enum class Status : uint32_t {
 	OUT_OF_RANGE = 4,
 	IO_ERROR = 5,
 	NO_SPACE = 6,
+	READ_ONLY = 7,
 };
 
 enum class DeviceKind : uint32_t {

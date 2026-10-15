@@ -29,6 +29,8 @@ constexpr uint8_t STATUS_NO_DEVICE = 0x00;
 constexpr uint8_t STATUS_FLOATING_BUS = 0xFF;
 
 constexpr uint8_t COMMAND_READ_SECTORS = 0x20;
+constexpr uint8_t COMMAND_WRITE_SECTORS = 0x30;
+constexpr uint8_t COMMAND_CACHE_FLUSH = 0xE7;
 constexpr uint8_t COMMAND_IDENTIFY = 0xEC;
 
 constexpr uint8_t CONTROL_INTERRUPTS_OFF = 0x02;
@@ -48,6 +50,7 @@ constexpr size_t IDENTIFY_SECTORS_HIGH_WORD = 61;
 constexpr unsigned WORD_BITS = 16;
 constexpr uint32_t MAX_LBA28_SECTORS = 0x0FFFFFFF;
 constexpr uint32_t MAX_READ_SECTORS = 255;
+constexpr uint32_t MAX_WRITE_SECTORS = 255;
 
 class Drive {
   public:
@@ -68,14 +71,7 @@ class Drive {
 			return false;
 
 		uint8_t *cursor = static_cast<uint8_t *>(buffer);
-		cock::user::port_out8(DRIVE_PORT, DRIVE_LBA_MASTER | ((lba >> LBA_DRIVE_SHIFT) &
-															   LBA_HIGH_NIBBLE_MASK));
-		cock::user::port_out8(SECTOR_COUNT_PORT, static_cast<uint8_t>(count));
-		cock::user::port_out8(LBA_LOW_PORT, static_cast<uint8_t>(lba & LBA_LOW_MASK));
-		cock::user::port_out8(
-			LBA_MID_PORT, static_cast<uint8_t>((lba >> LBA_MID_SHIFT) & LBA_LOW_MASK));
-		cock::user::port_out8(
-			LBA_HIGH_PORT, static_cast<uint8_t>((lba >> LBA_HIGH_SHIFT) & LBA_LOW_MASK));
+		selectSectors(lba, count);
 		cock::user::port_out8(COMMAND_PORT, COMMAND_READ_SECTORS);
 		settle();
 
@@ -87,8 +83,49 @@ class Drive {
 		return true;
 	}
 
+	bool write(uint32_t lba, uint32_t count, const void *buffer) {
+		if (count == 0 || count > MAX_WRITE_SECTORS || lba >= total ||
+			count > total - lba)
+			return false;
+
+		const uint8_t *cursor = static_cast<const uint8_t *>(buffer);
+		selectSectors(lba, count);
+		cock::user::port_out8(COMMAND_PORT, COMMAND_WRITE_SECTORS);
+		settle();
+
+		for (uint32_t done = 0; done < count; done++) {
+			if (!waitForData()) return false;
+			cock::user::port_write_words(DATA_PORT, cursor, SECTOR_WORDS);
+			cursor += SECTOR_WORDS * sizeof(uint16_t);
+		}
+		return waitForCompletion() && flush();
+	}
+
   private:
 	uint32_t total = 0;
+
+	static void selectSectors(uint32_t lba, uint32_t count) {
+		cock::user::port_out8(DRIVE_PORT, DRIVE_LBA_MASTER | ((lba >> LBA_DRIVE_SHIFT) &
+															   LBA_HIGH_NIBBLE_MASK));
+		cock::user::port_out8(SECTOR_COUNT_PORT, static_cast<uint8_t>(count));
+		cock::user::port_out8(LBA_LOW_PORT, static_cast<uint8_t>(lba & LBA_LOW_MASK));
+		cock::user::port_out8(
+			LBA_MID_PORT, static_cast<uint8_t>((lba >> LBA_MID_SHIFT) & LBA_LOW_MASK));
+		cock::user::port_out8(
+			LBA_HIGH_PORT, static_cast<uint8_t>((lba >> LBA_HIGH_SHIFT) & LBA_LOW_MASK));
+	}
+
+	static bool waitForCompletion() {
+		settle();
+		if (!waitNotBusy()) return false;
+		uint8_t status = cock::user::port_in8(COMMAND_PORT);
+		return (status & (STATUS_ERROR | STATUS_FAULT)) == 0;
+	}
+
+	static bool flush() {
+		cock::user::port_out8(COMMAND_PORT, COMMAND_CACHE_FLUSH);
+		return waitForCompletion();
+	}
 
 	static void settle() {
 		for (size_t read = 0; read < SETTLE_READS; read++)

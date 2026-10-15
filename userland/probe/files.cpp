@@ -37,7 +37,7 @@ constexpr size_t INITRD_TEXT_BYTES = sizeof(INITRD_TEXT) - sizeof(char);
 constexpr size_t READ_BUFFER_BYTES = 64;
 constexpr size_t SKIPPED_BYTES = 6;
 constexpr uint32_t UNKNOWN_HANDLE = 0x7FFF;
-constexpr uint32_t UNSUPPORTED_FLAGS = 1;
+constexpr uint32_t UNSUPPORTED_FLAGS = 0x80;
 constexpr uint32_t NO_OFFSET = 0;
 constexpr uint32_t NO_LENGTH = 0;
 constexpr uint32_t NO_VALUE = 0;
@@ -105,6 +105,9 @@ bool fileServerRefusesBadRequests() {
 	ok = ok && fails(client, MessageType::FS_OPEN,
 					 static_cast<uint32_t>(sizeof(INITRD_FILE) - sizeof(char)),
 					 UNSUPPORTED_FLAGS, NO_VALUE, Status::UNSUPPORTED);
+	ok = ok && fails(client, MessageType::FS_OPEN,
+					 static_cast<uint32_t>(sizeof(INITRD_FILE) - sizeof(char)),
+					 cock::abi::fs::OPEN_WRITE, NO_VALUE, Status::READ_ONLY);
 	ok = ok && fails(client, MessageType::FS_STAT, UNKNOWN_HANDLE, NO_VALUE, NO_VALUE,
 					 Status::BAD_HANDLE);
 	ok = ok && fails(client, MessageType::FS_CLOSE, UNKNOWN_HANDLE, NO_VALUE, NO_VALUE,

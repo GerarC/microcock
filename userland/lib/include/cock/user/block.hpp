@@ -74,6 +74,18 @@ class Client {
 		return true;
 	}
 
+	bool write(uint32_t device, uint32_t sector, uint32_t count, const void *buffer) {
+		if (view == nullptr || count == 0 || count > abi::block::MAX_SECTORS_PER_WRITE)
+			return false;
+
+		memcpy(view, buffer, size_t(count) * abi::block::SECTOR_BYTES);
+		Reply reply = {};
+		if (!call(MessageType::BLK_WRITE, device, sector, count, reply) ||
+			reply.status != Status::OK || reply.first != count)
+			return false;
+		return true;
+	}
+
   private:
 	bool call(MessageType type, uint32_t first, uint32_t second, uint32_t third,
 			  Reply &reply) {

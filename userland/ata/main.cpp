@@ -152,6 +152,26 @@ void answerRead(Session &session, const Message &message) {
 	reply(pid, id, Status::OK, count);
 }
 
+void answerWrite(Session &session, const Message &message) {
+	uint32_t pid = message.sender_pid;
+	uint32_t id = message.payload.args.arg0;
+	uint32_t device = message.payload.args.arg1;
+	uint32_t sector = message.payload.args.arg2;
+	uint32_t count = message.payload.args.arg3;
+	if (device >= deviceCount) return reply(pid, id, Status::BAD_DEVICE);
+	if (device == cock::abi::block::DISK_DEVICE) return reply(pid, id, Status::READ_ONLY);
+	if (count == 0 || count > cock::abi::block::MAX_SECTORS_PER_WRITE)
+		return reply(pid, id, Status::BAD_REQUEST);
+
+	const Device &found = devices[device];
+	if (sector >= found.sectorCount || count > found.sectorCount - sector)
+		return reply(pid, id, Status::OUT_OF_RANGE);
+
+	if (!drive.write(found.firstSector + sector, count, session.window))
+		return reply(pid, id, Status::IO_ERROR);
+	reply(pid, id, Status::OK, count);
+}
+
 void handle(const Message &message) {
 	if (message.sender_pid == cock::ipc::KERNEL_SENDER) return;
 	uint32_t pid = message.sender_pid;
@@ -162,6 +182,7 @@ void handle(const Message &message) {
 		return connect(pid, id);
 	case MessageType::BLK_INFO:
 	case MessageType::BLK_READ:
+	case MessageType::BLK_WRITE:
 		break;
 	default:
 		return;
@@ -171,6 +192,7 @@ void handle(const Message &message) {
 	if (session == nullptr) return reply(pid, id, Status::NOT_CONNECTED);
 
 	if (message.type == MessageType::BLK_INFO) return answerInfo(message);
+	if (message.type == MessageType::BLK_WRITE) return answerWrite(*session, message);
 	answerRead(*session, message);
 }
 

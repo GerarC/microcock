@@ -36,6 +36,9 @@ enum class MessageType : uint32_t {
 	BLK_INFO = 17,                  /**< Block server request: size of a device; arg0 request id, arg1 device. */
 	BLK_READ = 18,                  /**< Block server request: read sectors into the window; arg0 request id, arg1 device, arg2 first sector, arg3 sector count. */
 	BLK_REPLY = 19,                 /**< Block server answer; arg0 request id, arg1 status, arg2 to arg4 values. */
+	FS_WRITE = 20,                  /**< File server request: write the window into a file; arg0 request id, arg1 handle, arg2 offset, arg3 length. */
+	FS_UNLINK = 21,                 /**< File server request: delete the file at the path in the window; arg0 request id, arg1 path length. */
+	BLK_WRITE = 22,                 /**< Block server request: write the window to sectors; arg0 request id, arg1 device, arg2 first sector, arg3 sector count. */
 };
 
 /**
