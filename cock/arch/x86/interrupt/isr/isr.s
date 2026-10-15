@@ -1,3 +1,9 @@
+%define STACK_ALIGNMENT_MASK -16
+%define ARGUMENT_PADDING 12
+%define KERNEL_DATA_SELECTOR 0x10
+%define PAGE_FAULT_VECTOR 14
+%define VECTOR_SLOT_OFFSET 36
+
 section .text
 
 extern isr_handler
@@ -23,19 +29,22 @@ isr_common_stub:
     push eax
 
     xor eax, eax
-    cmp dword [esp + 36], 14
+    cmp dword [esp + VECTOR_SLOT_OFFSET], PAGE_FAULT_VECTOR
     jne .save_cr2
     mov eax, cr2
 .save_cr2:
     push eax
 
-    mov ax, 0x10
+    mov ax, KERNEL_DATA_SELECTOR
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
-    push esp
+    mov ebp, esp
+    and esp, STACK_ALIGNMENT_MASK
+    sub esp, ARGUMENT_PADDING
+    push ebp
 
     call isr_handler
 
