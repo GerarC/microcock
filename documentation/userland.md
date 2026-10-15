@@ -9,7 +9,7 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 | `init` | Root server. The only process born with authority; it gives each driver its capabilities and tells it to start, then exits |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the display server |
-| `probe` | Security probe. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 16/16 checks passed` |
+| `probe` | Security probe. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 17/17 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
 
 The processes see each other only by name: `init` calls `cock::user::lookup("kbd")` to get a process id. The kernel names a process after its module.
@@ -83,6 +83,7 @@ include ../common.mk
 * `NAME` is the name of the ELF and **the name the kernel gives the process**.
 * `SRCS` are the sources of the program.
 * `LIBC_SRCS` picks the files of `libc/` to link with the program; there is no shared library.
+* `printf`, `puts` and `putchar` need `stdio/printf.cpp`, `stdio/puts.cpp`, `stdio/putchar.cpp`, `unistd/write.cpp` and `string/strlen.cpp` (plus `string/memset.cpp`). `printf` formats into a 1 KiB buffer and writes it with a loop of `write` calls, because the kernel cuts each `SYS_WRITE` at 128 bytes; it supports `%d %u %x %o %p %c %s` and `%%`, without width or precision. It returns the number of characters written, or `-1` if a write failed. `putchar` is one system call per character, so prefer `printf` and `puts`.
 * The entry point is a function called `_start` declared `extern "C"`. It never returns: end with `exit_process`.
 * `common.mk` compiles freestanding, without exceptions, RTTI, stack protector or FPU code, links at `0x400000` with `userland/linker.ld`, and tracks the headers each object includes, so changing a header rebuilds what depends on it.
 * `USER_EXTRA_FLAGS` adds compiler flags for every program, for example `make iso USER_EXTRA_FLAGS=-fno-omit-frame-pointer`.
@@ -93,7 +94,7 @@ The main Makefile passes the compiler, linker and assembler (`USER_CXX`, `USER_L
 The programs run in a user-space limit of `0xC0000000` (ELF32). Their stack is the top 64 KiB below that limit, and `mmap` hands out addresses from `0x60000000` upward.
 
 ## Testing
-* `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and `probe: 16/16 checks passed` on the screen, the typed text on the screen, `kbd: ready`, the VGA driver detection and the reaping of the processes that exit on the serial log, and not one exception.
+* `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and `probe: 17/17 checks passed` on the screen, the typed text on the screen, the `printf` sample line `probe: printf -42 4294967295 FF hi Z 0xBEEF` on the serial log, `kbd: ready`, the VGA driver detection and the reaping of the processes that exit on the serial log, and not one exception.
 * Run it also with `USER_EXTRA_FLAGS=-fno-omit-frame-pointer`, which changes how the compiler addresses locals and caught a real bug in the system call wrapper.
 * Both variants run in CI, on every push.
 * `bash scripts/host_test.sh` builds `host_test/` with the host compiler and runs it; it needs no emulator and checks the ring buffer, the intrusive queue, the linked list, the message layout and the capability table.

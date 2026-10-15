@@ -1,6 +1,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#if !defined(__is_libk)
+#include <unistd.h>
+#endif
 
 // Max int32
 constexpr size_t MAX_NUMBER_SIZE = 64;
@@ -20,6 +23,7 @@ constexpr int DEFAULT_INDEX = 0;
 constexpr int SUCCESS = 0;
 constexpr int ERROR = -1;
 constexpr int EMPTY = 0;
+constexpr int STDOUT_DESCRIPTOR = 1;
 
 // TYPES
 typedef int (*StreamWriteBufferFunction)(const char *);
@@ -39,6 +43,8 @@ typedef struct _stream_t {
 	size_t index;
 	char *buffer;
 	StreamWriteBufferFunction write_all;
+	size_t total;
+	int status;
 } Stream;
 
 // Auxiliar functions
@@ -48,11 +54,21 @@ typedef struct _stream_t {
  * */
 static int print(const char *data) {
 	size_t length = strlen(data);
+#if defined(__is_libk)
 	const unsigned char *bytes = (const unsigned char *)data;
 	for (size_t i = 0; i < length; i++) {
 		if (putchar(bytes[i]) == EOF) return i;
 	}
 	return (length);
+#else
+	size_t written = 0;
+	while (written < length) {
+		ssize_t count = write(STDOUT_DESCRIPTOR, data + written, length - written);
+		if (count <= 0) return written;
+		written += (size_t)count;
+	}
+	return (length);
+#endif
 }
 
 /**
@@ -66,11 +82,16 @@ static int print_stream_buffer(Stream &stream) {
 	stream.buffer[stream.index] = END_OF_STRING;
 	// writes the buffer and return 1 on failure
 	size_t written = (size_t)stream.write_all(stream.buffer);
-	if (written != stream.index) return ERROR;
+	size_t pending = stream.index;
 
 	// Clears the buffer
 	memset(stream.buffer, EMPTY, stream.capacity);
 	stream.index = DEFAULT_INDEX;
+	stream.total += written;
+	if (written != pending) {
+		stream.status = ERROR;
+		return ERROR;
+	}
 	return SUCCESS;
 }
 
@@ -151,7 +172,9 @@ int vprintf(const char *format, va_list args) {
 	Stream stream = {.capacity = sizeof(buffer),
 					 .index = DEFAULT_INDEX,
 					 .buffer = buffer,
-					 .write_all = print};
+					 .write_all = print,
+					 .total = EMPTY,
+					 .status = SUCCESS};
 	for (size_t i = 0; format[i] != END_OF_STRING; i++) {
 		char current = format[i];
 
@@ -215,8 +238,9 @@ int vprintf(const char *format, va_list args) {
 				break;
 		}
 	}
-	int r = print_stream_buffer(stream);
-	return r;
+	print_stream_buffer(stream);
+	if (stream.status != SUCCESS) return ERROR;
+	return (int)stream.total;
 }
 
 int printf(const char *__restrict format, ...) {

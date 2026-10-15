@@ -2,6 +2,7 @@
 #include <cock/user/api.hpp>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <sys/mman.h>
 
 using cock::abi::CapabilityType;
@@ -24,34 +25,24 @@ constexpr size_t PROBE_LENGTH = 16;
 constexpr int NO_FILE = -1;
 constexpr int MAPPING_PROTECTION = PROT_READ | PROT_WRITE;
 constexpr uint8_t TEST_PATTERN = 0x5A;
-constexpr unsigned DECIMAL_BASE = 10;
-constexpr size_t NUMBER_BUFFER_SIZE = 12;
 constexpr long WRITE_FAILED = -1;
-constexpr size_t CHECK_COUNT = 16;
+constexpr size_t CHECK_COUNT = 17;
 constexpr size_t OVERSIZED_MAPPING = 0x20000000;
 constexpr size_t MAPPING_ATTEMPTS = 64;
 constexpr size_t OVERSIZED_WRITE = 200;
 constexpr uint32_t PING_VALUE = 0x5EED;
 constexpr int MUNMAP_FAILED = -1;
+constexpr char SAMPLE_OUTPUT[] = "probe: printf -42 4294967295 FF hi Z 0xBEEF\n";
+constexpr char TERMINATOR = '\0';
+constexpr size_t NEWLINE_LENGTH = 1;
+constexpr int SAMPLE_SIGNED = -42;
+constexpr unsigned SAMPLE_UNSIGNED = 0xFFFFFFFF;
+constexpr unsigned SAMPLE_HEX = 0xFF;
+constexpr uintptr_t SAMPLE_POINTER = 0xBEEF;
+constexpr size_t LONG_LINE_LENGTH = 300;
+constexpr char LONG_LINE_FILL = '.';
 constexpr uintptr_t EXIT_ALL_PASSED = 0;
 constexpr uintptr_t EXIT_SOME_FAILED = 1;
-
-void print(const char *text) {
-	size_t length = 0;
-	while (text[length] != '\0')
-		length++;
-	cock::user::write_text(text, length);
-}
-
-void printNumber(unsigned value) {
-	char digits[NUMBER_BUFFER_SIZE];
-	size_t position = NUMBER_BUFFER_SIZE;
-	do {
-		digits[--position] = static_cast<char>('0' + value % DECIMAL_BASE);
-		value /= DECIMAL_BASE;
-	} while (value != 0 && position > 0);
-	cock::user::write_text(&digits[position], NUMBER_BUFFER_SIZE - position);
-}
 
 bool anonymousMemoryWorks() {
 	void *memory = mmap(nullptr, PAGE_BYTES, MAPPING_PROTECTION, MAP_ANONYMOUS,
@@ -137,6 +128,20 @@ bool messageToSelfArrives() {
 		   received.payload.args.arg0 == PING_VALUE;
 }
 
+bool printfFormatsAndLongLines() {
+	int formats = printf("probe: printf %d %u %x %s %c %p\n", SAMPLE_SIGNED,
+						 SAMPLE_UNSIGNED, SAMPLE_HEX, "hi", 'Z',
+						 reinterpret_cast<void *>(SAMPLE_POINTER));
+	int formatsExpected = sizeof(SAMPLE_OUTPUT) - sizeof(TERMINATOR);
+	char line[LONG_LINE_LENGTH + 1];
+	for (size_t idx = 0; idx < LONG_LINE_LENGTH; idx++)
+		line[idx] = LONG_LINE_FILL;
+	line[LONG_LINE_LENGTH] = TERMINATOR;
+	int longLine = printf("%s\n", line);
+	return formats == formatsExpected &&
+		   longLine == static_cast<int>(LONG_LINE_LENGTH + NEWLINE_LENGTH);
+}
+
 } // namespace
 
 extern "C" void _start() {
@@ -165,7 +170,8 @@ extern "C" void _start() {
 		oversizedWriteIsCut(),
 		mappingQuotaIsEnforced(),
 		releasedAddressIsReused(),
-		regionTableIsBounded()};
+		regionTableIsBounded(),
+		printfFormatsAndLongLines()};
 
 	unsigned passed = 0;
 	for (size_t idx = 0; idx < CHECK_COUNT; idx++) {
@@ -173,16 +179,11 @@ extern "C" void _start() {
 			passed++;
 			continue;
 		}
-		print("probe: check ");
-		printNumber(static_cast<unsigned>(idx + 1));
-		print(" FAILED\n");
+		printf("probe: check %u FAILED\n", static_cast<unsigned>(idx + 1));
 	}
 
-	print("probe: ");
-	printNumber(passed);
-	print("/");
-	printNumber(CHECK_COUNT);
-	print(" checks passed\n");
+	printf("probe: %u/%u checks passed\n", passed,
+		   static_cast<unsigned>(CHECK_COUNT));
 	cock::user::exit_process(passed == CHECK_COUNT ? EXIT_ALL_PASSED
 												: EXIT_SOME_FAILED);
 }
