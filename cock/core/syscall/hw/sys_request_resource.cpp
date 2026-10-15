@@ -16,15 +16,15 @@ uintptr_t sys_request_resource(uintptr_t resource_id, uintptr_t size, uintptr_t,
 	Thread *current = Scheduler::getCurrentThread();
 	if (!current) return (uintptr_t)-1;
 
-	bool success = hal::grant_hardware_resource(current->getArchContext(),
-												resource_id, size);
+	hal::ArchProcessContext &context = current->getProcess()->getContext();
+	bool success = hal::grant_hardware_resource(context, resource_id, size);
 	if (!success) {
 		Logger::warn("sys_request_resource: PID %d denied (id 0x%x, size %u)",
 					 current->getId(), resource_id, size);
 		return (uintptr_t)-1;
 	}
 
-	hal::apply_thread_context(current->getArchContext());
+	hal::apply_process_context(context);
 	return 0;
 }
 

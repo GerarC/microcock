@@ -1,12 +1,13 @@
 #ifndef ARCH_X86_GDT_HPP
 #define ARCH_X86_GDT_HPP
+#include <hal/process_context.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
 namespace cock::arch::x86 {
 
 /** @brief Size of the I/O Permission Bitmap inside the TSS. */
-constexpr size_t IO_PERMISSION_MAP_SIZE = 8193;
+constexpr size_t IO_PERMISSION_MAP_SIZE = core::hal::IO_PERMISSION_MAP_BYTES;
 
 /**
  * @brief Hardware-defined structure for a single GDT entry.
@@ -86,17 +87,24 @@ class GDT {
 
 	/**
 	 * @brief Applies an I/O permission bitmap to the TSS to grant/deny hardware
-	 * port access.
-	 * @param thread_iopm Pointer to the thread's I/O permission map, or nullptr
-	 * to deny all.
+	 * port access. Nothing is copied when the same version is already applied,
+	 * and only the bytes in use are copied otherwise.
+	 * @param map The process I/O permission map.
+	 * @param bytes Number of leading bytes of the map that grant ports; zero
+	 * denies every port without copying.
+	 * @param version Identifies the contents of the map.
 	 */
-	static void setIOPM(const uint8_t *thread_iopm);
+	static void applyIoPermissions(const uint8_t *map, uint32_t bytes,
+								   uint32_t version);
+	static uint32_t appliedIoVersion();
 
   private:
 	static constexpr int MAX_ENTRIES = 6;
 	static Entry entries[MAX_ENTRIES];
 	static TssEntry tssEntry;
 	static Pointer pointer;
+	static uint32_t appliedVersion;
+	static uint32_t dirtyBytes;
 
 	static void setGate(uint32_t num, uint32_t base, uint32_t limit,
 						uint8_t access, uint8_t gran);

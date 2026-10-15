@@ -2,6 +2,7 @@
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/cock.hpp>
 #include <cock/core/hal/utils.hpp>
+#include <cock/core/task/process.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
@@ -20,6 +21,7 @@
 
 namespace cock {
 
+using core::task::Process;
 using core::task::Scheduler;
 using core::task::TaskManager;
 using core::task::Thread;
@@ -81,7 +83,8 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
             continue;
         }
 
-        Thread *app_thread = new Thread(image.entry, new_cr3, image.user_space_limit, ThreadPriority::NORMAL);
+        Process *process = Process::create(new_cr3, image.user_space_limit);
+        Thread *app_thread = new Thread(*process, image.entry, ThreadPriority::NORMAL);
         if (strcmp(modules[i].name, VGA_DRIVER_MODULE) == 0) {
             core::hal::console_detach();
             vga_server_pid = app_thread->getId();

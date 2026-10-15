@@ -15,10 +15,14 @@ constexpr size_t IO_MAP_BASE = 0x68;
 constexpr uint8_t TSS_ACCESS = 0x89;
 constexpr uint8_t TSS_GRANULARITY = 0x00;
 constexpr uint8_t IO_DENIED = 0xFF;
+constexpr uint16_t IO_MAP_DISABLED = sizeof(TssEntry);
+constexpr uint32_t NOTHING_APPLIED = 0;
 
 Entry GDT::entries[MAX_ENTRIES];
 TssEntry GDT::tssEntry;
 Pointer GDT::pointer;
+uint32_t GDT::appliedVersion = NOTHING_APPLIED;
+uint32_t GDT::dirtyBytes = 0;
 
 void GDT::init() {
 	pointer.limit = (sizeof(Entry) * MAX_ENTRIES - 1);
@@ -66,10 +70,25 @@ void GDT::writeTSS(uint32_t num, uint16_t ss0, uint32_t esp0) {
 		   sizeof(tssEntry.io_permission_map));
 }
 
-void GDT::setIOPM(const uint8_t *thread_iopm) {
-	if (thread_iopm) memcpy(tssEntry.io_permission_map, thread_iopm, sizeof(tssEntry.io_permission_map));
-	else memset(tssEntry.io_permission_map, IO_DENIED, sizeof(tssEntry.io_permission_map));
+void GDT::applyIoPermissions(const uint8_t *map, uint32_t bytes,
+							 uint32_t version) {
+	if (appliedVersion == version) return;
+	appliedVersion = version;
+
+	if (bytes == 0) {
+		tssEntry.iomap_base = IO_MAP_DISABLED;
+		return;
+	}
+
+	memcpy(tssEntry.io_permission_map, map, bytes);
+	if (dirtyBytes > bytes)
+		memset(tssEntry.io_permission_map + bytes, IO_DENIED, dirtyBytes - bytes);
+	dirtyBytes = bytes;
+	tssEntry.iomap_base = IO_MAP_BASE;
 }
+
+uint32_t GDT::appliedIoVersion() { return appliedVersion; }
+
 void GDT::setKernelStack(uint32_t stack_pointer) {
 	tssEntry.esp0 = stack_pointer;
 }

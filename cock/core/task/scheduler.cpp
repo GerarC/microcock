@@ -160,9 +160,10 @@ uintptr_t Scheduler::switchFrom(uintptr_t current_stack_pointer,
 	currentTicks = 0;
 
 	hal::set_kernel_stack(currentThread->getKernelStackTop());
-	hal::apply_thread_context(currentThread->getArchContext());
-	if (hal::get_current_address_space() != currentThread->getAddressSpace())
-		hal::switch_address_space(currentThread->getAddressSpace());
+	Process *process = currentThread->getProcess();
+	if (!process->isKernel()) hal::apply_process_context(process->getContext());
+	if (hal::get_current_address_space() != process->getAddressSpace())
+		hal::switch_address_space(process->getAddressSpace());
 
 	return currentThread->getStackPointer();
 }

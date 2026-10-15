@@ -12,6 +12,14 @@ namespace cock::test::loader {
 extern void test_elf_loader();
 } // namespace cock::test::loader
 
+namespace cock::test::task {
+extern void test_process();
+} // namespace cock::test::task
+
+namespace cock::test::arch {
+extern void test_io_permissions();
+} // namespace cock::test::arch
+
 namespace cock::test {
 using utils::Logger;
 
@@ -21,6 +29,8 @@ void run_all_tests() {
 	memory::test_heap();
 	memory::test_new_operator();
 	loader::test_elf_loader();
+	task::test_process();
+	arch::test_io_permissions();
 
 	Logger::info("<=== ENDING COCK TEST SUIT ===>\n");
 	TestRunner::print_summary();
