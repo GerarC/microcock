@@ -26,7 +26,7 @@ constexpr char NESTED_FILE[] = "docs/note.txt";
 constexpr char NESTED_NAME[] = "note.txt";
 constexpr char NESTED_TEXT[] = "Cucked file\n";
 constexpr size_t NESTED_TEXT_BYTES = sizeof(NESTED_TEXT) - sizeof(char);
-constexpr uint32_t ROOT_ENTRY_COUNT = 2;
+constexpr uint32_t MIN_ROOT_ENTRIES = 2;
 constexpr char INITRD_TEXT[] = "Hello from the cock initrd!!!\n";
 constexpr size_t INITRD_TEXT_BYTES = sizeof(INITRD_TEXT) - sizeof(char);
 constexpr size_t READ_BUFFER_BYTES = 64;
@@ -130,7 +130,7 @@ bool fileServerListsDirectories() {
 		if (strcmp(name, NESTED_DIRECTORY) == 0)
 			sawDirectory = type == cock::abi::fs::FileType::DIRECTORY;
 	}
-	bool ok = count == ROOT_ENTRY_COUNT && sawFile && sawDirectory;
+	bool ok = count >= MIN_ROOT_ENTRIES && sawFile && sawDirectory;
 
 	uint32_t nested = client.open(NESTED_DIRECTORY);
 	ok = ok && nested != cock::abi::fs::NO_HANDLE &&

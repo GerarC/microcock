@@ -23,6 +23,8 @@ constexpr int MUNMAP_FAILED = -1;
 constexpr const char INITRD_MODULE[] = "initrd";
 constexpr const char MISSING_MODULE[] = "no-such-module";
 constexpr size_t OVERSIZED_MODULE_NAME = 4096;
+constexpr char SPAWN_NAME[] = "intruder";
+constexpr size_t SPAWN_IMAGE_BYTES = 64;
 
 bool mapPhysicalIsDenied(uintptr_t physical) {
 	return mmap(reinterpret_cast<void *>(MAP_TARGET), PAGE_BYTES,
@@ -74,6 +76,17 @@ bool bootModulesAreDenied() {
 				   NO_PAGES, 0, 0, 0, 0) == cock::user::FAILURE &&
 		   syscall(SYS_MODULE_OPEN, reinterpret_cast<uintptr_t>(INITRD_MODULE),
 				   OVERSIZED_MODULE_NAME, 0, 0, 0, 0) == cock::user::FAILURE;
+}
+
+bool spawnIsDenied() {
+	char image[SPAWN_IMAGE_BYTES] = {};
+	return cock::user::spawn(image, sizeof(image), SPAWN_NAME) == cock::user::NO_PROCESS &&
+		   syscall(SYS_SPAWN, KERNEL_ADDRESS, PROBE_LENGTH,
+				   reinterpret_cast<uintptr_t>(SPAWN_NAME), sizeof(SPAWN_NAME), 0,
+				   0) == cock::user::FAILURE &&
+		   syscall(SYS_SPAWN, reinterpret_cast<uintptr_t>(image), NO_PAGES,
+				   reinterpret_cast<uintptr_t>(SPAWN_NAME), sizeof(SPAWN_NAME), 0,
+				   0) == cock::user::FAILURE;
 }
 
 } // namespace probe

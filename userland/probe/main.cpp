@@ -6,7 +6,7 @@
 
 namespace {
 
-constexpr size_t CHECK_COUNT = 30;
+constexpr size_t CHECK_COUNT = 32;
 constexpr uintptr_t EXIT_ALL_PASSED = 0;
 constexpr uintptr_t EXIT_SOME_FAILED = 1;
 
@@ -43,7 +43,9 @@ extern "C" void _start() {
 		probe::initrdFileReads(),
 		probe::fileServerRefusesBadRequests(),
 		probe::fileServerListsDirectories(),
-		probe::moduleIndexIsDenied()};
+		probe::moduleIndexIsDenied(),
+		probe::spawnIsDenied(),
+		probe::processAliveReportsLiveness()};
 
 	unsigned passed = 0;
 	for (size_t idx = 0; idx < CHECK_COUNT; idx++) {

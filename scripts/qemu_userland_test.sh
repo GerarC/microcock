@@ -7,8 +7,9 @@ SERIAL_FILE="${SERIAL_FILE:-build/userland_serial.txt}"
 SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
 TYPED_KEYS="a b shift-c d"
-EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 30/30 checks passed|abCd"
-EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|kbd: ready|VGA driver detected|reaped"
+FILE_CLIENT_RUNS=10
+EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 32/32 checks passed|abCd"
+EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|init: started kbd|init: started probe|kbd: ready|VGA driver detected|reaped"
 
 make clean "$@" > /dev/null
 make iso "$@" || exit 2
@@ -100,6 +101,11 @@ for expected in "${serial_checks[@]}"; do
 		status=1
 	fi
 done
+served=$(grep -c "fsclient: ok" "$SERIAL_FILE")
+if [ "$served" -ne "$FILE_CLIENT_RUNS" ]; then
+	echo "[qemu_userland_test] file clients served: $served of $FILE_CLIENT_RUNS"
+	status=1
+fi
 if grep -q "Exception{" "$SERIAL_FILE"; then
 	echo "[qemu_userland_test] a thread was killed by an exception"
 	status=1
