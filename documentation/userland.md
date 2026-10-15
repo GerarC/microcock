@@ -14,6 +14,8 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 | `hello` | Assembly program that writes a line and exits |
 | `fsclient` | Reads a file from the `initrd` and exits; `init` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |
+| `ata` | Block server for the first IDE disk: PIO reads, MBR and GPT partitions; started by `init` with the ports `0x1F0+8` and `0x3F6+1`; see [block storage](block_storage.md) |
+| `blkclient` | Lists the devices of `ata` and reads the first sector of the first partition; the end to end test checks its output |
 
 The processes see each other only by name: `init` calls `cock::user::lookup("kbd")` to get a process id. The kernel names a process after its module.
 
@@ -56,6 +58,7 @@ When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED
 | `cap_grant(pid, type, first, count)` | `SYS_CAP_GRANT` |
 | `lookup(name)` | `SYS_PROC_LOOKUP` |
 | `shm_create(pages)`, `shm_share(id, pid, writable)`, `shm_map(id, writable)`, `shm_release(id)` | `SYS_SHM_CREATE`, `SYS_SHM_SHARE`, `SYS_SHM_MAP`, `SYS_SHM_RELEASE` |
+| `port_out8(port, value)`, `port_in8(port)`, `port_read_words(port, buffer, words)` | Port instructions (`outb`, `inb`, `rep insw`), allowed after `request_ports` |
 | `module_open(name)` | `SYS_MODULE_OPEN` |
 | `module_index(name)` | `SYS_MODULE_INDEX` |
 | `spawn(image, size, name)` | `SYS_SPAWN` |
@@ -122,7 +125,7 @@ The main Makefile passes the compiler, linker and assembler (`USER_CXX`, `USER_L
 The programs run in a user-space limit of `0xC0000000` (ELF32). Their stack is the top 64 KiB below that limit, and `mmap` hands out addresses from `0x60000000` upward.
 
 ## Testing
-* `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and `probe: 30/30 checks passed` on the screen, the typed text on the screen, the `printf` sample line `probe: printf -42 4294967295 FF hi Z 0xBEEF` and the `abort()` message of `aborter` on the serial log, `kbd: ready`, the VGA driver detection and the reaping of the processes that exit on the serial log, and not one exception.
+* `bash scripts/qemu_userland_test.sh` boots the ISO under QEMU, types `abCd` on the simulated keyboard through the QEMU monitor and requires: the `hello` line and `probe: 30/30 checks passed` on the screen, the typed text on the screen, the lines of the block driver and its client (see [block storage](block_storage.md#tests); the script attaches a test disk and accepts `DISK_SCHEME=gpt`), the `printf` sample line `probe: printf -42 4294967295 FF hi Z 0xBEEF` and the `abort()` message of `aborter` on the serial log, `kbd: ready`, the VGA driver detection and the reaping of the processes that exit on the serial log, and not one exception.
 * Run it also with `USER_EXTRA_FLAGS=-fno-omit-frame-pointer`, which changes how the compiler addresses locals and caught a real bug in the system call wrapper.
 * Both variants run in CI, on every push.
-* `bash scripts/host_test.sh` builds `host_test/` with the host compiler and runs it; it needs no emulator and checks the ring buffer, the intrusive queue, the linked list, the message layout and the capability table.
+* `bash scripts/host_test.sh` builds `host_test/` with the host compiler and runs it; it needs no emulator and checks the ring buffer, the intrusive queue, the linked list, the message layout, the capability table, the manifest parser and the partition table parsers.

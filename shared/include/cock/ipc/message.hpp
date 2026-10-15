@@ -32,6 +32,10 @@ enum class MessageType : uint32_t {
 	FS_CLOSE = 13,                  /**< File server request: drop a handle; arg0 request id, arg1 handle. */
 	FS_READDIR = 15,                /**< File server request: name of the entry at an index of a directory; arg0 request id, arg1 handle, arg2 index. */
 	FS_REPLY = 14,                  /**< File server answer; arg0 request id, arg1 status, arg2 and arg3 values. */
+	BLK_CONNECT = 16,               /**< Block server request: open a session and get a window; arg0 is the request id. */
+	BLK_INFO = 17,                  /**< Block server request: size of a device; arg0 request id, arg1 device. */
+	BLK_READ = 18,                  /**< Block server request: read sectors into the window; arg0 request id, arg1 device, arg2 first sector, arg3 sector count. */
+	BLK_REPLY = 19,                 /**< Block server answer; arg0 request id, arg1 status, arg2 to arg4 values. */
 };
 
 /**

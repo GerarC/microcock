@@ -90,7 +90,7 @@ To build and run MicroCOCK, you need a standard i686-elf cross-compiler toolchai
 * `nasm`
 * `grub-mkrescue` (and `xorriso`, `mtools`)
 * `qemu-system-i386`
-* `python3` (only for the userland end to end test)
+* `python3` and `sfdisk` from `util-linux` (only for the userland end to end test, which builds a test disk)
 
 Without a cross-compiler, the host `g++` and `ld` with `-m32` work too (`HOST_TOOLCHAIN=1`); install `gcc-multilib` and `g++-multilib`.
 
@@ -178,6 +178,11 @@ The userland test is also run with the programs built with frame pointers, which
 bash scripts/qemu_userland_test.sh HOST_TOOLCHAIN=1 USER_EXTRA_FLAGS=-fno-omit-frame-pointer
 ```
 
+The test attaches a disk with an MBR partition table; `DISK_SCHEME=gpt` uses a GPT one:
+```bash
+DISK_SCHEME=gpt bash scripts/qemu_userland_test.sh HOST_TOOLCHAIN=1
+```
+
 The same checks run on every push through `.github/workflows/ci.yml`.
 
 ### Current limitations
@@ -226,7 +231,7 @@ The file system lives outside the kernel, as servers that talk by IPC. The kerne
 - [x] **F3** `ramfs` server and a client library: a program reads a file from the initrd.
 - [x] **F4** `spawn`: `init` starts the programs from files instead of from boot modules, and `ramfs` releases the sessions of dead clients.
 - [x] **F5** A manifest read by `init` that lists each program and its capabilities. Adding a driver becomes adding a line.
-- [ ] **F6** ATA driver (PIO), a block protocol and partition tables (MBR and GPT).
+- [x] **F6** ATA driver (PIO), a block protocol and partition tables (MBR and GPT).
 - [ ] **F7** FAT32 server (read only first) and a `vfs` with a mount table.
 - [ ] **F8** `ext` server, ext2 read only.
 - [ ] **F9** Writing for FAT32 and ext2.
@@ -252,3 +257,4 @@ For more detailed information regarding specific subsystems, please check the `d
 * [GDT](documentation/gdt.md) & [IDT](documentation/idt.md): CPU descriptor tables and interrupt handling.
 * [VGA](documentation/vga.md): Kernel console and the userland display server.
 * [Keyboard](documentation/keyboard.md): The PS/2 driver in userland and how an interrupt reaches it.
+* [Block storage](documentation/block_storage.md): The ATA driver, partition tables and the block protocol.
