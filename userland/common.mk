@@ -5,6 +5,7 @@ USER_EXTRA_FLAGS ?=
 
 USERLAND_ROOT := $(dir $(lastword $(MAKEFILE_LIST)))
 LIBC := $(USERLAND_ROOT)../libc
+LIBCXX := $(USERLAND_ROOT)../libcxx
 LINKER_SCRIPT := $(USERLAND_ROOT)linker.ld
 
 INCLUDE_FLAGS = -I$(LIBC)/include -I$(USERLAND_ROOT)../shared/include -I$(USERLAND_ROOT)lib/include -I.
@@ -14,9 +15,9 @@ CXX_FLAGS = -std=gnu++20 -ffreestanding -nostdlib -fno-exceptions -fno-rtti \
             $(USER_EXTRA_FLAGS)
 
 TARGET = $(OUT_DIR)/$(NAME).elf
-OBJ = $(addprefix $(OUT_DIR)/$(NAME)_,$(addsuffix .o,$(notdir $(basename $(SRCS) $(LIBC_SRCS)))))
+OBJ = $(addprefix $(OUT_DIR)/$(NAME)_,$(addsuffix .o,$(notdir $(basename $(SRCS) $(LIBC_SRCS) $(LIBCXX_SRCS)))))
 
-vpath %.cpp . $(addprefix $(LIBC)/,$(dir $(LIBC_SRCS)))
+vpath %.cpp . $(addprefix $(LIBC)/,$(dir $(LIBC_SRCS))) $(addprefix $(LIBCXX)/,$(dir $(LIBCXX_SRCS)))
 
 all: $(TARGET)
 
