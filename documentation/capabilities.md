@@ -77,7 +77,7 @@ Two message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
 * it checks that anonymous `mmap` returns zeroed memory that can be released only once, that a request over the quota fails, that a released address is handed out again, and that the table of regions is bounded,
 * and it tries to unmap a kernel address.
 
-`scripts/qemu_userland_test.sh` requires `probe: 16/16 checks passed`.
+`scripts/qemu_userland_test.sh` requires `probe: 17/17 checks passed`.
 
 ## Current limits
 * The policy is fixed at boot: the kernel trusts the module named `init`, and `init` decides who gets what.

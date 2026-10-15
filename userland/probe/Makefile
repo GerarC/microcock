@@ -1,5 +1,5 @@
 NAME = probe
 SRCS = main.cpp
-LIBC_SRCS = string/memcpy.cpp string/memset.cpp sys/mman/mmap.cpp sys/mman/munmap.cpp
+LIBC_SRCS = string/memcpy.cpp string/memset.cpp string/strlen.cpp sys/mman/mmap.cpp sys/mman/munmap.cpp stdio/printf.cpp stdio/putchar.cpp stdio/puts.cpp unistd/write.cpp
 
 include ../common.mk
