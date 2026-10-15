@@ -55,7 +55,7 @@ static uintptr_t map_anonymous(Thread &current, size_t pages) {
 static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 							  uintptr_t offset) {
 	if (addr == 0) {
-		Logger::error("sys_mmap: MAP_PHYS requires a virtual 'addr' specific");
+		Logger::trace("sys_mmap: MAP_PHYS requires a fixed virtual address");
 		return FAILURE;
 	}
 
@@ -66,7 +66,7 @@ static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 	if (!current.getProcess()->getCapabilities().covers(
 			CapabilityType::PHYSICAL_MEMORY, phys.raw(), span) ||
 		!VirtualMemoryManager::isDeviceMemory(phys, span)) {
-		Logger::warn("sys_mmap: PID %d may not map physical 0x%x",
+		Logger::trace("sys_mmap: PID %d may not map physical 0x%x",
 					 current.getId(), phys.raw());
 		return FAILURE;
 	}
@@ -99,7 +99,7 @@ uintptr_t sys_mmap(uintptr_t addr, uintptr_t length, uintptr_t prot,
 	if (flags & MAP_ANONYMOUS) return map_anonymous(*current, pages);
 	if (flags & MAP_PHYS) return map_physical(*current, addr, pages, offset);
 
-	Logger::warn("sys_mmap: Not supported option");
+	Logger::trace("sys_mmap: not a supported option");
 	return FAILURE;
 }
 

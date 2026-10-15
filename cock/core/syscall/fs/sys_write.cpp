@@ -24,7 +24,7 @@ using memory::VirtualMemoryManager;
 
 constexpr uintptr_t STDOUT_FD = 1;
 constexpr uintptr_t STDERR_FD = 2;
-constexpr uintptr_t MAX_WRITE_SIZE = 0x10000;
+constexpr uintptr_t MAX_WRITE_SIZE = 0x80;
 constexpr size_t VIDEO_CHUNK_SIZE = 20;
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 

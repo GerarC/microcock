@@ -26,7 +26,7 @@ uintptr_t sys_read(uintptr_t fd, uintptr_t buf, uintptr_t count, uintptr_t,
 												current->getUserSpaceLimit()))
 		return (uintptr_t)-1;
 
-	Logger::warn("sys_read: PID %d tried to read STDIN, but micrococks "
+	Logger::trace("sys_read: PID %d tried to read STDIN, but micrococks "
 				 "lacks of TTY server!",
 				 current->getId());
 
