@@ -16,11 +16,16 @@ namespace cock::core::task {
 class TaskManager {
   private:
 	/** @brief Maximum number of simultaneous threads supported by the OS. */
-	static constexpr size_t MAX_PROCESSES = 4096;
+	static constexpr uint32_t SLOT_BITS = 12;
+	static constexpr size_t MAX_PROCESSES = size_t(1) << SLOT_BITS;
+	static constexpr uint32_t SLOT_MASK = MAX_PROCESSES - 1;
+	static constexpr uint32_t GENERATION_BITS = 19;
+	static constexpr uint32_t GENERATION_MASK = (uint32_t(1) << GENERATION_BITS) - 1;
 
-	/** @brief Array mapping PIDs to their respective Thread object pointers. */
+	/** @brief Array mapping PID slots to their respective Thread object pointers. */
 	static Thread *registry[MAX_PROCESSES];
 	static uint32_t freePids[MAX_PROCESSES];
+	static uint32_t generations[MAX_PROCESSES];
 	static size_t freePidCount;
 	static ThreadQueue graveyard;
 	static Process *kernelProcess;
@@ -33,11 +38,14 @@ class TaskManager {
 	static void init();
 
 	/**
-	 * @brief Allocates the next available unique Process ID.
-	 * @return A unique uint32_t PID. Panics if no PIDs are available.
+	 * @brief Allocates the next available unique Process ID: the generation of
+	 * the slot in the high bits and the slot in the low bits, so a recycled slot
+	 * never yields an id that was handed out before.
+	 * @return A uint32_t PID below 2^31. Panics if no PIDs are available.
 	 */
 	static Process *getKernelProcess();
 	static uint32_t allocatePID();
+	static constexpr uint32_t slotOf(uint32_t pid) { return pid & SLOT_MASK; }
 
 	/**
 	 * @brief Registers a newly created thread into the global registry.

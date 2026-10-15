@@ -87,7 +87,10 @@ void checkDeadThreadIsFreed() {
 	EXPECT_TRUE(TaskManager::getThreadByPID(pid) == nullptr);
 
 	Thread *next = makeThread(ThreadPriority::NORMAL);
-	EXPECT_EQ(pid, next->getId());
+	EXPECT_EQ(TaskManager::slotOf(pid), TaskManager::slotOf(next->getId()));
+	EXPECT_TRUE(pid != next->getId());
+	EXPECT_TRUE(TaskManager::getThreadByPID(pid) == nullptr);
+	EXPECT_TRUE(TaskManager::getThreadByPID(next->getId()) == next);
 	retire(next);
 	TaskManager::buryDeadThreads();
 }
