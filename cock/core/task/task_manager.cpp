@@ -16,6 +16,7 @@ constexpr uint32_t NO_PROCESS = 0xFFFFFFFF;
 
 Thread *TaskManager::registry[MAX_PROCESSES];
 uint32_t TaskManager::freePids[MAX_PROCESSES];
+uint32_t TaskManager::generations[MAX_PROCESSES];
 size_t TaskManager::freePidCount = 0;
 ThreadQueue TaskManager::graveyard;
 Process *TaskManager::kernelProcess = nullptr;
@@ -25,6 +26,7 @@ void TaskManager::init() {
 	InterruptGuard guard;
 
 	memset(registry, 0, sizeof(registry));
+	memset(generations, 0, sizeof(generations));
 	freePidCount = 0;
 
 	for (uint32_t pid = MAX_PROCESSES; pid > 0; pid--)
@@ -41,21 +43,25 @@ uint32_t TaskManager::allocatePID() {
 	InterruptGuard guard;
 
 	if (freePidCount == 0) utils::panic("TaskManager: Out of PIDs");
-	return freePids[--freePidCount];
+	uint32_t slot = freePids[--freePidCount];
+	return (generations[slot] << SLOT_BITS) | slot;
 }
 
 bool TaskManager::registerThread(Thread *thread) {
-	if (!thread || thread->getId() >= MAX_PROCESSES) return false;
+	if (!thread || (thread->getId() >> SLOT_BITS) > GENERATION_MASK) return false;
 
 	InterruptGuard guard;
 	uint32_t pid = thread->getId();
-	if (registry[pid] != nullptr) return false;
-	registry[pid] = thread;
+	uint32_t slot = pid & SLOT_MASK;
+	if ((pid >> SLOT_BITS) != generations[slot]) return false;
+	if (registry[slot] != nullptr) return false;
+	registry[slot] = thread;
 	return true;
 }
 
 Thread *TaskManager::getThreadByPID(uint32_t pid) {
-	return (pid < MAX_PROCESSES) ? registry[pid] : nullptr;
+	Thread *thread = registry[pid & SLOT_MASK];
+	return (thread && thread->getId() == pid) ? thread : nullptr;
 }
 
 uint32_t TaskManager::findProcessId(const char *name) {
@@ -96,15 +102,17 @@ void TaskManager::buryDeadThreads() {
 			InterruptGuard guard;
 			thread = graveyard.pop();
 			if (!thread) return;
-			registry[thread->getId()] = nullptr;
+			registry[thread->getId() & SLOT_MASK] = nullptr;
 		}
 
 		uint32_t pid = thread->getId();
+		uint32_t slot = pid & SLOT_MASK;
 		delete thread;
 		Logger::debug("Thread %u reaped", pid);
 
 		InterruptGuard guard;
-		freePids[freePidCount++] = pid;
+		generations[slot] = (generations[slot] + 1) & GENERATION_MASK;
+		freePids[freePidCount++] = slot;
 	}
 }
 

@@ -70,7 +70,10 @@ A system call cannot sleep in the middle of a handler, because the kernel does n
 ## Garbage Collection
 The `TaskManager` keeps a global registry of all threads. When a thread terminates, it is moved to a `graveyard` queue.
 
-A dedicated kernel thread, the **reaper**, empties the graveyard with `TaskManager::buryDeadThreads()`: it clears the registry slot, deletes the thread (and the process, if it was the last thread) and recycles the id. When the graveyard is empty the reaper marks itself `BLOCKED` and yields; `TaskManager::notifyThreadDeath` wakes it when the next thread dies. It runs at a high priority so the memory of a dead process comes back quickly, and it does not depend on the CPU ever being idle, as the earlier design did.
+A dedicated kernel thread, the **reaper**, empties the graveyard with `TaskManager::buryDeadThreads()`: it clears the registry slot, deletes the thread (and the process, if it was the last thread) and recycles the slot.
+
+## Process ids
+An id is `generation << 12 | slot`: the low 12 bits index the registry (4096 slots) and the high 19 bits count how many times that slot has been reused, so every id stays below 2^31. The first user of a slot has generation 0, which is why the first ids are small numbers. When the reaper recycles a slot it increments the generation, so an id kept by `init`, a driver or the kernel (`vga_server_pid`) stops matching: `TaskManager::getThreadByPID` compares the whole id, and a message to a dead process fails instead of reaching the thread that took its slot. After 2^19 reuses of one slot the generation wraps. When the graveyard is empty the reaper marks itself `BLOCKED` and yields; `TaskManager::notifyThreadDeath` wakes it when the next thread dies. It runs at a high priority so the memory of a dead process comes back quickly, and it does not depend on the CPU ever being idle, as the earlier design did.
 
 ```cpp
 ThreadResult kernel_reaper() {
