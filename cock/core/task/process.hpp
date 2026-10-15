@@ -53,8 +53,12 @@ class Process {
 	size_t getOwnedPages() const { return ownedPages; }
 	size_t getRegionCount() const { return regionCount; }
 
-	bool addMemoryRegion(memory::VirtAddr addr, size_t pages, bool owned);
-	bool takeMemoryRegion(memory::VirtAddr addr, size_t pages);
+	bool reservePages(size_t pages);
+	void returnPages(size_t pages);
+	bool addMemoryRegion(memory::VirtAddr addr, size_t pages, bool owned,
+						 uint32_t shared_object = memory::NO_SHARED_OBJECT);
+	bool takeMemoryRegion(memory::VirtAddr addr, size_t pages,
+						  uint32_t *shared_object = nullptr);
 	memory::VirtAddr findFreeRange(size_t pages, memory::VirtAddr from,
 								   memory::VirtAddr limit) const;
 

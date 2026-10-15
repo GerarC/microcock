@@ -40,6 +40,7 @@ struct RecycledStack {
 RecycledStack recycledStacks[MAX_RECYCLED_STACKS];
 size_t recycledCount = 0;
 uintptr_t nextKernelVaddr = KERNEL_HEAP_BASE;
+uintptr_t scratchVaddr = 0;
 
 uint32_t toX86Flag(VMMPermission permission) {
 	uint32_t arch_flags = PageFlag::PRESENT;
@@ -48,6 +49,7 @@ uint32_t toX86Flag(VMMPermission permission) {
 	if (permission & VMMPermission::USER) arch_flags |= PageFlag::USER;
 	if (permission & VMMPermission::DEVICE)
 		arch_flags |= PageFlag::NOT_OWNED | PageFlag::PCD;
+	if (permission & VMMPermission::SHARED) arch_flags |= PageFlag::NOT_OWNED;
 
 	return arch_flags;
 }
@@ -245,6 +247,38 @@ bool VirtualMemoryManager::isRangeUnmapped(VirtAddr start,
 		if (Paging::getPageFlags(start + idx * PAGE_SIZE) != 0) return false;
 	}
 	return true;
+}
+
+bool VirtualMemoryManager::allocFrames(PhysAddr *frames, size_t count) {
+	if (frames == nullptr || count == 0) return false;
+
+	InterruptGuard guard;
+	if (count + KERNEL_RESERVED_FRAMES > PhysicalMemoryManager::freeFrameCount())
+		return false;
+
+	if (scratchVaddr == 0 && !reserveKernelRange(1, scratchVaddr)) return false;
+	VirtAddr scratch(scratchVaddr);
+
+	for (size_t idx = 0; idx < count; idx++) {
+		PhysAddr frame = PhysicalMemoryManager::allocFrame();
+		if (frame.isNull() ||
+			!Paging::mapPage(frame, scratch, PageFlag::PRESENT | PageFlag::WRITEABLE)) {
+			if (!frame.isNull()) PhysicalMemoryManager::freeFrame(frame);
+			for (size_t done = 0; done < idx; done++)
+				PhysicalMemoryManager::freeFrame(frames[done]);
+			return false;
+		}
+		memset(scratch.as<void>(), 0, PAGE_SIZE);
+		Paging::unmapPage(scratch);
+		frames[idx] = frame;
+	}
+	return true;
+}
+
+void VirtualMemoryManager::freeFrames(const PhysAddr *frames, size_t count) {
+	InterruptGuard guard;
+	for (size_t idx = 0; idx < count; idx++)
+		PhysicalMemoryManager::freeFrame(frames[idx]);
 }
 
 bool VirtualMemoryManager::isDeviceMemory(PhysAddr phys, size_t length) {

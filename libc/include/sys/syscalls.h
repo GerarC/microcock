@@ -18,6 +18,10 @@
     #define SYS_IRQ_BIND         0x171
     #define SYS_IRQ_ACK          0x172
     #define SYS_PROC_LOOKUP      0x173
+    #define SYS_SHM_CREATE       0x174
+    #define SYS_SHM_SHARE        0x175
+    #define SYS_SHM_MAP          0x176
+    #define SYS_SHM_RELEASE      0x177
 
     #ifdef __cplusplus
     extern "C" {

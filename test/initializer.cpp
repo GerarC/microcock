@@ -6,6 +6,7 @@
 namespace cock::test::memory {
 extern void test_heap();
 extern void test_new_operator();
+extern void test_shared_memory();
 } // namespace cock::test::memory
 
 namespace cock::test::loader {
@@ -22,6 +23,7 @@ namespace cock::test::arch {
 extern void test_io_permissions();
 extern void test_paging();
 extern void test_pmm();
+extern void test_frames();
 } // namespace cock::test::arch
 
 namespace cock::test::security {
@@ -36,10 +38,12 @@ void run_all_tests() {
 
 	memory::test_heap();
 	memory::test_new_operator();
+	memory::test_shared_memory();
 	loader::test_elf_loader();
 	task::test_process();
 	arch::test_io_permissions();
 	arch::test_pmm();
+	arch::test_frames();
 	arch::test_paging();
 	security::test_capabilities();
 	task::test_scheduler();

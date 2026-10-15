@@ -1,3 +1,4 @@
+#include <cock/core/memory/shared_memory.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/task/process.hpp>
 #include <hal/address_space.hpp>
@@ -5,7 +6,9 @@
 
 namespace cock::core::task {
 
+using memory::NO_SHARED_OBJECT;
 using memory::PhysAddr;
+using memory::SharedMemory;
 using memory::VirtAddr;
 using memory::VirtualMemoryManager;
 
@@ -17,7 +20,14 @@ Process::Process(PhysAddr address_space, VirtAddr user_space_limit,
 }
 
 Process::~Process() {
-	if (!kernel) VirtualMemoryManager::destroyAddressSpace(addressSpace);
+	if (kernel) return;
+
+	VirtualMemoryManager::destroyAddressSpace(addressSpace);
+	for (size_t idx = 0; idx < regionCount; idx++) {
+		if (regions[idx].shared_object != NO_SHARED_OBJECT)
+			SharedMemory::unmapped(regions[idx].shared_object);
+	}
+	SharedMemory::dropProcess(*this);
 }
 
 Process *Process::createKernel() {
@@ -49,20 +59,34 @@ bool Process::detachThread() {
 	return threadCount == 0;
 }
 
-bool Process::addMemoryRegion(VirtAddr addr, size_t pages, bool owned) {
+bool Process::reservePages(size_t pages) {
+	if (!canOwnPages(pages)) return false;
+	ownedPages += pages;
+	return true;
+}
+
+void Process::returnPages(size_t pages) {
+	ownedPages -= pages < ownedPages ? pages : ownedPages;
+}
+
+bool Process::addMemoryRegion(VirtAddr addr, size_t pages, bool owned,
+							  uint32_t shared_object) {
 	if (!hasRegionSlot() || pages == 0) return false;
 	if (owned && !canOwnPages(pages)) return false;
 
-	regions[regionCount++] = {addr.raw(), pages, owned};
+	regions[regionCount++] = {addr.raw(), pages, owned, shared_object};
 	if (owned) ownedPages += pages;
 	return true;
 }
 
-bool Process::takeMemoryRegion(VirtAddr addr, size_t pages) {
+bool Process::takeMemoryRegion(VirtAddr addr, size_t pages,
+							   uint32_t *shared_object) {
 	for (size_t idx = 0; idx < regionCount; idx++) {
 		if (regions[idx].virt_addr != addr.raw()) continue;
 		if (regions[idx].page_count != pages) return false;
 
+		if (shared_object != nullptr)
+			*shared_object = regions[idx].shared_object;
 		if (regions[idx].owned) ownedPages -= pages;
 		regions[idx] = regions[--regionCount];
 		return true;

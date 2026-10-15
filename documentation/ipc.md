@@ -20,9 +20,15 @@ void SyscallManager::init() {
 	syscall_table[SyscallNum::SYS_IRQ_BIND] = sys_irq_bind;
 	syscall_table[SyscallNum::SYS_IRQ_ACK] = sys_irq_ack;
 	syscall_table[SyscallNum::SYS_PROC_LOOKUP] = sys_proc_lookup;
+	syscall_table[SyscallNum::SYS_SHM_CREATE] = sys_shm_create;
+	syscall_table[SyscallNum::SYS_SHM_SHARE] = sys_shm_share;
+	syscall_table[SyscallNum::SYS_SHM_MAP] = sys_shm_map;
+	syscall_table[SyscallNum::SYS_SHM_RELEASE] = sys_shm_release;
 	...
 }
 ```
+
+The shared memory calls (`SYS_SHM_*`, numbers `0x174` to `0x177`) move bulk data between processes, which a message of six arguments cannot do: a process creates an object, shares it with the pid of another process by IPC, and the other process maps it. See [memory management](memory_management.md).
 
 The full table with the numbers is in the [README](../README.md). The value a handler returns goes back in `EAX`; `-1` means failure. An unknown number returns `-1` as well.
 
