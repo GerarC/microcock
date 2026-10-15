@@ -14,12 +14,6 @@ namespace cock::core::task {
 using cock::core::memory::MemoryRegion;
 using cock::data_structure::LinkedList;
 
-/**
- * @brief Owns what threads of the same program share: the address space, its
- * user space limit, the hardware permissions and the dynamic mappings.
- * * The process id is the id of its first thread, so IPC to a process reaches
- * its main thread.
- */
 class Process {
   public:
 	static constexpr size_t MAX_NAME_LENGTH = 32;

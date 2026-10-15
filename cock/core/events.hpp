@@ -29,11 +29,6 @@ struct ExceptionInfo {
 	const char *name;
 };
 
-/**
- * @brief Entry points the architecture calls for every event that may change
- * what runs next. The architecture only reports the event; the kernel decides.
- * Each returns the stack pointer of the context to resume.
- */
 SyscallOutcome on_syscall(const SyscallRequest &request,
 						  uintptr_t stack_pointer);
 uintptr_t on_exception(const ExceptionInfo &info, uintptr_t stack_pointer);
