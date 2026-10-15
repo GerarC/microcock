@@ -6,26 +6,33 @@
 
 namespace cock::core::task {
 
-void IPC::send(uint32_t to_pid, Message message) {
+bool IPC::deliver(uint32_t to_pid, Message message) {
 	uintptr_t flags = hal::save_and_block_interruptions();
 	Thread *target = TaskManager::getThreadByPID(to_pid);
 	Thread *sender = Scheduler::getCurrentThread();
 
-	if (!sender || !target || target->getState() == ThreadState::DEAD) {
+	if (!target || target->getState() == ThreadState::DEAD) {
 		hal::restore_interruptions(flags);
-		return;
+		return false;
 	}
-	message.sender_pid = sender->getId();
+	message.sender_pid = sender ? sender->getId() : 0;
 	message.target_pid = target->getId();
 
-	target->receiveMessage(message);
+	if (!target->receiveMessage(message)) {
+		hal::restore_interruptions(flags);
+		return false;
+	}
 
 	if (target->getState() == ThreadState::WAITING_MSG) {
 		target->setState(ThreadState::READY);
 		Scheduler::addThread(target);
-		hal::restore_interruptions(flags);
-		Thread::yield();
-	} else hal::restore_interruptions(flags);
+	}
+	hal::restore_interruptions(flags);
+	return true;
+}
+
+void IPC::send(uint32_t to_pid, Message message) {
+	if (deliver(to_pid, message)) Thread::yield();
 }
 
 void IPC::receive(Message *message) {

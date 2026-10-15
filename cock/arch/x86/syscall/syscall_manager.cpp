@@ -23,6 +23,12 @@ void SyscallManager::init() {
 
 	syscall_table[SyscallNum::SYS_GETPID] = sys_getpid;
 	syscall_table[SyscallNum::SYS_SCHED_YIELD] = sys_sched_yield;
+
+    syscall_table[SyscallNum::SYS_MMAP] = sys_mmap;
+    syscall_table[SyscallNum::SYS_MUNMAP] = sys_munmap;
+
+    syscall_table[SyscallNum::SYS_IPC_SEND] = sys_ipc_send;
+    syscall_table[SyscallNum::SYS_IPC_RECV] = sys_ipc_recv;
 }
 
 SystemCall SyscallManager::getSyscall(size_t code){

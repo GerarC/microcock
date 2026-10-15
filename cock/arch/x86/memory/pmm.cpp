@@ -377,7 +377,8 @@ void PhysicalMemoryManager::destroyAddressSpace(uint32_t pd_phys) {
 		if (!mapPage(table_phys, TEMP_TABLE_SLOT, TABLE_ACCESS)) continue;
 
 		for (uint32_t pt_idx = 0; pt_idx < ENTRIES_PER_TABLE; pt_idx++) {
-			if (table[pt_idx] & PRESENT) freeFrame(table[pt_idx] & ~PAGE_MASK);
+			if ((table[pt_idx] & PRESENT) && !(table[pt_idx] & NOT_OWNED))
+				freeFrame(table[pt_idx] & ~PAGE_MASK);
 		}
 
 		unmapPage(TEMP_TABLE_SLOT);

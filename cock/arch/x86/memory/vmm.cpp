@@ -44,6 +44,8 @@ uint32_t toX86Flag(VMMPermission permission) {
 
 	if (permission & VMMPermission::WRITE) arch_flags |= PageFlag::WRITEABLE;
 	if (permission & VMMPermission::USER) arch_flags |= PageFlag::USER;
+	if (permission & VMMPermission::DEVICE)
+		arch_flags |= PageFlag::NOT_OWNED | PageFlag::PCD;
 
 	return arch_flags;
 }
@@ -61,8 +63,10 @@ void releasePages(uintptr_t virt, size_t pages) {
 	for (size_t idx = 0; idx < pages; idx++) {
 		uintptr_t current = virt + idx * PAGE_SIZE;
 		uint32_t phys = PhysicalMemoryManager::getPhysicalAddress(current);
+		uint32_t flags = PhysicalMemoryManager::getPageFlags(current);
 		PhysicalMemoryManager::unmapPage(current);
-		if (phys != NULL_PTR) PhysicalMemoryManager::freeFrame(phys);
+		if (phys != NULL_PTR && !(flags & PageFlag::NOT_OWNED))
+			PhysicalMemoryManager::freeFrame(phys);
 	}
 }
 
@@ -211,6 +215,10 @@ bool VirtualMemoryManager::isUserRangeValid(uintptr_t ptr, size_t length,
 	if (ptr > user_limit) return false;
 	if (static_cast<uint64_t>(ptr) + length > user_limit) return false;
 	return PhysicalMemoryManager::isRangeAccessible(ptr, length, true, write);
+}
+
+uintptr_t VirtualMemoryManager::getPhysicalAddress(uintptr_t virt) {
+    return PhysicalMemoryManager::getPhysicalAddress(virt);
 }
 
 } // namespace cock::core::memory
