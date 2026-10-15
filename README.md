@@ -225,7 +225,7 @@ The file system lives outside the kernel, as servers that talk by IPC. The kerne
 - [x] **F2** Data boot modules, a capability to open them, and an `initrd` built as a tar archive.
 - [x] **F3** `ramfs` server and a client library: a program reads a file from the initrd.
 - [x] **F4** `spawn`: `init` starts the programs from files instead of from boot modules, and `ramfs` releases the sessions of dead clients.
-- [ ] **F5** A manifest read by `init` that lists each program and its capabilities. Adding a driver becomes adding a line.
+- [x] **F5** A manifest read by `init` that lists each program and its capabilities. Adding a driver becomes adding a line.
 - [ ] **F6** ATA driver (PIO), a block protocol and partition tables (MBR and GPT).
 - [ ] **F7** FAT32 server (read only first) and a `vfs` with a mount table.
 - [ ] **F8** `ext` server, ext2 read only.

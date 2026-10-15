@@ -1,5 +1,6 @@
 #include "probe.hpp"
 #include <cock/abi/fs.hpp>
+#include <cock/abi/manifest.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/fs.hpp>
 #include <stddef.h>
@@ -20,6 +21,10 @@ namespace {
 constexpr char INITRD_FILE[] = "hello.txt";
 constexpr char INITRD_ROOTED_FILE[] = "/hello.txt";
 constexpr char MISSING_FILE[] = "no-such-file";
+constexpr char PROBE_ENTRY[] = "probe";
+constexpr char PROBE_PATH[] = "bin/probe.elf";
+constexpr size_t NO_GRANTS = 0;
+constexpr uint32_t NO_START = 0;
 constexpr char ROOT_DIRECTORY[] = "/";
 constexpr char NESTED_DIRECTORY[] = "docs";
 constexpr char NESTED_FILE[] = "docs/note.txt";
@@ -149,6 +154,32 @@ bool fileServerListsDirectories() {
 
 	return ok && !client.readdir(UNKNOWN_HANDLE, NO_OFFSET, name, sizeof(name), type) &&
 		   client.close(root);
+}
+
+bool manifestMatchesTheBoot() {
+	Client client;
+	if (!client.connect()) return false;
+
+	uint32_t handle = client.open(cock::abi::manifest::FILE_PATH);
+	cock::user::fs::FileInfo info = {};
+	if (handle == cock::abi::fs::NO_HANDLE || !client.stat(handle, info) ||
+		info.size > cock::abi::manifest::MAX_FILE_BYTES)
+		return false;
+
+	char text[cock::abi::manifest::MAX_FILE_BYTES];
+	uint32_t copied = NO_START;
+	while (copied < info.size) {
+		long step = client.read(handle, copied, text + copied, info.size - copied);
+		if (step <= 0) return false;
+		copied += static_cast<uint32_t>(step);
+	}
+
+	cock::abi::manifest::Manifest manifest;
+	if (!client.close(handle) || !manifest.parse(text, info.size)) return false;
+
+	const cock::abi::manifest::Entry *entry = manifest.find(PROBE_ENTRY);
+	return entry != nullptr && !entry->isBootModule() &&
+		   strcmp(entry->path, PROBE_PATH) == 0 && entry->grantCount == NO_GRANTS;
 }
 
 bool moduleIndexIsDenied() {

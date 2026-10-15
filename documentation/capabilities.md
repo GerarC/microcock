@@ -20,6 +20,8 @@ struct Capability {
 | `PHYSICAL_MEMORY` | First physical address and length in bytes | `SYS_MMAP` with `MAP_PHYS` |
 | `BOOT_MODULE` | First module index and number of modules | `SYS_MODULE_OPEN` |
 
+Except for the `initrd` grant to `ramfs`, which `init` makes itself, the grants of the boot are data: they come from `manifest.txt` (see [userland](userland.md#the-manifest)).
+
 The type numbers are part of the ABI and live in `shared/include/cock/abi/capability.hpp`, so the kernel and userland agree on them.
 
 Every capability describes a **range**. `covers(type, first, count)` is true when one entry of the table contains the whole requested range; a request that only partly fits is denied, and so is one whose end wraps around. Each process holds up to 16 capabilities.

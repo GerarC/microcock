@@ -8,8 +8,8 @@ SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
 TYPED_KEYS="a b shift-c d"
 FILE_CLIENT_RUNS=10
-EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 32/32 checks passed|abCd"
-EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|init: started kbd|init: started probe|kbd: ready|VGA driver detected|reaped"
+EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 33/33 checks passed|abCd"
+EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|init: manifest has 6 entries|init: configured vga_driver|init: started kbd|init: started probe|kbd: ready|VGA driver detected|reaped"
 
 make clean "$@" > /dev/null
 make iso "$@" || exit 2
