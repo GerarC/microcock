@@ -3,6 +3,10 @@
 
 #include <stdarg.h>
 
+#ifndef COCK_LOG_LEVEL
+#define COCK_LOG_LEVEL ::cock::utils::LogLevel::TRACE
+#endif
+
 namespace cock::utils {
 
 /**
@@ -29,16 +33,52 @@ class Logger {
 	 */
 	static void init(LogLevel level);
 
-	static void log(LogLevel level, const char *fmt, ...);
-	static void trace(const char *fmt, ...);
-	static void debug(const char *fmt, ...);
-	static void info(const char *fmt, ...);
-	static void warn(const char *fmt, ...);
-	static void error(const char *fmt, ...);
-	static void fatal(const char *fmt, ...);
+	static constexpr LogLevel COMPILE_TIME_LEVEL = COCK_LOG_LEVEL;
+
+	static constexpr bool enabled(LogLevel level) {
+		return level >= COMPILE_TIME_LEVEL;
+	}
+
+	template <typename... Args>
+	[[gnu::always_inline]] static inline void log(LogLevel level, const char *fmt,
+												  Args... args) {
+		if (enabled(level)) write(level, fmt, args...);
+	}
+
+	template <typename... Args>
+	[[gnu::always_inline]] static inline void trace(const char *fmt, Args... args) {
+		if constexpr (enabled(LogLevel::TRACE)) write(LogLevel::TRACE, fmt, args...);
+	}
+
+	template <typename... Args>
+	[[gnu::always_inline]] static inline void debug(const char *fmt, Args... args) {
+		if constexpr (enabled(LogLevel::DEBUG)) write(LogLevel::DEBUG, fmt, args...);
+	}
+
+	template <typename... Args>
+	[[gnu::always_inline]] static inline void info(const char *fmt, Args... args) {
+		if constexpr (enabled(LogLevel::INFO)) write(LogLevel::INFO, fmt, args...);
+	}
+
+	template <typename... Args>
+	[[gnu::always_inline]] static inline void warn(const char *fmt, Args... args) {
+		if constexpr (enabled(LogLevel::WARN)) write(LogLevel::WARN, fmt, args...);
+	}
+
+	template <typename... Args>
+	[[gnu::always_inline]] static inline void error(const char *fmt, Args... args) {
+		if constexpr (enabled(LogLevel::ERROR)) write(LogLevel::ERROR, fmt, args...);
+	}
+
+	template <typename... Args>
+	[[gnu::always_inline]] static inline void fatal(const char *fmt, Args... args) {
+		if constexpr (enabled(LogLevel::FATAL)) write(LogLevel::FATAL, fmt, args...);
+	}
 
   private:
 	static LogLevel minLevel;
+
+	static void write(LogLevel level, const char *fmt, ...);
 
 	/**
 	 * @brief Converts a LogLevel enum to its string representation.
