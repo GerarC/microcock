@@ -1,27 +1,45 @@
-#include <cock/utils/panic.hpp>
+#include <cock/arch/x86/memory/layout.hpp>
 #include <cock/arch/x86/memory/paging.hpp>
 #include <cock/arch/x86/memory/pmm.hpp>
+#include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/utils/logger.hpp>
+#include <cock/utils/panic.hpp>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 namespace cock::core::memory {
 
+using arch::x86::KERNEL_HEAP_BASE;
+using arch::x86::KERNEL_HEAP_LIMIT;
 using arch::x86::NULL_PTR;
+using arch::x86::PAGE_MASK;
+using arch::x86::PAGE_SIZE;
 using arch::x86::PageFlag;
 using arch::x86::PhysicalMemoryManager;
+using arch::x86::USER_TOP;
+using hal::InterruptGuard;
 using utils::Logger;
 
-static uintptr_t next_kernel_vaddr = 0xD0000000;
-static uintptr_t next_user_vaddr = 0x40000000;
-static constexpr size_t PAGE_SIZE = 0x1000;
-static constexpr uint32_t BIT_PRESENT = 0b000000001;
-static constexpr uint32_t BIT_WRITE = 0b00000010;
-static constexpr uint32_t BIT_EXECUTABLE = 0b00000100;
-static constexpr uint32_t TABLE_MASK = 0xFFF;
+static_assert(USER_SPACE_LIMIT == USER_TOP,
+			  "core and arch disagree about the user space limit");
 
-static uint32_t toX86Flag(VMMPermission permission) {
+namespace {
+
+constexpr size_t MAX_RECYCLED_STACKS = 64;
+constexpr uint64_t ADDRESS_SPACE_END = 0x100000000ULL;
+
+struct RecycledStack {
+	uintptr_t base;
+	size_t pages;
+};
+
+RecycledStack recycledStacks[MAX_RECYCLED_STACKS];
+size_t recycledCount = 0;
+uintptr_t nextKernelVaddr = KERNEL_HEAP_BASE;
+
+uint32_t toX86Flag(VMMPermission permission) {
 	uint32_t arch_flags = PageFlag::PRESENT;
 
 	if (permission & VMMPermission::WRITE) arch_flags |= PageFlag::WRITEABLE;
@@ -30,48 +48,106 @@ static uint32_t toX86Flag(VMMPermission permission) {
 	return arch_flags;
 }
 
-void *VirtualMemoryManager::allocPages(size_t page_count,
-									   VMMPermission permission) {
-	if (page_count == 0) return nullptr;
+bool reserveKernelRange(size_t pages, uintptr_t &out) {
+	if (pages == 0) return false;
+	if (pages > (KERNEL_HEAP_LIMIT - nextKernelVaddr) / PAGE_SIZE) return false;
 
-	uintptr_t start_virt = 0;
-	if (permission & VMMPermission::USER) {
-		start_virt = next_user_vaddr;
-		next_user_vaddr += (page_count * PAGE_SIZE);
-	} else {
-		start_virt = next_kernel_vaddr;
-		next_kernel_vaddr += (page_count * PAGE_SIZE);
+	out = nextKernelVaddr;
+	nextKernelVaddr += pages * PAGE_SIZE;
+	return true;
+}
+
+void releasePages(uintptr_t virt, size_t pages) {
+	for (size_t idx = 0; idx < pages; idx++) {
+		uintptr_t current = virt + idx * PAGE_SIZE;
+		uint32_t phys = PhysicalMemoryManager::getPhysicalAddress(current);
+		PhysicalMemoryManager::unmapPage(current);
+		if (phys != NULL_PTR) PhysicalMemoryManager::freeFrame(phys);
 	}
+}
 
-	for (size_t idx = 0; idx < page_count; idx++) {
-		uintptr_t virt = start_virt + (idx * PAGE_SIZE);
+bool mapFresh(uintptr_t virt, size_t pages, uint32_t flags) {
+	for (size_t idx = 0; idx < pages; idx++) {
+		uintptr_t current = virt + idx * PAGE_SIZE;
 		uint32_t phys = PhysicalMemoryManager::allocFrame();
 
-		if (phys == NULL_PTR) {
-			Logger::fatal("VMM: Out of memory");
-			return nullptr;
+		if (phys == NULL_PTR ||
+			!PhysicalMemoryManager::mapPage(phys, current, flags)) {
+			if (phys != NULL_PTR) PhysicalMemoryManager::freeFrame(phys);
+			releasePages(virt, idx);
+			return false;
 		}
+		memset(reinterpret_cast<void *>(current), 0, PAGE_SIZE);
+	}
+	return true;
+}
 
-		VirtualMemoryManager::map(phys, virt, permission);
+void recycleStack(uintptr_t base, size_t pages) {
+	if (recycledCount < MAX_RECYCLED_STACKS)
+		recycledStacks[recycledCount++] = {base, pages};
+}
+
+} // namespace
+
+void *VirtualMemoryManager::allocPages(size_t page_count,
+									   VMMPermission permission) {
+	if (page_count == 0 || (permission & VMMPermission::USER)) return nullptr;
+
+	InterruptGuard guard;
+	uintptr_t start_virt = 0;
+	if (!reserveKernelRange(page_count, start_virt) ||
+		!mapFresh(start_virt, page_count, toX86Flag(permission))) {
+		Logger::fatal("VMM: Out of memory");
+		return nullptr;
 	}
 
 	return reinterpret_cast<void *>(start_virt);
 }
 
 void VirtualMemoryManager::freePages(void *vaddr, size_t page_count) {
-	uintptr_t virt = reinterpret_cast<uintptr_t>(vaddr);
-
-	for (size_t idx = 0; idx < page_count; idx++) {
-		uintptr_t current_virt = virt + (idx * PAGE_SIZE);
-		uint32_t phys = PhysicalMemoryManager::getPhysicalAddress(current_virt);
-		PhysicalMemoryManager::unmapPage(current_virt);
-		if (phys != NULL_PTR) PhysicalMemoryManager::freeFrame(phys);
-	}
+	InterruptGuard guard;
+	releasePages(reinterpret_cast<uintptr_t>(vaddr), page_count);
 }
 
-void VirtualMemoryManager::map(uintptr_t phys, uintptr_t virt,
+void *VirtualMemoryManager::allocStack(size_t page_count) {
+	if (page_count == 0) return nullptr;
+
+	InterruptGuard guard;
+	uintptr_t base = 0;
+
+	for (size_t idx = 0; idx < recycledCount; idx++) {
+		if (recycledStacks[idx].pages != page_count) continue;
+		base = recycledStacks[idx].base;
+		recycledStacks[idx] = recycledStacks[--recycledCount];
+		break;
+	}
+
+	if (base == 0) {
+		uintptr_t region = 0;
+		if (!reserveKernelRange(page_count + 1, region)) return nullptr;
+		base = region + PAGE_SIZE;
+	}
+
+	if (!mapFresh(base, page_count, PageFlag::PRESENT | PageFlag::WRITEABLE)) {
+		recycleStack(base, page_count);
+		return nullptr;
+	}
+
+	return reinterpret_cast<void *>(base);
+}
+
+void VirtualMemoryManager::freeStack(void *base, size_t page_count) {
+	if (!base) return;
+
+	InterruptGuard guard;
+	uintptr_t virt = reinterpret_cast<uintptr_t>(base);
+	releasePages(virt, page_count);
+	recycleStack(virt, page_count);
+}
+
+bool VirtualMemoryManager::map(uintptr_t phys, uintptr_t virt,
 							   VMMPermission permission) {
-	PhysicalMemoryManager::mapPage(phys, virt, toX86Flag(permission));
+	return PhysicalMemoryManager::mapPage(phys, virt, toX86Flag(permission));
 }
 
 void VirtualMemoryManager::unmap(uintptr_t virt) {
@@ -79,32 +155,62 @@ void VirtualMemoryManager::unmap(uintptr_t virt) {
 }
 
 uintptr_t VirtualMemoryManager::createAddressSpace() {
-    return PhysicalMemoryManager::createAddressSpace();
+	return PhysicalMemoryManager::createAddressSpace();
+}
+
+void VirtualMemoryManager::destroyAddressSpace(uintptr_t address_space) {
+	PhysicalMemoryManager::destroyAddressSpace(address_space);
 }
 
 uintptr_t VirtualMemoryManager::getKernelDirectory() {
-    return PhysicalMemoryManager::getKernelDirectory();
+	return PhysicalMemoryManager::getKernelDirectory();
 }
 
+void *VirtualMemoryManager::mapPagesAt(uintptr_t vaddr, size_t num_pages,
+									   VMMPermission permission,
+									   uintptr_t user_limit) {
+	if (num_pages == 0) return nullptr;
 
-void* VirtualMemoryManager::mapPagesAt(uintptr_t vaddr, size_t num_pages, VMMPermission permission) {
-    uint32_t flags = BIT_PRESENT;
-    if (permission == VMMPermission::KERNEL_DATA || permission == VMMPermission::USER_DATA) {
-        flags |= BIT_WRITE;
-    }
-    if (permission == VMMPermission::USER_CODE || permission == VMMPermission::USER_DATA) {
-        flags |= BIT_EXECUTABLE;
-    }
+	uintptr_t start = vaddr & ~PAGE_MASK;
+	uint64_t end = static_cast<uint64_t>(start) +
+				   static_cast<uint64_t>(num_pages) * PAGE_SIZE;
+	if (end > ADDRESS_SPACE_END) return nullptr;
+	if (permission & VMMPermission::USER) {
+		if (user_limit == 0 || user_limit > USER_SPACE_LIMIT) return nullptr;
+		if (end > user_limit) return nullptr;
+	}
 
-    vaddr &= ~TABLE_MASK;
+	uint32_t flags = toX86Flag(permission);
+	InterruptGuard guard;
 
-    for (size_t page_idx = 0; page_idx < num_pages; page_idx++) {
-        uintptr_t phys_addr = reinterpret_cast<uintptr_t>(PhysicalMemoryManager::allocFrame());
-        if (!phys_addr) utils::panic("VMM: Out of memory");
-        
-        PhysicalMemoryManager::mapPage(phys_addr, vaddr + (page_idx * PAGE_SIZE), flags);
-    }
-    return reinterpret_cast<void*>(vaddr);
+	for (size_t idx = 0; idx < num_pages; idx++) {
+		uintptr_t virt = start + idx * PAGE_SIZE;
+		uint32_t existing = PhysicalMemoryManager::getPageFlags(virt);
+
+		if (existing != 0) {
+			uint32_t merged = existing | flags;
+			if (merged != existing &&
+				!PhysicalMemoryManager::updatePageFlags(virt, merged))
+				return nullptr;
+			continue;
+		}
+
+		if (!mapFresh(virt, 1, flags)) {
+			Logger::fatal("VMM: Out of memory");
+			return nullptr;
+		}
+	}
+
+	return reinterpret_cast<void *>(start);
+}
+
+bool VirtualMemoryManager::isUserRangeValid(uintptr_t ptr, size_t length,
+											bool write, uintptr_t user_limit) {
+	if (user_limit == 0 || user_limit > USER_SPACE_LIMIT) return false;
+	if (length > ADDRESS_SPACE_END - 1) return false;
+	if (ptr > user_limit) return false;
+	if (static_cast<uint64_t>(ptr) + length > user_limit) return false;
+	return PhysicalMemoryManager::isRangeAccessible(ptr, length, true, write);
 }
 
 } // namespace cock::core::memory

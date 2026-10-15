@@ -1,9 +1,12 @@
 #ifndef CORE_VIRT_MM_HPP
 #define CORE_VIRT_MM_HPP
+#include <hal/address_space.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
 namespace cock::core::memory {
+
+constexpr uintptr_t USER_SPACE_LIMIT = hal::USER_SPACE_LIMIT;
 
 // Memory Permissions
 enum class VMMPermission : uint32_t {
@@ -33,11 +36,17 @@ class VirtualMemoryManager {
 	allocPages(size_t page_count,
 			   VMMPermission permission = VMMPermission::KERNEL_DATA);
 	static void freePages(void *vaddr, size_t page_count);
-	static void map(uintptr_t phys, uintptr_t virt, VMMPermission permission);
+	static void *allocStack(size_t page_count);
+	static void freeStack(void *base, size_t page_count);
+	static bool map(uintptr_t phys, uintptr_t virt, VMMPermission permission);
 	static void unmap(uintptr_t virt);
 	static uintptr_t createAddressSpace();
+	static void destroyAddressSpace(uintptr_t address_space);
 	static uintptr_t getKernelDirectory();
-    static void* mapPagesAt(uintptr_t vaddr, size_t num_pages, VMMPermission permission);
+	static void *mapPagesAt(uintptr_t vaddr, size_t num_pages,
+							VMMPermission permission, uintptr_t user_limit);
+	static bool isUserRangeValid(uintptr_t ptr, size_t length, bool write,
+								 uintptr_t user_limit);
 };
 
 } // namespace cock::core::memory

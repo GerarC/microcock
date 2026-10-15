@@ -11,7 +11,7 @@ using core::boot::BootModule;
 
 class MultibootModuleLoader {
   public:
-	static void init(MBInfo *boot_info);
+	static void init(const MBInfo *boot_info);
 	static const BootModule *getModules() { return modules; }
 	static size_t getCount() {return modCount;}
 

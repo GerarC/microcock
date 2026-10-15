@@ -1,5 +1,5 @@
+#include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/hal/tasking.hpp>
-#include <cock/core/memory/heap.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
@@ -10,11 +10,10 @@
 
 namespace cock::core::task {
 
-using cock::core::memory::kfree;
-using cock::core::memory::kmalloc;
 using cock::core::memory::VirtualMemoryManager;
 using cock::core::memory::VMMPermission;
 using cock::utils::Logger;
+using hal::InterruptGuard;
 
 Thread::Thread(ThreadFunction entry_point, ThreadPriority priority) {
 	initBase(priority, ThreadType::KERNEL);
@@ -27,42 +26,35 @@ Thread::Thread(ThreadFunction entry_point, ThreadPriority priority) {
 	Logger::trace("Thread %d created", id);
 }
 
-Thread::Thread(const void *code, size_t size, ThreadPriority priority) {
+Thread::Thread(uintptr_t entry_point, uintptr_t address_space,
+			   uintptr_t user_space_limit, ThreadPriority priority) {
+	if (address_space == 0) utils::panic("Thread: invalid address space");
+	if (user_space_limit <= USER_STACK_SIZE ||
+		user_space_limit > memory::USER_SPACE_LIMIT)
+		utils::panic("Thread: invalid user space limit");
+
 	initBase(priority, ThreadType::USER);
-	this->addressSpace = VirtualMemoryManager::createAddressSpace();
+	this->addressSpace = address_space;
+	this->userSpaceLimit = user_space_limit;
 
-	uintptr_t old_cr3 = hal::get_current_address_space();
-	hal::switch_address_space(this->addressSpace);
+	{
+		InterruptGuard guard;
+		uintptr_t old_cr3 = hal::get_current_address_space();
+		hal::switch_address_space(this->addressSpace);
 
-	this->userStackBase =
-		VirtualMemoryManager::allocPages(USER_PAGES, VMMPermission::USER_DATA);
-	memcpy(this->userStackBase, code, size);
+		this->userStackBase = VirtualMemoryManager::mapPagesAt(
+			user_space_limit - USER_STACK_SIZE, USER_PAGES,
+			VMMPermission::USER_DATA, user_space_limit);
 
-	hal::switch_address_space(old_cr3);
+		hal::switch_address_space(old_cr3);
+	}
+	if (!this->userStackBase) utils::panic("Thread: cannot map user stack");
 
 	this->stackPointer = hal::prepare_user_thread_stack(
 		stackBase, THREAD_STACK_SIZE, this->userStackBase, USER_STACK_SIZE,
-		this->userStackBase, nullptr);
+		reinterpret_cast<void *>(entry_point), nullptr);
+
 	TaskManager::registerThread(this);
-}
-
-Thread::Thread(uintptr_t entry_point, uintptr_t address_space, ThreadPriority priority) {
-    initBase(priority, ThreadType::USER);
-    this->archContext = hal::create_thread_context();
-    this->addressSpace = address_space;
-
-    uintptr_t old_cr3 = hal::get_current_address_space();
-    hal::switch_address_space(this->addressSpace);
-    
-    this->userStackBase = VirtualMemoryManager::allocPages(USER_PAGES, VMMPermission::USER_DATA);
-    
-    hal::switch_address_space(old_cr3);
-
-    this->stackPointer = hal::prepare_user_thread_stack(
-        stackBase, THREAD_STACK_SIZE, this->userStackBase, USER_STACK_SIZE,
-        reinterpret_cast<void*>(entry_point), nullptr); 
-
-    TaskManager::registerThread(this);
 }
 
 void Thread::initBase(ThreadPriority priority, ThreadType type) {
@@ -70,18 +62,20 @@ void Thread::initBase(ThreadPriority priority, ThreadType type) {
 	this->priority = priority;
 	this->type = type;
 	this->state = ThreadState::READY;
-	this->stackBase = kmalloc(THREAD_STACK_SIZE);
+	this->stackBase = VirtualMemoryManager::allocStack(KERNEL_STACK_PAGES);
+	if (!this->stackBase) utils::panic("Thread: cannot allocate kernel stack");
 	this->archContext = hal::create_thread_context();
 }
 
 Thread::~Thread() {
+	if (type == ThreadType::USER && addressSpace != 0 &&
+		addressSpace != VirtualMemoryManager::getKernelDirectory())
+		VirtualMemoryManager::destroyAddressSpace(addressSpace);
+	this->userStackBase = nullptr;
+
 	if (stackBase != nullptr) {
-		kfree(stackBase);
+		VirtualMemoryManager::freeStack(stackBase, KERNEL_STACK_PAGES);
 		this->stackBase = nullptr;
-	}
-	if (userStackBase != nullptr) {
-		VirtualMemoryManager::freePages(this->userStackBase, USER_PAGES);
-		this->userStackBase = nullptr;
 	}
 	if (this->archContext != nullptr) {
 		hal::destroy_thread_context(this->archContext);

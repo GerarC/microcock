@@ -10,7 +10,7 @@ enum class MessageType : uint32_t {
 	NONE = 0,
 	SYS_PING = 1,
 	SYS_PONG = 2,
-	SYS_DEBUG = 2,
+	SYS_DEBUG = 3,
 };
 
 typedef struct message_t {

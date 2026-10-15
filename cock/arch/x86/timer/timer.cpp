@@ -1,6 +1,7 @@
-#include <cock/utils/logger.hpp>
 #include <cock/arch/x86/interrupt/irq/irq.hpp>
 #include <cock/arch/x86/timer/timer.hpp>
+#include <cock/core/hal/interrupt_guard.hpp>
+#include <cock/utils/logger.hpp>
 
 namespace cock::arch::x86 {
 
@@ -15,14 +16,16 @@ volatile uint64_t Timer::ticks = INITIAL_TICKS;
 
 void Timer::onIrq0(InterruptRegisters *regs) {
 	(void)regs;
-	ticks++;
+	ticks = ticks + 1;
 }
 
-uint64_t Timer::getTicks() { return ticks; }
+uint64_t Timer::getTicks() {
+	core::hal::InterruptGuard guard;
+	return ticks;
+}
 
 void Timer::init() {
 	ticks = INITIAL_TICKS;
-	irq_install_handler(IRQ0_INDEX, &Timer::onIrq0);
 
 	// Mhz 11931816666
 	uint32_t divisor = BASE_FREQUENCY / FREQUENCY;
@@ -32,6 +35,8 @@ void Timer::init() {
 			   static_cast<uint8_t>(divisor & 0xFF));
 	out_port_b(static_cast<uint16_t>(Output::CHANNEL0),
 			   static_cast<uint8_t>((divisor >> 8) & 0xFF));
+
+	irq_install_handler(IRQ0_INDEX, &Timer::onIrq0);
 
     Logger::debug("Timer Initialized");
 }

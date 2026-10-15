@@ -7,6 +7,10 @@
 namespace cock::arch::x86 {
 
 constexpr int CASCADE_IRQ = 2;
+constexpr uint8_t PIC_IRQS_PER_CHIP = 8;
+constexpr uint8_t PIC_END_OF_INTERRUPT = 0x20;
+constexpr uint8_t PIC_READ_ISR = 0x0B;
+constexpr uint8_t PIC_MASK_ALL = 0xFF;
 
 /** Master PIC
  * */
@@ -42,6 +46,10 @@ enum class ICW4 : uint8_t {
 
 
 void PIC_remap(uint8_t master_offset, uint8_t slave_offset);
+void PIC_mask(uint8_t irq);
+void PIC_unmask(uint8_t irq);
+uint8_t PIC_read_isr(bool slave);
+void PIC_end_of_interrupt(uint8_t irq);
 
 }
 

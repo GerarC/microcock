@@ -33,4 +33,6 @@ typedef struct page_directory_t{
 
 }
 
+extern "C" uint32_t page_directory[cock::arch::x86::PAGE_DIRECTORY_ENTRIES];
+
 #endif // !PAGING_HPP

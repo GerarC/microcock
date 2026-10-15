@@ -2,27 +2,25 @@
 #define CORE_TASK_MANAGER_HPP
 
 #include <cock/core/task/thread.hpp>
-#include <cock/data_structure/ll.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
 namespace cock::core::task {
 
-using data_structure::LinkedList;
-
 class TaskManager {
   private:
 	static constexpr size_t MAX_PROCESSES = 4096;
 	static Thread *registry[MAX_PROCESSES];
-	static LinkedList<uint32_t> freePIDs;
-	static LinkedList<uint32_t> graveyard;
+	static uint32_t freePids[MAX_PROCESSES];
+	static size_t freePidCount;
+	static ThreadQueue graveyard;
 
   public:
 	static void init();
 	static uint32_t allocatePID();
 	static bool registerThread(Thread *thread);
 	static Thread *getThreadByPID(uint32_t pid);
-	static void notifyThreadDeath(uint32_t pid);
+	static void notifyThreadDeath(Thread *thread);
 	static void buryDeadThreads();
 };
 

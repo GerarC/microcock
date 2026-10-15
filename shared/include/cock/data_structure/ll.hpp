@@ -15,6 +15,8 @@ template <typename TYPE> class LinkedList {
 
   public:
 	LinkedList() : head(nullptr), tail(nullptr), lenght(0) {}
+	LinkedList(const LinkedList &) = delete;
+	LinkedList &operator=(const LinkedList &) = delete;
 
 	TYPE &front() { return head->data; }
 
@@ -47,7 +49,7 @@ template <typename TYPE> class LinkedList {
 
 		Node<TYPE> *temp = tail;
 		out = temp->data;
-		tail = head->prev;
+		tail = temp->prev;
 
 		if (tail) tail->next = nullptr;
 		else head = nullptr;
@@ -83,6 +85,7 @@ template <typename TYPE> class LinkedList {
 
 		delete target;
 		lenght--;
+		return true;
 	}
 
 	bool remove(const TYPE &value) {

@@ -4,7 +4,6 @@ extern irq_handler
 
 %macro irq 2
 irq_stub_%1:
-    cli
     push dword 0
     push dword %2
     jmp irq_common_stub
@@ -12,10 +11,11 @@ irq_stub_%1:
 
 irq_common_stub:
     pusha
-    mov eax, ds 
+    cld
+
+    mov eax, ds
     push eax
-    mov eax, cr2
-    push eax
+    push dword 0
 
     mov ax, 0x10
     mov ds, ax
@@ -26,8 +26,7 @@ irq_common_stub:
     push esp
 
     call irq_handler
-    
-    ;; Change of context
+
     mov esp, eax
 
     add esp, 4
@@ -39,7 +38,6 @@ irq_common_stub:
 
     popa
     add esp, 8
-    sti 
     iret
 
 irq 0, 32

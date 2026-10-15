@@ -1,3 +1,6 @@
+#ifndef CORE_SYSCALL_MANAGER_API_HPP
+#define CORE_SYSCALL_MANAGER_API_HPP
+
 #include <cock/core/syscall/syscalls.hpp>
 #include <stddef.h>
 
@@ -9,4 +12,6 @@ public:
     static SystemCall getSyscall(size_t code);
 };
 
-} // namespace cock::arch::x86
+} // namespace cock::core::syscall
+
+#endif // !CORE_SYSCALL_MANAGER_API_HPP
