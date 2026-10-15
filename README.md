@@ -1,20 +1,27 @@
 # MicroCOCK OS
 
-MicroCOCK or _Micro Colombian Open Code Kernel_ is a 32-bit x86 higher-half microkernel operating system developed from scratch in C++ and Assembly. It aims to implement a modular and robust architecture where traditional kernel components (like device drivers) are isolated in user space (Ring 3), communicating with the core kernel via Inter-Process Communication (IPC).
+MicroCOCK or _Micro Colombian Open Code Kernel_ is a 32-bit x86 higher-half microkernel operating system developed from scratch in C++ and Assembly. It aims to implement a modular and robust architecture where traditional kernel components (like device drivers) are isolated in user space (Ring 3), communicating with the core kernel via Inter-Process Communication (IPC). The design goal is _zero abstraction cost_: what the architecture layer provides is inlined into the core at compile time.
 
 ## Key Features
 
-* **Microkernel Architecture:** Minimal kernel space. Drivers (like the VGA console) run as isolated userland processes.
+* **Microkernel Architecture:** Minimal kernel space. The VGA console and the keyboard run as isolated userland processes.
 * **Higher-Half Kernel:** The kernel is mapped to `0xC0000000`, leaving the lower memory available for user processes.
-* **Memory Management:** * Bitmap-based Physical Memory Manager (PMM).
-    * Paging-based Virtual Memory Manager (VMM).
+* **Hardware Abstraction Layer without indirection:** each architecture ships its own `include/hal/*.hpp` directory that the build puts on the include path. Primitives such as port I/O, `cli`/`sti` or `invlpg` are inline functions, not calls into another translation unit.
+* **Memory Management:**
+    * Bitmap-based Physical Memory Manager (PMM) driven by the Multiboot memory map.
+    * Page tables and address spaces (`Paging`), with global kernel pages (`CR4.PGE`).
+    * Virtual Memory Manager (VMM) that holds the policy: user limits, device memory, guard pages.
+    * Strong `PhysAddr` and `VirtAddr` types that cost nothing at run time.
     * Custom Kernel Heap (`kmalloc`, `kfree`) with block coalescing and splitting.
-* **Task Management & Scheduling:**
-    * Multi-Level Feedback Queue (MLFQ) scheduler with priority boosting.
-    * Thread isolation and hardware context switching.
+* **Processes and Scheduling:**
+    * A `Process` owns the address space, the capabilities and the architecture context; a `Thread` runs inside it.
+    * Multi-Level Feedback Queue (MLFQ) scheduler with priority boosting and intrusive queues.
+    * The core decides when to reschedule; the architecture only reports events.
 * **Inter-Process Communication (IPC):** Ring-buffer-based asynchronous message passing between processes.
+* **Capabilities:** I/O ports, IRQ lines and physical memory are only reachable through explicit grants. See [capabilities](documentation/capabilities.md).
+* **Interrupts to userland:** a driver binds an IRQ line, the kernel masks it, notifies the driver by IPC and the driver acknowledges it.
 * **Custom LibC & LibCXX:** Freestanding implementation of standard C/C++ libraries, including dynamic memory allocation (`new`/`delete`) and global constructors/destructors support.
-* **ELF Loader:** Capable of parsing and loading standard 32-bit Executable and Linkable Format binaries into user space.
+* **ELF Loader:** Loads ELF32 and ELF64 executables through two separate descriptions. Each class has its own user-space limit. The x86 build accepts ELF32 only.
 
 ## Project Architecture
 
@@ -23,32 +30,43 @@ The codebase is strictly separated to maintain the microkernel philosophy. The C
 ```text
 .
 ├── cock/                   # Kernel Space
-│   ├── arch/x86/           # Architecture-specific implementation (Boot, IDT, GDT, Paging)
-│   ├── core/               # Architecture-agnostic Core (VMM, Heap, Scheduler, IPC, Syscalls)
-│   ├── driver/             # Built-in kernel drivers (Serial COM1)
+│   ├── arch/x86/           # Architecture-specific implementation (Boot, IDT, GDT, Paging, PMM, VGA)
+│   │   └── include/hal/    # The HAL headers of this architecture (inline primitives and constants)
+│   ├── core/               # Architecture-agnostic Core (VMM, Heap, Scheduler, IPC, Syscalls, Capabilities)
 │   └── utils/              # Kernel utilities (Logger, Panic, Stack Smashing Protection)
 ├── libc/                   # Custom C Standard Library (freestanding)
 ├── libcxx/                 # Custom C++ ABI and memory management (cxa, new/delete)
 ├── shared/                 # Headers and data structures shared between Kernel and Userland
-│   └── include/cock/       # LinkedList, RingBuffer, IPC Message formats
+│   └── include/cock/       # IPC messages, capability ABI, LinkedList, RingBuffer, IntrusiveQueue
 ├── userland/               # User Space Programs (Ring 3)
-│   ├── hello/              # Test assembly program
-│   └── vga_driver/         # VGA Server running in userland
+│   ├── lib/                # `cock::user` API used by the programs
+│   ├── init/               # Root server: the only process born with authority
+│   ├── vga_driver/         # VGA Server running in userland
+│   ├── kbd/                # PS/2 keyboard driver running in userland
+│   ├── probe/              # Security probe: checks that the kernel denies what it must
+│   └── hello/              # Test assembly program
+├── test/                   # In-kernel test suite
+├── scripts/                # QEMU based test runners
+├── documentation/          # Per-subsystem documentation
 └── Makefile                # Master build system
 ```
 
 ### The Syscall Interface
-Userland processes communicate with the kernel through software interrupts (`int 0x80`). The current system call table includes:
+Userland processes communicate with the kernel through software interrupts (`int 0x80`). The number goes in `EAX`, the arguments in `EBX`, `ECX`, `EDX`, `ESI`, `EDI` and `EBP`, and the result comes back in `EAX`. The current system call table includes:
 * `SYS_EXIT` (0x01): Terminate current thread.
 * `SYS_READ` (0x03): Read from a file descriptor.
 * `SYS_WRITE` (0x04): Write to a file descriptor (routed to Serial or VGA Server).
-* `SYS_REQUEST_RESOURCE` (0x07): Request I/O port access (IOPM modification).
+* `SYS_REQUEST_RESOURCE` (0x07): Enable I/O ports in the process permission bitmap. Requires an `IO_PORTS` capability.
 * `SYS_GETPID` (0x16): Retrieve current Process ID.
-* `SYS_MMAP` (0x5A): Allocate dynamic memory (Anonymous or Physical mapped).
+* `SYS_MMAP` (0x5A): Allocate dynamic memory (anonymous, or physical device memory with a `PHYSICAL_MEMORY` capability).
 * `SYS_MUNMAP` (0x5B): Free dynamically allocated memory.
 * `SYS_SCHED_YIELD` (0x9E): Yield CPU to the next ready thread.
 * `SYS_IPC_SEND` (0x160): Send a message to another process.
-* `SYS_IPC_RECV` (0x161): Receive a message from the thread's inbox.
+* `SYS_IPC_RECV` (0x161): Receive a message from the thread's inbox, blocking when it is empty.
+* `SYS_CAP_GRANT` (0x170): Delegate part of a capability to another process.
+* `SYS_IRQ_BIND` (0x171): Route an interrupt line to the calling process. Requires an `IRQ` capability.
+* `SYS_IRQ_ACK` (0x172): Re-enable an interrupt line after handling it.
+* `SYS_PROC_LOOKUP` (0x173): Find the process id of a boot module by name.
 
 ## Building and Running
 
@@ -57,8 +75,11 @@ To build and run MicroCOCK, you need a standard i686-elf cross-compiler toolchai
 * `i686-elf-gcc` / `i686-elf-g++`
 * `i686-elf-ld`
 * `nasm`
-* `grub-mkrescue` (and `xorriso`)
+* `grub-mkrescue` (and `xorriso`, `mtools`)
 * `qemu-system-i386`
+* `python3` (only for the userland end to end test)
+
+Without a cross-compiler, the host `g++` and `ld` with `-m32` work too (`HOST_TOOLCHAIN=1`); install `gcc-multilib` and `g++-multilib`.
 
 ### Build Commands
 
@@ -79,6 +100,11 @@ Build the OS and launch it automatically in QEMU:
 make run
 ```
 
+Same as `run`, without a window; the serial port goes to your terminal:
+```bash
+make run-headless
+```
+
 Clean the build directory:
 ```bash
 make clean
@@ -88,6 +114,16 @@ Run in test mode (compiles with `COCK_TEST_MODE` flag):
 ```bash
 make test
 ```
+
+Build options:
+
+| Option | Effect |
+|--------|--------|
+| `HOST_TOOLCHAIN=1` | Use the host `g++ -m32` and `ld -m elf_i386` instead of `i686-elf-*` |
+| `USE_LTO=1` | Link time optimization (the kernel text shrinks about a quarter) |
+| `TEST_BUILD=1` | Build the in-kernel test suite |
+
+The userland programs are rebuilt when a header they include changes. After switching toolchains or flags, run `make clean` once.
 
 ### Testing
 
@@ -112,6 +148,18 @@ optimization:
 bash scripts/qemu_test.sh HOST_TOOLCHAIN=1 USE_LTO=1
 ```
 
+The same checks run on every push through `.github/workflows/ci.yml`.
+
+### Current limitations
+
+* One thread per user process, and no syscall to create processes or threads at run time: every process comes from a Multiboot module.
+* Capabilities are assigned at boot (the module named `init` holds the authority) and cannot be revoked; each process holds up to 16.
+* IPC is asynchronous with a small inbox per thread; there are no timeouts and no synchronous call and reply.
+* The user C library is minimal: no `malloc` and no `printf`.
+* `SYS_WRITE` is a debug channel owned by the kernel; it goes away once there is a console server.
+* The x86 build has no PAE, so no NX bit and no memory above 4 GiB.
+* Only exercised on QEMU.
+
 ### References
 To create microcock I've reseach a lot of sites, videos and even AI models to learn ways to implement certain things,
 so this is the space where I put those references that really helped me to move this project forward:
@@ -124,10 +172,14 @@ so this is the space where I put those references that really helped me to move 
 
 ## Documentation
 For more detailed information regarding specific subsystems, please check the `documentation/` folder:
+* [Project Structure](documentation/project_structure.md): Directory layout and the HAL.
 * [Bootloader](documentation/bootloader.md): Multiboot and early entry process.
 * [Kernel Main](documentation/kernel_main.md): Initialization sequence.
-* [Memory Management](documentation/memory_management.md): PMM, VMM, and Heap.
-* [Task Management](documentation/task_management.md): Scheduler and MLFQ.
+* [Memory Management](documentation/memory_management.md): PMM, paging, VMM, and Heap.
+* [Task Management](documentation/task_management.md): Processes, threads, scheduler and MLFQ.
 * [Inter-Process Communication](documentation/ipc.md): Syscalls and messaging.
+* [Capabilities](documentation/capabilities.md): Authority over ports, IRQs and physical memory.
+* [Userland](documentation/userland.md): Boot modules, the system call ABI and the drivers.
 * [GDT](documentation/gdt.md) & [IDT](documentation/idt.md): CPU descriptor tables and interrupt handling.
-* [VGA](documentation/vga.md): Legacy video driver specifications.
+* [VGA](documentation/vga.md): Kernel console and the userland display server.
+* [Keyboard](documentation/keyboard.md): The PS/2 driver in userland and how an interrupt reaches it.
