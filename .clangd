@@ -3,6 +3,7 @@ CompileFlags:
     - -Ikernel/include
     - -Ilibc/include
     - -Iinclude
+    - -Icock/arch/x86/include
     - -ffreestanding
     - -fno-exceptions
     - -fno-rtti

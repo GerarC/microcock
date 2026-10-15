@@ -1,4 +1,5 @@
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -8,6 +9,7 @@ constexpr size_t MAX_STRING_SIZE = 1024;
 
 constexpr const char *DIGIT_DICTIONARY = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 constexpr const char *NULL_STRING_MESSAGE = "(null)";
+constexpr const char *POINTER_PREFIX = "0x";
 constexpr char NEGATIVE_PREFIX = '-';
 constexpr char SPEC_DELIMITER = '%';
 constexpr char END_OF_STRING = '\0';
@@ -106,7 +108,7 @@ static int push_all_to_buffer(Stream &stream, const char *str) {
  * */
 static void push_int_to_buffer(Stream &stream, unsigned int val,
 							   unsigned int base, int is_signed) {
-	static char buffer[MAX_NUMBER_SIZE] = {EMPTY};
+	char buffer[MAX_NUMBER_SIZE] = {EMPTY};
 	int i = MAX_NUMBER_SIZE - 1;
 	buffer[i] = END_OF_STRING;
 
@@ -114,9 +116,7 @@ static void push_int_to_buffer(Stream &stream, unsigned int val,
 		int sval = (int)val;
 		if (sval < INT_ZERO) {
 			push_to_buffer(stream, NEGATIVE_PREFIX);
-			val = (unsigned int)(-sval);
-		} else {
-			val = sval;
+			val = 0u - val;
 		}
 	}
 
@@ -169,6 +169,11 @@ int vprintf(const char *format, va_list args) {
 			continue;
 		}
 
+		if (format[i + STEP] == END_OF_STRING) {
+			push_to_buffer(stream, SPEC_DELIMITER);
+			break;
+		}
+
 		SpecType spec = (SpecType)format[++i];
 		int is_signed = 0;
 
@@ -180,9 +185,15 @@ int vprintf(const char *format, va_list args) {
 								   is_signed);
 				break;
 			}
+			case SPEC_POINTER: {
+				unsigned int val =
+					(unsigned int)(uintptr_t)va_arg(args, void *);
+				push_all_to_buffer(stream, POINTER_PREFIX);
+				push_int_to_buffer(stream, val, 16, is_signed);
+				break;
+			}
 			case SPEC_UNSIGNED:
 			case SPEC_HEX:
-			case SPEC_POINTER:
 			case SPEC_OCTAL: {
 				unsigned int val = va_arg(args, unsigned int);
 				push_int_to_buffer(stream, val, int_flag_to_base(spec),

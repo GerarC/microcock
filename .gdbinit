@@ -2,7 +2,7 @@
 
 target remote localhost:1234
 
-symbol-file build/cock.elf
+symbol-file build/cock.bin
 
 layout split
 layout src
