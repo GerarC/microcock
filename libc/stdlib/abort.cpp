@@ -8,7 +8,9 @@
 
 #define FOR_ETERNAL for (;;)
 
+#if defined(__is_libk)
 using cock::utils::panic;
+#endif
 
 __attribute__((__noreturn__)) void abort(void) {
 #if defined(__is_libk)

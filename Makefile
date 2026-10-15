@@ -1,14 +1,17 @@
+ARCH          = x86
 AS            = nasm -felf32
 CXX           = i686-elf-g++
-CPP_FLAGS   = -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti \
+CPP_FLAGS   = -std=gnu++20 -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti \
               -D__is_cock_kernel -D__is_libc -D__is_libk \
               -Ilibc/include -Ilibcxx/include -Ishared/include -I. \
+              -Icock/arch/$(ARCH)/include \
               -fstack-protector-all -fno-use-cxa-atexit \
               -mno-sse -mno-sse2 -mno-mmx -mno-80387 \
               -MMD -MP
 TEST_FLAGS  = -DCOCK_TEST_MODE
 
-LN_FLAGS      = -ffreestanding -O2 -nostdlib -lgcc
+LN_FLAGS      = -ffreestanding -O2 -nostdlib
+LN_LIBS       = -lgcc
 BUILD         = build
 PROJECT        = cock
 
@@ -73,7 +76,7 @@ $(BUILD)/%.occ: %.cpp | $(BUILD)
 
 $(BUILD)/$(PROJECT).bin: $(OBJ) 
 	@echo "[LD ] $@: $(OBJ)"
-	@$(CXX) -T $(LINKER_I686) -o $@ $(LN_FLAGS) $(OBJ)
+	@$(CXX) -T $(LINKER_I686) -o $@ $(LN_FLAGS) $(OBJ) $(LN_LIBS)
 
 $(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin userland
 	@echo "[ISO] creating ISO"
