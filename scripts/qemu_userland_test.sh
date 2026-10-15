@@ -8,7 +8,7 @@ SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
 TYPED_KEYS="a b shift-c d"
 EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 16/16 checks passed|abCd"
-EXPECTED_SERIAL_TEXT="kbd: ready|VGA driver detected"
+EXPECTED_SERIAL_TEXT="kbd: ready|VGA driver detected|reaped"
 
 make clean "$@" > /dev/null
 make iso "$@" || exit 2

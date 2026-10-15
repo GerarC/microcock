@@ -24,6 +24,7 @@ class TaskManager {
 	static size_t freePidCount;
 	static ThreadQueue graveyard;
 	static Process *kernelProcess;
+	static Thread *reaper;
 
   public:
 	/**
@@ -54,6 +55,8 @@ class TaskManager {
 	static Thread *getThreadByPID(uint32_t pid);
 
 	static uint32_t findProcessId(const char *name);
+	static void setReaper(Thread *thread);
+	static bool graveyardEmpty();
 	static void notifyThreadDeath(Thread *thread);
 	static void buryDeadThreads();
 };

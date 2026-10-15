@@ -1,4 +1,5 @@
 #include <cock/core/hal/interrupt_guard.hpp>
+#include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
 #include <cock/utils/logger.hpp>
@@ -18,6 +19,7 @@ uint32_t TaskManager::freePids[MAX_PROCESSES];
 size_t TaskManager::freePidCount = 0;
 ThreadQueue TaskManager::graveyard;
 Process *TaskManager::kernelProcess = nullptr;
+Thread *TaskManager::reaper = nullptr;
 
 void TaskManager::init() {
 	InterruptGuard guard;
@@ -71,11 +73,20 @@ uint32_t TaskManager::findProcessId(const char *name) {
 	return NO_PROCESS;
 }
 
+void TaskManager::setReaper(Thread *thread) { reaper = thread; }
+
+bool TaskManager::graveyardEmpty() { return graveyard.isEmpty(); }
+
 void TaskManager::notifyThreadDeath(Thread *thread) {
 	if (!thread) return;
 
 	InterruptGuard guard;
 	graveyard.push(thread);
+
+	if (reaper != nullptr && reaper->getState() == ThreadState::BLOCKED) {
+		reaper->setState(ThreadState::READY);
+		Scheduler::addThread(reaper);
+	}
 }
 
 void TaskManager::buryDeadThreads() {
@@ -90,6 +101,7 @@ void TaskManager::buryDeadThreads() {
 
 		uint32_t pid = thread->getId();
 		delete thread;
+		Logger::debug("Thread %u reaped", pid);
 
 		InterruptGuard guard;
 		freePids[freePidCount++] = pid;

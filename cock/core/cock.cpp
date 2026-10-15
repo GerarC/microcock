@@ -1,6 +1,7 @@
 #include <cock/core/boot/module.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/cock.hpp>
+#include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/hal/utils.hpp>
 #include <cock/core/security/capability.hpp>
 #include <cock/core/task/process.hpp>
@@ -32,6 +33,7 @@ using core::task::TaskManager;
 using core::task::Thread;
 using core::task::ThreadPriority;
 using core::task::ThreadResult;
+using core::task::ThreadState;
 using core::boot::BootModule;
 using core::memory::PhysAddr;
 using core::memory::VirtualMemoryManager;
@@ -67,9 +69,20 @@ static void grant_root_capabilities(Process &process) {
 }
 
 ThreadResult kernel_idle() {
+	while (true)
+		core::hal::halt();
+	return ThreadResult::success();
+}
+
+ThreadResult kernel_reaper() {
 	while (true) {
 		TaskManager::buryDeadThreads();
-		core::hal::halt();
+		{
+			core::hal::InterruptGuard guard;
+			if (TaskManager::graveyardEmpty())
+				Scheduler::getCurrentThread()->setState(ThreadState::BLOCKED);
+		}
+		Scheduler::yield();
 	}
 	return ThreadResult::success();
 }
@@ -123,6 +136,10 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
 
         Scheduler::addThread(app_thread);
     }
+
+	Thread *reaper_thread = new Thread(kernel_reaper, ThreadPriority::HIGH);
+	TaskManager::setReaper(reaper_thread);
+	Scheduler::addThread(reaper_thread);
 
 	core::hal::manual_timer();
 	Logger::fatal("Kernel panic: Returned to cock_main!");
