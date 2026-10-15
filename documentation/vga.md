@@ -2,58 +2,72 @@
 
 Due to the microkernel architecture, MicroCOCK utilizes two distinct implementations of the VGA text-mode driver during its lifecycle.
 
-## Early Kernel VGA Driver
-Provides a fallback text output interface used exclusively during the early boot sequence. It writes directly to the standard VGA framebuffer mapped at physical address `0xC00B8000`.
+## Kernel console
+Provides the text output that the kernel itself uses: the boot messages, the log and the panic message. The HAL (`hal/console.hpp`) sends every byte to the **serial port** (COM1) and, while it is attached, to the VGA text buffer, which the boot code maps at `0xC00B8000`.
 
 ```cpp
-void VGA::putChar(char c) {
-    if (c == NEWLINE) {
-        newline();
-        return;
-    }
-    putEntryAt(c, color, column, row);
-    if (++column == VGA_WIDTH) {
-        column = INITIAL_COL;
-        newline();
-    }
+inline void console_write(const char *data, size_t size) {
+	for (size_t idx = 0; idx < size; idx++)
+		serial_write(data[idx]);
+	if (console_screen_attached) console_screen.write(data, size);
 }
 ```
+
+`VGA` is a final class with no virtual functions and a `constexpr` constructor, so the screen object is initialized at compile time and every call is direct. The serial output is what the test scripts read, and it keeps working when the screen belongs to the userland server.
 
 ## Userland VGA Server
-The fully isolated Ring 3 display server handles standard output for the operating system. During initialization, it uses the `mmap` syscall to map the physical hardware VGA buffer (`0xB8000`) securely into its own virtual address space at `0xA0000000`.
+The fully isolated Ring 3 display server handles standard output for the operating system. When the kernel loads a module called `vga_driver`, it detaches the kernel console from the screen and remembers the module as the destination of the output of `sys_write`.
+
+The server cannot touch the hardware until it is allowed to. It waits for the `CAPABILITY_GRANTED` message of the root server, which has given it a `PHYSICAL_MEMORY` capability over the legacy video window (`0xA0000` to `0xBFFFF`). Only then does it use the `mmap` syscall to map the physical text buffer (`0xB8000`) into its own virtual address space at `0xA0000000`. The kernel checks that the capability covers the range and that the range is not RAM.
 
 ```cpp
-void VgaServer::init() {
-    buffer = (uint16_t*)mmap((void*)VGA_VIRTUAL_TARGET, PAGE_SIZE, 
-                             PROT_READ | PROT_WRITE, 
-                             MAP_PHYS | MAP_FIXED, -1, 
-                             VGA_PHYSICAL_ADDRESS);
+bool VgaServer::init() {
+	void *mapped = mmap((void *)VGA_VIRTUAL_TARGET, PAGE_SIZE,
+						PROT_READ | PROT_WRITE,
+						MAP_PHYS | MAP_FIXED, -1,
+						VGA_PHYSICAL_ADDRESS);
+	if (mapped == MAP_FAILED) {
+		buffer = nullptr;
+		return false;
+	}
+	buffer = static_cast<volatile uint16_t *>(mapped);
+	return true;
 }
 ```
 
-It executes an infinite loop waiting for `sys_ipc_recv`. The kernel routes text data to it via IPC messages containing types like `VIDEO_WRITE_CHAR` or `VIDEO_WRITE_STR`.
+After that it loops on `sys_ipc_recv`. The kernel routes text data to it via IPC messages containing types like `VIDEO_WRITE_CHAR` or `VIDEO_WRITE_STR`, and so does any other program, such as the keyboard driver.
 
 ```cpp
 extern "C" void _start() {
-    VgaServer::init();
-    Message msg = {};
-    
-    while (true) {
-        ipc_recv(&msg);
-        switch (msg.type) {
-            case MessageType::VIDEO_WRITE_CHAR:
-                VgaServer::putChar(static_cast<char>(msg.payload.args.arg0));
-                break;
-            case MessageType::VIDEO_WRITE_STR: {
-                size_t length = msg.payload.args.arg0;
-                const char *str_chunk = reinterpret_cast<const char *>(&msg.payload.args.arg1);
-                VgaServer::write(str_chunk, length);
-                break;
-            }
-            case MessageType::NONE:
-                VgaServer::clear();
-                break;
-        }
-    }
+	bool ready = false;
+
+	Message msg = {};
+	while (true) {
+		cock::user::ipc_recv(msg);
+		switch (msg.type) {
+			case MessageType::CAPABILITY_GRANTED:
+				if (!ready) ready = VgaServer::init();
+				break;
+			case MessageType::VIDEO_WRITE_CHAR:
+				if (ready) VgaServer::putChar(static_cast<char>(msg.payload.args.arg0));
+				break;
+			case MessageType::VIDEO_WRITE_STR: {
+				if (!ready) break;
+				size_t length = msg.payload.args.arg0;
+				const char *str_chunk =
+					reinterpret_cast<const char *>(&msg.payload.args.arg1);
+				VgaServer::write(str_chunk, length);
+				break;
+			}
+			case MessageType::NONE:
+				if (ready) VgaServer::clear();
+				break;
+			default:
+				break;
+		}
+	}
 }
 ```
+
+### When the server is not there
+`sys_write` sends the text to the server in chunks of 20 bytes. If the server has died, the kernel notices, takes the screen back and writes to it directly, so the system keeps printing. Its mapping of the video memory is not returned to the frame allocator when the server dies, because device pages are marked as not owned.
