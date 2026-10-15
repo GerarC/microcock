@@ -68,7 +68,7 @@ PhysAddr PhysicalMemoryManager::allocFrame() {
 }
 ```
 
-`allocFrame` returns a null address when memory runs out and `freeFrame` ignores frames that are already free, so the callers decide what an out of memory condition means. `isRam` answers whether a physical address belongs to RAM; the VMM uses it to tell devices from memory. `freeFrameCount` returns the number of free frames, kept as a counter, so a caller can check before starting a large mapping.
+`allocFrame` returns a null address when memory runs out and `freeFrame` only releases frames that `allocFrame` handed out (a separate bitmap records them), so a double free, a reserved frame of the kernel or of the boot structures, or an address outside RAM is ignored, and the callers decide what an out of memory condition means. `isRam` answers whether a physical address belongs to RAM; the VMM uses it to tell devices from memory. `freeFrameCount` returns the number of free frames, kept as a counter, so a caller can check before starting a large mapping.
 
 ## Paging
 `Paging` (`cock/arch/x86/memory/paging.cpp`) is the only code that writes page tables. It uses the recursive mapping in the last directory entry, so every table of the current address space is reachable at a fixed virtual address.

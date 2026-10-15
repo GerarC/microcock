@@ -17,6 +17,8 @@ constexpr size_t BATCH_FRAMES = 64;
 constexpr uint32_t LOW_MEMORY_END = 0x100000;
 constexpr uint32_t VGA_TEXT_BUFFER = 0xB8000;
 constexpr uint32_t LOCAL_APIC_BASE = 0xFEE00000;
+constexpr uint32_t RESERVED_LOW_FRAME = 0x9F000;
+constexpr uint32_t KERNEL_IMAGE_FRAME = 0x100000;
 
 void checkAllocateAndFree() {
 	size_t before = PhysicalMemoryManager::freeFrameCount();
@@ -87,6 +89,14 @@ void checkFreeOutOfRange() {
 	EXPECT_EQ(before, PhysicalMemoryManager::freeFrameCount());
 }
 
+void checkFreeReservedFrame() {
+	size_t before = PhysicalMemoryManager::freeFrameCount();
+	PhysicalMemoryManager::freeFrame(PhysAddr(RESERVED_LOW_FRAME));
+	EXPECT_EQ(before, PhysicalMemoryManager::freeFrameCount());
+	PhysicalMemoryManager::freeFrame(PhysAddr(KERNEL_IMAGE_FRAME));
+	EXPECT_EQ(before, PhysicalMemoryManager::freeFrameCount());
+}
+
 void checkIsRam() {
 	PhysAddr frame = PhysicalMemoryManager::allocFrame();
 	EXPECT_FALSE(frame.isNull());
@@ -109,6 +119,7 @@ void test_pmm() {
 	checkFramesAreDistinct();
 	checkDoubleFree();
 	checkFreeOutOfRange();
+	checkFreeReservedFrame();
 	checkIsRam();
 	TestRunner::end_suite();
 }

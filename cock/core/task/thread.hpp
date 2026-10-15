@@ -22,7 +22,7 @@ constexpr size_t THREAD_STACK_SIZE = KERNEL_STACK_PAGES << hal::PAGE_SHIFT;
 constexpr size_t USER_PAGES =
 	(MIN_USER_STACK_BYTES + hal::PAGE_MASK) >> hal::PAGE_SHIFT;
 constexpr size_t USER_STACK_SIZE = USER_PAGES << hal::PAGE_SHIFT;
-constexpr size_t THREAD_MESSAGE_BUFFER_SIZE = 0x10;
+constexpr size_t THREAD_INBOX_CAPACITY = 0x10;
 
 static_assert(hal::IRQ_LINE_COUNT <= sizeof(uint32_t) * 8,
 			  "every interrupt line needs a bit in the pending mask");
@@ -94,7 +94,7 @@ class Thread {
 	uintptr_t stackPointer = 0;
 	Process *process = nullptr;
 	void *stackBase = nullptr;
-	RingBuffer<Message, THREAD_MESSAGE_BUFFER_SIZE> inbox;
+	RingBuffer<Message, THREAD_INBOX_CAPACITY + 1> inbox;
 	uint32_t pendingNotifications = 0;
 	void initBase(ThreadPriority priority, ThreadType type, Process *owner);
 

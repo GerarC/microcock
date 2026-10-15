@@ -31,6 +31,7 @@ constexpr unsigned HIGH_WORD_SHIFT = 32;
 
 uint32_t frameBitmap[BITMAP_WORDS];
 uint32_t ramBitmap[BITMAP_WORDS];
+uint32_t allocatedBitmap[BITMAP_WORDS];
 uint32_t frameLimit = 0;
 uint32_t searchHint = 0;
 uint32_t usedFrames = 0;
@@ -46,6 +47,19 @@ inline void setFrame(uint32_t frame) {
 
 inline void markRam(uint32_t frame) {
 	ramBitmap[frame / BITS_PER_WORD] |= (1u << (frame % BITS_PER_WORD));
+}
+
+inline bool testAllocated(uint32_t frame) {
+	return allocatedBitmap[frame / BITS_PER_WORD] &
+		   (1u << (frame % BITS_PER_WORD));
+}
+
+inline void setAllocated(uint32_t frame) {
+	allocatedBitmap[frame / BITS_PER_WORD] |= (1u << (frame % BITS_PER_WORD));
+}
+
+inline void clearAllocated(uint32_t frame) {
+	allocatedBitmap[frame / BITS_PER_WORD] &= ~(1u << (frame % BITS_PER_WORD));
 }
 
 inline void clearFrame(uint32_t frame) {
@@ -161,6 +175,7 @@ uint32_t findFreeFrame() {
 void PhysicalMemoryManager::init(const MBInfo *boot_info, PhysAddr boot_info_phys) {
 	memset(frameBitmap, 0xFF, sizeof(frameBitmap));
 	memset(ramBitmap, 0, sizeof(ramBitmap));
+	memset(allocatedBitmap, 0, sizeof(allocatedBitmap));
 	frameLimit = 0;
 	searchHint = 0;
 	usedFrames = 0;
@@ -197,6 +212,7 @@ PhysAddr PhysicalMemoryManager::allocFrame() {
 	if (frame == NO_FRAME) return PhysAddr();
 
 	setFrame(frame);
+	setAllocated(frame);
 	usedFrames++;
 	freeFrames--;
 	return PhysAddr(frame * PAGE_SIZE);
@@ -206,8 +222,9 @@ void PhysicalMemoryManager::freeFrame(PhysAddr address) {
 	InterruptGuard guard;
 
 	uint32_t frame = static_cast<uint32_t>(address.frameNumber());
-	if (frame >= frameLimit || !testFrame(frame)) return;
+	if (frame >= frameLimit || !testAllocated(frame)) return;
 
+	clearAllocated(frame);
 	clearFrame(frame);
 	freeFrames++;
 	if (usedFrames > 0) usedFrames--;

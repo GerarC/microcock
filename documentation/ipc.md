@@ -33,7 +33,7 @@ No handler trusts a pointer. Before reading or writing user memory, a handler as
 A call that has to wait asks the scheduler to restart it (see [task management](task_management.md#blocking-system-calls)). The kernel never blocks inside a handler.
 
 ## IPC Message Passing
-Threads communicate using a `RingBuffer`. Every thread keeps an inbox with 16 slots (15 usable) holding `Message` structures. Delivery never blocks the sender.
+Threads communicate using a `RingBuffer`. Every thread keeps an inbox that holds 16 (`THREAD_INBOX_CAPACITY`) of the `Message` structures. Delivery never blocks the sender.
 
 ### The message
 ```cpp
