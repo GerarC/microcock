@@ -59,7 +59,7 @@ hang: hlt
     jmp hang
 ```
 
-Only the first 4 MiB are mapped when `init_cock` starts. Everything the kernel needs from the bootloader beyond that (the information structure, the memory map, the modules) is reached through the early window described in [memory management](memory_management.md#early-boot-window). The kernel image, with its `.bss`, must fit in those 4 MiB; the linker script checks it.
+Only the first 4 MiB are mapped when `init_cock` starts. Everything the kernel needs from the bootloader beyond that (the information structure, the memory map, the modules) is reached through the early window described in [memory management](../core/memory_management.md#early-boot-window). The kernel image, with its `.bss`, must fit in those 4 MiB; the linker script checks it.
 
 ## Linker Script
 To tell the CPU where to look up the information, a linker script is needed. In this project, this file is placed in `cock/arch/x86/linker.ld`. It offsets the virtual addresses by `0xC0000000` to enforce the Higher-Half design, while the load addresses stay physical.
@@ -100,4 +100,4 @@ SECTIONS {
 `_kernel_end` marks where the physical memory manager starts to consider memory free. `_text_start`, `_text_end`, `_rodata_start` and `_rodata_end` delimit the pages that paging makes read only once it is up. The `ASSERT` stops the link when the image, `.bss` included, no longer fits in the 4 MiB that the boot code maps, instead of letting the kernel fail to boot without a message. The `.init_array` and `.ctors` sections are collected here too, and `call_global_constructors` runs whichever the toolchain produced.
 
 ## Boot modules
-GRUB loads `init`, `ramfs` and `vga_driver` as Multiboot modules, with the name of each one as its command line, and the `initrd` archive as a data module. The Makefile writes the `grub.cfg` and puts `init` first (`USERLAND_BOOT_ORDER`). Every other program travels inside the `initrd` and `init` starts it with `SYS_SPAWN`. See [userland](userland.md).
+GRUB loads `init`, `ramfs` and `vga_driver` as Multiboot modules, with the name of each one as its command line, and the `initrd` archive as a data module. The Makefile writes the `grub.cfg` and puts `init` first (`USERLAND_BOOT_ORDER`). Every other program travels inside the `initrd` and `init` starts it with `SYS_SPAWN`. See [userland](../userland/userland.md).

@@ -95,4 +95,4 @@ void GDT::applyIoPermissions(const uint8_t *map, uint32_t bytes, uint32_t versio
 * Only the bytes the process actually uses are copied, and the bytes left over from the previous process are denied again.
 * A process with no ports points `iomap_base` past the limit of the TSS, which denies every port without copying a single byte.
 
-Ports reach a process only through `SYS_REQUEST_RESOURCE`, which first checks the capability (see [capabilities](capabilities.md)) and refuses the ports of the PIC and the PIT, which belong to the kernel.
+Ports reach a process only through `SYS_REQUEST_RESOURCE`, which first checks the capability (see [capabilities](../core/capabilities.md)) and refuses the ports of the PIC and the PIT, which belong to the kernel.

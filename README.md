@@ -20,7 +20,7 @@ MicroCOCK or _Micro Colombian Open Code Kernel_ is a 32-bit x86 higher-half micr
     * Multi-Level Feedback Queue (MLFQ) scheduler with priority boosting and intrusive queues.
     * The core decides when to reschedule; the architecture only reports events.
 * **Inter-Process Communication (IPC):** Ring-buffer-based asynchronous message passing between processes. Messages that carry authority or come from the kernel cannot be forged by a program.
-* **Capabilities:** I/O ports, IRQ lines and physical memory are only reachable through explicit grants. See [capabilities](documentation/capabilities.md).
+* **Capabilities:** I/O ports, IRQ lines and physical memory are only reachable through explicit grants. See [capabilities](documentation/core/capabilities.md).
 * **Interrupts to userland:** a driver binds an IRQ line, the kernel masks it and raises a pending notification on the driver thread (never lost, delivered by `SYS_IPC_RECV`), and the driver acknowledges it.
 * **Dead threads are reaped by a kernel thread** that sleeps when there is nothing to free and wakes when a thread dies.
 * **The FPU is off for programs:** `CR0.EM` is set, so floating point, MMX and SSE fault instead of sharing state between processes.
@@ -133,7 +133,7 @@ make run DISK=build/disk.img
 ```
 `DISK_SCHEME=gpt` builds the GPT variant. The guest writes into the image file, so run `make disk` again to get the original contents back.
 
-The system ends in a shell (`cock>`): type `help` for the commands (`ls`, `cat`, `write`, `mkdir`, `rm`, `mv`, `sleep`, `clear`, ...). See [the shell](documentation/shell.md).
+The system ends in a shell (`cock>`): type `help` for the commands (`ls`, `cat`, `write`, `mkdir`, `rm`, `mv`, `sleep`, `clear`, ...). See [the shell](documentation/userland/shell.md).
 
 Clean the build directory:
 ```bash
@@ -201,7 +201,7 @@ The test attaches a disk with an MBR partition table; `DISK_SCHEME=gpt` uses a G
 DISK_SCHEME=gpt bash scripts/qemu_userland_test.sh HOST_TOOLCHAIN=1
 ```
 
-`scripts/qemu_fuzz_test.sh` boots the fuzzer, which calls the system calls with plausible and hostile arguments and fails on a kernel panic, a triple fault or a hang (see [the fuzzer](documentation/fuzzer.md)); `FUZZ=root` gives it every capability:
+`scripts/qemu_fuzz_test.sh` boots the fuzzer, which calls the system calls with plausible and hostile arguments and fails on a kernel panic, a triple fault or a hang (see [the fuzzer](documentation/userland/fuzzer.md)); `FUZZ=root` gives it every capability:
 ```bash
 FUZZ=user SEED=1 ROUNDS=3000 bash scripts/qemu_fuzz_test.sh HOST_TOOLCHAIN=1
 ```
@@ -277,7 +277,7 @@ In this order. Each item is one change with its tests and documentation.
 - [x] Synchronous IPC with a register fast path.
 - [x] A console server (`console`): `printf` and `read(0)` go through it; readers block through deferred replies and the client is linked by default.
 - [ ] Capability check on the calls to the console server (needs the IPC capability of stage 9).
-- [x] A minimal shell with built-in commands (0.2.0, see [the shell](documentation/shell.md)).
+- [x] A minimal shell with built-in commands (0.2.0, see [the shell](documentation/userland/shell.md)).
 - [ ] Running programs from the shell (needs a way to `spawn`), then `ps`, history, Ctrl+C and quoting.
 - [ ] Locking in `malloc` and a shared `crt0`.
 
@@ -290,18 +290,18 @@ In this order. Each item is one change with its tests and documentation.
 - [ ] Platform: APIC and IOAPIC, PAE with NX and memory above 4 GiB, SMP, an x86_64 port.
 
 ## Documentation
-For more detailed information regarding specific subsystems, please check the `documentation/` folder:
+For more detailed information regarding specific subsystems, please check the `documentation/` folder, split by layer: [core](documentation/core/README.md), [arch](documentation/arch/README.md), [userland](documentation/userland/README.md), [shared](documentation/shared/README.md) and [libs](documentation/libs/README.md). Every program in `userland/` has its own `README.md`. The pages:
 * [Project Structure](documentation/project_structure.md): Directory layout and the HAL.
-* [Bootloader](documentation/bootloader.md): Multiboot and early entry process.
-* [Kernel Main](documentation/kernel_main.md): Initialization sequence.
-* [Memory Management](documentation/memory_management.md): PMM, paging, VMM, and Heap.
-* [Task Management](documentation/task_management.md): Processes, threads, scheduler and MLFQ.
-* [Inter-Process Communication](documentation/ipc.md): Syscalls and messaging.
-* [Capabilities](documentation/capabilities.md): Authority over ports, IRQs and physical memory.
-* [Userland](documentation/userland.md): Boot modules, the system call ABI and the drivers.
-* [GDT](documentation/gdt.md) & [IDT](documentation/idt.md): CPU descriptor tables and interrupt handling.
-* [VGA](documentation/vga.md): Kernel console and the userland display server.
-* [Keyboard](documentation/keyboard.md): The PS/2 driver in userland and how an interrupt reaches it.
-* [Block storage](documentation/block_storage.md): The ATA driver, partition tables and the block protocol.
-* [FAT32](documentation/fat32.md): The FAT32 server and how the `vfs` joins it to the initrd.
-* [ext2](documentation/ext2.md): The ext2 server, its feature policy and symbolic links.
+* [Bootloader](documentation/arch/bootloader.md): Multiboot and early entry process.
+* [Kernel Main](documentation/core/kernel_main.md): Initialization sequence.
+* [Memory Management](documentation/core/memory_management.md): PMM, paging, VMM, and Heap.
+* [Task Management](documentation/core/task_management.md): Processes, threads, scheduler and MLFQ.
+* [Inter-Process Communication](documentation/core/ipc.md): Syscalls and messaging.
+* [Capabilities](documentation/core/capabilities.md): Authority over ports, IRQs and physical memory.
+* [Userland](documentation/userland/userland.md): Boot modules, the system call ABI and the drivers.
+* [GDT](documentation/arch/gdt.md) & [IDT](documentation/arch/idt.md): CPU descriptor tables and interrupt handling.
+* [VGA](documentation/userland/vga.md): Kernel console and the userland display server.
+* [Keyboard](documentation/userland/keyboard.md): The PS/2 driver in userland and how an interrupt reaches it.
+* [Block storage](documentation/userland/block_storage.md): The ATA driver, partition tables and the block protocol.
+* [FAT32](documentation/userland/fat32.md): The FAT32 server and how the `vfs` joins it to the initrd.
+* [ext2](documentation/userland/ext2.md): The ext2 server, its feature policy and symbolic links.
