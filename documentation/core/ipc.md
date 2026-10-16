@@ -66,12 +66,12 @@ The kernel writes `sender_pid` and `target_pid` itself on delivery; whatever the
 | `NONE` | Empty message; the display server treats it as a request to clear the screen |
 | `SYS_PING`, `SYS_PONG`, `SYS_DEBUG`, `SYS_REGISTER_MAILBOX` | Reserved for tests, debugging and future use |
 | `VIDEO_WRITE_CHAR` | Write one character (`arg0`) on the display server |
-| `CONSOLE_KEY` | Keyboard driver to console server (value 30): `arg0` is the typed character; the console accepts it only from the process named `kbd`; see [console](console.md) |
+| `CONSOLE_KEY` | Keyboard driver to console server (value 30): `arg0` is the typed character; the console accepts it only from the process named `kbd`; see [console](../userland/console.md) |
 | `VIDEO_WRITE_STR` | Write `arg0` bytes that follow in `arg1` and the next arguments |
 | `PROCESS_EXITED` | The kernel tells the spawner that a process it asked about ended (`arg0` process id, `arg1` exit status, `0xFFFFFFFF` when an exception ended it). Only the kernel produces it; a program that tries to send one gets `-1` |
 | `IRQ_NOTIFICATION` | The kernel tells a driver that its interrupt line fired (`arg0` is the line). Only the kernel produces it, with `KERNEL_SENDER` as sender; a program that tries to send one gets `-1` |
-| `FS_CONNECT`, `FS_OPEN`, `FS_READ`, `FS_STAT`, `FS_READDIR`, `FS_CLOSE`, `FS_REPLY`, `FS_WRITE`, `FS_UNLINK`, `FS_MKDIR`, `FS_RMDIR`, `FS_RENAME`, `FS_LINK` | The file server protocol (values 9 to 15, 20, 21 and 23 to 26); see [file system](filesystem.md) |
-| `BLK_CONNECT`, `BLK_INFO`, `BLK_READ`, `BLK_REPLY`, `BLK_WRITE` | The block server protocol (values 16 to 19 and 22); see [block storage](block_storage.md) |
+| `FS_CONNECT`, `FS_OPEN`, `FS_READ`, `FS_STAT`, `FS_READDIR`, `FS_CLOSE`, `FS_REPLY`, `FS_WRITE`, `FS_UNLINK`, `FS_MKDIR`, `FS_RMDIR`, `FS_RENAME`, `FS_LINK` | The file server protocol (values 9 to 15, 20, 21 and 23 to 26); see [file system](../userland/filesystem.md) |
+| `BLK_CONNECT`, `BLK_INFO`, `BLK_READ`, `BLK_REPLY`, `BLK_WRITE` | The block server protocol (values 16 to 19 and 22); see [block storage](../userland/block_storage.md) |
 | `RTC_READ`, `RTC_REPLY` | The clock server protocol (values 27 and 28): `arg0` request id; the reply carries the status in `arg1` and the date and time packed in `arg2` and `arg3` (`shared/include/cock/abi/rtc.hpp`) |
 | `CAPABILITY_GRANTED` | The root server tells a driver that its capabilities are in place (`arg0` is a peer process id). Only a process that holds a capability with the grant right can send it |
 
@@ -156,7 +156,7 @@ If the owner no longer exists when its line fires, the kernel releases the line 
 The timer line and the PIC cascade line are reserved and cannot be bound. When the owner dies, the kernel masks and releases its lines. The keyboard driver in `userland/kbd` is the reference.
 
 ## Output from programs
-`SYS_WRITE` is the debug and fallback output channel: programs that link `libc/unistd/console.cpp` send descriptors 1 and 2 to the console server instead (see [console](console.md)) and fall back to this call when the server is not there. The kernel writes the bytes to the serial port with interrupts disabled, so a call is limited to 128 bytes to keep that time short. It returns how many bytes it took, and `cock::user::write_text` calls again until everything is written. When the display server is alive the text also goes to it, in messages of 20 bytes.
+`SYS_WRITE` is the debug and fallback output channel: programs that link `libc/unistd/console.cpp` send descriptors 1 and 2 to the console server instead (see [console](../userland/console.md)) and fall back to this call when the server is not there. The kernel writes the bytes to the serial port with interrupts disabled, so a call is limited to 128 bytes to keep that time short. It returns how many bytes it took, and `cock::user::write_text` calls again until everything is written. When the display server is alive the text also goes to it, in messages of 20 bytes.
 
 ## Logging of denied calls
 A call that is denied (no capability, bad pointer, unknown number) is logged at `trace` level only, so a program that keeps asking cannot flood the serial log. Raise the log level in `cock_main` to see them.

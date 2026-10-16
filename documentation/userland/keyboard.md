@@ -3,7 +3,7 @@
 The PS/2 keyboard driver runs in Ring 3 as the program `kbd` (`userland/kbd`). The kernel has no keyboard code: it only routes the interrupt to the driver, and the driver does the rest. It is the reference for how a hardware driver is written in MicroCOCK.
 
 ## What it needs
-A process starts with no access to the hardware, so `kbd` depends on what the root server gives it (see [capabilities](capabilities.md)):
+A process starts with no access to the hardware, so `kbd` depends on what the root server gives it (see [capabilities](../core/capabilities.md)):
 
 | Capability | Why |
 |------------|-----|
@@ -47,7 +47,7 @@ for (;;) {
 A key press travels like this:
 
 1. The keyboard controller raises IRQ 1.
-2. The kernel **masks the line** and raises a pending notification on `kbd`, which `ipc_recv` returns as an `IRQ_NOTIFICATION` message (see [ipc](ipc.md#interrupts-as-messages)).
+2. The kernel **masks the line** and raises a pending notification on `kbd`, which `ipc_recv` returns as an `IRQ_NOTIFICATION` message (see [ipc](../core/ipc.md#interrupts-as-messages)).
 3. `kbd` wakes up, reads one byte from port `0x60` and gives it to the decoder.
 4. If the byte produces a character, `kbd` sends a `CONSOLE_KEY` message to the console server, which edits the line, echoes it on the display server and keeps it for readers (see [console](console.md)).
 5. `kbd` calls `SYS_IRQ_ACK`, and the kernel unmasks the line so the next key can arrive.

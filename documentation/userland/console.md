@@ -13,7 +13,7 @@
 | First client | `userland/sh` (the shell) |
 
 ## Protocol
-Requests are synchronous calls (see [ipc](ipc.md)) with four words. Word 0 holds the operation in its low byte, a length in the next byte and a `LAST` flag in bit 16; words 1 to 3 hold up to 12 bytes of data, the first byte in the low bits of word 1. The reply has the same layout with the status in place of the operation and a count in place of the length.
+Requests are synchronous calls (see [ipc](../core/ipc.md)) with four words. Word 0 holds the operation in its low byte, a length in the next byte and a `LAST` flag in bit 16; words 1 to 3 hold up to 12 bytes of data, the first byte in the low bits of word 1. The reply has the same layout with the status in place of the operation and a count in place of the length.
 
 | Operation | Request | Reply |
 |-----------|---------|-------|
