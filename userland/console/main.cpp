@@ -48,6 +48,7 @@ constexpr size_t MAX_READERS = 8;
 constexpr size_t FIRST_READER = 0;
 constexpr size_t SLOT_COUNT = 8;
 constexpr size_t SLOT_BYTES = 256;
+constexpr uint32_t SWEEP_MS = 50;
 
 struct Slot {
 	bool used;
@@ -136,6 +137,24 @@ void handleWrite(uint32_t sender, const char *bytes, size_t length, bool last) {
 	slot->used = true;
 	slot->sender = sender;
 	if (last) flush(*slot);
+}
+
+bool hasPartialText() {
+	for (const Slot &slot : slots) {
+		if (slot.used && slot.length > 0) return true;
+	}
+	return false;
+}
+
+uint32_t waitTime() {
+	return hasPartialText() ? SWEEP_MS : cock::user::CALL_NO_TIMEOUT;
+}
+
+void sweepDeadWriters() {
+	for (Slot &slot : slots) {
+		if (!slot.used || cock::user::process_alive(slot.sender)) continue;
+		flush(slot);
+	}
 }
 
 void screenCharacter(char character) {
@@ -263,24 +282,25 @@ extern "C" void _start() {
 	}
 	puts("console: ready");
 
-	CallResult result = cock::user::ipc_accept();
+	CallResult result = cock::user::ipc_accept(waitTime());
 	for (;;) {
 		if (result.status == CallStatus::MESSAGE_PENDING) {
 			drainMessages();
 			wakeReaders();
-			result = cock::user::ipc_accept();
+			result = cock::user::ipc_accept(waitTime());
 			continue;
 		}
 		if (!result.ok) {
-			result = cock::user::ipc_accept();
+			if (result.status == CallStatus::TIMED_OUT) sweepDeadWriters();
+			result = cock::user::ipc_accept(waitTime());
 			continue;
 		}
 
 		uint32_t reply[ANSWER_WORDS] = {};
 		if (serve(result.peer, result.words, reply) == Served::DEFERRED) {
-			result = cock::user::ipc_accept();
+			result = cock::user::ipc_accept(waitTime());
 			continue;
 		}
-		result = cock::user::ipc_reply_wait(reply);
+		result = cock::user::ipc_reply_wait(reply, waitTime());
 	}
 }
