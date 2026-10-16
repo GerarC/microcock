@@ -32,7 +32,7 @@ constexpr uint32_t NO_MODULE = 0xFFFFFFFF;
 constexpr uintptr_t SUCCESS = 0;
 /** Raw result of the non blocking and timed receive calls when no message arrived. */
 constexpr uintptr_t NO_MESSAGE = 1;
-/** File descriptor accepted by `SYS_WRITE` for the kernel log output. */
+/** File descriptor for console output, accepted by `SYS_WRITE` together with descriptor 2. */
 constexpr int STDOUT_FILE = 1;
 
 /**
@@ -45,11 +45,16 @@ inline uint32_t self() {
 
 /**
  * @brief Sends an asynchronous message (`SYS_IPC_SEND`). Never blocks.
- * @param pid Target process id. Delivery goes to the inbox of the target.
- * @param message Message to copy; the kernel stamps `sender_pid`.
- * @return true when the message was queued; false when the target does not exist, its
- *         inbox (16 messages) is full, the pointer is bad or the message type is not
- *         allowed for this sender. Nothing is retried.
+ *
+ * The inbox belongs to a thread, not to the process: a process id is the id of its first
+ * thread, so the message reaches that thread, and only that thread receives it.
+ * @param pid Id of the target thread (for a first thread, the process id).
+ * @param message Message to copy; the kernel stamps `sender_pid` with the id of the
+ *        sending thread and `target_pid` with the id of the receiving thread.
+ * @return true when the message was queued; false when the target does not exist or is
+ *         dead, its inbox (16 messages) is full, the pointer is bad or the message type is
+ *         not allowed for this sender (`IRQ_NOTIFICATION` and `PROCESS_EXITED` never;
+ *         `CAPABILITY_GRANTED` only with grant authority). Nothing is retried.
  */
 inline bool ipc_send(uint32_t pid, const ipc::Message &message) {
 	return syscall(SYS_IPC_SEND, pid, reinterpret_cast<uintptr_t>(&message), 0,
@@ -93,7 +98,8 @@ inline bool take_stashed(ipc::Message &message) {
  * @brief Receives the next message (`SYS_IPC_RECV`).
  *
  * Returns a stashed message first. Otherwise blocks until a pending interrupt
- * notification or an inbox message arrives.
+ * notification or a message in the inbox of the calling thread arrives. Messages sent to
+ * a process id land in the inbox of its first thread only.
  * @param message Receives the message.
  * @return true when a message was copied; false when the kernel refused the call
  *         (bad pointer).
@@ -132,9 +138,11 @@ inline Received ipc_try_recv(ipc::Message &message) {
  * @brief Receives the next message waiting at most a given time (`SYS_IPC_RECV_TIMEOUT`).
  *
  * Does not look at the stash. Blocks the thread until a message arrives or the time
- * runs out. The clock has 10 ms resolution and the time is rounded up.
+ * runs out. The clock ticks every 10 ms and the time is rounded up to whole ticks, plus
+ * a small safety margin, so the wait is never shorter than asked.
  * @param message Receives the message when one arrives.
- * @param milliseconds Longest wait; `0` never waits. Values above `0x7FFFFFFF` fail.
+ * @param milliseconds Longest wait; `0` never waits (it behaves like `ipc_try_recv`).
+ *        Values above `0x7FFFFFFF` fail.
  * @return `MESSAGE`, `EMPTY` when the time ran out, or `FAILED` on a bad pointer or time.
  */
 inline Received ipc_recv_timeout(ipc::Message &message, uint32_t milliseconds) {
@@ -149,8 +157,9 @@ inline Received ipc_recv_timeout(ipc::Message &message, uint32_t milliseconds) {
  * @brief Blocks the calling thread for a time (`SYS_SLEEP`).
  *
  * Messages that arrive meanwhile wait in the inbox and do not wake the thread.
- * @param milliseconds Time to sleep, at least that long and less than one tick more;
- *        `0` yields the CPU. Values above `0x7FFFFFFF` fail.
+ * @param milliseconds Time to sleep, rounded up to whole 10 ms ticks plus a small safety
+ *        margin, so never shorter than asked; `0` only yields the CPU and returns true.
+ *        Values above `0x7FFFFFFF` fail.
  * @return true when the sleep ended; false when the time was refused.
  */
 inline bool sleep_ms(uint32_t milliseconds) {
@@ -164,8 +173,9 @@ inline bool sleep_ms(uint32_t milliseconds) {
  * in the permission bitmap of the process and `port_in8` and friends work.
  * @param first First port number.
  * @param count Number of consecutive ports.
- * @return true when granted; false when the capability does not cover the range or the
- *         ports belong to the kernel (PIC and timer).
+ * @return true when granted; false when the capability does not cover the range, the range
+ *         is empty or beyond the port space, or it overlaps ports that belong to the kernel
+ *         (PIC `0x20`-`0x21`, `0xA0`-`0xA1` and timer `0x40`-`0x43`) or no memory is left.
  */
 inline bool request_ports(uint32_t first, uint32_t count) {
 	return syscall(SYS_REQUEST_RESOURCE, first, count, 0, 0, 0, 0) == SUCCESS;
@@ -174,11 +184,12 @@ inline bool request_ports(uint32_t first, uint32_t count) {
 /**
  * @brief Binds an interrupt line to the calling process (`SYS_IRQ_BIND`).
  *
- * Needs an `IRQ` capability that covers the line. The kernel unmasks the line and sends
- * an `IRQ_NOTIFICATION` message for each interrupt, until `irq_ack` is called.
+ * Needs an `IRQ` capability that covers the line. The kernel unmasks the line and, for
+ * each interrupt, queues an `IRQ_NOTIFICATION` message for the calling thread (the owner is
+ * the thread, not the process); it keeps the line masked until `irq_ack` is called.
  * @param line Interrupt line number.
  * @return true when bound; false when the capability is missing, the line is reserved
- *         (timer, cascade) or already has an owner.
+ *         (timer, cascade or out of range) or already has an owner.
  */
 inline bool irq_bind(uint32_t line) {
 	return syscall(SYS_IRQ_BIND, line, 0, 0, 0, 0, 0) == SUCCESS;
@@ -186,8 +197,9 @@ inline bool irq_bind(uint32_t line) {
 
 /**
  * @brief Acknowledges an interrupt so the kernel unmasks the line again (`SYS_IRQ_ACK`).
- * @param line Interrupt line previously bound by the caller.
- * @return true when acknowledged; false when the caller does not own the line.
+ * @param line Interrupt line previously bound by the calling thread.
+ * @return true when acknowledged; false when the calling thread does not own the line
+ *         (another thread of the same process does not count) or the line is reserved.
  */
 inline bool irq_ack(uint32_t line) {
 	return syscall(SYS_IRQ_ACK, line, 0, 0, 0, 0, 0) == SUCCESS;
@@ -195,12 +207,15 @@ inline bool irq_ack(uint32_t line) {
 
 /**
  * @brief Passes part of a capability held by the caller to another process (`SYS_CAP_GRANT`).
- * @param pid Process that receives the capability.
+ *
+ * The caller needs a capability of that type with the grant flag that covers the range.
+ * @param pid Process that receives the capability; it must be a live user process.
  * @param type Kind of capability (ports, IRQ, boot module, ...).
  * @param first First port, line or module index.
  * @param count Number of items from `first`.
- * @return true when granted; false when the caller does not hold the range, lacks grant
- *         authority or the target does not exist.
+ * @return true when granted; false when the type is unknown, the caller holds no grantable
+ *         capability covering the range, the target does not exist or is a kernel process,
+ *         or the capability table of the target is full.
  */
 inline bool cap_grant(uint32_t pid, abi::CapabilityType type, uintptr_t first,
 					  uintptr_t count) {
@@ -211,7 +226,8 @@ inline bool cap_grant(uint32_t pid, abi::CapabilityType type, uintptr_t first,
 /**
  * @brief Finds a process by name (`SYS_PROC_LOOKUP`).
  * @param name NUL terminated process name; its length is measured here.
- * @return The process id, or `NO_PROCESS` when no process has that name.
+ * @return The process id, or `NO_PROCESS` when no live user process has that name or the
+ *         name is empty or too long for the kernel.
  */
 inline uint32_t lookup(const char *name) {
 	size_t length = 0;
@@ -254,7 +270,8 @@ inline bool shm_share(uint32_t id, uint32_t pid, bool writable) {
  * @param id Object id; the caller must be a holder.
  * @param writable true to map it writable (needs write access).
  * @return The address of the mapping, or nullptr when the caller is not a holder, lacks
- *         the access or there is no room.
+ *         the access, the process has no free region slot or no address range is free.
+ *         Unmap with `munmap` using the exact address and size of the object.
  */
 inline void *shm_map(uint32_t id, bool writable) {
 	uintptr_t result = syscall(SYS_SHM_MAP, id, writable ? 1 : 0, 0, 0, 0, 0);
@@ -276,7 +293,8 @@ inline bool shm_release(uint32_t id) {
  * Needs a `BOOT_MODULE` capability that covers the module. Map the result with
  * `shm_map(id, false)`.
  * @param name NUL terminated module name; its length is measured here.
- * @return The object id, or `NO_SHM` when the module is unknown or not covered.
+ * @return The object id, or `NO_SHM` when the module is unknown, not covered by a
+ *         capability of the caller, the name is empty or too long, or the pointer is bad.
  */
 inline uint32_t module_open(const char *name) {
 	size_t length = 0;
@@ -315,8 +333,9 @@ inline uint32_t module_index(const char *name) {
  * @param size Image size in bytes.
  * @param name NUL terminated process name; its length is measured here.
  * @param notify_exit true to receive a `PROCESS_EXITED` message when the process ends.
- * @return The new process id, or `NO_PROCESS` when the caller may not spawn, the image
- *         is not a loadable ELF, ids or kernel pages ran out, or a pointer is bad.
+ * @return The new process id (the id of its first thread), or `NO_PROCESS` when the caller
+ *         may not spawn, a size is zero or too large, the image is not a loadable ELF, ids
+ *         or memory ran out, or a pointer is bad.
  */
 inline uint32_t spawn(const void *image, size_t size, const char *name,
 					  bool notify_exit = false) {
@@ -349,8 +368,9 @@ inline uint32_t gettid() {
  * @param entry Address where the thread starts.
  * @param stack_base Lowest address of a writable stack range.
  * @param stack_size Stack size in bytes (at least the kernel minimum, 8 KiB).
- * @return The thread id, or `NO_PROCESS` when the entry or the stack range is invalid or
- *         no thread could be created.
+ * @return The thread id, or `NO_PROCESS` when the entry is not a user address, the stack is
+ *         smaller than the minimum or not writable user memory, or no thread could be
+ *         created (for example the per process thread limit was reached).
  */
 inline uint32_t thread_create_raw(uintptr_t entry, void *stack_base,
 								  size_t stack_size) {
@@ -367,9 +387,12 @@ inline uint32_t thread_create_raw(uintptr_t entry, void *stack_base,
  * returns at once; when equal the thread blocks until woken or the time ends.
  * @param word 4 byte aligned user address; waiters are keyed by process and address.
  * @param expected Value that makes the thread wait.
- * @param milliseconds Longest wait; `FUTEX_NO_TIMEOUT` waits without limit, `0` never waits.
- * @return `0` when woken, `1` when the word did not match, `2` when the time ran out,
- *         `FAILURE` on a bad address.
+ * @param milliseconds Longest wait; `FUTEX_NO_TIMEOUT` waits without limit, `0` never
+ *        waits (when the word matches it returns the time out result at once). Any other
+ *        value above `0x7FFFFFFF` fails.
+ * @return `0` (`FUTEX_WOKEN`) when woken, `1` (`FUTEX_VALUE_CHANGED`) when the word did not
+ *         match, `2` (`FUTEX_TIMED_OUT`) when the time ran out, `FAILURE` when the address
+ *         is null, unaligned or not readable user memory, or the time is above the limit.
  */
 inline uintptr_t futex_wait(const uint32_t *word, uint32_t expected,
 							uint32_t milliseconds = abi::process::FUTEX_NO_TIMEOUT) {
@@ -381,7 +404,8 @@ inline uintptr_t futex_wait(const uint32_t *word, uint32_t expected,
  * @brief Wakes threads of this process that wait on a word (`SYS_FUTEX_WAKE`).
  * @param word Same address given to `futex_wait`.
  * @param count Most waiters to wake.
- * @return The number of threads woken, or `FAILURE` on a bad address.
+ * @return The number of threads woken (`0` when none waited), or `FAILURE` when the address
+ *         is null, unaligned or not readable user memory.
  */
 inline uintptr_t futex_wake(const uint32_t *word, uint32_t count) {
 	return syscall(SYS_FUTEX_WAKE, reinterpret_cast<uintptr_t>(word), count, 0, 0, 0,
@@ -389,21 +413,28 @@ inline uintptr_t futex_wake(const uint32_t *word, uint32_t count) {
 }
 
 /**
- * @brief Tells whether a process id names a living process (`SYS_PROC_ALIVE`).
- * @param pid Process id.
- * @return true when the process is alive; false when it ended or never existed.
+ * @brief Tells whether an id names a living thread (`SYS_PROC_ALIVE`).
+ *
+ * A process id is the id of its first thread, so it tells whether that thread is alive;
+ * a thread id from `thread_create_raw` works too.
+ * @param pid Process or thread id.
+ * @return true when the thread exists and is not dead; false when it ended or never existed.
  */
 inline bool process_alive(uint32_t pid) {
 	return syscall(SYS_PROC_ALIVE, pid, 0, 0, 0, 0, 0) == SUCCESS;
 }
 
 /**
- * @brief Writes text to the kernel output (`SYS_WRITE` on `STDOUT_FILE`), looping on partial writes.
+ * @brief Writes text to the console (`SYS_WRITE` on `STDOUT_FILE`), looping on partial writes.
+ *
+ * The kernel takes at most 128 bytes per call and forwards them to the display server
+ * (or writes them to the kernel console when there is none), so a long text needs several
+ * calls; this function issues them.
  * @param text Bytes to write.
  * @param length Number of bytes.
  * @return The number of bytes written. When a step fails after some bytes were written
- *         the count so far is returned; when the first step fails the raw (non positive)
- *         result is returned.
+ *         the count so far is returned; when the first step fails the raw result (`-1`
+ *         for a bad pointer) is returned.
  */
 inline long write_text(const char *text, size_t length) {
 	size_t written = 0;

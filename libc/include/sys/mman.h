@@ -44,7 +44,10 @@ extern "C" {
  * @brief Maps pages into the address space of the caller.
  * @param addr Requested address (hint, or exact with `MAP_FIXED`); may be null.
  * @param length Size in bytes, rounded up to whole 4 KiB pages.
- * @param prot Combination of `PROT_*`.
+ * @param prot Combination of `PROT_*`. With `PROT_WRITE` the mapping is read
+ *             write; without it, read only. Zero (`PROT_NONE`) and unknown bits
+ *             are refused. There is no execute disable bit, so `PROT_EXEC`
+ *             changes nothing.
  * @param flags Combination of `MAP_*`.
  * @param fd Ignored for anonymous mappings; pass -1.
  * @param offset Ignored for anonymous mappings; with `MAP_PHYS` it is the
