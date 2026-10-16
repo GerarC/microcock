@@ -161,12 +161,22 @@ $(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin userland $(INITRD_IMAGE)
 
 iso: $(BUILD)/$(PROJECT).iso
 
+DISK_SCHEME ?= mbr
+DISK_IMAGE = $(BUILD)/disk.img
+ifdef DISK
+QEMU_DISK = -boot d -drive file=$(DISK),format=raw,if=ide,index=0,media=disk
+endif
+
+disk: | $(BUILD)
+	@echo "[DSK] $(DISK_IMAGE) ($(DISK_SCHEME))"
+	@bash scripts/make_test_disk.sh $(DISK_SCHEME) $(DISK_IMAGE)
+
 run: $(BUILD)/$(PROJECT).iso
 	@echo "[RUN] Launching QEMU"
-	@$(QEMU) -cdrom $< -serial stdio
+	@$(QEMU) -cdrom $< -serial stdio $(QEMU_DISK)
 
 run-headless: $(BUILD)/$(PROJECT).iso
-	@$(QEMU) -cdrom $< $(QEMU_HEADLESS)
+	@$(QEMU) -cdrom $< $(QEMU_HEADLESS) $(QEMU_DISK)
 
 test: clean
 	@echo "[TST] Compiling and running in TEST MODE"
@@ -185,6 +195,7 @@ help:
 	@echo "  make              - Compile the kernel and generate the binary file"
 	@echo "  make iso          - Build the bootable ISO image with GRUB"
 	@echo "  make run          - Build the ISO and launch it using QEMU"
+	@echo "  make disk         - Build build/disk.img (DISK_SCHEME=mbr|gpt), a disk with FAT32 and ext2 volumes"
 	@echo "  make run-headless - Same as run, without a window (serial on stdout)"
 	@echo "  make test         - Clean, compile with test flags, and run in QEMU"
 	@echo "  make clean        - Remove the build directory and all compiled files"
@@ -193,10 +204,11 @@ help:
 	@echo "  HOST_TOOLCHAIN=1  - Use the host g++/ld (-m32) instead of i686-elf-*"
 	@echo "  TEST_BUILD=1      - Build the in-kernel test suite"
 	@echo "  USE_LTO=1         - Enable link time optimization"
+	@echo "  DISK=<image>      - With run or run-headless, attach the image as the first IDE disk (see make disk)"
 	@echo "  FUZZ=user|root    - With TEST_INITRD=1, boot the syscall fuzzer (FUZZ_SEED, FUZZ_ROUNDS, FUZZ_TRACE)"
 	@echo "  LOG_LEVEL=<level> - Lowest kernel log level compiled in: TRACE, DEBUG, INFO, WARN, ERROR, FATAL"
 	@echo "================================================================"
 
-.PHONY: all clean iso run run-headless test make userland $(USERLAND_PROJECTS)
+.PHONY: all clean iso disk run run-headless test make userland $(USERLAND_PROJECTS)
 
 -include $(OBJ_CPP:.occ=.d)
