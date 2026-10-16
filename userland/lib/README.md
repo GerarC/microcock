@@ -50,7 +50,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler, and `USER_EXTRA_FLAGS=-fno-om
 
 ## Limits and known gaps
 
-- Not thread safe: `fs::Client`, `Clock` and the stash keep state per program, and `malloc` of the C library has no locking either (stage 8e of the roadmap).
+- Not thread safe: `fs::Client`, `Clock` and the stash keep state per program; `malloc` of the C library is locked and safe for threads.
 - Clients look the server up by name and have no access control: any process may talk to `console`, `vfs`, `ata` or `rtc` until the IPC capability of stage 9.
 - Wait times have a resolution of the kernel tick (10 ms for `sleep_ms`).
 - The wrappers keep the stash of 16 messages; more are dropped.

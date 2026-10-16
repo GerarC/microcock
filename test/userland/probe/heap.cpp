@@ -1,4 +1,6 @@
 #include "probe.hpp"
+#include <cock/user/api.hpp>
+#include <cock/user/thread.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -21,7 +23,89 @@ bool holdsPattern(const void *memory, size_t length, uint8_t pattern) {
 	return true;
 }
 
+constexpr size_t HEAP_WORKERS = 3;
+constexpr size_t HEAP_STACK_BYTES = 0x4000;
+constexpr size_t HEAP_SLOTS = 128;
+constexpr uint32_t HEAP_ROUNDS = 300000;
+constexpr size_t HEAP_MIN_REQUEST = 1;
+constexpr size_t HEAP_SIZE_STEP = 37;
+constexpr size_t HEAP_SIZE_SPAN = 1500;
+constexpr uint8_t HEAP_PATTERN_BASE = 0x40;
+constexpr uint32_t HEAP_NO_COUNT = 0;
+constexpr uint32_t HEAP_WAKE_EVERYONE = 0xFFFF;
+
+struct HeapWorker {
+	uint32_t id;
+	size_t sizes[HEAP_SLOTS];
+	uint8_t *blocks[HEAP_SLOTS];
+};
+
+alignas(PAGE_BYTES) uint8_t heapStacks[HEAP_WORKERS][HEAP_STACK_BYTES];
+HeapWorker heapWorkers[HEAP_WORKERS];
+uint32_t heapFinished = HEAP_NO_COUNT;
+uint32_t heapFailures = HEAP_NO_COUNT;
+
+void recordFailure() { __atomic_add_fetch(&heapFailures, 1, __ATOMIC_SEQ_CST); }
+
+void retire(HeapWorker &worker, size_t slot, uint8_t pattern) {
+	if (!worker.blocks[slot]) return;
+	if (!holdsPattern(worker.blocks[slot], worker.sizes[slot], pattern)) recordFailure();
+	free(worker.blocks[slot]);
+	worker.blocks[slot] = nullptr;
+}
+
+void heapWorkerMain(void *argument) {
+	HeapWorker &worker = *static_cast<HeapWorker *>(argument);
+	uint8_t pattern = static_cast<uint8_t>(HEAP_PATTERN_BASE + worker.id);
+
+	for (uint32_t round = 0; round < HEAP_ROUNDS; round++) {
+		size_t slot = round % HEAP_SLOTS;
+		retire(worker, slot, pattern);
+
+		size_t size = HEAP_MIN_REQUEST + (round * HEAP_SIZE_STEP) % HEAP_SIZE_SPAN;
+		uint8_t *block = static_cast<uint8_t *>(malloc(size));
+		if (!block) {
+			recordFailure();
+			continue;
+		}
+		memset(block, pattern, size);
+		worker.blocks[slot] = block;
+		worker.sizes[slot] = size;
+	}
+	for (size_t slot = 0; slot < HEAP_SLOTS; slot++) retire(worker, slot, pattern);
+
+	__atomic_add_fetch(&heapFinished, 1, __ATOMIC_SEQ_CST);
+	cock::user::futex_wake(&heapFinished, HEAP_WAKE_EVERYONE);
+}
+
+void waitForHeapWorkers() {
+	for (;;) {
+		uint32_t seen = __atomic_load_n(&heapFinished, __ATOMIC_SEQ_CST);
+		if (seen >= HEAP_WORKERS) return;
+		cock::user::futex_wait(&heapFinished, seen);
+	}
+}
+
 } // namespace
+
+bool mallocIsSafeAcrossThreads() {
+	__atomic_store_n(&heapFinished, HEAP_NO_COUNT, __ATOMIC_SEQ_CST);
+	__atomic_store_n(&heapFailures, HEAP_NO_COUNT, __ATOMIC_SEQ_CST);
+
+	for (size_t idx = 0; idx < HEAP_WORKERS; idx++) {
+		heapWorkers[idx].id = static_cast<uint32_t>(idx);
+		if (cock::user::thread_start(heapWorkerMain, &heapWorkers[idx], heapStacks[idx],
+									 HEAP_STACK_BYTES) == cock::user::NO_PROCESS)
+			return false;
+	}
+
+	waitForHeapWorkers();
+	if (__atomic_load_n(&heapFailures, __ATOMIC_SEQ_CST) != HEAP_NO_COUNT) return false;
+
+	void *after = malloc(SMALL_ALLOCATION);
+	free(after);
+	return after != nullptr;
+}
 
 bool mallocReusesAndCoalesces() {
 	uint8_t *first = static_cast<uint8_t *>(malloc(SMALL_ALLOCATION));

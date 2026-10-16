@@ -1,3 +1,4 @@
+#include <cock/user/mutex.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -31,6 +32,7 @@ constexpr size_t MAX_REQUEST =
 
 static_assert(HEADER_SIZE % ALIGNMENT == 0);
 
+cock::user::Mutex heapLock;
 Block *freeList = nullptr;
 size_t nextChunkPages = INITIAL_CHUNK_PAGES;
 
@@ -124,9 +126,14 @@ bool grow(size_t size) {
 	return true;
 }
 
-} // namespace
+struct HeapGuard {
+	HeapGuard() { heapLock.lock(); }
+	~HeapGuard() { heapLock.unlock(); }
+	HeapGuard(const HeapGuard &) = delete;
+	HeapGuard &operator=(const HeapGuard &) = delete;
+};
 
-void *malloc(size_t size) {
+void *allocate(size_t size) {
 	if (size > MAX_REQUEST) return nullptr;
 
 	size_t blockSize = blockSizeFor(size);
@@ -139,9 +146,21 @@ void *malloc(size_t size) {
 	return bytesOf(block) + HEADER_SIZE;
 }
 
-void free(void *pointer) {
+void release(void *pointer) {
 	if (!pointer) return;
 	insertFree(headerOf(pointer));
+}
+
+} // namespace
+
+void *malloc(size_t size) {
+	HeapGuard guard;
+	return allocate(size);
+}
+
+void free(void *pointer) {
+	HeapGuard guard;
+	release(pointer);
 }
 
 void *calloc(size_t count, size_t size) {
@@ -154,9 +173,10 @@ void *calloc(size_t count, size_t size) {
 }
 
 void *realloc(void *pointer, size_t size) {
-	if (!pointer) return malloc(size);
+	HeapGuard guard;
+	if (!pointer) return allocate(size);
 	if (!size) {
-		free(pointer);
+		release(pointer);
 		return nullptr;
 	}
 	if (size > MAX_REQUEST) return nullptr;
@@ -164,9 +184,9 @@ void *realloc(void *pointer, size_t size) {
 	Block *block = headerOf(pointer);
 	if (blockSizeFor(size) <= block->size) return pointer;
 
-	void *moved = malloc(size);
+	void *moved = allocate(size);
 	if (!moved) return nullptr;
 	memcpy(moved, pointer, block->size - HEADER_SIZE);
-	free(pointer);
+	release(pointer);
 	return moved;
 }
