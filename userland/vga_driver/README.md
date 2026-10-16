@@ -1,0 +1,57 @@
+# vga_driver
+
+The display server. It maps the VGA text buffer into its own address space and draws the characters it receives by IPC. It is a reference driver: the screen is not in the kernel, so the console server, the keyboard driver and any other program write to the display through messages.
+
+## Where it sits
+
+- It is a Multiboot module (`vga_driver` is in `USERLAND_BOOT_ORDER`) and not a file of the initrd, so it already runs when `init` starts. The kernel finds it by name and logs `VGA driver detected` with its process id; `SYS_WRITE` text of the kernel and of programs without the console client is forwarded to it.
+- Capability: physical memory `mem:0xA0000+0x20000` (the video window), granted by `init` through the manifest line `vga_driver caps=mem:0xA0000+0x20000`, which has no `path=`. The test manifest adds nothing for it.
+- Its clients are `console` (all text, the echo and the clear request) and the kernel (the `SYS_WRITE` path, in chunks of 20 bytes).
+- It opts out of the console client (`CONSOLE_CLIENT = no`): the server draws the console output.
+
+## Protocol
+
+Message layout: `shared/include/cock/ipc/message.hpp`. The server only receives; it never replies.
+
+| Message | Content | Effect |
+|---------|---------|--------|
+| `CAPABILITY_GRANTED` | none used | First one maps the buffer (`MAP_PHYS`, `MAP_FIXED`) and marks the server ready |
+| `VIDEO_WRITE_CHAR` | `arg0` is the character | Draws it; `\n` goes to the next line, Backspace moves one column back and blanks the cell (nothing at column 0) |
+| `VIDEO_WRITE_STR` | `arg0` length, the text starts at `arg1` | Draws up to 20 bytes, the length is clamped to what the message holds |
+| `NONE` | none | Clears the screen and puts the cursor at the top left |
+
+Until the grant arrives every drawing message is ignored. The screen is 80 by 25 cells with a fixed colour pair; when the last row is full the contents scroll up one row.
+
+## Source layout
+
+| File | Holds |
+|------|-------|
+| `main.cpp` | `_start` and the receive loop that dispatches the message types |
+| `vga.hpp` | `cock::vga::VgaServer`, the geometry and colour constants, `VGAColor` |
+| `vga.cpp` | `init`, `putChar`, `write`, `clear`, `newline`, `scroll`, `vga_entry` |
+| `Makefile` | `NAME = vga_driver`, a short `LIBC_SRCS` list, `CONSOLE_CLIENT = no` |
+
+## Build, run, test
+
+```sh
+make userland/vga_driver
+make run
+make run-headless
+bash scripts/qemu_userland_test.sh
+```
+
+Use `HOST_TOOLCHAIN=1` without the cross compiler. `make run` shows the window; `make run-headless` has no window, so only the serial log is visible. The end to end script reads the video memory from the QEMU monitor (`xp` at the text buffer address) and requires the last shell lines on the screen, and `VGA driver detected` on the serial log. The syscall fuzzer sends this server random messages in its inbox storm (see `test/userland/fuzz`).
+
+## Limits and known gaps
+
+- No capability check on who may draw: any process can send these messages until the IPC capability of stage 9.
+- No colour change request over IPC (`setColor` exists but no message calls it) and no scrollback.
+- The mapping of the video memory is not returned to the frame allocator when the server dies, because device pages are not owned; the kernel then takes the screen back and writes to it directly.
+- The server relies on the `VIDEO_WRITE_STR` clamp found by the fuzzer; keep it when the message changes.
+
+## Documentation
+
+- [VGA display server](../../documentation/userland/vga.md)
+- [Console server](../../documentation/userland/console.md)
+- [Fuzzer findings](../../documentation/userland/fuzzer.md)
+- [Capabilities](../../documentation/core/capabilities.md)
