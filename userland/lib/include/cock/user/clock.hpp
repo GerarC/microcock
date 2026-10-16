@@ -1,3 +1,10 @@
+/**
+ * @file clock.hpp
+ * @brief Client of the RTC server: reads the wall clock without touching the CMOS ports.
+ *
+ * Talks to the RTC server by asynchronous messages (`RTC_READ` and `RTC_REPLY`). The
+ * server is the only process that holds the CMOS ports (see `cmos.hpp`).
+ */
 #ifndef COCK_USER_CLOCK_HPP
 #define COCK_USER_CLOCK_HPP
 
@@ -10,15 +17,30 @@
 
 namespace cock::user {
 
+/** Connection to the RTC server. Not thread safe. */
 class Clock {
   public:
+	/**
+	 * Called with every message that arrives while a reply is awaited and is not that
+	 * reply. When null such messages are dropped.
+	 */
 	void (*onForeign)(const ipc::Message &) = nullptr;
 
+	/**
+	 * @brief Finds the RTC server by name (`SYS_PROC_LOOKUP`).
+	 * @return true when the server exists; false otherwise (call again later).
+	 */
 	bool init() {
 		server = lookup(abi::rtc::SERVER_NAME);
 		return server != NO_PROCESS;
 	}
 
+	/**
+	 * @brief Reads the current date and time (`RTC_READ`). Blocks until the server answers.
+	 * @param time Receives the date and time on success.
+	 * @return true on success; false when `init` did not succeed, the send failed, the
+	 *         server died, reported an error, or sent a value that is not a valid date.
+	 */
 	bool now(abi::datetime::DateTime &time) {
 		if (server == NO_PROCESS) return false;
 
@@ -44,7 +66,9 @@ class Clock {
 	}
 
   private:
+	/** Process id of the RTC server, `NO_PROCESS` before `init`. */
 	uint32_t server = NO_PROCESS;
+	/** Id of the next request. */
 	uint32_t nextId = 1;
 };
 

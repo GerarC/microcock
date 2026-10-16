@@ -1,3 +1,10 @@
+/**
+ * @file keymap.hpp
+ * @brief US layout scancode (set 1) to ASCII translation for the keyboard driver.
+ *
+ * Pure table lookup with no system calls and no I/O: the driver reads scancodes from
+ * the controller and feeds them to `Decoder`.
+ */
 #ifndef KBD_KEYMAP_HPP
 #define KBD_KEYMAP_HPP
 
@@ -6,14 +13,22 @@
 
 namespace kbd {
 
+/** Number of scancodes covered by the tables (codes 0x00 to 0x39). */
 constexpr size_t KEYMAP_SIZE = 0x3A;
+/** Bit set in a scancode when the key is released. */
 constexpr uint8_t RELEASE_BIT = 0x80;
+/** Prefix byte of extended keys; the key that follows is ignored. */
 constexpr uint8_t EXTENDED_PREFIX = 0xE0;
+/** Scancode of the left shift key. */
 constexpr uint8_t LEFT_SHIFT = 0x2A;
+/** Scancode of the right shift key. */
 constexpr uint8_t RIGHT_SHIFT = 0x36;
+/** Scancode of the caps lock key. */
 constexpr uint8_t CAPS_LOCK = 0x3A;
+/** Value returned for scancodes that produce no character. */
 constexpr char NO_CHARACTER = '\0';
 
+/** Characters without shift, indexed by scancode. */
 constexpr char LOWERCASE[KEYMAP_SIZE] = {
 	NO_CHARACTER, NO_CHARACTER, '1', '2', '3', '4', '5', '6',
 	'7', '8', '9', '0', '-', '=', '\b', '\t',
@@ -24,6 +39,7 @@ constexpr char LOWERCASE[KEYMAP_SIZE] = {
 	'b', 'n', 'm', ',', '.', '/', NO_CHARACTER, '*',
 	NO_CHARACTER, ' '};
 
+/** Characters with shift held, indexed by scancode. */
 constexpr char UPPERCASE[KEYMAP_SIZE] = {
 	NO_CHARACTER, NO_CHARACTER, '!', '@', '#', '$', '%', '^',
 	'&', '*', '(', ')', '_', '+', '\b', '\t',
@@ -34,8 +50,19 @@ constexpr char UPPERCASE[KEYMAP_SIZE] = {
 	'B', 'N', 'M', '<', '>', '?', NO_CHARACTER, '*',
 	NO_CHARACTER, ' '};
 
+/** Stateful scancode decoder that tracks shift, caps lock and extended prefixes. */
 class Decoder {
   public:
+	/**
+	 * @brief Processes one scancode byte.
+	 *
+	 * Shift and caps lock combine (shift XOR caps selects the upper table). Key releases,
+	 * extended keys (the byte after `EXTENDED_PREFIX`) and codes outside the table give no
+	 * character. Never blocks.
+	 * @param scancode Raw byte from the keyboard controller.
+	 * @return The ASCII character, or `NO_CHARACTER` when the byte only changes state or
+	 *         has no character.
+	 */
 	char feed(uint8_t scancode) {
 		if (scancode == EXTENDED_PREFIX) {
 			skipNext = true;
@@ -63,8 +90,11 @@ class Decoder {
 	}
 
   private:
+	/** true while a shift key is down. */
 	bool shiftHeld = false;
+	/** true while caps lock is on. */
 	bool capsLocked = false;
+	/** true when the next byte belongs to an extended key and must be ignored. */
 	bool skipNext = false;
 };
 
