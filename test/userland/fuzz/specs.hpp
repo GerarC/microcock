@@ -1,3 +1,9 @@
+/**
+ * @file specs.hpp
+ * @brief Table that describes the arguments of every system call for the fuzzer.
+ *
+ * The generator reads it to build plausible arguments (about 70 percent) and hostile ones (about 30 percent) for each call.
+ */
 #ifndef FUZZ_SPECS_HPP
 #define FUZZ_SPECS_HPP
 
@@ -7,44 +13,77 @@
 
 namespace fuzz {
 
+/** Arguments of a system call (EBX, ECX, EDX, ESI, EDI, EBP). */
 constexpr size_t ARGUMENT_COUNT = 6;
 
+/** Kind of an argument; tells the generator how to build a value. */
 enum class Arg : uint8_t {
+	/** Unused; the value is 0. */
 	NONE,
+	/** A process or thread id (live, dead or stale). */
 	ID,
+	/** Pointer to memory the kernel reads (a valid buffer or a bad address). */
 	ADDRESS_IN,
+	/** Pointer to memory the kernel writes. */
 	ADDRESS_OUT,
+	/** Any address, valid or not. */
 	ADDRESS_ANY,
+	/** A 4 byte aligned address (futex words). */
 	ADDRESS_ALIGNED,
+	/** Start of a region the fuzzer mapped. */
 	REGION,
+	/** A byte length, small or wrapping. */
 	LENGTH,
+	/** A length for mmap or munmap. */
 	MAP_LENGTH,
+	/** A page count. */
 	PAGES,
+	/** Flag bits or protection bits. */
 	FLAGS,
+	/** An arbitrary 32 bit value. */
 	VALUE,
+	/** A time in milliseconds; always finite so a call cannot block the run. */
 	MILLISECONDS,
+	/** A shared memory object id. */
 	SHM,
+	/** Pointer to a name. */
 	NAME_POINTER,
+	/** Length of a name. */
 	NAME_LENGTH,
+	/** A file descriptor number. */
 	FD,
+	/** An I/O port number. */
 	PORT,
+	/** Entry point of a new thread. */
 	ENTRY,
+	/** Stack base of a new thread. */
 	STACK_BASE,
+	/** Stack size of a new thread. */
 	STACK_SIZE,
+	/** Pointer to text for `write`. */
 	TEXT_POINTER,
+	/** Length of the text for `write`. */
 	TEXT_LENGTH,
 };
 
+/** Description of one system call. */
 struct Spec {
+	/** System call number (`SYS_*`). */
 	uint32_t number;
+	/** How often the call is picked, relative to the others (`RARE`, `COMMON`, `FREQUENT`). */
 	uint8_t weight;
+	/** Kind of each argument; unused trailing entries are `Arg::NONE`. */
 	Arg args[ARGUMENT_COUNT];
 };
 
+/** Weight of calls that need little exercise. */
 constexpr uint8_t RARE = 1;
+/** Weight of ordinary calls. */
 constexpr uint8_t COMMON = 4;
+/** Weight of calls with the most state to break (memory and IPC). */
 constexpr uint8_t FREQUENT = 8;
 
+/** One entry per system call that the fuzzer may use; `exit` is left out. */
 constexpr Spec SPECS[] = {
 	{SYS_READ, COMMON, {Arg::FD, Arg::ADDRESS_OUT, Arg::LENGTH}},
 	{SYS_WRITE, RARE, {Arg::FD, Arg::TEXT_POINTER, Arg::TEXT_LENGTH}},
@@ -87,6 +126,7 @@ constexpr Spec SPECS[] = {
 	{SYS_IPC_REPLY_TO, COMMON, {Arg::ID, Arg::VALUE, Arg::VALUE, Arg::VALUE, Arg::VALUE}},
 };
 
+/** Number of entries of `SPECS`. */
 constexpr size_t SPEC_COUNT = sizeof(SPECS) / sizeof(SPECS[0]);
 
 } // namespace fuzz
