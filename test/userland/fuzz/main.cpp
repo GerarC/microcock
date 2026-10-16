@@ -88,7 +88,7 @@ constexpr uint32_t HOSTILE_LENGTHS[] = {0x0,        0x1,        0x1000,     0xFF
 										0x7FFFFFFF, 0x80000000, 0xFFFFF000, 0xFFFFFFFE,
 										0xFFFFFFFF};
 constexpr uint32_t HOSTILE_VALUES[] = {0x0, 0x1, 0x7FFFFFFF, 0x80000000, 0xFFFFFFFF};
-constexpr uint32_t HOSTILE_PAGES[] = {0x0, 0x81, 0x1000, 0xFFFFFFFF};
+constexpr uint32_t HOSTILE_PAGES[] = {0x0, 0x101, 0x1000, 0xFFFFFFFF};
 constexpr uint32_t HOSTILE_IDS[] = {0x0, 0x1, 0xFFFFFFFE, 0xFFFFFFFF, 0x7FFFF000};
 constexpr uint32_t SMALL_MILLISECONDS[] = {0, 1, 2, 5, 10};
 constexpr uint32_t REFUSED_MILLISECONDS[] = {0x80000000, 0x80000001, 0xFFFFFFFE};
