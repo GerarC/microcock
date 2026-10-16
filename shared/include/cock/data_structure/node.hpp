@@ -1,3 +1,7 @@
+/**
+ * @file node.hpp
+ * @brief Node of the doubly linked list.
+ */
 #ifndef SHARED_COCK_NODE_HPP
 #define SHARED_COCK_NODE_HPP
 

@@ -1,3 +1,11 @@
+/**
+ * @file message.hpp
+ * @brief Asynchronous IPC message (`SYS_IPC_SEND`, `SYS_IPC_RECV`) and the catalog of message types.
+ *
+ * A message is a fixed 36 byte record: sender, target, type and a payload of six 32 bit words. The kernel
+ * overwrites `sender_pid` with the real sender, so receivers can trust it. Request and reply protocols are
+ * described with the ABI header of each server (`fs.hpp`, `block.hpp`, `console.hpp`, `rtc.hpp`).
+ */
 #ifndef SHARED_COCK_IPC_HPP
 #define SHARED_COCK_IPC_HPP
 
@@ -10,6 +18,7 @@ namespace cock::ipc {
  */
 static constexpr size_t MAX_ARGUMENTS = 6;
 
+/** Value of `sender_pid` for messages that the kernel itself sends (interrupts, exit notices). */
 static constexpr uint32_t KERNEL_SENDER = 0;
 
 /**

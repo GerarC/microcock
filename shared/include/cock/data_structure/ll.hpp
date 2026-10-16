@@ -1,3 +1,9 @@
+/**
+ * @file ll.hpp
+ * @brief Doubly linked list with heap allocated nodes (uses `operator new` and `operator delete`).
+ *
+ * Not thread safe. Allocation failure stops the program (`operator new` never returns null).
+ */
 #ifndef SHARED_COCK_LINKED_LIST_HPP
 #define SHARED_COCK_LINKED_LIST_HPP
 
@@ -14,17 +20,31 @@ namespace cock::data_structure {
  */
 template <typename TYPE> class LinkedList {
   private:
+	/** First node, or null when empty. */
 	Node<TYPE> *head;
+	/** Last node, or null when empty. */
 	Node<TYPE> *tail;
+	/** Number of nodes in the list. */
 	size_t lenght;
 
   public:
+	/** Creates an empty list. */
 	LinkedList() : head(nullptr), tail(nullptr), lenght(0) {}
+	/** Copying is disabled because the list owns its nodes. */
 	LinkedList(const LinkedList &) = delete;
+	/** Assignment is disabled because the list owns its nodes. */
 	LinkedList &operator=(const LinkedList &) = delete;
 
+	/**
+	 * @brief Accesses the first element.
+	 * @return Reference to the data of the first node. Undefined when the list is empty; check `isEmpty` first.
+	 */
 	TYPE &front() { return head->data; }
 
+	/**
+	 * @brief Accesses the last element.
+	 * @return Reference to the data of the last node. Undefined when the list is empty; check `isEmpty` first.
+	 */
 	TYPE &back() { return tail->data; }
 
 	/**
@@ -151,12 +171,29 @@ template <typename TYPE> class LinkedList {
 		return end();
 	}
 
+	/**
+	 * @brief Tells whether the list has no elements.
+	 * @return True when empty.
+	 */
 	bool isEmpty() const { return lenght == 0; }
+	/**
+	 * @brief Number of elements.
+	 * @return Count of nodes.
+	 */
 	size_t size() const { return lenght; }
 
+	/**
+	 * @brief Iterator to the first element, for range-based loops.
+	 * @return Iterator at the head, equal to `end()` when empty.
+	 */
 	Iterator<TYPE> begin() { return Iterator<TYPE>(head); }
+	/**
+	 * @brief Past-the-end iterator.
+	 * @return Iterator that holds no node.
+	 */
 	Iterator<TYPE> end() { return Iterator<TYPE>(nullptr); }
 
+	/** Destroys the list and deletes every node. */
 	~LinkedList() { clear(); }
 };
 
