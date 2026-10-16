@@ -125,7 +125,7 @@ Each `Process` keeps its mappings in a **fixed table of 32 regions** (`Process::
 * When a process dies, its whole address space is destroyed, so every owned frame returns regardless of the table.
 
 ## Shared memory
-A **shared memory object** is a list of frames kept by the kernel (`SharedMemory`, `cock/core/memory/shared_memory.*`). The table is fixed: 32 objects (`MAX_OBJECTS`) of at most 128 pages each (`MAX_OBJECT_PAGES`), with at most 8 holders per object (`MAX_HOLDERS`). Nothing comes from the kernel heap.
+A **shared memory object** is a list of frames kept by the kernel (`SharedMemory`, `cock/core/memory/shared_memory.*`). The table is fixed: 32 objects (`MAX_OBJECTS`) of at most 256 pages (1 MiB) each (`MAX_OBJECT_PAGES`), with at most 8 holders per object (`MAX_HOLDERS`). Nothing comes from the kernel heap. The `initrd` is one such object, so the archive cannot be larger than 1 MiB: with 128 pages the test initrd (every test program, 530 KiB) no longer fit and the kernel logged `Cannot keep data module initrd`.
 
 * `SYS_SHM_CREATE(pages)` takes zeroed frames, all or none and leaving the kernel reserve free (`VirtualMemoryManager::allocFrames`), charges the pages to the creator against `Process::MAX_OWNED_PAGES`, and returns the object id. The creator is the first holder, with write access.
 * `SYS_SHM_SHARE(id, pid, writable)` makes a live process a holder. Only a holder can share, and nobody can give more access than it has. Sharing again with a holder only raises its access.

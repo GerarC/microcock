@@ -1,6 +1,7 @@
 #ifndef CORE_SHARED_MEMORY_HPP
 #define CORE_SHARED_MEMORY_HPP
 
+#include <cock/abi/shm.hpp>
 #include <cock/core/memory/address.hpp>
 #include <cock/core/memory/memory_region.hpp>
 #include <stddef.h>
@@ -15,7 +16,7 @@ namespace cock::core::memory {
 class SharedMemory {
   public:
 	static constexpr size_t MAX_OBJECTS = 32;
-	static constexpr size_t MAX_OBJECT_PAGES = 128;
+	static constexpr size_t MAX_OBJECT_PAGES = abi::shm::MAX_OBJECT_PAGES;
 	static constexpr size_t MAX_HOLDERS = 8;
 	static constexpr size_t MAX_NAME_LENGTH = 32;
 

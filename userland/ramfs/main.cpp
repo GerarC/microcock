@@ -1,4 +1,5 @@
 #include <cock/abi/fs.hpp>
+#include <cock/abi/shm.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/session.hpp>
@@ -29,7 +30,7 @@ constexpr char TAR_REGULAR_LEGACY = '\0';
 constexpr char TAR_DIRECTORY = '5';
 constexpr char PATH_SEPARATOR = '/';
 constexpr uint32_t OCTAL_BASE = 8;
-constexpr uint32_t MAX_ARCHIVE_BYTES = 0x80000;
+constexpr uint32_t MAX_ARCHIVE_BYTES = cock::abi::shm::MAX_OBJECT_BYTES;
 
 constexpr size_t ROOT_ENTRY = 0;
 constexpr size_t FIRST_FILE_ENTRY = 1;
