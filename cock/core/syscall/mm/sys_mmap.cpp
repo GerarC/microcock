@@ -26,6 +26,8 @@ using utils::Logger;
 
 constexpr uintptr_t MAP_PHYS = 0x1000;
 constexpr uintptr_t MAP_ANONYMOUS = 0x20;
+constexpr uintptr_t PROT_WRITE = 0x02;
+constexpr uintptr_t PROT_KNOWN = 0x07;
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 constexpr uintptr_t MIN_USER_ADDRESS = hal::PAGE_SIZE;
 
@@ -35,7 +37,16 @@ static bool pages_for(uintptr_t length, size_t &pages) {
 	return true;
 }
 
-static uintptr_t map_anonymous(Thread &current, size_t pages) {
+static bool protect_read_only(VirtAddr base, size_t pages) {
+	for (size_t idx = 0; idx < pages; idx++) {
+		if (!VirtualMemoryManager::protectPage(base + (idx << hal::PAGE_SHIFT),
+											   VMMPermission::USER_READONLY))
+			return false;
+	}
+	return true;
+}
+
+static uintptr_t map_anonymous(Thread &current, size_t pages, bool writable) {
 	Process &process = *current.getProcess();
 	if (!process.hasRegionSlot() || !process.canOwnPages(pages)) return FAILURE;
 
@@ -46,6 +57,11 @@ static uintptr_t map_anonymous(Thread &current, size_t pages) {
 		base, pages, VMMPermission::USER_DATA, current.getUserSpaceLimit());
 	if (mapped.isNull()) return FAILURE;
 
+	if (!writable && !protect_read_only(base, pages)) {
+		VirtualMemoryManager::freePages(base.as<void>(), pages);
+		return FAILURE;
+	}
+
 	if (!process.addMemoryRegion(base, pages, true)) {
 		VirtualMemoryManager::freePages(base.as<void>(), pages);
 		return FAILURE;
@@ -54,7 +70,7 @@ static uintptr_t map_anonymous(Thread &current, size_t pages) {
 }
 
 static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
-							  uintptr_t offset) {
+							  uintptr_t offset, bool writable) {
 	if (addr == 0) {
 		Logger::trace("sys_mmap: MAP_PHYS requires a fixed virtual address");
 		return FAILURE;
@@ -77,11 +93,12 @@ static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 		span > user_image_limit(current) - virt.raw())
 		return FAILURE;
 
+	VMMPermission access =
+		(writable ? VMMPermission::USER_DATA : VMMPermission::USER_READONLY) |
+		VMMPermission::DEVICE;
 	for (size_t idx = 0; idx < pages; idx++) {
 		size_t step = idx << hal::PAGE_SHIFT;
-		if (!VirtualMemoryManager::map(
-				phys + step, virt + step,
-				VMMPermission::USER_DATA | VMMPermission::DEVICE)) {
+		if (!VirtualMemoryManager::map(phys + step, virt + step, access)) {
 			VirtualMemoryManager::freePages(virt.as<void>(), idx);
 			return FAILURE;
 		}
@@ -95,15 +112,17 @@ static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 
 uintptr_t sys_mmap(uintptr_t addr, uintptr_t length, uintptr_t prot,
 				   uintptr_t flags, uintptr_t fd, uintptr_t offset) {
-	(void)prot;
 	(void)fd;
 
 	Thread *current = Scheduler::getCurrentThread();
 	size_t pages = 0;
 	if (!current || !pages_for(length, pages)) return FAILURE;
+	if (prot == 0 || (prot & ~PROT_KNOWN) != 0) return FAILURE;
 
-	if (flags & MAP_ANONYMOUS) return map_anonymous(*current, pages);
-	if (flags & MAP_PHYS) return map_physical(*current, addr, pages, offset);
+	bool writable = (prot & PROT_WRITE) != 0;
+	if (flags & MAP_ANONYMOUS) return map_anonymous(*current, pages, writable);
+	if (flags & MAP_PHYS)
+		return map_physical(*current, addr, pages, offset, writable);
 
 	Logger::trace("sys_mmap: not a supported option");
 	return FAILURE;

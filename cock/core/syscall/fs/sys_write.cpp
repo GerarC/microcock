@@ -26,6 +26,7 @@ constexpr uintptr_t STDOUT_FD = 1;
 constexpr uintptr_t STDERR_FD = 2;
 constexpr uintptr_t MAX_WRITE_SIZE = 0x80;
 constexpr size_t VIDEO_CHUNK_SIZE = 20;
+constexpr uint32_t WRITE_RETRY_LIMIT = 1000;
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 
 static size_t forward_to_video_server(const char *data, size_t count) {
@@ -63,9 +64,15 @@ uintptr_t sys_write(uintptr_t fd, uintptr_t buf_ptr, uintptr_t count, uintptr_t,
 	}
 
 	size_t accepted = forward_to_video_server(user_buf, count);
+	if (accepted != 0) current->resetWriteRetries();
 	if (accepted == 0 && count != 0) {
 		Thread *server = TaskManager::getThreadByPID(cock::vga_server_pid);
 		if (server && server->getState() != ThreadState::DEAD) {
+			if (current->countWriteRetry() > WRITE_RETRY_LIMIT) {
+				current->resetWriteRetries();
+				hal::console_write(user_buf, count);
+				return count;
+			}
 			Scheduler::requestReschedule();
 			Scheduler::requestRestart();
 			return 0;

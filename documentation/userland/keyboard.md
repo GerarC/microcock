@@ -75,6 +75,6 @@ char feed(uint8_t scancode) {
 
 ## Current limits
 * US layout only, and no key repeat handling beyond what the controller sends.
-* The driver keeps no buffer: the characters go to the console server, which owns the input line. `SYS_READ` still returns nothing; programs read the keyboard through the console server (see [console](console.md)).
+* The driver keeps no buffer: the characters go to the console server, which owns the input line. `SYS_READ` never returns input, because the kernel has no input queue: it validates the buffer and reports end of input, and programs read the keyboard through the console server (see [console](console.md)).
 * The driver does not read the controller status port (`0x64`); it assumes that every interrupt carries one byte in the data port.
 * The extended keys (arrows, function keys, the numeric keypad) do not produce anything.

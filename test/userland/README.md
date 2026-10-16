@@ -14,7 +14,7 @@ Programs that exist only to test the system from Ring 3. The normal initrd never
 | Program | What it checks |
 |---------|----------------|
 | `hello` | Assembly (`main.s`): `SYS_WRITE` and `SYS_EXIT` work; prints `Hello from cock ring 3!!!` |
-| `probe` | 46 checks from Ring 3, one file per topic: `security.cpp` (ports, IRQ, grant, physical map, kernel writes and unmaps, boot modules and `spawn` are denied), `memory.cpp` (anonymous maps, quota, region table), `ipc.cpp` (reserved messages refused, try and timed receive, `sleep`, liveness), `output.cpp` (oversized write, `printf`), `heap.cpp` (`malloc`, `realloc`, `calloc`, `operator new`), `shared_memory.cpp`, `files.cpp` (initrd reads, bad requests, directories, manifest, `SYS_MODULE_INDEX` denied), `threads.cpp` (threads, mutex, futex), `sync.cpp` (synchronous calls, queues, dead server, timeouts, defer). Prints `probe: N/N checks passed` |
+| `probe` | 48 checks from Ring 3, one file per topic: `security.cpp` (ports, IRQ, grant, physical map, kernel writes and unmaps, boot modules and `spawn` are denied), `memory.cpp` (anonymous maps, quota, region table), `ipc.cpp` (reserved messages refused, try and timed receive, `sleep`, liveness), `output.cpp` (oversized write, `printf`), `heap.cpp` (`malloc`, `realloc`, `calloc`, `operator new`, `malloc` under three threads), `shared_memory.cpp`, `files.cpp` (initrd reads, bad requests, directories, manifest, `SYS_MODULE_INDEX` denied), `threads.cpp` (threads, mutex, futex), `sync.cpp` (synchronous calls, queues, dead server, timeouts, defer). Prints `probe: N/N checks passed` |
 | `aborter` | Calls `abort()`: the message and the reaping of the process |
 | `contruncated` | Sends text to `console` without the closing chunk and exits: the server must still show it (`contruncated: cut`) |
 | `syncbench` | Compares the cycles of an asynchronous and a synchronous IPC round trip between two threads; fails when sync is not faster; prints `syncbench: ok async ... sync ...` |
@@ -45,7 +45,7 @@ The script needs QEMU, GRUB tools, Python 3, `sfdisk`, mtools, `dosfstools` and 
 
 ## Limits and known gaps
 
-- The expected check count of `probe` (46) and the other expected lines are written in `scripts/qemu_userland_test.sh`; add a check there when you add one to a program.
+- The expected check count of `probe` (48) and the other expected lines are written in `scripts/qemu_userland_test.sh`; add a check there when you add one to a program.
 - The tests run with timing waits (`BOOT_SECONDS`), so a very slow host may need larger values.
 - The fuzzer does not fuzz the file protocols in a structured way, and in root mode `spawn` only receives garbage images.
 - `muteclient` and the fuzzer are the only tests of a server dying; there is no test of a server restarting.
