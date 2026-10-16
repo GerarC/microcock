@@ -53,6 +53,7 @@ bool queuedCallsAreServedInOrderAndMisuseIsRefused();
 bool deadServerFailsEveryCaller();
 bool callTimeoutExpiresAndLateReplyFails();
 bool acceptWaitsForMessagesAndTimesOut();
+bool deferredCallIsAnsweredAfterTheNextOne();
 
 bool oversizedWriteIsCut();
 bool printfFormatsAndLongLines();

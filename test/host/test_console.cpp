@@ -98,6 +98,12 @@ void checkPacking() {
 	words[HEADER_WORD] = pack(WRITE_CODE, CHUNK_BYTES);
 	CHECK_EQ(WRITE_CODE, codeOf(words[HEADER_WORD]));
 	CHECK_EQ(CHUNK_BYTES, lengthOf(words[HEADER_WORD]));
+	CHECK_FALSE(isLast(words[HEADER_WORD]));
+
+	uint32_t closing = pack(WRITE_CODE, CHUNK_BYTES, true);
+	CHECK_TRUE(isLast(closing));
+	CHECK_EQ(WRITE_CODE, codeOf(closing));
+	CHECK_EQ(CHUNK_BYTES, lengthOf(closing));
 
 	packBytes(words, SAMPLE_BYTES, CHUNK_BYTES);
 	char out[CHUNK_BYTES + SPARE_BYTE] = {};

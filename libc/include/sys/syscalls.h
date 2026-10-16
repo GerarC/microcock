@@ -37,6 +37,8 @@
     #define SYS_IPC_ACCEPT       0x184
     #define SYS_IPC_REPLY        0x185
     #define SYS_IPC_REPLY_WAIT   0x186
+    #define SYS_IPC_DEFER        0x187
+    #define SYS_IPC_REPLY_TO     0x188
 
     #ifdef __cplusplus
     extern "C" {

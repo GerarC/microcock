@@ -132,6 +132,21 @@ void quitter(void *) {
 	cock::user::ipc_accept();
 }
 
+void deferringServer(void *) {
+	CallResult first = cock::user::ipc_accept();
+	if (!first.ok) return;
+
+	uint32_t ticket = cock::user::ipc_defer();
+	CallResult second = cock::user::ipc_accept();
+	if (!second.ok || ticket == cock::user::NO_TICKET) return;
+
+	const uint32_t quick[CALL_WORDS] = {second.words[0], SECOND_SEQUENCE, 0, 0};
+	cock::user::ipc_reply(quick);
+	cock::user::sleep_ms(ORDER_MILLISECONDS);
+	const uint32_t late[CALL_WORDS] = {first.words[0], FIRST_SEQUENCE, 0, 0};
+	cock::user::ipc_reply_to(ticket, late);
+}
+
 } // namespace
 
 bool synchronousCallsRoundTrip() {
@@ -256,6 +271,35 @@ bool acceptWaitsForMessagesAndTimesOut() {
 					 received.payload.args.arg0 == MESSAGE_VALUE;
 	waitFinished(1);
 	return delivered;
+}
+
+bool deferredCallIsAnsweredAfterTheNextOne() {
+	const uint32_t none[CALL_WORDS] = {};
+	if (cock::user::ipc_defer() != cock::user::NO_TICKET) return false;
+	if (cock::user::ipc_reply_to(UNKNOWN_THREAD, none)) return false;
+
+	cock::user::sleep_ms(SETTLE_MILLISECONDS);
+	__atomic_store_n(&finished, NO_COUNT, __ATOMIC_SEQ_CST);
+	callerOk[FIRST_STACK] = false;
+	callerOk[SECOND_STACK] = false;
+
+	serverId = cock::user::thread_start(deferringServer, nullptr, stacks[SERVER_STACK],
+										STACK_BYTES);
+	if (serverId == NO_PROCESS) return false;
+	if (cock::user::thread_start(caller, reinterpret_cast<void *>(FIRST_STACK),
+								 stacks[FIRST_STACK], STACK_BYTES) == NO_PROCESS)
+		return false;
+	cock::user::sleep_ms(ORDER_MILLISECONDS);
+	if (cock::user::thread_start(caller, reinterpret_cast<void *>(SECOND_STACK),
+								 stacks[SECOND_STACK], STACK_BYTES) == NO_PROCESS)
+		return false;
+
+	waitFinished(CALLER_COUNT);
+	return callerOk[FIRST_STACK] && callerOk[SECOND_STACK] &&
+		   callerAnswer[FIRST_STACK].words[0] == FIRST_MARKER &&
+		   callerAnswer[FIRST_STACK].words[1] == FIRST_SEQUENCE &&
+		   callerAnswer[SECOND_STACK].words[0] == SECOND_MARKER &&
+		   callerAnswer[SECOND_STACK].words[1] == SECOND_SEQUENCE;
 }
 
 } // namespace probe

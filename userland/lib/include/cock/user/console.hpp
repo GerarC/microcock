@@ -27,8 +27,9 @@ class Client {
 			if (step > abi::console::CHUNK_BYTES) step = abi::console::CHUNK_BYTES;
 
 			uint32_t words[CALL_WORDS] = {};
+			bool last = written + step == length;
 			words[abi::console::HEADER_WORD] =
-				abi::console::pack(static_cast<uint32_t>(abi::console::Op::WRITE), step);
+				abi::console::pack(static_cast<uint32_t>(abi::console::Op::WRITE), step, last);
 			abi::console::packBytes(words, text + written, step);
 
 			CallResult result = ipc_call(server, words);
@@ -49,6 +50,10 @@ class Client {
 
 			CallResult result = ipc_call(server, words);
 			if (!result.ok) return FAILED;
+			if (statusOf(result) == abi::console::Status::BUSY) {
+				sleep_ms(READ_POLL_MS);
+				continue;
+			}
 			if (statusOf(result) != abi::console::Status::OK) return FAILED;
 
 			size_t count = abi::console::lengthOf(result.words[abi::console::HEADER_WORD]);

@@ -17,6 +17,7 @@ enum class Op : uint32_t {
 enum class Status : uint32_t {
 	OK = 0,
 	BAD_REQUEST = 1,
+	BUSY = 2,
 };
 
 constexpr size_t HEADER_WORD = 0;
@@ -28,8 +29,17 @@ constexpr size_t CHUNK_BYTES = DATA_WORDS * WORD_BYTES;
 constexpr uint32_t BYTE_BITS = 8;
 constexpr uint32_t BYTE_MASK = 0xFF;
 
-inline uint32_t pack(uint32_t code, size_t length) {
-	return (code & BYTE_MASK) | ((static_cast<uint32_t>(length) & BYTE_MASK) << BYTE_BITS);
+constexpr uint32_t FLAG_BIT = 1;
+constexpr uint32_t LAST_BIT_SHIFT = 16;
+constexpr uint32_t LAST_FLAG = FLAG_BIT << LAST_BIT_SHIFT;
+
+inline uint32_t pack(uint32_t code, size_t length, bool last = false) {
+	return (code & BYTE_MASK) | ((static_cast<uint32_t>(length) & BYTE_MASK) << BYTE_BITS) |
+		   (last ? LAST_FLAG : 0);
+}
+
+inline bool isLast(uint32_t header) {
+	return (header & LAST_FLAG) != 0;
 }
 
 inline uint32_t codeOf(uint32_t header) {

@@ -18,6 +18,9 @@ class SyncIpc {
 	static AcceptResult accept(Thread &server, uint32_t milliseconds);
 	static bool reply(Thread &server, const uint32_t (&words)[abi::call::WORD_COUNT],
 					  bool handoff);
+	static Thread *defer(Thread &server);
+	static bool replyTo(Thread &server, uint32_t ticket,
+						const uint32_t (&words)[abi::call::WORD_COUNT]);
 	static bool hasCallers(const Thread &server) { return server.callers != nullptr; }
 	static void abandon(Thread &dying);
 	static void wakeForMessage(Thread &server);
@@ -26,6 +29,9 @@ class SyncIpc {
   private:
 	static uintptr_t frameOf(Thread &thread);
 	static void dispatch(Thread &server);
+	static bool unlink(Thread *&head, Thread &thread);
+	static void deliver(Thread &server, Thread &caller,
+						const uint32_t (&words)[abi::call::WORD_COUNT], bool handoff);
 	static void finish(Thread *caller, uintptr_t result);
 	static void writeResult(Thread &thread, uintptr_t result);
 };

@@ -78,6 +78,25 @@ uintptr_t sys_ipc_reply(uintptr_t, uintptr_t word0, uintptr_t word1, uintptr_t w
 	return SyncIpc::reply(*current, words.values, false) ? SUCCESS : FAILURE;
 }
 
+uintptr_t sys_ipc_defer(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t) {
+	Thread *current = Scheduler::getCurrentThread();
+	if (!current) return FAILURE;
+
+	Thread *caller = SyncIpc::defer(*current);
+	return caller != nullptr ? caller->getId() : FAILURE;
+}
+
+uintptr_t sys_ipc_reply_to(uintptr_t ticket, uintptr_t word0, uintptr_t word1,
+						   uintptr_t word2, uintptr_t word3, uintptr_t) {
+	Thread *current = Scheduler::getCurrentThread();
+	if (!current) return FAILURE;
+
+	Words words = pack(word0, word1, word2, word3);
+	return SyncIpc::replyTo(*current, static_cast<uint32_t>(ticket), words.values)
+			   ? SUCCESS
+			   : FAILURE;
+}
+
 uintptr_t sys_ipc_reply_wait(uintptr_t, uintptr_t word0, uintptr_t word1,
 							 uintptr_t word2, uintptr_t word3, uintptr_t milliseconds) {
 	Thread *current = Scheduler::getCurrentThread();

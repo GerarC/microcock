@@ -14,6 +14,12 @@ CXX_FLAGS = -std=gnu++20 -ffreestanding -nostdlib -fno-exceptions -fno-rtti \
             -fno-asynchronous-unwind-tables -mno-sse -mno-mmx -mno-80387 -Wall -Wextra -Werror $(INCLUDE_FLAGS) -O2 \
             $(USER_EXTRA_FLAGS)
 
+CONSOLE_CLIENT ?= yes
+CONSOLE_SRCS = unistd/read.cpp unistd/console.cpp
+ifeq ($(CONSOLE_CLIENT),yes)
+LIBC_SRCS := $(LIBC_SRCS) $(filter-out $(LIBC_SRCS),$(CONSOLE_SRCS))
+endif
+
 TARGET = $(OUT_DIR)/$(NAME).elf
 OBJ = $(addprefix $(OUT_DIR)/$(NAME)_,$(addsuffix .o,$(notdir $(basename $(SRCS) $(LIBC_SRCS) $(LIBCXX_SRCS)))))
 
