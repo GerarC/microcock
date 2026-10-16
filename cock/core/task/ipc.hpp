@@ -1,3 +1,7 @@
+/** @file
+ * @brief Asynchronous message passing between threads, and notifications
+ * from the kernel.
+ */
 #ifndef CORE_IPC_HPP
 #define CORE_IPC_HPP
 
@@ -13,6 +17,10 @@ using ipc::Message;
  * * Handles the safe delivery and retrieval of messages between threads,
  * modifying
  * * thread states and invoking the scheduler when necessary.
+ *
+ * Delivery blocks interrupts while it runs, so it may be used from interrupt
+ * context. A target waiting for a message, or waiting in a synchronous call,
+ * is woken.
  */
 class IPC {
   public:
@@ -22,11 +30,39 @@ class IPC {
 	 * placed in the ready queue.
 	 * @param to_pid The Process ID of the target thread.
 	 * @param message The message structure to deliver.
+	 * @note On success the sender yields. Failure is silent, use deliver to
+	 * learn it. Process context only, since it yields.
 	 */
 	static void send(uint32_t to_pid, Message message);
 
+	/**
+	 * @brief Delivers a message without yielding.
+	 * @param to_pid Thread id of the target.
+	 * @param message Message to deliver. Sender and target fields are
+	 * overwritten by the kernel, the sender is the current thread (0 when
+	 * none).
+	 * @return True when queued. False when the target does not exist, is dead
+	 * or its inbox is full.
+	 */
 	static bool deliver(uint32_t to_pid, Message message);
+	/**
+	 * @brief Delivers a message on behalf of another sender.
+	 * @param to_pid Thread id of the target.
+	 * @param message Message to deliver.
+	 * @param sender_pid Value stored as the sender, for instance the kernel
+	 * sender id.
+	 * @return True when queued, false as for deliver.
+	 */
 	static bool deliverAs(uint32_t to_pid, Message message, uint32_t sender_pid);
+	/**
+	 * @brief Raises an interrupt notification on a thread.
+	 * @param to_pid Thread id of the target.
+	 * @param line Interrupt line recorded in the notification.
+	 * @return True when raised. False when the target does not exist or is
+	 * dead.
+	 * @note Notifications do not use the inbox, so they cannot be lost to a
+	 * full queue. Called from interrupt context.
+	 */
 	static bool notify(uint32_t to_pid, uint32_t line);
 
 	/**
@@ -35,6 +71,8 @@ class IPC {
 	 * BLOCKED/WAITING_MSG
 	 * * and it yields the CPU until a message arrives.
 	 * @param message Pointer to store the retrieved message.
+	 * @note Kernel threads only. Does nothing for a null pointer or when there
+	 * is no current thread. Does not return until a message was copied.
 	 */
 	static void receive(Message *message);
 };

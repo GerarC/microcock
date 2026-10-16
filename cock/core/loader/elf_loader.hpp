@@ -1,3 +1,7 @@
+/** @file
+ * @brief Template implementation of the ELF loader, instantiated once per ELF
+ * class (Elf32, Elf64) from elf.cpp. Internal to the loader.
+ */
 #ifndef CORE_LOADER_ELF_LOADER_HPP
 #define CORE_LOADER_ELF_LOADER_HPP
 
@@ -21,6 +25,15 @@ static_assert((hal::ELF_DATA_ENCODING == ELF_DATA_LSB) ==
 			  "ELF data encoding of the architecture does not match the "
 			  "byte order of the compiler");
 
+/**
+ * @brief Checks the file header of an untrusted image.
+ * @tparam Format Class traits, Elf32 or Elf64.
+ * @param header Copy of the file header.
+ * @param size Size of the whole image in bytes.
+ * @return True when class, data encoding, type (executable only), machine and
+ * program header entry size match, there is at least one program header and
+ * the whole table lies inside the image. No allocation, no side effects.
+ */
 template <typename Format>
 bool validate_header(const typename Format::Header &header, size_t size) {
 	using Segment = typename Format::ProgramHeader;
@@ -37,6 +50,17 @@ bool validate_header(const typename Format::Header &header, size_t size) {
 	return header.program_header_num <= available / sizeof(Segment);
 }
 
+/**
+ * @brief Checks one loadable segment against the image and the user range.
+ * @tparam Format Class traits, Elf32 or Elf64.
+ * @param segment Copy of the program header.
+ * @param size Size of the whole image in bytes.
+ * @param image_limit First address a segment may not reach, the user space
+ * limit minus the user stack.
+ * @return True when file size does not exceed memory size, the file contents
+ * lie inside the image, the segment starts above the first page and ends
+ * below the limit, all without integer overflow. An empty segment is valid.
+ */
 template <typename Format>
 bool validate_segment(const typename Format::ProgramHeader &segment,
 					  size_t size, uint64_t image_limit) {
@@ -49,6 +73,13 @@ bool validate_segment(const typename Format::ProgramHeader &segment,
 	return segment.vaddr <= image_limit - segment.size_in_memory;
 }
 
+/**
+ * @brief Tells whether an address falls inside a segment in memory.
+ * @tparam Format Class traits, Elf32 or Elf64.
+ * @param segment Program header to test.
+ * @param entry Virtual address, normally the entry point.
+ * @return True when the address is within the segment memory size.
+ */
 template <typename Format>
 bool contains_entry(const typename Format::ProgramHeader &segment,
 					typename Format::Address entry) {
@@ -56,6 +87,16 @@ bool contains_entry(const typename Format::ProgramHeader &segment,
 		   entry - segment.vaddr < segment.size_in_memory;
 }
 
+/**
+ * @brief Copies one program header out of the image.
+ * @tparam Format Class traits, Elf32 or Elf64.
+ * @param base Start of the image.
+ * @param header Validated file header.
+ * @param index Program header index, below program_header_num.
+ * @return A copy of the program header, so alignment of the image never
+ * matters.
+ * @pre validate_header succeeded, which guarantees the table is in bounds.
+ */
 template <typename Format>
 typename Format::ProgramHeader read_segment(const uint8_t *base,
 											const typename Format::Header &header,
@@ -68,6 +109,15 @@ typename Format::ProgramHeader read_segment(const uint8_t *base,
 	return segment;
 }
 
+/**
+ * @brief Tells whether any writable loadable segment touches a page.
+ * @tparam Format Class traits, Elf32 or Elf64.
+ * @param base Start of the image.
+ * @param header Validated file header.
+ * @param page_start Page aligned virtual address of the page.
+ * @return True when a writable segment overlaps the page, in which case the
+ * page must stay writable even if a read only segment shares it.
+ */
 template <typename Format>
 bool writable_segment_covers_page(const uint8_t *base,
 								  const typename Format::Header &header,
@@ -88,6 +138,15 @@ bool writable_segment_covers_page(const uint8_t *base,
 	return false;
 }
 
+/**
+ * @brief Removes write permission from the pages of read only segments.
+ * @tparam Format Class traits, Elf32 or Elf64.
+ * @param base Start of the image.
+ * @param header Validated file header.
+ * @pre The target address space is the active one and every segment is
+ * already mapped and filled.
+ * @note Pages shared with a writable segment are left writable.
+ */
 template <typename Format>
 void seal_read_only_segments(const uint8_t *base,
 							 const typename Format::Header &header) {
@@ -120,6 +179,23 @@ void seal_read_only_segments(const uint8_t *base,
 	}
 }
 
+/**
+ * @brief Validates an image of one ELF class and loads it into an address
+ * space.
+ *
+ * Validates the header, every loadable segment and the entry point first, then
+ * with interrupts blocked switches to the target address space, maps each
+ * segment, copies its file contents (the rest of the pages is zero), seals the
+ * read only ones and switches back.
+ *
+ * @tparam Format Class traits, Elf32 or Elf64.
+ * @param base Start of the image. Untrusted.
+ * @param size Size of the image in bytes.
+ * @param address_space Physical root of the destination address space.
+ * @param out Receives the entry point and user space limit on success.
+ * @return True on success. False on any validation error or when a segment
+ * cannot be mapped, in which case earlier segments stay mapped.
+ */
 template <typename Format>
 bool load_image(const uint8_t *base, size_t size, memory::PhysAddr address_space,
 				LoadedImage &out) {
