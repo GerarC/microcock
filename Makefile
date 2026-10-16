@@ -123,6 +123,9 @@ $(INITRD_IMAGE): $(INITRD_FILES) userland | $(BUILD)
 			cat $(INITRD_DIR)/$$file $(TEST_INITRD_DIR)/$$file > $(INITRD_STAGE)/$$file; \
 		done; \
 	fi
+	@if [ "$(FUZZ)" = user ]; then \
+		echo "fuzz path=bin/fuzz.elf" >> $(INITRD_STAGE)/manifest.conf; \
+	fi
 	@for name in $(USERLAND_PROGRAMS); do \
 		case " $(USERLAND_BOOT_ORDER) " in \
 			*" $$name "*) ;; \
@@ -141,8 +144,10 @@ $(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin userland $(INITRD_IMAGE)
 	@echo "    multiboot /boot/$(PROJECT).bin" >> build/isodir/boot/grub/grub.cfg
 	@if ls build/userland/*.elf 1> /dev/null 2>&1; then \
 		for name in $(USERLAND_BOOT_ORDER); do \
-			if [ -f build/userland/$$name.elf ]; then \
-				cp build/userland/$$name.elf build/isodir/boot/; \
+			source=$$name; \
+			if [ "$(FUZZ)" = root ] && [ "$$name" = init ]; then source=fuzz; fi; \
+			if [ -f build/userland/$$source.elf ]; then \
+				cp build/userland/$$source.elf build/isodir/boot/$$name.elf; \
 				echo "    module /boot/$$name.elf \"$$name\"" >> build/isodir/boot/grub/grub.cfg; \
 			fi; \
 		done; \
@@ -188,6 +193,7 @@ help:
 	@echo "  HOST_TOOLCHAIN=1  - Use the host g++/ld (-m32) instead of i686-elf-*"
 	@echo "  TEST_BUILD=1      - Build the in-kernel test suite"
 	@echo "  USE_LTO=1         - Enable link time optimization"
+	@echo "  FUZZ=user|root    - With TEST_INITRD=1, boot the syscall fuzzer (FUZZ_SEED, FUZZ_ROUNDS, FUZZ_TRACE)"
 	@echo "  LOG_LEVEL=<level> - Lowest kernel log level compiled in: TRACE, DEBUG, INFO, WARN, ERROR, FATAL"
 	@echo "================================================================"
 

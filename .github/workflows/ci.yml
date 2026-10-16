@@ -32,6 +32,12 @@ jobs:
       - name: Userland end to end with frame pointers
         run: bash scripts/qemu_userland_test.sh HOST_TOOLCHAIN=1 USER_EXTRA_FLAGS=-fno-omit-frame-pointer
 
+      - name: Syscall fuzzer, unprivileged
+        run: FUZZ=user SEED=1 ROUNDS=3000 bash scripts/qemu_fuzz_test.sh HOST_TOOLCHAIN=1
+
+      - name: Syscall fuzzer, with every capability
+        run: FUZZ=root SEED=1 ROUNDS=3000 bash scripts/qemu_fuzz_test.sh HOST_TOOLCHAIN=1
+
       - name: Upload the serial logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -40,4 +46,5 @@ jobs:
           path: |
             build/test_output.txt
             build/userland_serial.txt
+            build/fuzz_serial.txt
           if-no-files-found: ignore
