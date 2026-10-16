@@ -45,7 +45,8 @@ enum class MessageType : uint32_t {
 	RTC_READ = 27,                  /**< Clock server request: read the date and time; arg0 is the request id. */
 	RTC_REPLY = 28,                 /**< Clock server answer; arg0 request id, arg1 status, arg2 packed date, arg3 packed time. */
 	PROCESS_EXITED = 29,            /**< Kernel notice to the spawner, only when it asked at spawn: arg0 is the process id, arg1 the exit status (FAULT_STATUS when an exception ended it). */
-	FS_LINK = 26,                  /**< File server request: make a hard link; the existing path is at the start of the window and the new name at RENAME_NEW_OFFSET; arg0 request id, arg1 existing length, arg2 new length. */
+	CONSOLE_KEY = 30,               /**< Keyboard driver notice to the console server: arg0 is the typed character. */
+	FS_LINK = 26,                 /**< File server request: make a hard link; the existing path is at the start of the window and the new name at RENAME_NEW_OFFSET; arg0 request id, arg1 existing length, arg2 new length. */
 };
 
 /**

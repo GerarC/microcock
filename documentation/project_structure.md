@@ -41,6 +41,7 @@ The codebase strictly separates the architecture-dependent code, the kernel core
 │   ├── linker.ld                   # Link address of every program
 │   ├── lib/include/cock/user/      # `cock::user` API
 │   ├── init/                       # Root server
+│   ├── console/                    # Console server (input line, serial and screen output)
 │   ├── kbd/                        # Keyboard driver
 │   └── vga_driver/                 # Display server
 ├── test/                           # Every test

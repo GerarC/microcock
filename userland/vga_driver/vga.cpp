@@ -31,6 +31,12 @@ void VgaServer::putChar(char c) {
         newline();
         return;
     }
+    if (c == CHAR_BACKSPACE) {
+        if (column == 0) return;
+        column--;
+        buffer[row * VGA_WIDTH + column] = vga_entry(CHAR_EMPTY, current_color);
+        return;
+    }
     const size_t index = row * VGA_WIDTH + column;
     buffer[index] = vga_entry(c, current_color);
 

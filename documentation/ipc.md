@@ -66,6 +66,7 @@ The kernel writes `sender_pid` and `target_pid` itself on delivery; whatever the
 | `NONE` | Empty message; the display server treats it as a request to clear the screen |
 | `SYS_PING`, `SYS_PONG`, `SYS_DEBUG`, `SYS_REGISTER_MAILBOX` | Reserved for tests, debugging and future use |
 | `VIDEO_WRITE_CHAR` | Write one character (`arg0`) on the display server |
+| `CONSOLE_KEY` | Keyboard driver to console server (value 30): `arg0` is the typed character; the console accepts it only from the process named `kbd`; see [console](console.md) |
 | `VIDEO_WRITE_STR` | Write `arg0` bytes that follow in `arg1` and the next arguments |
 | `PROCESS_EXITED` | The kernel tells the spawner that a process it asked about ended (`arg0` process id, `arg1` exit status, `0xFFFFFFFF` when an exception ended it). Only the kernel produces it; a program that tries to send one gets `-1` |
 | `IRQ_NOTIFICATION` | The kernel tells a driver that its interrupt line fired (`arg0` is the line). Only the kernel produces it, with `KERNEL_SENDER` as sender; a program that tries to send one gets `-1` |
@@ -151,7 +152,7 @@ If the owner no longer exists when its line fires, the kernel releases the line 
 The timer line and the PIC cascade line are reserved and cannot be bound. When the owner dies, the kernel masks and releases its lines. The keyboard driver in `userland/kbd` is the reference.
 
 ## Output from programs
-`SYS_WRITE` is the debug output channel. The kernel writes the bytes to the serial port with interrupts disabled, so a call is limited to 128 bytes to keep that time short. It returns how many bytes it took, and `cock::user::write_text` calls again until everything is written. When the display server is alive the text also goes to it, in messages of 20 bytes.
+`SYS_WRITE` is the debug and fallback output channel: programs that link `libc/unistd/console.cpp` send descriptors 1 and 2 to the console server instead (see [console](console.md)) and fall back to this call when the server is not there. The kernel writes the bytes to the serial port with interrupts disabled, so a call is limited to 128 bytes to keep that time short. It returns how many bytes it took, and `cock::user::write_text` calls again until everything is written. When the display server is alive the text also goes to it, in messages of 20 bytes.
 
 ## Logging of denied calls
 A call that is denied (no capability, bad pointer, unknown number) is logged at `trace` level only, so a program that keeps asking cannot flood the serial log. Raise the log level in `cock_main` to see them.
