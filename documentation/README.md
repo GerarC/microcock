@@ -10,6 +10,8 @@ The pages are split by layer. Each folder has an index.
 | [shared/](shared/README.md) | Headers included by both the kernel and the programs: ABI, message format, data structures |
 | [libs/](libs/README.md) | The freestanding C and C++ libraries and the `cock::user` library |
 
+New to the code? Follow the [learning path](learning_path.md): a reading order from the first instruction to the userland.
+
 [Project structure](project_structure.md) shows the directory tree and the HAL, the contract between the core and the architecture.
 
 Every program in `userland/` also has a `README.md` next to its sources.
