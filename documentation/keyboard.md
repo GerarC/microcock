@@ -49,7 +49,7 @@ A key press travels like this:
 1. The keyboard controller raises IRQ 1.
 2. The kernel **masks the line** and raises a pending notification on `kbd`, which `ipc_recv` returns as an `IRQ_NOTIFICATION` message (see [ipc](ipc.md#interrupts-as-messages)).
 3. `kbd` wakes up, reads one byte from port `0x60` and gives it to the decoder.
-4. If the byte produces a character, `kbd` sends a `VIDEO_WRITE_CHAR` message to the display server, which draws it.
+4. If the byte produces a character, `kbd` sends a `CONSOLE_KEY` message to the console server, which edits the line, echoes it on the display server and keeps it for readers (see [console](console.md)).
 5. `kbd` calls `SYS_IRQ_ACK`, and the kernel unmasks the line so the next key can arrive.
 
 The line stays masked while the driver works, so a burst of keys never piles up interrupts in the kernel. The thread is blocked in `ipc_recv` between keys and uses no CPU. Because the notification does not use the inbox, another program that fills the inbox of `kbd` with messages cannot make it miss a key. If the driver dies, the kernel masks and releases the line.
@@ -71,10 +71,10 @@ char feed(uint8_t scancode) {
 ```
 
 ## Testing
-`scripts/qemu_userland_test.sh` types `a`, `b`, `Shift+c` and `d` through the QEMU monitor. The keys go through the whole path above (controller, IRQ 1, `kbd`, IPC, `vga_driver`) and the script reads the video memory and requires `abCd` on the screen, together with `kbd: ready` on the serial log and no exception.
+`scripts/qemu_userland_test.sh` types `a`, `b`, `Shift+c`, `d` and Enter through the QEMU monitor. The keys go through the whole path above (controller, IRQ 1, `kbd`, IPC, `console`, `vga_driver`) and the script reads the video memory and requires `abCd` on the screen, together with `kbd: ready` and `conclient: line abCd` on the serial log (the test program `conclient` reads the line with `read(0)`) and no exception.
 
 ## Current limits
 * US layout only, and no key repeat handling beyond what the controller sends.
-* The characters go to the display server only. There is no input buffer, so `SYS_READ` has nothing to read from; that needs a console server.
+* The driver keeps no buffer: the characters go to the console server, which owns the input line. `SYS_READ` still returns nothing; programs read the keyboard through the console server (see [console](console.md)).
 * The driver does not read the controller status port (`0x64`); it assumes that every interrupt carries one byte in the data port.
 * The extended keys (arrows, function keys, the numeric keypad) do not produce anything.

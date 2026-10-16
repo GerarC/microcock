@@ -9,8 +9,13 @@ constexpr ssize_t FAILURE = -1;
 }
 
 extern "C" ssize_t __file_read(int fd, void *buf, size_t count) __attribute__((weak));
+extern "C" ssize_t __console_read(int fd, void *buf, size_t count) __attribute__((weak));
 
 ssize_t read(int fd, void *buf, size_t count) {
 	if (fd >= FIRST_FILE_DESCRIPTOR) return __file_read != nullptr ? __file_read(fd, buf, count) : FAILURE;
+	if (__console_read != nullptr) {
+		ssize_t received = __console_read(fd, buf, count);
+		if (received >= 0) return received;
+	}
 	return (ssize_t)syscall(SYS_READ, (uintptr_t)fd, (uintptr_t)buf, (uintptr_t)count, 0, 0, 0);
 }

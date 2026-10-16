@@ -201,7 +201,7 @@ The same checks run on every push through `.github/workflows/ci.yml`.
 * Capabilities are assigned at boot (the module named `init` holds the authority) and cannot be revoked; each process holds up to 16.
 * IPC is asynchronous with a small inbox per thread; there are no timeouts and no synchronous call and reply.
 * The user C library is minimal: it has buffered `printf`, `malloc` and `operator new` (no locking), and no file calls yet.
-* `SYS_WRITE` is a debug channel owned by the kernel; it goes away once there is a console server.
+* `SYS_WRITE` is a debug and fallback channel owned by the kernel. Programs that link the console client write and read descriptors 0 to 2 through the `console` server; `read(0)` polls it every 10 ms, because a server thread can answer only the call it is serving.
 * A process maps at most 4096 pages (16 MiB) in at most 32 regions.
 * The x86 build has no PAE, so no NX bit and no memory above 4 GiB.
 * A kernel stack overflow reaches the guard page but ends in a triple fault, without a message.
@@ -261,7 +261,8 @@ In this order. Each item is one change with its tests and documentation.
 - [x] Timers: `sleep` and receive with a timeout.
 - [x] Threads, blocking primitives and exit notifications for `spawn`.
 - [x] Synchronous IPC with a register fast path.
-- [ ] A console server that replaces `SYS_WRITE` and gives `SYS_READ` something to read.
+- [x] A console server (`console`): `printf` and `read(0)` go through it for programs that link the console client.
+- [ ] Console server follow-ups: park a blocked reader instead of polling, and make the standard C library link the console client by default.
 - [ ] A minimal shell with built-in commands (raises the version to 0.2.0).
 - [ ] Locking in `malloc` and a shared `crt0`.
 

@@ -14,6 +14,7 @@ static constexpr size_t    PAGE_SIZE            = 4096;
 
 static constexpr char      CHAR_EMPTY           = ' ';
 static constexpr char      CHAR_NEWLINE         = '\n';
+static constexpr char      CHAR_BACKSPACE       = '\b';
 static constexpr uint8_t   DEFAULT_FG           = 9; 
 static constexpr uint8_t   DEFAULT_BG           = 0; 
 

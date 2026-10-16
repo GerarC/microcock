@@ -29,7 +29,7 @@ void show(uint32_t display, char character) {
 	if (display == NO_PROCESS || character == kbd::NO_CHARACTER) return;
 
 	Message message = {};
-	message.type = MessageType::VIDEO_WRITE_CHAR;
+	message.type = MessageType::CONSOLE_KEY;
 	message.payload.args.arg0 = static_cast<uint32_t>(character);
 	cock::user::ipc_send(display, message);
 }

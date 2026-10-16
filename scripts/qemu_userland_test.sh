@@ -9,12 +9,12 @@ CLIENTS_DONE_TEXT=("fatclient: ok" "extclient: ok" "cfile: ok" "muteclient: ok" 
 SERIAL_FILE="${SERIAL_FILE:-build/userland_serial.txt}"
 SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
-TYPED_KEYS="a b shift-c d"
+TYPED_KEYS="a b shift-c d ret"
 FILE_CLIENT_RUNS=10
 DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
-EXPECTED_SCREEN_TEXT="Hello from cock ring 3!!!|probe: 45/45 checks passed|abCd"
-EXPECTED_SERIAL_TEXT="abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|Boot memory released|init: manifest has 19 entries|init: configured vga_driver|init: started kbd|init: started ata|init: started rtc|rtc: ready|init: started fat|init: started vfs|vfs: 4 mounts|init: fsclient exit notices 10/10|init: started probe|kbd: ready|VGA driver detected|reaped"
+EXPECTED_SCREEN_TEXT="probe: 45/45 checks passed|abCd|conclient: line abCd"
+EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|Boot memory released|init: manifest has 21 entries|init: configured vga_driver|init: started console|console: ready|conclient: ready|conclient: line abCd|conclient: ok|init: started kbd|init: started ata|init: started rtc|rtc: ready|init: started fat|init: started vfs|vfs: 4 mounts|init: fsclient exit notices 10/10|init: started probe|kbd: ready|VGA driver detected|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"
 case "$DISK_SCHEME" in

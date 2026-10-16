@@ -70,4 +70,6 @@ extern "C" void _start() {
 ```
 
 ### When the server is not there
+`VIDEO_WRITE_CHAR` also understands the backspace character: it moves the cursor one column back and blanks the cell (the console server uses it to echo an erased key); at column 0 it does nothing. The console server draws its output with `VIDEO_WRITE_STR` too.
+
 `sys_write` takes at most 128 bytes per call and sends the text to the server in chunks of 20 bytes. If the server has died, the kernel notices, takes the screen back and writes to it directly, so the system keeps printing. Its mapping of the video memory is not returned to the frame allocator when the server dies, because device pages are marked as not owned.

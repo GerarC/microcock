@@ -4,14 +4,16 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 
 ## Programs
 
-The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fixture files `hello.txt` and `docs/note.txt`); only `scripts/qemu_userland_test.sh` builds with it. The programs that exist only to test the system (`probe`, `hello`, `aborter`, `syncbench`, `fsclient`, `fatclient`, `extclient`, `blkclient`, `cfile`, `mute`, `muteclient`) live in `test/userland/`, not in `userland/`. Their Makefiles include `../../../userland/common.mk` and the root Makefile builds both folders into `build/userland`. The helper `write_check.hpp` they share is in `test/userland/lib/include/cock/user/`.
+The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fixture files `hello.txt` and `docs/note.txt`); only `scripts/qemu_userland_test.sh` builds with it. The programs that exist only to test the system (`probe`, `hello`, `aborter`, `syncbench`, `conclient`, `fsclient`, `fatclient`, `extclient`, `blkclient`, `cfile`, `mute`, `muteclient`) live in `test/userland/`, not in `userland/`. Their Makefiles include `../../../userland/common.mk` and the root Makefile builds both folders into `build/userland`. The helper `write_check.hpp` they share is in `test/userland/lib/include/cock/user/`.
 
 | Program | Role |
 |---------|------|
 | `init` | Root server. The only process born with authority; it grants `ramfs` the `initrd`, reads `manifest.conf` through `ramfs` and does what each line says (starts programs with `SYS_SPAWN`, grants capabilities), then exits |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `init` can read the manifest) |
-| `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the display server |
+| `console` | Console server: owns the serial port `0x3F8+8` and the input line; serves `CON_WRITE` and `CON_READ` as synchronous calls, echoes typed keys on the display server; see [console](console.md) |
+| `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the console server |
+| `conclient` | Test program: prints and reads a typed line through the C library, so `printf` and `read(0)` go through `console` |
 | `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp`, `files.cpp` and `threads.cpp` and `sync.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 45/45 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
 | `fsclient` | Reads a file from the `initrd` and exits; `init` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |
@@ -35,7 +37,7 @@ The processes see each other only by name: `init` calls `cock::user::lookup("kbd
 2. It packs the files of the `initrd/` folder and, under `bin/`, every program of those folders that is not a boot module into `build/initrd.tar` (ustar). With `TEST_INITRD=1` the files of `test/initrd/` are added, and the `manifest.conf` and `mounts.conf` of the two folders are joined (system lines first), so a normal `make iso` boots the system with no test program and `make iso TEST_INITRD=1` boots the same system plus the tests. It writes a `grub.cfg` with one `module` line for each program of `USERLAND_BOOT_ORDER` (`init`, `ramfs`, `vga_driver`), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](memory_management.md)), so it never becomes a process.
 3. The kernel loads each module as a process and gives the root capabilities to the one called `init`.
 4. `init` grants `ramfs` the `initrd` and sends it `CAPABILITY_GRANTED`; this is the only policy written in its code. It then reads `manifest.conf` through `ramfs`, parses it and runs each line in order (see below). A spawned process is born with no capabilities, so the grants of its line are what it gets. `vga_driver` maps the screen, and `kbd` enables the port and binds the interrupt.
-5. A key press travels: keyboard controller, IRQ 1, kernel (`IRQ_NOTIFICATION`), `kbd` reads the scan code and acknowledges the line, `kbd` sends `VIDEO_WRITE_CHAR`, `vga_driver` draws the character.
+5. A key press travels: keyboard controller, IRQ 1, kernel (`IRQ_NOTIFICATION`), `kbd` reads the scan code and acknowledges the line, `kbd` sends `CONSOLE_KEY` to `console`, `console` edits the line and sends the echo to `vga_driver`, which draws it.
 
 A driver that needs a new capability needs a new `cap_grant` in `userland/init/main.cpp`; see [capabilities](capabilities.md). The display server is described in [VGA](vga.md) and the keyboard driver in [keyboard](keyboard.md).
 
