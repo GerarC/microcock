@@ -43,12 +43,13 @@ The codebase strictly separates the architecture-dependent code, the kernel core
 │   ├── init/                       # Root server
 │   ├── console/                    # Console server (input line, serial and screen output)
 │   ├── kbd/                        # Keyboard driver
+│   ├── sh/                         # The shell
 │   └── vga_driver/                 # Display server
 ├── test/                           # Every test
 │   ├── cock/                       # In-kernel test suites
 │   ├── host/                       # Tests of shared/ and CapabilitySet, run on the host
 │   ├── initrd/                     # Manifest lines, mounts and files that only the test boot adds to the initrd
-│   └── userland/                   # Test programs (probe, hello, aborter, syncbench, conclient, contruncated, fuzz, fsclient, fatclient, extclient, blkclient, cfile, mute, muteclient) and lib/include/cock/user/write_check.hpp
+│   └── userland/                   # Test programs (probe, hello, aborter, syncbench, contruncated, fuzz, fsclient, fatclient, extclient, blkclient, cfile, mute, muteclient) and lib/include/cock/user/write_check.hpp
 ├── scripts/                        # QEMU based and host test runners
 └── Makefile                        # Master build system
 ```

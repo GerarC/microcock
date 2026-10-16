@@ -12,6 +12,7 @@ constexpr char KEYBOARD_NAME[] = "kbd";
 enum class Op : uint32_t {
 	WRITE = 1,
 	READ = 2,
+	CLEAR = 3,
 };
 
 enum class Status : uint32_t {

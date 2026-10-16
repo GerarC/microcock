@@ -133,6 +133,8 @@ make run DISK=build/disk.img
 ```
 `DISK_SCHEME=gpt` builds the GPT variant. The guest writes into the image file, so run `make disk` again to get the original contents back.
 
+The system ends in a shell (`cock>`): type `help` for the commands (`ls`, `cat`, `write`, `mkdir`, `rm`, `mv`, `sleep`, `clear`, ...). See [the shell](documentation/shell.md).
+
 Clean the build directory:
 ```bash
 make clean
@@ -275,7 +277,8 @@ In this order. Each item is one change with its tests and documentation.
 - [x] Synchronous IPC with a register fast path.
 - [x] A console server (`console`): `printf` and `read(0)` go through it; readers block through deferred replies and the client is linked by default.
 - [ ] Capability check on the calls to the console server (needs the IPC capability of stage 9).
-- [ ] A minimal shell with built-in commands (raises the version to 0.2.0).
+- [x] A minimal shell with built-in commands (0.2.0, see [the shell](documentation/shell.md)).
+- [ ] Running programs from the shell (needs a way to `spawn`), then `ps`, history, Ctrl+C and quoting.
 - [ ] Locking in `malloc` and a shared `crt0`.
 
 **3. Capabilities as data**

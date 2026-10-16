@@ -39,6 +39,15 @@ class Client {
 		return static_cast<long>(written);
 	}
 
+	bool clear() {
+		uint32_t words[CALL_WORDS] = {};
+		words[abi::console::HEADER_WORD] =
+			abi::console::pack(static_cast<uint32_t>(abi::console::Op::CLEAR), 0);
+
+		CallResult result = ipc_call(server, words);
+		return result.ok && statusOf(result) == abi::console::Status::OK;
+	}
+
 	long read(char *buffer, size_t length) {
 		if (length == 0) return 0;
 		if (length > abi::console::CHUNK_BYTES) length = abi::console::CHUNK_BYTES;

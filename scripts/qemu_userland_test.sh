@@ -9,12 +9,13 @@ CLIENTS_DONE_TEXT=("fatclient: ok" "extclient: ok" "cfile: ok" "muteclient: ok" 
 SERIAL_FILE="${SERIAL_FILE:-build/userland_serial.txt}"
 SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
-TYPED_KEYS="a b shift-c d ret"
+SHELL_COMMANDS="echo hello shell|version|ls /|cat /mounts.conf|ls /ext|write /ext/scratch/sh.txt written by sh|cat /ext/scratch/sh.txt|mv /ext/scratch/sh.txt /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|rm /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|sleep 1|clear|echo after clear"
+SHELL_OUTPUT_COPIES=2
 FILE_CLIENT_RUNS=10
 DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
-EXPECTED_SCREEN_TEXT="probe: 46/46 checks passed|abCd|conclient: line abCd"
-EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|Boot memory released|init: manifest has 22 entries|contruncated: cut|init: configured vga_driver|init: started console|console: ready|conclient: ready|conclient: line abCd|conclient: ok|init: started kbd|init: started ata|init: started rtc|rtc: ready|init: started fat|init: started vfs|vfs: 4 mounts|init: fsclient exit notices 10/10|init: started probe|kbd: ready|VGA driver detected|reaped"
+EXPECTED_SCREEN_TEXT="cock> echo after clear|after clear"
+EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 46/46 checks passed|microcock v0.2.0 shell, type help|hello shell|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|sh: cat: /ext/scratch/moved.txt: not found|abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|Boot memory released|init: manifest has 22 entries|contruncated: cut|init: configured vga_driver|init: started console|console: ready|init: started kbd|init: started sh|init: started ata|init: started rtc|rtc: ready|init: started fat|init: started vfs|vfs: 4 mounts|init: fsclient exit notices 10/10|init: started probe|kbd: ready|VGA driver detected|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"
 case "$DISK_SCHEME" in
@@ -47,13 +48,17 @@ while [ "$waited" -lt "$CLIENTS_TIMEOUT" ]; do
 	waited=$((waited + POLL_SECONDS))
 done
 
-screen=$(python3 - "$SOCKET_FILE" "$TYPED_KEYS" "$KEY_SECONDS" <<'PYTHON'
+screen=$(python3 - "$SOCKET_FILE" "$SHELL_COMMANDS" "$KEY_SECONDS" <<'PYTHON'
 import re
 import socket
 import sys
 import time
 
-socket_path, keys, key_seconds = sys.argv[1], sys.argv[2].split(), float(sys.argv[3])
+socket_path, commands, key_seconds = sys.argv[1], sys.argv[2].split("|"), float(sys.argv[3])
+KEY_NAMES = {" ": "spc", "/": "slash", ".": "dot", "-": "minus"}
+KEY_HOLD_MS = 20
+KEY_WAIT = 0.07
+ENTER_WAIT = 0.8
 SCREEN_BYTES = 4000
 CELL_BYTES = 2
 COLUMNS = 80
@@ -85,8 +90,11 @@ def command(text, wait):
     return data.decode(errors="replace")
 
 
-for key in keys:
-    command("sendkey " + key, 0.3)
+for line in commands:
+    for character in line:
+        key = KEY_NAMES.get(character, character)
+        command("sendkey %s %d" % (key, KEY_HOLD_MS), KEY_WAIT)
+    command("sendkey ret %d" % KEY_HOLD_MS, ENTER_WAIT)
 time.sleep(key_seconds)
 
 dump = command("xp/%dbx %s" % (SCREEN_BYTES, VIDEO_ADDRESS), 1.5)
@@ -125,6 +133,15 @@ for expected in "${serial_checks[@]}"; do
 		status=1
 	fi
 done
+if ! grep -qE 'microcock v0\.2\.0[[:space:]]*$' "$SERIAL_FILE"; then
+	echo "[qemu_userland_test] the shell command version printed nothing"
+	status=1
+fi
+shell_copies=$(grep -c "written by sh" "$SERIAL_FILE")
+if [ "$shell_copies" -ne "$SHELL_OUTPUT_COPIES" ]; then
+	echo "[qemu_userland_test] the shell printed the written file $shell_copies times, expected $SHELL_OUTPUT_COPIES"
+	status=1
+fi
 served=$(grep -c "fsclient: ok" "$SERIAL_FILE")
 if [ "$served" -ne "$FILE_CLIENT_RUNS" ]; then
 	echo "[qemu_userland_test] file clients served: $served of $FILE_CLIENT_RUNS"
