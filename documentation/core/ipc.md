@@ -44,6 +44,9 @@ A call that has to wait asks the scheduler to restart it (see [task management](
 ## IPC Message Passing
 Threads communicate using a `RingBuffer`. Every thread keeps an inbox that holds 16 (`THREAD_INBOX_CAPACITY`) of the `Message` structures. Delivery never blocks the sender.
 
+### Inboxes belong to threads
+The inbox, the pending interrupt notifications and the interrupt lines a program binds belong to one **thread**, not to the process. `sender_pid` in a message is the id of the sending thread. A process id given to `SYS_IPC_SEND` or `SYS_PROC_ALIVE` stands for its first thread, and a thread id works too. `SYS_IRQ_BIND` and `SYS_IRQ_ACK` are tied to the thread that bound the line, so a program that binds a line in one thread and receives in another never sees the notification: bind and receive in the same thread, and hand the work to other threads from there.
+
 ### The message
 ```cpp
 typedef struct message_t {

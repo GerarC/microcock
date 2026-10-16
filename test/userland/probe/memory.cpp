@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/mman.h>
+#include <sys/syscalls.h>
 
 namespace probe {
 
@@ -14,7 +15,37 @@ void *mapPage() {
 	return mmap(nullptr, PAGE_BYTES, MAPPING_PROTECTION, MAP_ANONYMOUS, NO_FILE, 0);
 }
 
+constexpr int NO_PROTECTION = 0;
+constexpr int UNKNOWN_PROTECTION = 0x08;
+constexpr uintptr_t STDIN_DESCRIPTOR = 0;
+constexpr uintptr_t PROBE_LENGTH = 1;
+constexpr uintptr_t END_OF_INPUT = 0;
+
+bool kernelMayWriteInto(void *memory) {
+	return syscall(SYS_READ, STDIN_DESCRIPTOR, reinterpret_cast<uintptr_t>(memory),
+				   PROBE_LENGTH, 0, 0, 0) == END_OF_INPUT;
+}
+
 } // namespace
+
+bool mappingProtectionIsHonored() {
+	void *readOnly = mmap(nullptr, PAGE_BYTES, PROT_READ, MAP_ANONYMOUS, NO_FILE, 0);
+	if (readOnly == MAP_FAILED) return false;
+	bool zeroed = *static_cast<volatile uint8_t *>(readOnly) == 0;
+	bool refused = !kernelMayWriteInto(readOnly);
+	bool released = munmap(readOnly, PAGE_BYTES) == 0;
+
+	void *writable = mapPage();
+	if (writable == MAP_FAILED) return false;
+	bool accepted = kernelMayWriteInto(writable);
+	munmap(writable, PAGE_BYTES);
+
+	return zeroed && refused && released && accepted &&
+		   mmap(nullptr, PAGE_BYTES, NO_PROTECTION, MAP_ANONYMOUS, NO_FILE, 0) ==
+			   MAP_FAILED &&
+		   mmap(nullptr, PAGE_BYTES, UNKNOWN_PROTECTION, MAP_ANONYMOUS, NO_FILE, 0) ==
+			   MAP_FAILED;
+}
 
 bool anonymousMemoryWorks() {
 	void *memory = mapPage();

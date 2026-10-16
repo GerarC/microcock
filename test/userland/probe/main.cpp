@@ -6,7 +6,7 @@
 
 namespace {
 
-constexpr size_t CHECK_COUNT = 46;
+constexpr size_t CHECK_COUNT = 48;
 constexpr uintptr_t EXIT_ALL_PASSED = 0;
 constexpr uintptr_t EXIT_SOME_FAILED = 1;
 
@@ -31,12 +31,14 @@ extern "C" void _start() {
 		probe::mappingQuotaIsEnforced(),
 		probe::releasedAddressIsReused(),
 		probe::regionTableIsBounded(),
+		probe::mappingProtectionIsHonored(),
 		probe::printfFormatsAndLongLines(),
 		probe::mallocReusesAndCoalesces(),
 		probe::reallocKeepsContents(),
 		probe::callocZeroesRecycledMemory(),
 		probe::hugeAllocationFailsCleanly(),
 		probe::operatorNewRoundTrips(),
+		probe::mallocIsSafeAcrossThreads(),
 		probe::sharedMemoryRoundTrips(),
 		probe::sharedMemoryRefusesBadRequests(),
 		probe::sharedMemoryTableIsBounded(),

@@ -15,7 +15,6 @@ using utils::Logger;
 
 constexpr uintptr_t STDIN_FD = 0;
 
-// TODO: FINISH SYS_READ
 uintptr_t sys_read(uintptr_t fd, uintptr_t buf, uintptr_t count, uintptr_t,
 				   uintptr_t, uintptr_t) {
 	if (fd != STDIN_FD) return (uintptr_t)-1;
@@ -26,8 +25,8 @@ uintptr_t sys_read(uintptr_t fd, uintptr_t buf, uintptr_t count, uintptr_t,
 												current->getUserSpaceLimit()))
 		return (uintptr_t)-1;
 
-	Logger::trace("sys_read: PID %d tried to read STDIN, but micrococks "
-				 "lacks of TTY server!",
+	Logger::trace("sys_read: PID %d read STDIN; input is served by the console "
+				 "server, so the kernel reports end of input",
 				 current->getId());
 
 	return 0;

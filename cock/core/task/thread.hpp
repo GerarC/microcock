@@ -152,6 +152,7 @@ class Thread {
 	TimeoutState timeoutState = TimeoutState::NONE; /**< Deadline state. */
 	uintptr_t futexAddress = NO_FUTEX_ADDRESS; /**< Word being waited on. */
 	bool futexWoken = false; /**< A wake arrived and was not consumed yet. */
+	uint32_t writeRetries = 0; /**< Restarts of SYS_WRITE because the display server inbox was full. */
 	/**
 	 * @brief Common construction: allocates the id, attaches to the process
 	 * and obtains a kernel stack.
@@ -236,6 +237,10 @@ class Thread {
 	 * @param state New state.
 	 */
 	void setTimeoutState(TimeoutState state) { timeoutState = state; }
+	/** @brief Counts one more restart of a SYS_WRITE that found the display server inbox full. @return The count including this one. */
+	uint32_t countWriteRetry() { return ++writeRetries; }
+	/** @brief Forgets the restarts counted by countWriteRetry. */
+	void resetWriteRetries() { writeRetries = 0; }
 	/** @return Tick at which the deadline expires. */
 	uint64_t getWakeTick() const { return wakeTick; }
 	/**

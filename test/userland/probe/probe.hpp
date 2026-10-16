@@ -48,9 +48,9 @@ bool grantIsDenied();
 bool physicalVideoMapIsDenied();
 /** Mapping a physical RAM range without a capability fails. */
 bool physicalRamMapIsDenied();
-/** Passing a kernel address as an output buffer to a call is refused instead of written. */
+/** A `write` whose source buffer is a kernel address is refused (the raw result is `-1`) instead of read. */
 bool kernelWriteIsDenied();
-/** Passing an unmapped user address as an output buffer is refused. */
+/** A `write` whose source buffer is an unmapped user address is refused (the raw result is `-1`). */
 bool unmappedWriteIsDenied();
 /** Unmapping a kernel address is refused. */
 bool kernelUnmapIsDenied();
@@ -67,6 +67,8 @@ bool mappingQuotaIsEnforced();
 bool releasedAddressIsReused();
 /** Creating many mappings ends in a clean refusal, not a failure of the kernel. */
 bool regionTableIsBounded();
+/** A read only mapping is readable, starts zeroed and refuses a kernel write into it, while a read write mapping accepts it; a protection of none or with unknown bits is refused. */
+bool mappingProtectionIsHonored();
 
 /** A user process cannot forge an `IRQ_NOTIFICATION` message: the kernel refuses to send it. */
 bool irqNotificationIsRefused();
@@ -74,65 +76,67 @@ bool irqNotificationIsRefused();
 bool capabilityGrantIsRefused();
 /** A message sent to the own process id is received with the right sender, type and payload. */
 bool messageToSelfArrives();
-/** `ipc_try_recv` returns at once when the inbox is empty and returns the message when there is one. */
+/** `ipc_try_recv` returns `EMPTY` at once when the inbox is empty, returns the message when there is one and `EMPTY` again after it; kernel and unmapped buffer addresses fail. */
 bool tryReceiveDoesNotBlock();
-/** `process_alive` is true for a live process and false for a dead or invalid one. */
+/** `process_alive` is true for the probe itself and for the file server found by name, and false for an unknown id and for `NO_PROCESS`. */
 bool processAliveReportsLiveness();
-/** `ipc_recv_timeout` times out when nothing arrives and returns early when a message does. */
+/** `ipc_recv_timeout` reports `EMPTY` after a short wait and with a zero wait when nothing arrives, returns a queued message, and reports `EMPTY` again once it is taken. */
 bool receiveTimeoutBehaves();
-/** Timeouts above the maximum, and a bad message pointer, are refused by the timed calls. */
+/** `ipc_recv_timeout` with a kernel or unmapped buffer, or with a time above the maximum, and `sleep` with a time above the maximum, fail with the raw `FAILURE` result. */
 bool timeoutCallsRefuseBadInput();
-/** `sleep` returns after about the requested time and does not lose queued messages. */
+/** `sleep_ms(0)` and a short `sleep_ms` return true, and a message queued before the sleep is still there afterwards (the elapsed time is not measured). */
 bool sleepReturnsAndKeepsMessages();
 
-/** Several threads increment a shared counter under a futex mutex and the total is exact. */
+/** Two threads each increment a shared counter three times under a futex mutex, sleeping while they hold it, and the total is exact. */
 bool threadsShareMemoryUnderMutex();
-/** `futex_wake` wakes every waiter, and creating more threads than the per process limit fails cleanly. */
+/** Threads are started that block on a futex word until thread creation is refused (fewer than the per process limit succeed); one `futex_wake` then wakes exactly as many as were created. */
 bool futexWakesEveryWaiterAndThreadsAreBounded();
-/** Unaligned or invalid futex words, bad entry points and small stacks are refused. */
+/** `futex_wait` and `futex_wake` fail on null, unaligned, kernel and unmapped words, and `futex_wait` on a time above the maximum; `futex_wait` returns `FUTEX_VALUE_CHANGED` for a different value and `FUTEX_TIMED_OUT` for a zero or short time, and `futex_wake` on a word without waiters returns zero; `thread_create_raw` fails for kernel or unmapped entry points, kernel or unmapped stacks and a stack below the minimum. */
 bool futexAndThreadCallsRefuseBadInput();
 
-/** A synchronous call reaches a server thread and its reply comes back with the payload words. */
+/** An echo server thread answers fifty calls with the payload words changed as expected and the right peer id, and a final call is answered before the server thread ends; a call to it after it ended fails. */
 bool synchronousCallsRoundTrip();
-/** Callers that arrive while the server is busy are served in order; replying without a request or to the wrong caller is refused. */
+/** A call to an unknown thread, a call to the own thread and a reply without a request are refused; two callers that arrive while the server is still starting are served in arrival order and each gets its own marker back. */
 bool queuedCallsAreServedInOrderAndMisuseIsRefused();
-/** When a server dies, every caller blocked on it fails instead of waiting forever. */
+/** When the server thread ends without answering, two callers that were queued on it both fail instead of waiting forever. */
 bool deadServerFailsEveryCaller();
-/** A call with a time limit returns `TIMED_OUT`, and a reply that comes later fails. */
+/** A call with a time above the maximum fails with `FAILED`; a call with a zero or a short limit to a slow server returns `TIMED_OUT`, and the reply that the server sends later is refused. */
 bool callTimeoutExpiresAndLateReplyFails();
-/** `ipc_accept` returns `MESSAGE_PENDING` when an asynchronous message arrives and times out when nothing does. */
+/** `ipc_accept` times out after a short limit and with a zero limit when nothing arrives, then returns `MESSAGE_PENDING` when an asynchronous message arrives, and that message is read with `ipc_try_recv`. */
 bool acceptWaitsForMessagesAndTimesOut();
-/** A deferred request can be answered with `ipc_reply_to` after the server has served another request. */
+/** `ipc_defer` without a request and `ipc_reply_to` with an unknown ticket are refused; a request postponed with `ipc_defer` is answered with `ipc_reply_to` after the server has answered the next request. */
 bool deferredCallIsAnsweredAfterTheNextOne();
 
-/** A `write` larger than the kernel limit is cut, not rejected or overflowed. */
+/** A raw `SYS_WRITE` of 200 bytes is cut: it returns a positive count below 200, not a failure. */
 bool oversizedWriteIsCut();
 /** `printf` formats its conversions correctly and prints lines longer than its buffer completely. */
 bool printfFormatsAndLongLines();
 
-/** Freed blocks are reused and adjacent free blocks are merged. */
+/** A freed block is handed out again for the same size, and after two neighbouring blocks are freed a request of twice the size is placed at the first block (the blocks merged). */
 bool mallocReusesAndCoalesces();
-/** `realloc` keeps the old contents when it grows or shrinks. */
+/** `realloc(nullptr, n)` allocates, and growing a block to a larger size keeps the old bytes (shrinking is not checked). */
 bool reallocKeepsContents();
-/** `calloc` returns zeroed memory even when it reuses a dirty block. */
+/** `calloc` returns zeroed memory after a dirty block was freed, and returns null when the product of the sizes overflows. */
 bool callocZeroesRecycledMemory();
-/** An impossible allocation returns null and the allocator still works afterwards. */
+/** `malloc` of 512 MiB and of `SIZE_MAX` return null, and a small allocation still succeeds afterwards. */
 bool hugeAllocationFailsCleanly();
-/** `operator new` and `operator delete` allocate, hold data and release. */
+/** `new[]` and `new` allocate, keep the stored values, and `delete[]` and `delete` release them. */
 bool operatorNewRoundTrips();
+/** Three threads allocate, fill, check and free blocks of varied sizes at the same time and no block is ever overwritten. */
+bool mallocIsSafeAcrossThreads();
 
-/** A shared object can be created, mapped, written, read back, and released. */
+/** A two page object is created, mapped writable and found zeroed, written, unmapped with `munmap`, mapped again read only and read back, shared with the own process, released, and cannot be mapped after the release. */
 bool sharedMemoryRoundTrips();
-/** Zero pages, too many pages, an unknown object id and an unknown target process are refused by create, map, release and share. */
+/** Zero pages and 4096 pages are refused by create, an unknown object id by map, release and share, and an unknown target process by share. */
 bool sharedMemoryRefusesBadRequests();
 /** Creating objects until the table is full ends in a clean refusal, and releasing them frees the slots. */
 bool sharedMemoryTableIsBounded();
 
-/** A file of the initrd is opened through `vfs`, its size matches and its contents read back. */
+/** A file of the initrd is opened through `vfs` (with and without a leading slash), its size and type match, the whole file and a read from an offset return the expected bytes, and a read at the end returns zero. */
 bool initrdFileReads();
-/** Malformed requests to the file server (bad path, handle, offset, flags) get the right error status. */
+/** Malformed requests to the file server (missing file, empty or too long path, unsupported flags, write access on the read only initrd, unknown or closed handle, offset past the end) fail with the expected error status. */
 bool fileServerRefusesBadRequests();
-/** Directory listing returns the expected entries and ends with `OUT_OF_RANGE`. */
+/** Listing the root returns the expected file and directory, listing a subdirectory returns its entry and then stops, a file inside it reads back, and `readdir` on a file or an unknown handle fails. */
 bool fileServerListsDirectories();
 /** The manifest in the initrd can be read through `vfs`, parses, and has an entry for the probe itself with its own path and no capabilities. */
 bool manifestMatchesTheBoot();

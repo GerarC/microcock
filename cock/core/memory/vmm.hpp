@@ -40,6 +40,7 @@ enum class VMMPermission : uint32_t {
 	KERNEL_DATA = READ | WRITE, /**< Kernel read and write data. */
 	USER_DATA = READ | WRITE | USER, /**< User read and write data. */
 	USER_CODE = READ | EXEC | USER, /**< User read only executable code. */
+	USER_READONLY = READ | USER, /**< User read only data. */
 };
 
 /**

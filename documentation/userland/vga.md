@@ -16,7 +16,7 @@ inline void console_write(const char *data, size_t size) {
 `VGA` is a final class with no virtual functions and a `constexpr` constructor, so the screen object is initialized at compile time and every call is direct. The serial output is what the test scripts read, and it keeps working when the screen belongs to the userland server.
 
 ## Userland VGA Server
-The fully isolated Ring 3 display server handles standard output for the operating system. When the kernel loads a module called `vga_driver`, it detaches the kernel console from the screen and remembers the module as the destination of the output of `sys_write`.
+The fully isolated Ring 3 display server handles standard output for the operating system. When the kernel loads a module called `vga_driver`, it detaches the kernel console from the screen and remembers the module as the destination of the output of `sys_write`. When the inbox of the display server is full, `sys_write` restarts the call so the server can drain it; after 1000 restarts it writes the text to the kernel console instead (`WRITE_RETRY_LIMIT`), so a stuck display server cannot keep a writer spinning forever.
 
 The server cannot touch the hardware until it is allowed to. It waits for the `CAPABILITY_GRANTED` message of the root server, which has given it a `PHYSICAL_MEMORY` capability over the legacy video window (`0xA0000` to `0xBFFFF`). Only then does it use the `mmap` syscall to map the physical text buffer (`0xB8000`) into its own virtual address space at `0xA0000000`. The kernel checks that the capability covers the range and that the range is not RAM.
 
