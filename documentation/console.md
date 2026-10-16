@@ -10,7 +10,7 @@
 | Line editor (no I/O, tested on the host) | `shared/include/cock/abi/console_line.hpp`, `test/host/test_console.cpp` |
 | Client | `userland/lib/include/cock/user/console.hpp` |
 | C library hooks | `libc/unistd/console.cpp` (`__console_write`, `__console_read`), used by `write.cpp` and `read.cpp` |
-| Test program | `test/userland/conclient` |
+| First client | `userland/sh` (the shell) |
 
 ## Protocol
 Requests are synchronous calls (see [ipc](ipc.md)) with four words. Word 0 holds the operation in its low byte, a length in the next byte and a `LAST` flag in bit 16; words 1 to 3 hold up to 12 bytes of data, the first byte in the low bits of word 1. The reply has the same layout with the status in place of the operation and a count in place of the length.
@@ -19,6 +19,7 @@ Requests are synchronous calls (see [ipc](ipc.md)) with four words. Word 0 holds
 |-----------|---------|-------|
 | `WRITE` | length 1 to 12, the bytes, and `LAST` on the final chunk of one `write` call | `OK` and the number of bytes taken |
 | `READ` | the most bytes wanted, 1 to 12 | `OK`, the count and the bytes; the reply is held until a line is ready |
+| `CLEAR` | nothing | `OK`; the server sends the display server the message that clears the screen and puts the cursor at the top |
 
 A length of 0 or more than 12 is `BAD_REQUEST`. `BUSY` answers a `READ` when the server already holds eight waiting readers; the client sleeps one tick and asks again. The client splits longer texts into chunks of 12 bytes.
 
@@ -50,4 +51,4 @@ A length of 0 or more than 12 is `BAD_REQUEST`. `BUSY` answers a `READ` when the
 * Text of a dead program shows up up to 50 ms late, and a program that stays alive but never sends the `LAST` chunk keeps its text in the slot.
 
 ## Testing
-`scripts/qemu_userland_test.sh` types `a b shift-c d ret`. `conclient` prints through the server, blocks in `read(0)`, and prints `conclient: line abCd`; the script requires that text on the serial log and on the screen. `contruncated` sends two chunks without `LAST` and exits; the script requires `contruncated: cut` on the serial log. The host test covers the line editor and the packing; the `Synchronous IPC` kernel suite and a `probe` check cover `defer` and `reply_to`.
+`scripts/qemu_userland_test.sh` types commands for the shell, which prints through the server and blocks in `read(0)`; the script requires their output on the serial log and the last lines on the screen. `contruncated` sends two chunks without `LAST` and exits; the script requires `contruncated: cut` on the serial log. The host test covers the line editor and the packing; the `Synchronous IPC` kernel suite and a `probe` check cover `defer` and `reply_to`.

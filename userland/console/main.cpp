@@ -157,6 +157,12 @@ void sweepDeadWriters() {
 	}
 }
 
+void screenClear() {
+	Message message = {};
+	message.type = MessageType::NONE;
+	deliverToDisplay(message);
+}
+
 void screenCharacter(char character) {
 	Message message = {};
 	message.type = MessageType::VIDEO_WRITE_CHAR;
@@ -236,6 +242,10 @@ Served serve(uint32_t sender, const uint32_t (&request)[ANSWER_WORDS],
 		console::unpackBytes(request, bytes, length);
 		handleWrite(sender, bytes, length, console::isLast(header));
 		answer(reply, Status::OK, length);
+		return Served::REPLY;
+	case Op::CLEAR:
+		screenClear();
+		answer(reply, Status::OK, 0);
 		return Served::REPLY;
 	case Op::READ:
 		if (length == 0 || length > console::CHUNK_BYTES) {

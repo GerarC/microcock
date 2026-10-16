@@ -71,7 +71,7 @@ char feed(uint8_t scancode) {
 ```
 
 ## Testing
-`scripts/qemu_userland_test.sh` types `a`, `b`, `Shift+c`, `d` and Enter through the QEMU monitor. The keys go through the whole path above (controller, IRQ 1, `kbd`, IPC, `console`, `vga_driver`) and the script reads the video memory and requires `abCd` on the screen, together with `kbd: ready` and `conclient: line abCd` on the serial log (the test program `conclient` reads the line with `read(0)`) and no exception.
+`scripts/qemu_userland_test.sh` types shell commands through the QEMU monitor (`sendkey`, one key at a time, with `ret` after each line). The keys go through the whole path above (controller, IRQ 1, `kbd`, IPC, `console`, `vga_driver`) and the shell reads each line with `read(0)`; the script reads the video memory and requires the last typed line and its output on the screen, together with `kbd: ready` and the output of the commands on the serial log (see [shell](shell.md)) and no exception.
 
 ## Current limits
 * US layout only, and no key repeat handling beyond what the controller sends.
