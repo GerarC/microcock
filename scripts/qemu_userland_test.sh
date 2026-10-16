@@ -13,7 +13,7 @@ TYPED_KEYS="a b shift-c d ret"
 FILE_CLIENT_RUNS=10
 DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
-EXPECTED_SCREEN_TEXT="probe: 45/45 checks passed|abCd|conclient: line abCd"
+EXPECTED_SCREEN_TEXT="probe: 46/46 checks passed|abCd|conclient: line abCd"
 EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|Boot memory released|init: manifest has 21 entries|init: configured vga_driver|init: started console|console: ready|conclient: ready|conclient: line abCd|conclient: ok|init: started kbd|init: started ata|init: started rtc|rtc: ready|init: started fat|init: started vfs|vfs: 4 mounts|init: fsclient exit notices 10/10|init: started probe|kbd: ready|VGA driver detected|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"

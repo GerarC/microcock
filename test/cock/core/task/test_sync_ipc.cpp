@@ -310,6 +310,93 @@ void checkReplyCancelsTheTimeout() {
 	TaskManager::buryDeadThreads();
 }
 
+void checkDeferThenReplyLater() {
+	startScheduler();
+	Thread *first = makeThread();
+	Thread *second = makeThread();
+	Thread *server = makeThread();
+	Thread *other = makeThread();
+
+	EXPECT_TRUE(SyncIpc::defer(*server) == nullptr);
+	EXPECT_TRUE(startCall(*first, server->getId(), FIRST_REQUEST));
+	Scheduler::takeRescheduleRequest();
+	EXPECT_TRUE(acceptNext(*server) == AcceptResult::SERVED);
+	EXPECT_TRUE(SyncIpc::defer(*server) == first);
+	EXPECT_TRUE(server->serving == nullptr);
+	EXPECT_TRUE(first->getState() == ThreadState::WAITING_REPLY);
+	EXPECT_FALSE(SyncIpc::reply(*server, FIRST_REPLY, false));
+
+	EXPECT_TRUE(startCall(*second, server->getId(), SECOND_REQUEST));
+	Scheduler::takeRescheduleRequest();
+	EXPECT_TRUE(acceptNext(*server) == AcceptResult::SERVED);
+	EXPECT_TRUE(SyncIpc::reply(*server, SECOND_REPLY, false));
+	EXPECT_TRUE(second->getState() == ThreadState::READY);
+	EXPECT_TRUE(hasWords(frameOf(second), SECOND_REPLY));
+	EXPECT_TRUE(first->getState() == ThreadState::WAITING_REPLY);
+
+	EXPECT_FALSE(SyncIpc::replyTo(*server, UNKNOWN_PID, FIRST_REPLY));
+	EXPECT_FALSE(SyncIpc::replyTo(*other, first->getId(), FIRST_REPLY));
+	EXPECT_TRUE(first->getState() == ThreadState::WAITING_REPLY);
+
+	EXPECT_TRUE(SyncIpc::replyTo(*server, first->getId(), FIRST_REPLY));
+	EXPECT_TRUE(first->getState() == ThreadState::READY);
+	EXPECT_EQ(SUCCESS, frameOf(first).result);
+	EXPECT_EQ(static_cast<uintptr_t>(server->getId()), frameOf(first).values[PEER_VALUE]);
+	EXPECT_TRUE(hasWords(frameOf(first), FIRST_REPLY));
+	EXPECT_TRUE(first->callTarget == nullptr);
+	EXPECT_TRUE(server->deferred == nullptr);
+	EXPECT_FALSE(SyncIpc::replyTo(*server, first->getId(), FIRST_REPLY));
+
+	drain();
+	retire(first);
+	retire(second);
+	retire(server);
+	retire(other);
+	TaskManager::buryDeadThreads();
+}
+
+void checkDeferredCallTimesOut() {
+	startScheduler();
+	Thread *caller = makeThread();
+	Thread *server = makeThread();
+
+	EXPECT_TRUE(startCall(*caller, server->getId(), FIRST_REQUEST, SHORT_WAIT_MILLISECONDS));
+	Scheduler::takeRescheduleRequest();
+	EXPECT_TRUE(acceptNext(*server) == AcceptResult::SERVED);
+	EXPECT_TRUE(SyncIpc::defer(*server) == caller);
+
+	pass(SETTLE_TICKS);
+	EXPECT_TRUE(caller->getState() == ThreadState::READY);
+	EXPECT_EQ(abi::call::TIMED_OUT, frameOf(caller).result);
+	EXPECT_TRUE(server->deferred == nullptr);
+	EXPECT_FALSE(SyncIpc::replyTo(*server, caller->getId(), FIRST_REPLY));
+
+	drain();
+	retire(caller);
+	retire(server);
+	TaskManager::buryDeadThreads();
+}
+
+void checkDeathFailsDeferredCalls() {
+	startScheduler();
+	Thread *caller = makeThread();
+	Thread *server = makeThread();
+
+	EXPECT_TRUE(startCall(*caller, server->getId(), FIRST_REQUEST));
+	Scheduler::takeRescheduleRequest();
+	EXPECT_TRUE(acceptNext(*server) == AcceptResult::SERVED);
+	EXPECT_TRUE(SyncIpc::defer(*server) == caller);
+
+	retire(server);
+	EXPECT_TRUE(caller->getState() == ThreadState::READY);
+	EXPECT_EQ(FAILURE, frameOf(caller).result);
+	EXPECT_TRUE(server->deferred == nullptr);
+
+	drain();
+	retire(caller);
+	TaskManager::buryDeadThreads();
+}
+
 void finishServer(Thread *server) {
 	drain();
 	retire(server);
@@ -399,6 +486,9 @@ void test_sync_ipc() {
 	checkCallTimeoutWhileQueued();
 	checkCallTimeoutWhileServed();
 	checkReplyCancelsTheTimeout();
+	checkDeferThenReplyLater();
+	checkDeferredCallTimesOut();
+	checkDeathFailsDeferredCalls();
 	checkAcceptTakesPendingMessages();
 	checkMessageWakesAWaitingServer();
 	checkNotificationWakesAWaitingServer();

@@ -39,6 +39,8 @@ enum SyscallNum : uint32_t {
     SYS_IPC_ACCEPT          = 0x184,
     SYS_IPC_REPLY           = 0x185,
     SYS_IPC_REPLY_WAIT      = 0x186,
+    SYS_IPC_DEFER           = 0x187,
+    SYS_IPC_REPLY_TO        = 0x188,
 };
 
 }

@@ -87,7 +87,7 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_FUTEX_WAIT` (0x180): Block while a 32 bit word still holds an expected value, with an optional timeout.
 * `SYS_FUTEX_WAKE` (0x181): Wake up to a given number of threads of the caller process waiting on a word.
 * `SYS_GETTID` (0x182): Retrieve the id of the calling thread.
-* `SYS_IPC_CALL` (0x183), `SYS_IPC_ACCEPT` (0x184), `SYS_IPC_REPLY` (0x185), `SYS_IPC_REPLY_WAIT` (0x186): Synchronous calls with four words in registers each way, a direct switch to the server and an optional timeout. `accept` also wakes for an asynchronous message or an interrupt.
+* `SYS_IPC_CALL` (0x183), `SYS_IPC_ACCEPT` (0x184), `SYS_IPC_REPLY` (0x185), `SYS_IPC_REPLY_WAIT` (0x186), `SYS_IPC_DEFER` (0x187), `SYS_IPC_REPLY_TO` (0x188): Synchronous calls with four words in registers each way, a direct switch to the server and an optional timeout. `accept` also wakes for an asynchronous message or an interrupt. `defer` detaches the call being served and returns a ticket; `reply_to` answers it later.
 
 ## Building and Running
 
@@ -201,7 +201,7 @@ The same checks run on every push through `.github/workflows/ci.yml`.
 * Capabilities are assigned at boot (the module named `init` holds the authority) and cannot be revoked; each process holds up to 16.
 * IPC is asynchronous with a small inbox per thread; there are no timeouts and no synchronous call and reply.
 * The user C library is minimal: it has buffered `printf`, `malloc` and `operator new` (no locking), and no file calls yet.
-* `SYS_WRITE` is a debug and fallback channel owned by the kernel. Programs that link the console client write and read descriptors 0 to 2 through the `console` server; `read(0)` polls it every 10 ms, because a server thread can answer only the call it is serving.
+* `SYS_WRITE` is a debug and fallback channel owned by the kernel. Programs write and read descriptors 0 to 2 through the `console` server (the C library links the client by default); `read(0)` blocks in the kernel until a line is ready, through a deferred reply.
 * A process maps at most 4096 pages (16 MiB) in at most 32 regions.
 * The x86 build has no PAE, so no NX bit and no memory above 4 GiB.
 * A kernel stack overflow reaches the guard page but ends in a triple fault, without a message.
@@ -261,8 +261,8 @@ In this order. Each item is one change with its tests and documentation.
 - [x] Timers: `sleep` and receive with a timeout.
 - [x] Threads, blocking primitives and exit notifications for `spawn`.
 - [x] Synchronous IPC with a register fast path.
-- [x] A console server (`console`): `printf` and `read(0)` go through it for programs that link the console client.
-- [ ] Console server follow-ups: park a blocked reader instead of polling, and make the standard C library link the console client by default.
+- [x] A console server (`console`): `printf` and `read(0)` go through it; readers block through deferred replies and the client is linked by default.
+- [ ] Capability check on the calls to the console server (needs the IPC capability of stage 9).
 - [ ] A minimal shell with built-in commands (raises the version to 0.2.0).
 - [ ] Locking in `malloc` and a shared `crt0`.
 

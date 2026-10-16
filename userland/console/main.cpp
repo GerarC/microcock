@@ -34,7 +34,32 @@ constexpr uint32_t ANSWER_WORDS = console::FIRST_DATA_WORD + console::DATA_WORDS
 
 static_assert(console::CHUNK_BYTES <= DISPLAY_CHUNK_BYTES);
 
+struct Reader {
+	uint32_t ticket;
+	size_t length;
+};
+
+enum class Served {
+	REPLY,
+	DEFERRED,
+};
+
+constexpr size_t MAX_READERS = 8;
+constexpr size_t FIRST_READER = 0;
+constexpr size_t SLOT_COUNT = 8;
+constexpr size_t SLOT_BYTES = 256;
+
+struct Slot {
+	bool used;
+	uint32_t sender;
+	size_t length;
+	char bytes[SLOT_BYTES];
+};
+
+Slot slots[SLOT_COUNT];
 LineDiscipline discipline;
+Reader readers[MAX_READERS];
+size_t readerCount = 0;
 uint32_t display = NO_PROCESS;
 uint32_t keyboard = NO_PROCESS;
 
@@ -56,13 +81,61 @@ void deliverToDisplay(const Message &message) {
 }
 
 void screenWrite(const char *text, size_t length) {
-	Message message = {};
-	message.type = MessageType::VIDEO_WRITE_STR;
-	message.payload.args.arg0 = static_cast<uint32_t>(length);
-	char *target = reinterpret_cast<char *>(&message.payload.args.arg1);
-	for (size_t index = 0; index < length && index < DISPLAY_CHUNK_BYTES; index++)
-		target[index] = text[index];
-	deliverToDisplay(message);
+	for (size_t offset = 0; offset < length; offset += DISPLAY_CHUNK_BYTES) {
+		size_t piece = length - offset;
+		if (piece > DISPLAY_CHUNK_BYTES) piece = DISPLAY_CHUNK_BYTES;
+
+		Message message = {};
+		message.type = MessageType::VIDEO_WRITE_STR;
+		message.payload.args.arg0 = static_cast<uint32_t>(piece);
+		char *target = reinterpret_cast<char *>(&message.payload.args.arg1);
+		for (size_t index = 0; index < piece; index++)
+			target[index] = text[offset + index];
+		deliverToDisplay(message);
+	}
+}
+
+void emit(const char *text, size_t length) {
+	serialWrite(text, length);
+	screenWrite(text, length);
+}
+
+void flush(Slot &slot) {
+	emit(slot.bytes, slot.length);
+	slot.length = 0;
+	slot.used = false;
+}
+
+Slot *findSlot(uint32_t sender) {
+	Slot *free = nullptr;
+	for (Slot &slot : slots) {
+		if (slot.used && slot.sender == sender) return &slot;
+		if (!slot.used && free == nullptr) free = &slot;
+	}
+	if (free != nullptr) return free;
+
+	for (Slot &slot : slots) {
+		if (cock::user::process_alive(slot.sender)) continue;
+		flush(slot);
+		return &slot;
+	}
+	return nullptr;
+}
+
+void handleWrite(uint32_t sender, const char *bytes, size_t length, bool last) {
+	Slot *slot = findSlot(sender);
+	if (slot == nullptr) return emit(bytes, length);
+
+	if (slot->length + length > SLOT_BYTES) {
+		emit(slot->bytes, slot->length);
+		slot->length = 0;
+	}
+	for (size_t index = 0; index < length; index++)
+		slot->bytes[slot->length + index] = bytes[index];
+	slot->length += length;
+	slot->used = true;
+	slot->sender = sender;
+	if (last) flush(*slot);
 }
 
 void screenCharacter(char character) {
@@ -106,7 +179,28 @@ void answer(uint32_t (&words)[ANSWER_WORDS], Status status, size_t count) {
 	words[console::HEADER_WORD] = console::pack(static_cast<uint32_t>(status), count);
 }
 
-void serve(const uint32_t (&request)[ANSWER_WORDS], uint32_t (&reply)[ANSWER_WORDS]) {
+void fillRead(uint32_t (&reply)[ANSWER_WORDS], size_t wanted) {
+	char bytes[console::CHUNK_BYTES] = {};
+	size_t length = discipline.take(bytes, wanted);
+	console::packBytes(reply, bytes, length);
+	answer(reply, Status::OK, length);
+}
+
+void wakeReaders() {
+	while (readerCount > 0 && discipline.hasInput()) {
+		Reader reader = readers[FIRST_READER];
+		readerCount--;
+		for (size_t index = 0; index < readerCount; index++)
+			readers[index] = readers[index + 1];
+
+		uint32_t reply[ANSWER_WORDS] = {};
+		fillRead(reply, reader.length);
+		cock::user::ipc_reply_to(reader.ticket, reply);
+	}
+}
+
+Served serve(uint32_t sender, const uint32_t (&request)[ANSWER_WORDS],
+			 uint32_t (&reply)[ANSWER_WORDS]) {
 	for (uint32_t &word : reply)
 		word = 0;
 
@@ -116,20 +210,35 @@ void serve(const uint32_t (&request)[ANSWER_WORDS], uint32_t (&reply)[ANSWER_WOR
 
 	switch (static_cast<Op>(console::codeOf(header))) {
 	case Op::WRITE:
-		if (length == 0 || length > console::CHUNK_BYTES)
-			return answer(reply, Status::BAD_REQUEST, 0);
+		if (length == 0 || length > console::CHUNK_BYTES) {
+			answer(reply, Status::BAD_REQUEST, 0);
+			return Served::REPLY;
+		}
 		console::unpackBytes(request, bytes, length);
-		serialWrite(bytes, length);
-		screenWrite(bytes, length);
-		return answer(reply, Status::OK, length);
+		handleWrite(sender, bytes, length, console::isLast(header));
+		answer(reply, Status::OK, length);
+		return Served::REPLY;
 	case Op::READ:
-		if (length == 0 || length > console::CHUNK_BYTES)
-			return answer(reply, Status::BAD_REQUEST, 0);
-		length = discipline.take(bytes, length);
-		console::packBytes(reply, bytes, length);
-		return answer(reply, Status::OK, length);
+		if (length == 0 || length > console::CHUNK_BYTES) {
+			answer(reply, Status::BAD_REQUEST, 0);
+			return Served::REPLY;
+		}
+		if (discipline.hasInput()) {
+			fillRead(reply, length);
+			return Served::REPLY;
+		}
+		if (readerCount < MAX_READERS) {
+			uint32_t ticket = cock::user::ipc_defer();
+			if (ticket != cock::user::NO_TICKET) {
+				readers[readerCount++] = {ticket, length};
+				return Served::DEFERRED;
+			}
+		}
+		answer(reply, Status::BUSY, 0);
+		return Served::REPLY;
 	}
 	answer(reply, Status::BAD_REQUEST, 0);
+	return Served::REPLY;
 }
 
 void waitForCapabilities() {
@@ -158,6 +267,7 @@ extern "C" void _start() {
 	for (;;) {
 		if (result.status == CallStatus::MESSAGE_PENDING) {
 			drainMessages();
+			wakeReaders();
 			result = cock::user::ipc_accept();
 			continue;
 		}
@@ -167,7 +277,10 @@ extern "C" void _start() {
 		}
 
 		uint32_t reply[ANSWER_WORDS] = {};
-		serve(result.words, reply);
+		if (serve(result.peer, result.words, reply) == Served::DEFERRED) {
+			result = cock::user::ipc_accept();
+			continue;
+		}
 		result = cock::user::ipc_reply_wait(reply);
 	}
 }

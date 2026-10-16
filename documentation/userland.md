@@ -14,7 +14,7 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `console` | Console server: owns the serial port `0x3F8+8` and the input line; serves `CON_WRITE` and `CON_READ` as synchronous calls, echoes typed keys on the display server; see [console](console.md) |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the console server |
 | `conclient` | Test program: prints and reads a typed line through the C library, so `printf` and `read(0)` go through `console` |
-| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp`, `files.cpp` and `threads.cpp` and `sync.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 45/45 checks passed` |
+| `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp`, `files.cpp` and `threads.cpp` and `sync.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 46/46 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
 | `fsclient` | Reads a file from the `initrd` and exits; `init` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |

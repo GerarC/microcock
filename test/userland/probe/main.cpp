@@ -6,7 +6,7 @@
 
 namespace {
 
-constexpr size_t CHECK_COUNT = 45;
+constexpr size_t CHECK_COUNT = 46;
 constexpr uintptr_t EXIT_ALL_PASSED = 0;
 constexpr uintptr_t EXIT_SOME_FAILED = 1;
 
@@ -58,7 +58,8 @@ extern "C" void _start() {
 		probe::queuedCallsAreServedInOrderAndMisuseIsRefused(),
 		probe::deadServerFailsEveryCaller(),
 		probe::callTimeoutExpiresAndLateReplyFails(),
-		probe::acceptWaitsForMessagesAndTimesOut()};
+		probe::acceptWaitsForMessagesAndTimesOut(),
+		probe::deferredCallIsAnsweredAfterTheNextOne()};
 
 	unsigned passed = 0;
 	for (size_t idx = 0; idx < CHECK_COUNT; idx++) {

@@ -125,6 +125,7 @@ class Thread {
 	Thread *callLink = nullptr;
 	Thread *callers = nullptr;
 	Thread *serving = nullptr;
+	Thread *deferred = nullptr;
 	Thread *callTarget = nullptr;
 	uint32_t callWords[abi::call::WORD_COUNT] = {};
 	bool queued = false;

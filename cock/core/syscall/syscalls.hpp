@@ -174,6 +174,19 @@ uintptr_t sys_ipc_reply(uintptr_t, uintptr_t word0, uintptr_t word1, uintptr_t w
 uintptr_t sys_ipc_reply_wait(uintptr_t, uintptr_t word0, uintptr_t word1,
 							 uintptr_t word2, uintptr_t word3, uintptr_t milliseconds);
 
+/**
+ * @brief Detaches the call being served and returns its ticket, so the server can
+ * accept other calls and answer this one later with sys_ipc_reply_to.
+ */
+uintptr_t sys_ipc_defer(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
+						uintptr_t);
+
+/**
+ * @brief Answers a detached call, named by its ticket, with four words.
+ */
+uintptr_t sys_ipc_reply_to(uintptr_t ticket, uintptr_t word0, uintptr_t word1,
+						   uintptr_t word2, uintptr_t word3, uintptr_t);
+
 uintptr_t sys_gettid(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
 					 uintptr_t);
 

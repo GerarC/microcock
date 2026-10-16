@@ -114,6 +114,31 @@ AcceptResult SyncIpc::accept(Thread &server, uint32_t milliseconds) {
 	return AcceptResult::BLOCKED;
 }
 
+bool SyncIpc::unlink(Thread *&head, Thread &thread) {
+	Thread **link = &head;
+	while (*link != nullptr && *link != &thread)
+		link = &(*link)->callLink;
+	if (*link != &thread) return false;
+	*link = thread.callLink;
+	thread.callLink = nullptr;
+	return true;
+}
+
+void SyncIpc::deliver(Thread &server, Thread &caller,
+					  const uint32_t (&words)[abi::call::WORD_COUNT], bool handoff) {
+	SyscallFrame frame = frameWith(abi::call::SUCCESS, server.getId(), words);
+	hal::write_syscall_frame(caller.getStackPointer(), frame);
+	caller.callTarget = nullptr;
+	Timeouts::cancel(&caller);
+	caller.setState(ThreadState::READY);
+	if (handoff) {
+		Scheduler::requestHandoff(&caller);
+		Scheduler::requestReschedule();
+	} else {
+		Scheduler::addThread(&caller);
+	}
+}
+
 bool SyncIpc::reply(Thread &server, const uint32_t (&words)[abi::call::WORD_COUNT],
 					bool handoff) {
 	InterruptGuard guard;
@@ -121,17 +146,31 @@ bool SyncIpc::reply(Thread &server, const uint32_t (&words)[abi::call::WORD_COUN
 	if (caller == nullptr) return false;
 	server.serving = nullptr;
 
-	SyscallFrame frame = frameWith(abi::call::SUCCESS, server.getId(), words);
-	hal::write_syscall_frame(caller->getStackPointer(), frame);
-	caller->callTarget = nullptr;
-	Timeouts::cancel(caller);
-	caller->setState(ThreadState::READY);
-	if (handoff) {
-		Scheduler::requestHandoff(caller);
-		Scheduler::requestReschedule();
-	} else {
-		Scheduler::addThread(caller);
-	}
+	deliver(server, *caller, words, handoff);
+	return true;
+}
+
+Thread *SyncIpc::defer(Thread &server) {
+	InterruptGuard guard;
+	Thread *caller = server.serving;
+	if (caller == nullptr) return nullptr;
+	server.serving = nullptr;
+
+	caller->callLink = server.deferred;
+	server.deferred = caller;
+	return caller;
+}
+
+bool SyncIpc::replyTo(Thread &server, uint32_t ticket,
+					  const uint32_t (&words)[abi::call::WORD_COUNT]) {
+	InterruptGuard guard;
+	Thread *caller = server.deferred;
+	while (caller != nullptr && caller->getId() != ticket)
+		caller = caller->callLink;
+	if (caller == nullptr) return false;
+
+	unlink(server.deferred, *caller);
+	deliver(server, *caller, words, false);
 	return true;
 }
 
@@ -159,11 +198,8 @@ void SyncIpc::expire(Thread &thread) {
 	if (target != nullptr) {
 		if (target->serving == &thread) {
 			target->serving = nullptr;
-		} else {
-			Thread **link = &target->callers;
-			while (*link != nullptr && *link != &thread)
-				link = &(*link)->callLink;
-			if (*link == &thread) *link = thread.callLink;
+		} else if (!unlink(target->callers, thread)) {
+			unlink(target->deferred, thread);
 		}
 	}
 	thread.callLink = nullptr;
@@ -175,6 +211,12 @@ void SyncIpc::abandon(Thread &dying) {
 	while (dying.callers != nullptr) {
 		Thread *caller = dying.callers;
 		dying.callers = caller->callLink;
+		caller->callLink = nullptr;
+		finish(caller, abi::call::FAILURE);
+	}
+	while (dying.deferred != nullptr) {
+		Thread *caller = dying.deferred;
+		dying.deferred = caller->callLink;
 		caller->callLink = nullptr;
 		finish(caller, abi::call::FAILURE);
 	}

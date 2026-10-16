@@ -64,6 +64,17 @@ inline bool ipc_reply(const uint32_t (&words)[CALL_WORDS]) {
 	return register_call(SYS_IPC_REPLY, 0, words, CALL_NO_TIMEOUT).ok;
 }
 
+constexpr uint32_t NO_TICKET = 0xFFFFFFFF;
+
+inline uint32_t ipc_defer() {
+	uintptr_t result = syscall(SYS_IPC_DEFER, 0, 0, 0, 0, 0, 0);
+	return result == FAILURE ? NO_TICKET : static_cast<uint32_t>(result);
+}
+
+inline bool ipc_reply_to(uint32_t ticket, const uint32_t (&words)[CALL_WORDS]) {
+	return register_call(SYS_IPC_REPLY_TO, ticket, words, CALL_NO_TIMEOUT).ok;
+}
+
 inline CallResult ipc_reply_wait(const uint32_t (&words)[CALL_WORDS],
 								 uint32_t milliseconds = CALL_NO_TIMEOUT) {
 	return register_call(SYS_IPC_REPLY_WAIT, 0, words, milliseconds);
