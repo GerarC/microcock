@@ -126,6 +126,13 @@ Same as `run`, without a window; the serial port goes to your terminal:
 make run-headless
 ```
 
+Without a disk, only `/` exists (the `initrd`, read only); `/fat` and `/ext` have nothing behind them. To attach one, build the sample disk (an MBR or GPT image with a FAT32 and an ext2 volume; it needs `sfdisk`, `mtools` and `e2fsprogs`) and pass it to `run`:
+```bash
+make disk
+make run DISK=build/disk.img
+```
+`DISK_SCHEME=gpt` builds the GPT variant. The guest writes into the image file, so run `make disk` again to get the original contents back.
+
 Clean the build directory:
 ```bash
 make clean
@@ -276,6 +283,7 @@ In this order. Each item is one change with its tests and documentation.
 
 **4. Later**
 - [x] A syscall fuzzer that runs in Ring 3 and fails on any kernel panic, in unprivileged and root modes.
+- [ ] A `tmpfs`: a writable file server that keeps its files in memory and is mounted on `/tmp`, so the system has a place to write without a disk.
 - [ ] Platform: APIC and IOAPIC, PAE with NX and memory above 4 GiB, SMP, an x86_64 port.
 
 ## Documentation
