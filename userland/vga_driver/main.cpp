@@ -5,6 +5,13 @@
 using namespace cock::vga;
 using namespace cock::ipc;
 
+namespace {
+
+constexpr size_t STRING_ARGUMENT_WORDS = 5;
+constexpr size_t MAX_STRING_CHUNK = STRING_ARGUMENT_WORDS * sizeof(uint32_t);
+
+}
+
 extern "C" void _start() {
 	bool ready = false;
 
@@ -21,6 +28,7 @@ extern "C" void _start() {
 			case MessageType::VIDEO_WRITE_STR: {
 				if (!ready) break;
 				size_t length = msg.payload.args.arg0;
+				if (length > MAX_STRING_CHUNK) length = MAX_STRING_CHUNK;
 				const char *str_chunk =
 					reinterpret_cast<const char *>(&msg.payload.args.arg1);
 				VgaServer::write(str_chunk, length);
