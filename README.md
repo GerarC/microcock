@@ -291,6 +291,7 @@ In this order. Each item is one change with its tests and documentation.
 
 ## Documentation
 For more detailed information regarding specific subsystems, please check the `documentation/` folder, split by layer: [core](documentation/core/README.md), [arch](documentation/arch/README.md), [userland](documentation/userland/README.md), [shared](documentation/shared/README.md) and [libs](documentation/libs/README.md). Every program in `userland/` has its own `README.md`. The pages:
+* [Learning path](documentation/learning_path.md): Where to start reading, from boot to the userland.
 * [Project Structure](documentation/project_structure.md): Directory layout and the HAL.
 * [Bootloader](documentation/arch/bootloader.md): Multiboot and early entry process.
 * [Kernel Main](documentation/core/kernel_main.md): Initialization sequence.
