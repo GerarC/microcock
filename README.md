@@ -214,7 +214,7 @@ The same checks run on every push through `.github/workflows/ci.yml`.
 * A process that exits tells its spawner only if the spawner asked for it (`PROCESS_EXITED`), and the notice is lost when the inbox of the spawner is full; `SYS_PROC_ALIVE` stays the reliable check.
 * Capabilities are assigned at boot (the module named `init` holds the authority) and cannot be revoked; each process holds up to 16.
 * IPC is asynchronous with a small inbox per thread; there are no timeouts and no synchronous call and reply.
-* The user C library is minimal: it has buffered `printf`, `malloc` and `operator new` (no locking), and no file calls yet.
+* The user C library is minimal: it has buffered `printf`, `malloc` and `operator new` (locked with a futex mutex, safe for threads), and no file calls yet.
 * `SYS_WRITE` is a debug and fallback channel owned by the kernel. Programs write and read descriptors 0 to 2 through the `console` server (the C library links the client by default); `read(0)` blocks in the kernel until a line is ready, through a deferred reply.
 * A process maps at most 4096 pages (16 MiB) in at most 32 regions.
 * The x86 build has no PAE, so no NX bit and no memory above 4 GiB.

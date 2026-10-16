@@ -3,10 +3,12 @@
  * @brief Process termination and dynamic memory.
  *
  * The allocator keeps a sorted free list over anonymous chunks obtained with
- * `mmap`. Blocks are 8 byte aligned. Deviation from ISO C: there is no locking,
- * so the functions are NOT safe to call from several threads at once, and
- * `free` does not return chunks to the kernel. `exit`, `atexit`, `qsort`,
- * `rand` and the number conversions are not provided.
+ * `mmap`. Blocks are 8 byte aligned. Every entry point takes one futex mutex
+ * (`cock::user::Mutex`), so the functions are safe to call from several threads
+ * of one process; a thread that waits for it sleeps in the kernel. The lock is
+ * per process. Deviation from ISO C: `free` does not return chunks to the
+ * kernel. `exit`, `atexit`, `qsort`, `rand` and the number conversions are not
+ * provided.
  */
 #ifndef STDLIB_H
 #define STDLIB_H
