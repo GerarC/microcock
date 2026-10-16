@@ -1,3 +1,10 @@
+/**
+ * @file ring_buffer.hpp
+ * @brief Fixed capacity circular queue. One slot is kept empty, so it holds `Size - 1` elements.
+ *
+ * Safe for one producer and one consumer that do not preempt each other mid-operation; indexes are volatile but
+ * there are no atomics or barriers, so it is not a general lock free queue.
+ */
 #ifndef SHARED_COCK_RING_BUFFER_HPP
 #define SHARED_COCK_RING_BUFFER_HPP
 
@@ -20,6 +27,7 @@ template <typename T, size_t Size> class RingBuffer {
 		tail; /**< Index from where the next element will be read. */
 
   public:
+	/** Creates an empty buffer. */
 	constexpr RingBuffer() : head(0), tail(0) {}
 
 	/**

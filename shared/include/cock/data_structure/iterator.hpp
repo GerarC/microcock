@@ -1,3 +1,7 @@
+/**
+ * @file iterator.hpp
+ * @brief Bidirectional iterator over `Node` chains, used by `LinkedList` for range-based loops.
+ */
 #ifndef SHARED_COCK_ITERATOR_HPP
 #define SHARED_COCK_ITERATOR_HPP
 

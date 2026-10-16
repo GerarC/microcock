@@ -1,3 +1,15 @@
+/**
+ * @file manifest.hpp
+ * @brief Parser of `manifest.conf`, the list of programs that `init` starts and the capabilities each one gets.
+ *
+ * The file is text, one entry per line: `name key=value ...`. Blank lines and lines that start with `#` are
+ * ignored, and tokens are separated by spaces or tabs. Keys:
+ * `path=<file>` (ELF in the initrd; no path means a boot data module), `peer=<name>` (process told about
+ * by `CAPABILITY_GRANTED`), `repeat=<1..32>` (copies to start; 1 for boot modules), `arg=<number>` (one
+ * numeric argument) and `caps=<grant>,<grant>...` with grants `io:<first>[+count]`, `irq:<line>[+count]` and
+ * `mem:<first>+<bytes>`. Numbers are decimal or `0x` hexadecimal and must fit in 32 bits. The parser has no
+ * dependencies and is covered by host tests; init reads the file, the kernel never does.
+ */
 #ifndef SHARED_COCK_ABI_MANIFEST_HPP
 #define SHARED_COCK_ABI_MANIFEST_HPP
 
@@ -7,89 +19,175 @@
 
 namespace cock::abi::manifest {
 
+/** Path of the manifest inside the initrd. */
 constexpr const char *FILE_PATH = "manifest.conf";
+/** Largest manifest file `init` reads, in bytes. */
 constexpr size_t MAX_FILE_BYTES = 4096;
+/** Most entries in the manifest; one more is `TOO_MANY_ENTRIES`. */
 constexpr size_t MAX_ENTRIES = 32;
+/** Longest process or peer name including the terminator; longer names are rejected. */
 constexpr size_t MAX_NAME_BYTES = 32;
+/** Longest program path including the terminator. */
 constexpr size_t MAX_PATH_BYTES = 64;
+/** Most capability grants per entry. */
 constexpr size_t MAX_GRANTS = 4;
+/** Number of copies when `repeat` is not given. */
 constexpr uint32_t DEFAULT_REPEAT = 1;
+/** Largest accepted value of `repeat`. */
 constexpr uint32_t MAX_REPEAT = 32;
 
+/** One capability granted to a process. */
 struct Grant {
+	/** Kind of resource. */
 	CapabilityType type;
+	/** First port, IRQ line or physical address. */
 	uint32_t first;
+	/** Number of ports or lines, or the size in bytes for memory. Never 0, and `first + count` never passes 2^32. */
 	uint32_t count;
 };
 
+/** One parsed line of the manifest. */
 struct Entry {
+	/** Name of the process, unique in the file, null terminated. */
 	char name[MAX_NAME_BYTES];
+	/** Path of the ELF in the initrd; empty for a boot module. */
 	char path[MAX_PATH_BYTES];
+	/** Name of the peer process, or empty when there is none. */
 	char peer[MAX_NAME_BYTES];
+	/** Capabilities to grant; only the first `grantCount` are valid. */
 	Grant grants[MAX_GRANTS];
+	/** Number of valid grants, at most `MAX_GRANTS`. */
 	size_t grantCount;
+	/** Copies to start, 1 to `MAX_REPEAT`. */
 	uint32_t repeat;
+	/** Numeric argument; valid only when `hasArgument` is true. */
 	uint32_t argument;
+	/** True when the line had `arg=`. */
 	bool hasArgument;
 
+	/**
+	 * @brief Tells whether the entry names a data module instead of a program.
+	 * @return True when the path is empty.
+	 */
 	bool isBootModule() const { return path[0] == '\0'; }
+	/**
+	 * @brief Tells whether a peer was given.
+	 * @return True when the peer name is not empty.
+	 */
 	bool hasPeer() const { return peer[0] != '\0'; }
 };
 
+/** Reason why parsing stopped; see `Manifest::errorLine` for the line. */
 enum class Error : uint32_t {
+	/** No error. */
 	NONE = 0,
+	/** More than `MAX_ENTRIES` entries. */
 	TOO_MANY_ENTRIES,
+	/** Missing, too long, or containing `=`. */
 	BAD_NAME,
+	/** Another entry has the same name. */
 	DUPLICATE_NAME,
+	/** A token is not `key=value` or the key is not known. */
 	UNKNOWN_KEY,
+	/** A key appears twice on one line. */
 	DUPLICATE_KEY,
+	/** A value is empty, too long, not a number, out of range, or a boot module with `repeat` other than 1. */
 	BAD_VALUE,
+	/** More than `MAX_GRANTS` grants on one line. */
 	TOO_MANY_GRANTS,
 };
 
 namespace detail {
 
+/** Line terminator. */
 constexpr char NEWLINE = '\n';
+/** Blank character. */
 constexpr char SPACE = ' ';
+/** Blank character. */
 constexpr char TAB = '\t';
+/** Blank character, so files with CRLF line ends parse. */
 constexpr char CARRIAGE_RETURN = '\r';
+/** First character of a comment line. */
 constexpr char COMMENT_START = '#';
+/** Separates a key from its value. */
 constexpr char KEY_SEPARATOR = '=';
+/** Separates grants in a `caps` list. */
 constexpr char LIST_SEPARATOR = ',';
+/** Separates the grant type from its range. */
 constexpr char TYPE_SEPARATOR = ':';
+/** Separates the first value of a range from its count. */
 constexpr char COUNT_SEPARATOR = '+';
+/** Second character of a hexadecimal prefix. */
 constexpr char HEX_MARKER = 'x';
+/** Uppercase form of the hexadecimal marker. */
 constexpr char HEX_MARKER_UPPER = 'X';
+/** Lowest decimal digit. */
 constexpr char DIGIT_ZERO = '0';
+/** Highest decimal digit. */
 constexpr char DIGIT_NINE = '9';
+/** Lowest lowercase hexadecimal digit. */
 constexpr char LETTER_LOWER_A = 'a';
+/** Highest lowercase hexadecimal digit. */
 constexpr char LETTER_LOWER_F = 'f';
+/** Lowest uppercase hexadecimal digit. */
 constexpr char LETTER_UPPER_A = 'A';
+/** Highest uppercase hexadecimal digit. */
 constexpr char LETTER_UPPER_F = 'F';
+/** Base of plain numbers; also the value of the digit `a`. */
 constexpr uint32_t DECIMAL_BASE = 10;
+/** Base of numbers with the `0x` prefix. */
 constexpr uint32_t HEX_BASE = 16;
+/** Length of the `0x` prefix. */
 constexpr size_t HEX_PREFIX_BYTES = 2;
+/** Value returned by `digitValue` for a character that is not a digit; above any base. */
 constexpr uint32_t NOT_A_DIGIT = 0xFF;
+/** Count of a grant that gives no `+count` (one port or one line). */
 constexpr uint32_t SINGLE_UNIT = 1;
+/** Largest value a number may have. */
 constexpr uint64_t MAX_NUMBER = 0xFFFFFFFF;
+/** End of the 32 bit address space; a grant range must end at or below it. */
 constexpr uint64_t ADDRESS_LIMIT = uint64_t(1) << 32;
 
+/** Key of the program path. */
 constexpr const char *KEY_PATH = "path";
+/** Key of the peer name. */
 constexpr const char *KEY_PEER = "peer";
+/** Key of the copy count. */
 constexpr const char *KEY_REPEAT = "repeat";
+/** Key of the capability list. */
 constexpr const char *KEY_CAPS = "caps";
+/** Key of the numeric argument. */
 constexpr const char *KEY_ARGUMENT = "arg";
+/** Grant type for `IO_PORTS`. */
 constexpr const char *TYPE_IO = "io";
+/** Grant type for `IRQ`. */
 constexpr const char *TYPE_IRQ = "irq";
+/** Grant type for `PHYSICAL_MEMORY`; a count in bytes is required. */
 constexpr const char *TYPE_MEMORY = "mem";
 
+/** Non owning view of a piece of the text, from `begin` up to but not including `end`. */
 struct Slice {
+	/** First character. */
 	const char *begin;
+	/** One past the last character. */
 	const char *end;
 
+	/**
+	 * @brief Length of the view.
+	 * @return Number of characters.
+	 */
 	size_t length() const { return static_cast<size_t>(end - begin); }
+	/**
+	 * @brief Tells whether the view has no characters.
+	 * @return True when empty.
+	 */
 	bool empty() const { return begin == end; }
 
+	/**
+	 * @brief Compares the view with a null terminated string.
+	 * @param text String to compare with; must not be null.
+	 * @return True when both have exactly the same characters.
+	 */
 	bool equals(const char *text) const {
 		size_t index = 0;
 		for (; index < length(); index++)
@@ -98,10 +196,20 @@ struct Slice {
 	}
 };
 
+/**
+ * @brief Tells whether a character is blank.
+ * @param character Character to test.
+ * @return True for space, tab and carriage return.
+ */
 inline bool isBlank(char character) {
 	return character == SPACE || character == TAB || character == CARRIAGE_RETURN;
 }
 
+/**
+ * @brief Removes blank characters from both ends.
+ * @param slice View to trim.
+ * @return The trimmed view.
+ */
 inline Slice trim(Slice slice) {
 	while (slice.begin != slice.end && isBlank(*slice.begin))
 		slice.begin++;
@@ -110,6 +218,14 @@ inline Slice trim(Slice slice) {
 	return slice;
 }
 
+/**
+ * @brief Splits at the first occurrence of a separator.
+ * @param whole View to split.
+ * @param separator Character to look for.
+ * @param before Receives the part before the separator, or the whole view when it is absent.
+ * @param after Receives the part after the separator, or an empty view when it is absent.
+ * @return True when the separator was found.
+ */
 inline bool splitAt(Slice whole, char separator, Slice &before, Slice &after) {
 	for (const char *cursor = whole.begin; cursor != whole.end; cursor++) {
 		if (*cursor != separator) continue;
@@ -122,6 +238,11 @@ inline bool splitAt(Slice whole, char separator, Slice &before, Slice &after) {
 	return false;
 }
 
+/**
+ * @brief Takes the next blank separated token.
+ * @param rest In: remaining text; out: text after the token (not trimmed).
+ * @return The token, or an empty view when only blanks remain.
+ */
 inline Slice nextToken(Slice &rest) {
 	rest = trim(rest);
 	const char *cursor = rest.begin;
@@ -132,6 +253,11 @@ inline Slice nextToken(Slice &rest) {
 	return token;
 }
 
+/**
+ * @brief Value of a hexadecimal digit.
+ * @param character Character `0-9`, `a-f` or `A-F`.
+ * @return 0 to 15, or `NOT_A_DIGIT`.
+ */
 inline uint32_t digitValue(char character) {
 	if (character >= DIGIT_ZERO && character <= DIGIT_NINE)
 		return static_cast<uint32_t>(character - DIGIT_ZERO);
@@ -142,6 +268,12 @@ inline uint32_t digitValue(char character) {
 	return NOT_A_DIGIT;
 }
 
+/**
+ * @brief Parses a decimal or `0x` hexadecimal number.
+ * @param text Digits only; no sign or spaces.
+ * @param value Receives the number on success.
+ * @return False for an empty text, a bad digit, a lone `0x` prefix or a value above 32 bits.
+ */
 inline bool parseNumber(Slice text, uint32_t &value) {
 	uint32_t base = DECIMAL_BASE;
 	const char *cursor = text.begin;
@@ -163,6 +295,13 @@ inline bool parseNumber(Slice text, uint32_t &value) {
 	return true;
 }
 
+/**
+ * @brief Copies a view into a null terminated buffer.
+ * @param text View to copy.
+ * @param destination Output buffer.
+ * @param capacity Size of `destination` including the terminator.
+ * @return False when the text is empty or does not fit.
+ */
 inline bool copyText(Slice text, char *destination, size_t capacity) {
 	if (text.empty() || text.length() >= capacity) return false;
 	for (size_t index = 0; index < text.length(); index++)
@@ -171,6 +310,12 @@ inline bool copyText(Slice text, char *destination, size_t capacity) {
 	return true;
 }
 
+/**
+ * @brief Parses one grant such as `io:0x3F8+8`, `irq:1` or `mem:0xB8000+4000`.
+ * @param text Grant text.
+ * @param grant Receives the grant on success.
+ * @return False for an unknown type, a bad number, a missing count for memory, a zero count or a range past 2^32.
+ */
 inline bool parseGrant(Slice text, Grant &grant) {
 	Slice type;
 	Slice range;
@@ -202,6 +347,12 @@ inline bool parseGrant(Slice text, Grant &grant) {
 		   static_cast<uint64_t>(grant.first) + grant.count <= ADDRESS_LIMIT;
 }
 
+/**
+ * @brief Parses a comma separated list of grants and appends them to an entry.
+ * @param list Value of the `caps` key.
+ * @param entry Entry whose grants are filled in.
+ * @return `Error::NONE`, `TOO_MANY_GRANTS` or `BAD_VALUE`.
+ */
 inline Error parseGrants(Slice list, Entry &entry) {
 	while (!list.empty()) {
 		Slice item;
@@ -216,6 +367,12 @@ inline Error parseGrants(Slice list, Entry &entry) {
 	return Error::NONE;
 }
 
+/**
+ * @brief Parses one non blank line into an entry.
+ * @param line Trimmed line.
+ * @param entry Entry to fill; `repeat` must already hold the default.
+ * @return `Error::NONE` or the reason the line is wrong.
+ */
 inline Error parseLine(Slice line, Entry &entry) {
 	Slice rest = line;
 	Slice name = nextToken(rest);
@@ -271,12 +428,25 @@ inline Error parseLine(Slice line, Entry &entry) {
 
 } // namespace detail
 
+/** Parsed manifest: the entries in file order, or the line and reason of the first error. */
 struct Manifest {
+	/** Parsed entries; only the first `count` are valid. */
 	Entry entries[MAX_ENTRIES];
+	/** Number of entries. */
 	size_t count;
+	/** One based number of the line where parsing failed; 0 when there was no error. */
 	size_t errorLine;
+	/** Result of the last `parse`. */
 	Error error;
 
+	/**
+	 * @brief Parses a whole file, replacing the previous content.
+	 *
+	 * Parsing stops at the first wrong line.
+	 * @param text File content; not required to be null terminated.
+	 * @param length Size of the content in bytes.
+	 * @return True when the whole file is valid; false with `error` and `errorLine` set otherwise.
+	 */
 	bool parse(const char *text, size_t length) {
 		count = 0;
 		errorLine = 0;
@@ -305,6 +475,11 @@ struct Manifest {
 		return true;
 	}
 
+	/**
+	 * @brief Looks an entry up by name.
+	 * @param name Null terminated name.
+	 * @return The entry, or null when there is none.
+	 */
 	const Entry *find(const char *name) const {
 		for (size_t index = 0; index < count; index++) {
 			detail::Slice known = {entries[index].name, entries[index].name};
@@ -316,6 +491,11 @@ struct Manifest {
 	}
 
   private:
+	/**
+	 * @brief Parses a line and appends the entry.
+	 * @param line Trimmed non blank line.
+	 * @return `Error::NONE`, or the reason the line was refused (table full, bad line, duplicate name).
+	 */
 	Error addEntry(detail::Slice line) {
 		if (count == MAX_ENTRIES) return Error::TOO_MANY_ENTRIES;
 
