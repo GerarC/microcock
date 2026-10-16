@@ -1,3 +1,12 @@
+/** @file
+ * @brief Synchronous IPC: call, accept and reply between threads, with
+ * deferred replies and time limits.
+ *
+ * A caller hands four words to a server and sleeps until the answer is written
+ * straight into its saved registers. The server finds the caller id and the
+ * words in its own result registers. Every state change runs with interrupts
+ * blocked.
+ */
 #ifndef CORE_SYNC_IPC_HPP
 #define CORE_SYNC_IPC_HPP
 
@@ -7,32 +16,155 @@
 
 namespace cock::core::task {
 
-enum class AcceptResult { SERVED, BLOCKED, PENDING, TIMED_OUT, REFUSED };
-enum class CallStart { BLOCKED, TIMED_OUT, REFUSED };
+/** @brief Outcome of SyncIpc::accept. */
+enum class AcceptResult {
+	SERVED, /**< A request was dequeued and written to the server registers. */
+	BLOCKED, /**< Nothing to serve: the server sleeps, its result is written on
+				wake up. */
+	PENDING, /**< An asynchronous message or notification is waiting instead. */
+	TIMED_OUT, /**< Nothing arrived and the time limit was zero. */
+	REFUSED /**< The server is still serving a call. */
+};
 
+/** @brief Outcome of SyncIpc::call. */
+enum class CallStart {
+	BLOCKED, /**< The caller sleeps until the reply, a timeout or the death of
+				the server. */
+	TIMED_OUT, /**< The time limit was zero, nothing was sent. */
+	REFUSED /**< The target does not exist, is dead or is the caller itself. */
+};
+
+/**
+ * @brief Static operations of the synchronous call protocol.
+ *
+ * Queues are intrusive: the callers waiting on a server, the call it is
+ * serving and the calls it deferred are linked through Thread fields, so no
+ * allocation happens.
+ */
 class SyncIpc {
   public:
+	/**
+	 * @brief Starts a call to a thread.
+	 *
+	 * Queues the caller on the target. If the target is waiting in accept it is
+	 * served at once and receives a scheduler handoff.
+	 *
+	 * @param caller Thread making the call.
+	 * @param target_id Thread id of the server.
+	 * @param words Four payload words copied into the caller.
+	 * @param milliseconds Time limit, the no timeout value for forever, zero to
+	 * refuse to wait.
+	 * @return See CallStart.
+	 * @note Syscall context. The caller is left in the waiting for reply state
+	 * and a reschedule is requested.
+	 */
 	static CallStart call(Thread &caller, uint32_t target_id,
 						  const uint32_t (&words)[abi::call::WORD_COUNT],
 						  uint32_t milliseconds);
+	/**
+	 * @brief Takes the next request, or waits for one.
+	 * @param server Thread serving.
+	 * @param milliseconds Time limit, the no timeout value for forever, zero to
+	 * poll.
+	 * @return See AcceptResult. Message and notification arrivals wake a
+	 * waiting server with the pending result.
+	 */
 	static AcceptResult accept(Thread &server, uint32_t milliseconds);
+	/**
+	 * @brief Answers the call being served.
+	 * @param server Thread serving.
+	 * @param words Four reply words written into the caller registers.
+	 * @param handoff True to switch to the caller at once, false to just make
+	 * it ready.
+	 * @return True when a call was being served, false otherwise.
+	 */
 	static bool reply(Thread &server, const uint32_t (&words)[abi::call::WORD_COUNT],
 					  bool handoff);
+	/**
+	 * @brief Detaches the call being served so it can be answered later.
+	 * @param server Thread serving.
+	 * @return The caller, whose id is the ticket, or nullptr when no call is
+	 * being served.
+	 */
 	static Thread *defer(Thread &server);
+	/**
+	 * @brief Answers a deferred call.
+	 * @param server Thread that deferred it.
+	 * @param ticket Id of the caller, as returned by defer.
+	 * @param words Four reply words.
+	 * @return True when the ticket names a call deferred by this server.
+	 */
 	static bool replyTo(Thread &server, uint32_t ticket,
 						const uint32_t (&words)[abi::call::WORD_COUNT]);
+	/**
+	 * @brief Tells whether requests are queued on a server.
+	 * @param server Thread to test.
+	 * @return True when at least one caller waits.
+	 */
 	static bool hasCallers(const Thread &server) { return server.callers != nullptr; }
+	/**
+	 * @brief Fails every call tied to a thread that is dying.
+	 * @param dying Thread being killed. Callers queued, deferred or being
+	 * served get the failure result and are made ready.
+	 */
 	static void abandon(Thread &dying);
+	/**
+	 * @brief Wakes a server sleeping in accept because a message or a
+	 * notification arrived.
+	 * @param server Thread in the waiting for call state. It resumes with the
+	 * pending result.
+	 */
 	static void wakeForMessage(Thread &server);
+	/**
+	 * @brief Handles the expiry of a time limit of a synchronous wait.
+	 * @param thread Thread waiting for a call or for a reply. A server gets the
+	 * timed out result. A caller is removed from the queue it was in and gets
+	 * the timed out result too.
+	 * @note Called by Timeouts::onTick.
+	 */
 	static void expire(Thread &thread);
 
   private:
+	/**
+	 * @brief Finds the saved register frame of a thread.
+	 * @param thread Any thread.
+	 * @return The syscall frame for the running thread, else its saved stack
+	 * pointer.
+	 */
 	static uintptr_t frameOf(Thread &thread);
+	/**
+	 * @brief Moves the first queued caller of a server into the serving slot
+	 * and writes caller id and words into the server registers.
+	 * @param server Server with at least one caller.
+	 */
 	static void dispatch(Thread &server);
+	/**
+	 * @brief Removes a thread from a call queue.
+	 * @param head Head of the queue.
+	 * @param thread Thread to remove.
+	 * @return True when it was in the queue.
+	 */
 	static bool unlink(Thread *&head, Thread &thread);
+	/**
+	 * @brief Writes a successful reply into a caller and wakes it.
+	 * @param server Thread replying.
+	 * @param caller Thread being answered.
+	 * @param words Reply words.
+	 * @param handoff True to switch to the caller at once.
+	 */
 	static void deliver(Thread &server, Thread &caller,
 						const uint32_t (&words)[abi::call::WORD_COUNT], bool handoff);
+	/**
+	 * @brief Ends a call with a bare result code and wakes the caller.
+	 * @param caller Thread to finish.
+	 * @param result Result code, such as failure or timed out. Words are zero.
+	 */
 	static void finish(Thread *caller, uintptr_t result);
+	/**
+	 * @brief Overwrites only the result register of a thread saved frame.
+	 * @param thread Thread to patch.
+	 * @param result New result code.
+	 */
 	static void writeResult(Thread &thread, uintptr_t result);
 };
 

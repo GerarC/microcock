@@ -1,3 +1,6 @@
+/** @file
+ * @brief Description of the modules the bootloader hands to the kernel.
+ */
 #ifndef CORE_BOOT_MODULE_HPP
 #define CORE_BOOT_MODULE_HPP
 
@@ -12,6 +15,7 @@ namespace cock::core::boot {
  * * Usually represents loaded ELF binaries (Userland programs/drivers) sitting
  * in memory,
  * * waiting to be mapped to a Page Directory and scheduled.
+ * Data modules (an initrd, for example) use the same structure.
  */
 struct BootModule {
 	void *start_address; /**< Virtual address where the module is loaded in
