@@ -192,6 +192,11 @@ The test attaches a disk with an MBR partition table; `DISK_SCHEME=gpt` uses a G
 DISK_SCHEME=gpt bash scripts/qemu_userland_test.sh HOST_TOOLCHAIN=1
 ```
 
+`scripts/qemu_fuzz_test.sh` boots the fuzzer, which calls the system calls with plausible and hostile arguments and fails on a kernel panic, a triple fault or a hang (see [the fuzzer](documentation/fuzzer.md)); `FUZZ=root` gives it every capability:
+```bash
+FUZZ=user SEED=1 ROUNDS=3000 bash scripts/qemu_fuzz_test.sh HOST_TOOLCHAIN=1
+```
+
 The same checks run on every push through `.github/workflows/ci.yml`.
 
 ### Current limitations
@@ -270,7 +275,7 @@ In this order. Each item is one change with its tests and documentation.
 - [ ] The kernel stops knowing the name `init`; revocation; a capability for IPC (which also decides who may write the disk); a policy for DMA-capable ports.
 
 **4. Later**
-- [ ] A syscall fuzzer that runs in Ring 3 and fails on any kernel panic (postponed until requested).
+- [x] A syscall fuzzer that runs in Ring 3 and fails on any kernel panic, in unprivileged and root modes.
 - [ ] Platform: APIC and IOAPIC, PAE with NX and memory above 4 GiB, SMP, an x86_64 port.
 
 ## Documentation

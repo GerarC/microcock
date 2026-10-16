@@ -4,7 +4,7 @@ Everything that is not the kernel runs in Ring 3 as a program loaded from a Mult
 
 ## Programs
 
-The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fixture files `hello.txt` and `docs/note.txt`); only `scripts/qemu_userland_test.sh` builds with it. The programs that exist only to test the system (`probe`, `hello`, `aborter`, `syncbench`, `conclient`, `contruncated`, `fsclient`, `fatclient`, `extclient`, `blkclient`, `cfile`, `mute`, `muteclient`) live in `test/userland/`, not in `userland/`. Their Makefiles include `../../../userland/common.mk` and the root Makefile builds both folders into `build/userland`. The helper `write_check.hpp` they share is in `test/userland/lib/include/cock/user/`.
+The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fixture files `hello.txt` and `docs/note.txt`); only `scripts/qemu_userland_test.sh` builds with it. The programs that exist only to test the system (`probe`, `hello`, `aborter`, `syncbench`, `conclient`, `contruncated`, `fuzz`, `fsclient`, `fatclient`, `extclient`, `blkclient`, `cfile`, `mute`, `muteclient`) live in `test/userland/`, not in `userland/`. Their Makefiles include `../../../userland/common.mk` and the root Makefile builds both folders into `build/userland`. The helper `write_check.hpp` they share is in `test/userland/lib/include/cock/user/`.
 
 | Program | Role |
 |---------|------|
@@ -12,6 +12,7 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `init` can read the manifest) |
 | `console` | Console server: owns the serial port `0x3F8+8` and the input line; serves `CON_WRITE` and `CON_READ` as synchronous calls, echoes typed keys on the display server; see [console](console.md) |
+| `fuzz` | Syscall fuzzer, only started with `FUZZ=user` (from the manifest) or `FUZZ=root` (as the module `init`); see [fuzzer](fuzzer.md) |
 | `contruncated` | Test program: sends a text to `console` without the closing chunk and exits, to check that the server shows what a dead program had sent |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the console server |
 | `conclient` | Test program: prints and reads a typed line through the C library, so `printf` and `read(0)` go through `console` |
