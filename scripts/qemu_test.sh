@@ -7,7 +7,6 @@ FAILURE_STATUS=35
 QEMU_BIN="${QEMU:-qemu-system-i386}"
 OUTPUT_FILE="${OUTPUT_FILE:-build/test_output.txt}"
 
-make clean "$@" > /dev/null
 make iso TEST_BUILD=1 "$@" || exit 2
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"

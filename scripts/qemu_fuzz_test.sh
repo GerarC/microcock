@@ -18,7 +18,6 @@ EXIT_TRIPLE_FAULT=3
 EXIT_HANG=4
 EXIT_SANITY=5
 
-make clean "$@" > /dev/null
 make iso TEST_INITRD=1 FUZZ="$FUZZ_MODE" FUZZ_SEED="$FUZZ_SEED_VALUE" FUZZ_ROUNDS="$FUZZ_ROUNDS_VALUE" "$@" || exit "$EXIT_BUILD"
 
 mkdir -p "$(dirname "$SERIAL_FILE")"

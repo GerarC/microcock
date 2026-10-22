@@ -24,7 +24,6 @@ case "$DISK_SCHEME" in
 esac
 EXPECTED_SERIAL_TEXT="$EXPECTED_SERIAL_TEXT|ata: $DISK_SECTORS sectors, $DEVICE_COUNT devices|blkclient: device 0: kind $KIND_DISK first $DISK_FIRST_SECTOR sectors $DISK_SECTORS|blkclient: device 1: kind $PARTITION_KIND first $FIRST_START sectors $FIRST_SECTORS|blkclient: device 2: kind $PARTITION_KIND first $SECOND_START sectors $SECOND_SECTORS|blkclient: sector says $MARKER_TEXT|blkclient: device 3: kind $PARTITION_KIND first $THIRD_START sectors $THIRD_SECTORS|blkclient: device 4: kind $PARTITION_KIND first $FOURTH_START sectors $FOURTH_SECTORS|blkclient: ok|fat: device $FAT_DEVICE,|fatclient: hello says $FAT_HELLO_TEXT|fatclient: ok|ext: device $EXT_DEVICE,|ext: device $EXT4_DEVICE: unsupported feature extents|extclient: small says $EXT_SMALL_TEXT|extclient: ok|muteclient: dead server did not hang the vfs|muteclient: ok|cfile: ext ok|cfile: fat ok|cfile: directories ok|cfile: ok"
 
-make clean "$@" > /dev/null
 make iso TEST_INITRD=1 "$@" || exit 2
 
 mkdir -p "$(dirname "$SERIAL_FILE")"

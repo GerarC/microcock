@@ -98,13 +98,24 @@ $(BUILD):
 	@echo "[BLD] creating $@"
 	@mkdir -p $(BUILD)
 
+BUILD_FLAGS_FILE = $(BUILD)/.build_flags
+BUILD_FLAGS_SIGNATURE = $(CXX) $(CPP_FLAGS)
+
+.PHONY: FORCE
+FORCE:
+
+$(BUILD_FLAGS_FILE): FORCE | $(BUILD)
+	@current="$(BUILD_FLAGS_SIGNATURE)"; \
+	if [ ! -f $@ ] || [ "$$(cat $@ 2> /dev/null)" != "$$current" ]; then \
+		echo "$$current" > $@; \
+	fi
 
 $(BUILD)/%.os: %.s | $(BUILD)
 	@echo "[AS ] $<"
 	@mkdir -p $(dir $@)
 	@$(AS) $< -o $@
 
-$(BUILD)/%.occ: %.cpp | $(BUILD)
+$(BUILD)/%.occ: %.cpp $(BUILD_FLAGS_FILE) | $(BUILD)
 	@echo "[CXX] $<"
 	@mkdir -p $(dir $@)
 	@$(CXX) -c $< -o $@ $(CPP_FLAGS)
@@ -210,6 +221,6 @@ help:
 	@echo "  LOG_LEVEL=<level> - Lowest kernel log level compiled in: TRACE, DEBUG, INFO, WARN, ERROR, FATAL"
 	@echo "================================================================"
 
-.PHONY: all clean iso disk run run-headless test make userland $(USERLAND_PROJECTS)
+.PHONY: all clean iso disk run run-headless test make userland $(USERLAND_PROJECTS) FORCE
 
 -include $(OBJ_CPP:.occ=.d)
