@@ -15,7 +15,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y nasm qemu-system-x86 grub-pc-bin grub-common \
-            xorriso mtools e2fsprogs dosfstools gcc-multilib g++-multilib make python3
+            xorriso mtools e2fsprogs dosfstools gcc-multilib g++-multilib make python3 ccache
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: ccache-${{ runner.os }}-
+
+      - name: Enable ccache
+        run: echo "/usr/lib/ccache" >> "$GITHUB_PATH"
 
       - name: Host tests
         run: bash scripts/host_test.sh

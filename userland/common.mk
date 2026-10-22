@@ -27,17 +27,29 @@ vpath %.cpp . $(addprefix $(LIBC)/,$(dir $(LIBC_SRCS))) $(addprefix $(LIBCXX)/,$
 
 all: $(TARGET)
 
+BUILD_FLAGS_FILE = $(OUT_DIR)/.$(NAME)_build_flags
+BUILD_FLAGS_SIGNATURE = $(USER_CXX) $(CXX_FLAGS)
+
+.PHONY: FORCE
+FORCE:
+
+$(BUILD_FLAGS_FILE): FORCE
+	@current="$(BUILD_FLAGS_SIGNATURE)"; \
+	if [ ! -f $@ ] || [ "$$(cat $@ 2> /dev/null)" != "$$current" ]; then \
+		echo "$$current" > $@; \
+	fi
+
 $(TARGET): $(OBJ) $(LINKER_SCRIPT)
 	@echo "  [LD ] $@"
 	@$(USER_LD) -m elf_i386 -T $(LINKER_SCRIPT) $(OBJ) -o $@
 
-$(OUT_DIR)/$(NAME)_%.o: %.cpp
+$(OUT_DIR)/$(NAME)_%.o: %.cpp $(BUILD_FLAGS_FILE)
 	@echo "  [CXX] $<"
 	@$(USER_CXX) $(CXX_FLAGS) -MMD -MP -c $< -o $@
 
 clean:
 	rm -f $(OBJ) $(OBJ:.o=.d) $(TARGET)
 
-.PHONY: all clean
+.PHONY: all clean FORCE
 
 -include $(OBJ:.o=.d)
