@@ -22,6 +22,7 @@ The rule comes from Liedtke: a concept belongs in the kernel only if moving it o
 | `SYS_SCHED_YIELD` | Give up the CPU | Only the kernel switches threads | primitive |
 | `SYS_SLEEP` | Block for some milliseconds | Needs the timer and the scheduler | primitive |
 | `SYS_THREAD_CREATE` | New thread in the caller's process | Thread contexts are kernel objects | primitive |
+| `SYS_THREAD_PROCESS` | The process a thread belongs to | A server sees the id of the calling thread of a synchronous call and must know whose it is; only the kernel knows the thread tables. It reads, it grants nothing | primitive |
 | `SYS_PROC_ALIVE` | Is a thread alive | A query on the kernel's tables; the exit notice covers the same need for a parent, so this call may become redundant | primitive (to review) |
 | `SYS_FUTEX_WAIT`, `SYS_FUTEX_WAKE` | Block and wake on a user address | The check of the word and the sleep must be one step, which only the kernel can do | primitive |
 | `SYS_MMAP`, `SYS_MUNMAP` | Map and unmap anonymous pages, or device memory with `PHYSICAL_MEMORY` | Page tables cannot leave the kernel | primitive |

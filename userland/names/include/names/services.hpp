@@ -6,6 +6,7 @@
 
 #include <cock/abi/names.hpp>
 #include <cock/abi/service.hpp>
+#include <names/paths.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -24,8 +25,8 @@ struct Service {
 	bool defined;
 	/** Service label, not `NO_SERVICE`; the same for every process that runs the program. */
 	uint32_t label;
-	/** NUL terminated name that `CONNECT` looks for; empty when the program cannot be reached by name. */
-	char name[abi::names::MAX_NAME_BYTES + 1];
+	/** NUL terminated path that `CONNECT` looks for (see `normalize`); empty when the program cannot be reached by name. */
+	char name[MAX_PATH_BYTES + 1];
 	/** Process id of the running program, or `NOT_RUNNING`. */
 	uint32_t pid;
 	/** Labels this program may talk to (its `ipc=` list). */
@@ -37,7 +38,7 @@ struct Service {
 /**
  * @brief Adds a service.
  * @param label Its service label, not `NO_SERVICE`, at most `abi::names::MAX_LABEL`.
- * @param name Its name; empty for a program that clients do not look for.
+ * @param name Its path, already normalized; empty for a program that clients do not look for.
  * @return The new entry, or null when the label or a non empty name is already taken, the label is out of range
  *         or the table is full.
  */
@@ -52,7 +53,7 @@ Service *findByLabel(uint32_t label);
 
 /**
  * @brief Finds a service by name.
- * @param name NUL terminated name; an empty name never matches.
+ * @param name NUL terminated path, already normalized; an empty name never matches.
  * @return The entry, or null when none has that name.
  */
 Service *findByName(const char *name);

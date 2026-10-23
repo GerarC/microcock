@@ -8,21 +8,23 @@ It is the first step of the route to Unix style IPC. In Unix the descriptor is t
 The kernel must enforce a capability, but it does not have to know which program is called what or who may talk to whom. That is a table of names and a rule read from the manifest, which is data. A bug in the name server can refuse a connection, or give a client the right to talk to a program the manifest does not allow; it cannot give anything else, because the server can only pass on `IPC` capabilities, and it cannot touch ports, interrupts, memory or processes (`holdsGrantAuthority` ignores `IPC` entries). The kernel keeps one narrow call for `init`, `SYS_MODULE_PROCESS`, to find the processes it started itself from boot modules.
 
 ## How a program connects
-1. The program calls `cock::user::names::connect("console")` (`userland/lib/include/cock/user/names.hpp`). It is one synchronous call of four words to the process id `NAMES_PID` (the second boot module), so it never touches the inbox of the caller and is safe in the middle of a server loop.
-2. The name server finds the caller by the thread id the kernel stamps on the call. If `init` has not registered it yet (a program that was just started can run before `init` reaches the next instruction), the answer is `UNKNOWN_CLIENT` and the client library asks again a few times.
-3. It finds the server by name and applies the policy: the connection is allowed when the `ipc=` list of the caller names the server, or the `ipc=` list of the server names the caller. This is the same symmetric rule the kernel applies to a message.
+1. The program calls `cock::user::names::connect("console")` (`userland/lib/include/cock/user/names.hpp`). The name goes in synchronous calls of four words to the process id `NAMES_PID` (the second boot module), 12 bytes of the name in each, so a short name is one call and a path such as `/run/console` is one or two. Calls never touch the inbox of the caller, so it is safe in the middle of a server loop.
+2. The name server asks the kernel which process the calling thread belongs to (`SYS_THREAD_PROCESS`), so any thread of a program may connect, and finds that process among the ones `init` registered. If `init` has not registered it yet (a program that was just started can run before `init` reaches the next instruction), the answer is `UNKNOWN_CLIENT` and the client library asks again a few times.
+3. It puts the name together, adds `/run/` to a name that does not start with a slash, finds the server by that path and applies the policy: the connection is allowed when the `ipc=` list of the caller names the server, or the `ipc=` list of the server names the caller. This is the same symmetric rule the kernel applies to a message.
 4. It gives the caller an `IPC` capability for the label of the server with `SYS_CAP_GRANT`, once: the pairs already granted are kept, so asking again uses no new slot of the capability table and no new node of the derivation tree.
 5. It answers with the process id of the server. The client sends to that process id as before.
 
 If the server restarts, its process id changes and its label does not. A client that holds the capability keeps it; it only needs to connect again to learn the new process id, and the name server gives no new capability.
 
 ## Protocol
-`shared/include/cock/abi/names.hpp`. A request is four words: word 0 has the operation in bits 0 to 7 and a service label in bits 8 to 31; words 1 to 3 carry a name of up to 12 bytes or numbers. The reply has the status in word 0, the process id in word 1 and the label in word 2.
+`shared/include/cock/abi/names.hpp`. A request is four words: word 0 is the header (the operation in bits 0 to 7, the number of the part in bits 8 to 15, the `LAST` flag in bit 16 and a service label in bits 17 to 31); words 1 to 3 carry 12 bytes of a name or numbers. A name of up to 60 bytes travels in up to five parts, one call each, in order; the name server keeps the bytes of each calling thread (eight at a time) and answers `MORE` to every part but the last. The reply has the status in word 0, the process id in word 1 and the label in word 2.
+
+A name that starts with `/` is a path; any other name is short for `/run/<name>`, so `console`, `/run/console` and the manifest entry `console` are the same. Paths of other kinds are stored as they are.
 
 | Operation | Who | Meaning |
 |-----------|-----|---------|
-| `CONNECT` | Any registered program | Ask for the right to talk to the server with the name in words 1 to 3 |
-| `DEFINE` | `init` | A program exists: label in the header, name in words 1 to 3 (empty when it cannot be reached by name) |
+| `CONNECT` | Any registered program | Ask for the right to talk to the server with the name in the parts |
+| `DEFINE` | `init` | A program exists: label in the header, name in the parts (empty when it cannot be reached by name) |
 | `ALLOW` | `init` | The program with the label of the header may talk to the label in word 1 (one line of an `ipc=` list) |
 | `BIND` | `init` | The process id in word 1 now runs the program with the label of the header; `init` sends it after every start, including a restart |
 
@@ -31,12 +33,13 @@ If the server restarts, its process id changes and its label does not. A client 
 | `OK` | Done |
 | `NOT_FOUND` | No program has that name, or it is not running |
 | `DENIED` | The policy does not let the caller talk to it |
-| `UNKNOWN_CLIENT` | The caller is not a process `init` registered, or not the first thread of one |
+| `UNKNOWN_CLIENT` | The caller is not a process `init` registered |
 | `NO_ROOM` | The capability could not be given: the table of the caller or the derivation tree is full |
-| `BAD_REQUEST` | Unknown operation, empty or too long name, a label out of range, a duplicate, or a full table |
+| `BAD_REQUEST` | Unknown operation, empty or too long name, parts out of order, a label out of range, a duplicate, or a full table |
 | `NOT_ROOT` | A registration came from a process other than `init` |
+| `MORE` | A part of a name was kept; send the next |
 
-A name is at most 12 bytes because a synchronous call carries 16. A program whose manifest name is longer is registered without a name: `init` prints `init: <name> cannot be reached by name` and it can still connect to others. Path like names (`/run/vfs`) and an owner and mode per name come with the descriptor layer of the C library.
+A program whose manifest name is longer than 60 bytes is registered without a name: `init` prints `init: <name> cannot be reached by name` and it can still connect to others. An owner and a mode per name come with the descriptor layer of the C library.
 
 ## What `init` does
 1. Finds the boot module `names` (`SYS_MODULE_PROCESS`), checks that its process id is `NAMES_PID`, gives it the label `NAMES_SERVICE` and an `IPC` capability over every label that it may pass on (`SYS_CAP_GRANT` with `GRANT_DELEGATE`), sends it `CAPABILITY_GRANTED` and registers `ramfs`, which has no manifest entry.
@@ -47,12 +50,12 @@ The root server and the name server are reachable by every process, because thei
 
 ## Limits
 - The name server is a boot module, so the kernel starts it and `init` does not restart it. If it dies, no program can connect again; the ones already connected keep working.
-- Only the first thread of a process can connect: a call carries the thread id, and the table is of processes.
 - A program that `init` did not start (a child of a program holding `SPAWN`) is unknown to the name server and cannot connect until the process manager registers it.
+- A name is at most 60 bytes and the server puts together eight names at a time (a ninth caller waits until a slot of a dead thread is free: it gets `BAD_REQUEST`).
 - The table holds 48 programs and remembers 128 granted pairs, and drops the pairs of processes that ended when it is full.
 - A name server that is slow or blocked blocks every connect, but never a connected exchange.
 
 ## Tests
-`test/host/test_names.cpp` covers the wire format, the table and the policy. `probe` checks from Ring 3 that a connection the manifest does not allow is refused, that the kernel refuses a message to a server the probe never connected to, that connecting gives the right to call and to share memory, that asking forty times does not run out of slots, and that a registration from a program is refused. The end to end run and both fuzzers (the fuzzer also calls the name server with random words) exercise it in every boot.
+`test/host/test_names.cpp` covers the wire format, the table and the policy. `probe` checks from Ring 3 that a connection the manifest does not allow is refused, that a path and a name of several parts work, that a second thread can connect, that the kernel refuses a message to a server the probe never connected to, that connecting gives the right to call and to share memory, that asking forty times does not run out of slots, and that a registration from a program is refused. The end to end run and both fuzzers (the fuzzer also calls the name server with random words) exercise it in every boot.
 
 See also [names README](../../userland/names/README.md), [init](../../userland/init/README.md) and [capabilities](../core/capabilities.md).

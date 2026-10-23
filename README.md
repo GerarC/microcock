@@ -85,6 +85,7 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_PROC_START` (0x18F): Create the first thread of a pending process at an entry point and let it run; returns the process id. `SYS_PROC_DISCARD` (0x190): destroy a pending process. A pending process dies with its creator. The ELF parsing is not in the kernel path of these calls: `cock::user::spawn` (`userland/lib/include/cock/user/spawn.hpp`) reads the image and calls them.
 * `SYS_SERVICE_SET` (0x18B): Give a running process its service label, once; needs grant authority. Used for the boot modules.
 * `SYS_PROC_ALIVE` (0x17B): Tell whether a process id is alive.
+* `SYS_THREAD_PROCESS` (0x191): Give the process a thread belongs to; a server that serves a synchronous call sees the id of the calling thread and uses this to know whose it is.
 * `SYS_IPC_TRY_RECV` (0x17C): Like `SYS_IPC_RECV` but returns 1 at once when there is nothing to receive.
 * `SYS_IPC_RECV_TIMEOUT` (0x17D): Like `SYS_IPC_RECV` but returns 1 when the given milliseconds pass with nothing to receive.
 * `SYS_SLEEP` (0x17E): Block the caller for at least the given milliseconds (10 ms resolution).
@@ -255,7 +256,7 @@ What the kernel already does, and what is planned next. Planned items are listed
 - A console server: `printf` and `read(0)` go through it, readers block through deferred replies, and the client is linked by default.
 - A minimal shell with built-in commands (version 0.2.0, see [the shell](documentation/userland/shell.md)).
 - A syscall fuzzer that runs in Ring 3 and fails on any kernel panic, in unprivileged and root modes.
-- A name server in Ring 3 (`names`, the second boot module): a program connects to a server by name, the `ipc=` policy of the manifest is checked then, and the right to talk to the server is given then. The kernel no longer looks processes up by name; it only finds the boot modules for `init`.
+- A name server in Ring 3 (`names`, the second boot module): a program connects to a server by name or path (`/run/console`, up to 60 bytes, from any thread), the `ipc=` policy of the manifest is checked then, and the right to talk to the server is given then. The kernel no longer looks processes up by name; it only finds the boot modules for `init`.
 
 **Hardening**
 - Authenticated reserved messages, per-process memory limits, a reaper thread, a write-protected kernel image, and the FPU disabled for programs.

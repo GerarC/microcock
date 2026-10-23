@@ -143,6 +143,5 @@ The in-kernel suites `Capability revocation` and `IPC access` cover revocation a
 * The table has a fixed size.
 * The IPC capability is only as precise as the labels `init` hands out; the root task and the name server can be reached by every process, because their capabilities cover every label.
 * A program that `init` did not start (a child of a spawner) has no entry in the name server, so it cannot connect to anything until the process manager registers it.
-* Only the first thread of a process can connect through the name server: a call carries the id of the calling thread, and the name server knows processes.
 * A boot module (`names`, `ramfs`, `vga_driver`) is labeled by `init` after it starts, so it cannot be reached by the programs that wait for no message until `init` has given the label; both only wait for messages.
 * A capability over ports that drive DMA (disk controllers, the PCI configuration ports) lets its owner write anywhere in physical memory, since there is no IOMMU. It is as strong as root and should be granted accordingly.

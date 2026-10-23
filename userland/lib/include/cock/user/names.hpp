@@ -8,8 +8,9 @@
  * caller may send, call and share memory with that process, and the server may answer.
  *
  * The call is synchronous and uses only registers, so it never touches the inbox of the caller and is safe
- * in the middle of a program that serves requests. Only the first thread of a process may connect: the name
- * server knows processes, and a call carries the id of the calling thread.
+ * in the middle of a program that serves requests. A name travels in parts of 12 bytes, one call each, so a
+ * path such as `/run/console` takes one or two calls. Any thread of a process may connect: the name server
+ * asks the kernel which process the calling thread belongs to.
  */
 #ifndef COCK_USER_NAMES_HPP
 #define COCK_USER_NAMES_HPP
@@ -18,6 +19,7 @@
 #include <cock/abi/service.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/call.hpp>
+#include <stddef.h>
 #include <stdint.h>
 
 namespace cock::user::names {
@@ -38,31 +40,58 @@ struct Connection {
 };
 
 /**
+ * @brief Sends every part of a name once and returns the answer to the last.
+ * @param name The name.
+ * @param length Its length, from 1 to `abi::names::MAX_NAME_BYTES`.
+ * @param connection Receives the status and, for `OK`, the process id and label.
+ * @return false when a call could not be made (the name server is gone); true otherwise.
+ */
+inline bool sendParts(const char *name, size_t length, Connection &connection) {
+	size_t parts = abi::names::partCount(length);
+	for (size_t part = 0; part < parts; part++) {
+		uint32_t words[abi::names::CALL_WORDS] = {
+			abi::names::pack(abi::names::Op::CONNECT, abi::service::NO_SERVICE, part,
+							 part + 1 == parts)};
+		abi::names::packPart(name, length, part, words);
+
+		CallResult result = ipc_call(abi::service::NAMES_PID, words);
+		if (!result.ok) return false;
+
+		connection.status = static_cast<abi::names::Status>(result.words[abi::names::HEADER_WORD]);
+		if (connection.status == abi::names::Status::MORE) continue;
+		if (connection.status == abi::names::Status::OK) {
+			connection.pid = result.words[abi::names::PID_WORD];
+			connection.label = result.words[abi::names::LABEL_WORD];
+		}
+		return true;
+	}
+	return false;
+}
+
+/**
  * @brief Asks the name server for the right to talk to a server.
  *
  * Blocks until the name server answers. Right after a program starts, `init` may not have registered it yet;
  * the call then asks again up to `UNKNOWN_CLIENT_RETRIES` times.
- * @param name NUL terminated name of the server, 1 to `abi::names::MAX_NAME_BYTES` bytes.
+ * @param name NUL terminated name of the server, 1 to `abi::names::MAX_NAME_BYTES` bytes. A name that starts
+ *        with `/` is a path; any other is short for `/run/<name>`.
  * @return `OK` with the process id and label; `NOT_FOUND` when no running program has the name;
  *         `DENIED` when the manifest does not let the caller talk to it; `UNKNOWN_CLIENT` when the caller is not
- *         a registered process or not the first thread of one; `NO_ROOM` when the capability could not be
- *         given; `BAD_REQUEST` for an empty or too long name or when the name server could not be called. In
- *         every other case than `OK` the process id is `NO_PROCESS`.
+ *         a process `init` registered; `NO_ROOM` when the capability could not be given; `BAD_REQUEST` for an
+ *         empty or too long name or when the name server could not be called. In every other case than `OK` the
+ *         process id is `NO_PROCESS`.
  */
 inline Connection connect(const char *name) {
 	Connection connection = {abi::names::Status::BAD_REQUEST, NO_PROCESS, abi::service::NO_SERVICE};
 
-	uint32_t words[abi::names::CALL_WORDS] = {abi::names::pack(abi::names::Op::CONNECT)};
-	if (!abi::names::packName(name, words)) return connection;
+	size_t length = 0;
+	while (name[length] != '\0' && length <= abi::names::MAX_NAME_BYTES)
+		length++;
+	if (length == 0 || length > abi::names::MAX_NAME_BYTES) return connection;
 
 	for (uint32_t attempt = 0; attempt <= UNKNOWN_CLIENT_RETRIES; attempt++) {
-		CallResult result = ipc_call(abi::service::NAMES_PID, words);
-		if (!result.ok) return connection;
-
-		connection.status = static_cast<abi::names::Status>(result.words[abi::names::HEADER_WORD]);
-		if (connection.status == abi::names::Status::OK) {
-			connection.pid = result.words[abi::names::PID_WORD];
-			connection.label = result.words[abi::names::LABEL_WORD];
+		if (!sendParts(name, length, connection)) {
+			connection.status = abi::names::Status::BAD_REQUEST;
 			return connection;
 		}
 		if (connection.status != abi::names::Status::UNKNOWN_CLIENT) return connection;

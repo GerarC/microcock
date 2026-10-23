@@ -209,6 +209,15 @@ uintptr_t sys_irq_ack(uintptr_t line, uintptr_t, uintptr_t, uintptr_t,
 					  uintptr_t, uintptr_t);
 
 /**
+ * @brief Gives the process a thread belongs to.
+ * @param tid Id of a thread; the id of a process names its first thread.
+ * @return The process id (the id of its first thread), or all ones when the id is
+ * unknown, the thread is dead or it belongs to the kernel.
+ */
+uintptr_t sys_thread_process(uintptr_t tid, uintptr_t, uintptr_t, uintptr_t,
+							 uintptr_t, uintptr_t);
+
+/**
  * @brief Finds the process that the kernel started from a boot module, by module name.
  * @param name_ptr User pointer to the name bytes, not null terminated.
  * @param length Name length, from 1 up to the maximum name length minus one.

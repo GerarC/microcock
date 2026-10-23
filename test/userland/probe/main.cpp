@@ -6,7 +6,7 @@
 
 namespace {
 
-constexpr size_t CHECK_COUNT = 60;
+constexpr size_t CHECK_COUNT = 62;
 constexpr uintptr_t EXIT_ALL_PASSED = 0;
 constexpr uintptr_t EXIT_SOME_FAILED = 1;
 
@@ -71,6 +71,8 @@ extern "C" int main() {
 		probe::connectRefusesWhatThePolicyDoesNotList(),
 		probe::unconnectedServersRefuseMessages(),
 		probe::connectGivesTheRightToTalk(),
+		probe::connectAcceptsPathsAndLongNames(),
+		probe::connectWorksFromAnotherThread(),
 		probe::registrationIsRootOnly(),
 		probe::connectingTwiceUsesNoNewCapability(),
 		probe::sharedMemoryNeedsConnect()};

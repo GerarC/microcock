@@ -99,6 +99,8 @@
     #define SYS_PROC_START       0x18F
     /** Destroys a pending process the caller created and frees its memory. a1: handle. Returns 0 or all ones. */
     #define SYS_PROC_DISCARD     0x190
+    /** Gives the process a thread belongs to. a1: thread id. Returns the process id, or all ones when the thread is unknown, dead or the kernel's. */
+    #define SYS_THREAD_PROCESS   0x191
 
     #ifdef __cplusplus
     extern "C" {

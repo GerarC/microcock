@@ -540,6 +540,19 @@ inline bool process_alive(uint32_t pid) {
 }
 
 /**
+ * @brief Gives the process a thread belongs to (`SYS_THREAD_PROCESS`).
+ *
+ * A server that serves a synchronous call sees the id of the calling thread; this tells it whose
+ * thread that is.
+ * @param tid Id of a thread; a process id names its first thread.
+ * @return The process id, or `NO_PROCESS` when the thread is unknown, ended or belongs to the kernel.
+ */
+inline uint32_t thread_process(uint32_t tid) {
+	uintptr_t result = syscall(SYS_THREAD_PROCESS, tid, 0, 0, 0, 0, 0);
+	return result == FAILURE ? NO_PROCESS : static_cast<uint32_t>(result);
+}
+
+/**
  * @brief Writes text to the console (`SYS_WRITE` on `STDOUT_FILE`), looping on partial writes.
  *
  * The kernel takes at most 128 bytes per call and forwards them to the display server

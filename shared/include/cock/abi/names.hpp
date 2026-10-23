@@ -2,14 +2,17 @@
  * @file names.hpp
  * @brief Wire protocol of the name server (`names`) and the packing helpers for its calls.
  *
- * A program that wants to talk to a server calls the name server (`NAMES_PID`) with a synchronous call of
- * four words. Word 0 is the header (see `pack`): the operation in bits 0 to 7 and a service label in bits
- * 8 to 31. Words 1 to 3 carry a name of up to `MAX_NAME_BYTES` bytes, the first byte in the low bits of word 1
- * (little endian), or the numbers the operation needs. The reply holds the `Status` in word 0, the process
- * id of the server in word 1 and its service label in word 2.
+ * A program that wants to talk to a server calls the name server (`NAMES_PID`) with synchronous calls of
+ * four words. Word 0 is the header (see `pack`): the operation in bits 0 to 7, the number of the part in
+ * bits 8 to 15, the `LAST` flag in bit 16 and a service label in bits 17 to 31. Words 1 to 3 carry 12 bytes
+ * of a name, the first byte in the low bits of word 1 (little endian), or the numbers an operation needs.
+ * A name longer than 12 bytes travels in several calls, one part each, in order; the name server answers
+ * `MORE` to every part but the last and keeps the bytes meanwhile. The reply holds the `Status` in word 0,
+ * the process id of the server in word 1 and its service label in word 2.
  *
- * `CONNECT` is the only operation a program uses. The other three are sent by the root server (`ROOT_PID`)
- * while it starts the system, and the name server refuses them from anyone else.
+ * A name that starts with `/` is a path; any other name is short for `/run/<name>`. `CONNECT` is the only
+ * operation a program uses. The other three are sent by the root server (`ROOT_PID`) while it starts the
+ * system, and the name server refuses them from anyone else.
  */
 #ifndef COCK_ABI_NAMES_HPP
 #define COCK_ABI_NAMES_HPP
@@ -22,9 +25,9 @@ namespace cock::abi::names {
 
 /** Operation in the low byte of word 0 of a request. */
 enum class Op : uint32_t {
-	/** Ask for the right to talk to the server with a name (words 1 to 3); the reply carries its process id. */
+	/** Ask for the right to talk to the server with a name (words 1 to 3 of each part); the reply carries its process id. */
 	CONNECT = 1,
-	/** Root only: a service exists. Label in the header, name in words 1 to 3. */
+	/** Root only: a service exists. Label in the header, name in the parts. */
 	DEFINE = 2,
 	/** Root only: the service with the label of the header may talk to the service with the label in word 1. */
 	ALLOW = 3,
@@ -44,10 +47,12 @@ enum class Status : uint32_t {
 	UNKNOWN_CLIENT = 3,
 	/** The right could not be given: the capability table of the caller or the derivation tree is full. */
 	NO_ROOM = 4,
-	/** Unknown operation, empty name, a label out of range, a duplicate or a table that is full. */
+	/** Unknown operation, empty or too long name, parts out of order, a label out of range, a duplicate or a table that is full. */
 	BAD_REQUEST = 5,
 	/** A registration came from a process other than the root server. */
 	NOT_ROOT = 6,
+	/** The part was kept; send the next one. Only for a part that is not the last. */
+	MORE = 7,
 };
 
 /** Number of words of a request or a reply (the synchronous call width). */
@@ -64,24 +69,44 @@ constexpr size_t PID_WORD = 1;
 constexpr size_t LABEL_WORD = 2;
 /** Bytes in one word. */
 constexpr size_t WORD_BYTES = sizeof(uint32_t);
-/** Longest name in bytes; a name of exactly this length has no terminator on the wire. */
-constexpr size_t MAX_NAME_BYTES = NAME_WORDS * WORD_BYTES;
+/** Bytes of a name in one call. */
+constexpr size_t PART_BYTES = NAME_WORDS * WORD_BYTES;
+/** Most parts of one name. */
+constexpr size_t MAX_PARTS = 5;
+/** Longest name in bytes, before the `/run/` prefix is added to a short name. */
+constexpr size_t MAX_NAME_BYTES = MAX_PARTS * PART_BYTES;
+/** Prefix of a name that does not start with a slash. */
+constexpr char RUN_PREFIX[] = "/run/";
+/** Length of `RUN_PREFIX`. */
+constexpr size_t RUN_PREFIX_BYTES = sizeof(RUN_PREFIX) - 1;
+/** First character of a path. */
+constexpr char PATH_SEPARATOR = '/';
 
-/** Bits in a byte; shift of the label in the header. */
+/** Bits in a byte; shift of the part number in the header. */
 constexpr uint32_t BYTE_BITS = 8;
 /** Mask of one byte. */
 constexpr uint32_t BYTE_MASK = 0xFF;
-/** Largest service label that fits in the header (24 bits). */
-constexpr uint32_t MAX_LABEL = 0xFFFFFF;
+/** Shift of the `LAST` flag in the header. */
+constexpr uint32_t LAST_SHIFT = 16;
+/** Header mask of the `LAST` flag: this part ends the name, or the request has one part. */
+constexpr uint32_t LAST_FLAG = uint32_t(1) << LAST_SHIFT;
+/** Shift of the service label in the header. */
+constexpr uint32_t LABEL_SHIFT = 17;
+/** Largest service label that fits in the header (15 bits). */
+constexpr uint32_t MAX_LABEL = 0x7FFF;
 
 /**
  * @brief Builds the header word of a request.
  * @param op The operation.
  * @param label Service label, at most `MAX_LABEL`; larger values are cut.
- * @return op | label << 8.
+ * @param part Number of the part of the name, from 0; only the low 8 bits are kept.
+ * @param last True when this is the last part, which is the case of a request with a single part.
+ * @return op | part << 8 | LAST flag | label << 17.
  */
-inline uint32_t pack(Op op, uint32_t label = 0) {
-	return (static_cast<uint32_t>(op) & BYTE_MASK) | ((label & MAX_LABEL) << BYTE_BITS);
+inline uint32_t pack(Op op, uint32_t label = 0, size_t part = 0, bool last = true) {
+	return (static_cast<uint32_t>(op) & BYTE_MASK) |
+		   ((static_cast<uint32_t>(part) & BYTE_MASK) << BYTE_BITS) | (last ? LAST_FLAG : 0) |
+		   ((label & MAX_LABEL) << LABEL_SHIFT);
 }
 
 /**
@@ -94,56 +119,81 @@ inline uint32_t opOf(uint32_t header) {
 }
 
 /**
+ * @brief Extracts the part number of a header.
+ * @param header Header word.
+ * @return Bits 8 to 15.
+ */
+inline size_t partOf(uint32_t header) {
+	return (header >> BYTE_BITS) & BYTE_MASK;
+}
+
+/**
+ * @brief Tells whether a header has the `LAST` flag.
+ * @param header Header word.
+ * @return true when the part is the last of its name.
+ */
+inline bool isLast(uint32_t header) {
+	return (header & LAST_FLAG) != 0;
+}
+
+/**
  * @brief Extracts the service label of a header.
  * @param header Header word.
- * @return Bits 8 to 31.
+ * @return Bits 17 to 31.
  */
 inline uint32_t labelOf(uint32_t header) {
-	return header >> BYTE_BITS;
+	return header >> LABEL_SHIFT;
 }
 
 /**
- * @brief Writes a name into words 1 to 3 of a request.
- * @param name NUL terminated name.
- * @param words Request words; words 1 to 3 are cleared and filled, word 0 is not touched.
- * @return true when the name has 1 to `MAX_NAME_BYTES` bytes; false (and the words are cleared) for an
- *         empty or longer name.
+ * @brief Tells how many calls a name takes.
+ * @param length Length of the name in bytes.
+ * @return The number of parts: 1 to `MAX_PARTS` for a length from 1 to `MAX_NAME_BYTES`; 0 for an empty
+ *         name; a number above `MAX_PARTS` for a longer one, which `packPart` refuses.
  */
-inline bool packName(const char *name, uint32_t (&words)[CALL_WORDS]) {
+inline size_t partCount(size_t length) {
+	return (length + PART_BYTES - 1) / PART_BYTES;
+}
+
+/**
+ * @brief Writes one part of a name into words 1 to 3 of a request.
+ * @param name The whole name.
+ * @param length Its length in bytes, from 1 to `MAX_NAME_BYTES`.
+ * @param part Number of the part, below `partCount(length)`.
+ * @param words Request words; words 1 to 3 are cleared and filled, word 0 is not touched.
+ * @return true when the part exists; false (and the words are cleared) for an empty or too long name or a
+ *         part past the end.
+ */
+inline bool packPart(const char *name, size_t length, size_t part,
+					 uint32_t (&words)[CALL_WORDS]) {
 	for (size_t index = 0; index < NAME_WORDS; index++)
 		words[FIRST_NAME_WORD + index] = 0;
+	if (length == 0 || length > MAX_NAME_BYTES || part >= partCount(length)) return false;
 
-	size_t length = 0;
-	while (name[length] != '\0') {
-		if (length == MAX_NAME_BYTES) {
-			for (size_t index = 0; index < NAME_WORDS; index++)
-				words[FIRST_NAME_WORD + index] = 0;
-			return false;
-		}
-		uint32_t shift = static_cast<uint32_t>(length % WORD_BYTES) * BYTE_BITS;
-		words[FIRST_NAME_WORD + length / WORD_BYTES] |=
-			static_cast<uint32_t>(static_cast<uint8_t>(name[length])) << shift;
-		length++;
+	size_t first = part * PART_BYTES;
+	for (size_t index = 0; index < PART_BYTES && first + index < length; index++) {
+		uint32_t shift = static_cast<uint32_t>(index % WORD_BYTES) * BYTE_BITS;
+		words[FIRST_NAME_WORD + index / WORD_BYTES] |=
+			static_cast<uint32_t>(static_cast<uint8_t>(name[first + index])) << shift;
 	}
-	return length != 0;
+	return true;
 }
 
 /**
- * @brief Reads the name out of words 1 to 3 of a request.
+ * @brief Reads the bytes of one part out of words 1 to 3 of a request.
  * @param words Request words; only words 1 to 3 are read.
- * @param name Receives the name and a terminator.
- * @return The length of the name, from 0 (an empty name) to `MAX_NAME_BYTES`.
+ * @param bytes Receives the bytes, up to the first zero byte.
+ * @return The number of bytes, from 0 to `PART_BYTES`.
  */
-inline size_t unpackName(const uint32_t (&words)[CALL_WORDS], char (&name)[MAX_NAME_BYTES + 1]) {
+inline size_t unpackPart(const uint32_t (&words)[CALL_WORDS], char (&bytes)[PART_BYTES]) {
 	size_t length = 0;
-	while (length < MAX_NAME_BYTES) {
+	while (length < PART_BYTES) {
 		uint32_t shift = static_cast<uint32_t>(length % WORD_BYTES) * BYTE_BITS;
 		char character = static_cast<char>(
 			(words[FIRST_NAME_WORD + length / WORD_BYTES] >> shift) & BYTE_MASK);
 		if (character == '\0') break;
-		name[length++] = character;
+		bytes[length++] = character;
 	}
-	name[length] = '\0';
 	return length;
 }
 

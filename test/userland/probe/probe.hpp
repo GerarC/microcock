@@ -163,6 +163,10 @@ bool connectRefusesWhatThePolicyDoesNotList();
 bool unconnectedServersRefuseMessages();
 /** After `connect` to the console server, which the `ipc=` list names, a synchronous call to it is admitted and answered (with the status for an unknown operation). */
 bool connectGivesTheRightToTalk();
+/** A path (`/run/console`) names the same server as the short name, and a name of more than 12 bytes (several parts) is looked up and reported as not found. */
+bool connectAcceptsPathsAndLongNames();
+/** A second thread of the probe connects to the console server and learns the same process id as the first thread. */
+bool connectWorksFromAnotherThread();
 /** `DEFINE`, `ALLOW` and `BIND` sent to the name server by the probe are refused with `NOT_ROOT`: only `init` describes the system. */
 bool registrationIsRootOnly();
 /** Connecting to the same server forty times, more than the capability table holds, still succeeds: the name server gives the capability once. */
