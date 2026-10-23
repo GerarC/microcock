@@ -1,8 +1,9 @@
 #include <cock/abi/fs.hpp>
-#include <cock/shell/words.hpp>
 #include <cock/user/api.hpp>
-#include <cock/user/console.hpp>
 #include <cock/user/fs.hpp>
+#include <sh/arguments.hpp>
+#include <sh/commands.hpp>
+#include <sh/file_commands.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -13,43 +14,19 @@ using cock::abi::fs::NO_HANDLE;
 using cock::abi::fs::Status;
 using cock::shell::Words;
 
-#ifdef SH_VERSION_MAJOR
-constexpr unsigned VERSION_MAJOR = SH_VERSION_MAJOR;
-constexpr unsigned VERSION_MINOR = SH_VERSION_MINOR;
-constexpr unsigned VERSION_PATCH = SH_VERSION_PATCH;
-#else
-constexpr unsigned VERSION_MAJOR = 0;
-constexpr unsigned VERSION_MINOR = 0;
-constexpr unsigned VERSION_PATCH = 0;
-#endif
+namespace cock::sh {
 
 namespace {
 
-constexpr int STDIN_DESCRIPTOR = 0;
 constexpr int STDOUT_DESCRIPTOR = 1;
-constexpr char PROMPT[] = "cock> ";
-constexpr char NEWLINE = '\n';
 constexpr char ROOT_PATH[] = "/";
-constexpr size_t READ_CHUNK_BYTES = 12;
 constexpr size_t FILE_CHUNK_BYTES = 512;
 constexpr size_t NAME_BYTES = 256;
-constexpr size_t TEXT_BYTES = 256;
 constexpr uint32_t START_OFFSET = 0;
-constexpr uint32_t MILLISECONDS_PER_SECOND = 1000;
-constexpr uint32_t MAX_SLEEP_SECONDS = 3600;
-constexpr uint32_t RETRY_MS = 100;
-constexpr size_t SECOND_WORD = 1;
-constexpr size_t THIRD_WORD = 2;
-constexpr size_t FOURTH_WORD = 3;
-constexpr size_t NO_ARGUMENTS = 1;
-constexpr size_t ONE_ARGUMENT = 2;
-constexpr size_t TWO_ARGUMENTS = 3;
-constexpr size_t FIRST_WORD = 0;
+constexpr size_t NO_LENGTH = 0;
 
 cock::user::fs::Client fs;
-cock::user::console::Client console;
 bool fsReady = false;
-bool consoleReady = false;
 
 const char *statusText(Status status) {
 	switch (status) {
@@ -97,25 +74,7 @@ void failFile(const char *command, const char *path) {
 	printf("sh: %s: %s: %s\n", command, path, statusText(fs.lastStatus()));
 }
 
-void usage(const char *command, const char *arguments) {
-	printf("usage: %s %s\n", command, arguments);
-}
-
-void helpCommand(const Words &);
-
-void versionCommand(const Words &) {
-	printf("microcock v%u.%u.%u\n", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
-}
-
-void echoCommand(const Words &words) {
-	char text[TEXT_BYTES] = {};
-	size_t length = 0;
-	if (!cock::shell::join(words, SECOND_WORD, text, sizeof(text), length)) {
-		printf("sh: echo: text too long\n");
-		return;
-	}
-	printf("%s\n", text);
-}
+} // namespace
 
 void listCommand(const Words &words) {
 	if (words.count > ONE_ARGUMENT) return usage(words.items[FIRST_WORD], "[path]");
@@ -185,7 +144,7 @@ void writeCommand(const Words &words) {
 
 	const char *path = words.items[SECOND_WORD];
 	char text[TEXT_BYTES] = {};
-	size_t length = 0;
+	size_t length = NO_LENGTH;
 	if (!cock::shell::join(words, THIRD_WORD, text, sizeof(text) - sizeof(char), length)) {
 		printf("sh: write: text too long\n");
 		return;
@@ -227,107 +186,4 @@ void moveCommand(const Words &words) {
 		failFile("mv", words.items[SECOND_WORD]);
 }
 
-void sleepCommand(const Words &words) {
-	uint32_t seconds = 0;
-	if (words.count != ONE_ARGUMENT ||
-		!cock::shell::parseNumber(words.items[SECOND_WORD], seconds) ||
-		seconds > MAX_SLEEP_SECONDS)
-		return usage(words.items[FIRST_WORD], "seconds");
-
-	cock::user::sleep_ms(seconds * MILLISECONDS_PER_SECOND);
-}
-
-void clearCommand(const Words &) {
-	if (!consoleReady) consoleReady = console.connect();
-	if (!consoleReady || !console.clear()) printf("sh: clear: the console server does not answer\n");
-}
-
-struct Command {
-	const char *name;
-	const char *summary;
-	void (*run)(const Words &);
-};
-
-constexpr Command COMMANDS[] = {
-	{"help", "list the commands", helpCommand},
-	{"version", "print the version", versionCommand},
-	{"echo", "echo text...: print the text", echoCommand},
-	{"ls", "ls [path]: list a directory", listCommand},
-	{"cat", "cat path: print a file", catCommand},
-	{"write", "write path text...: replace a file with the text", writeCommand},
-	{"mkdir", "mkdir path: make a directory", makeDirectoryCommand},
-	{"rmdir", "rmdir path: remove an empty directory", removeDirectoryCommand},
-	{"rm", "rm path: delete a file", removeCommand},
-	{"mv", "mv from to: rename or move", moveCommand},
-	{"sleep", "sleep seconds: wait", sleepCommand},
-	{"clear", "clear the screen", clearCommand},
-};
-
-constexpr size_t COMMAND_COUNT = sizeof(COMMANDS) / sizeof(COMMANDS[0]);
-
-void helpCommand(const Words &) {
-	for (size_t index = 0; index < COMMAND_COUNT; index++)
-		printf("  %s: %s\n", COMMANDS[index].name, COMMANDS[index].summary);
-	printf("paths are absolute, for example /fat or /ext\n");
-}
-
-bool streq(const char *left, const char *right) {
-	size_t index = 0;
-	while (left[index] != cock::shell::TERMINATOR && left[index] == right[index])
-		index++;
-	return left[index] == right[index];
-}
-
-void run(char *line) {
-	Words words = {};
-	if (!cock::shell::split(line, words)) {
-		printf("sh: too many words\n");
-		return;
-	}
-	if (words.count == 0) return;
-
-	for (size_t index = 0; index < COMMAND_COUNT; index++) {
-		if (streq(words.items[FIRST_WORD], COMMANDS[index].name)) {
-			COMMANDS[index].run(words);
-			return;
-		}
-	}
-	printf("sh: %s: command not found\n", words.items[FIRST_WORD]);
-}
-
-void readLine(char *line) {
-	size_t length = 0;
-	bool complete = false;
-
-	while (!complete) {
-		char chunk[READ_CHUNK_BYTES] = {};
-		ssize_t count = read(STDIN_DESCRIPTOR, chunk, sizeof(chunk));
-		if (count <= 0) {
-			cock::user::sleep_ms(RETRY_MS);
-			continue;
-		}
-
-		for (ssize_t index = 0; index < count && !complete; index++) {
-			if (chunk[index] == NEWLINE) {
-				complete = true;
-			} else if (length + 1 < cock::shell::MAX_LINE_BYTES) {
-				line[length++] = chunk[index];
-			}
-		}
-	}
-	line[length] = cock::shell::TERMINATOR;
-}
-
-} // namespace
-
-extern "C" void _start() {
-	printf("microcock v%u.%u.%u shell, type help\n", VERSION_MAJOR, VERSION_MINOR,
-		   VERSION_PATCH);
-
-	char line[cock::shell::MAX_LINE_BYTES] = {};
-	for (;;) {
-		printf(PROMPT);
-		readLine(line);
-		run(line);
-	}
-}
+} // namespace cock::sh
