@@ -38,7 +38,8 @@ On start the server walks the tar headers once and keeps up to 64 entries (name,
 
 | File | Holds |
 |------|-------|
-| `src/main.cpp` | `_start`: waits for the grant, loads the archive, drains the kept messages, then the request loop |
+| `src/main.cpp` | `_start`: `waitForCapabilities`, loads the archive, drains the kept messages, then the request loop |
+| `src/grant.cpp`, `include/ramfs/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED`, keeping every other message |
 | `src/dispatch.cpp` | `handle`: refuses unknown senders and requests without a session, answers writes with `READ_ONLY`, then calls one handler |
 | `src/archive.cpp`, `include/ramfs/archive.hpp` | The tar archive: `loadArchive`, the index of entries, `findEntry`, `isChild` |
 | `src/sessions.cpp`, `include/ramfs/sessions.hpp` | The sessions of the clients and their open files: `connect`, `releaseDeadSessions`, `handleEntry` |

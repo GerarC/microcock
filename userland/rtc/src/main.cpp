@@ -1,12 +1,12 @@
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <rtc/grant.hpp>
 #include <rtc/pending.hpp>
 #include <rtc/requests.hpp>
 #include <stdint.h>
 #include <stdio.h>
 
 using cock::ipc::Message;
-using cock::ipc::MessageType;
 
 namespace {
 
@@ -15,12 +15,7 @@ constexpr uintptr_t EXIT_FAILED_STATUS = 1;
 } // namespace
 
 extern "C" void _start() {
-	Message message = {};
-	for (;;) {
-		cock::user::ipc_recv(message);
-		if (message.type == MessageType::CAPABILITY_GRANTED) break;
-		cock::rtc::keepPending(message);
-	}
+	cock::rtc::waitForCapabilities();
 
 	if (!cock::rtc::initClock()) {
 		printf("rtc: no clock ports\n");
@@ -30,6 +25,7 @@ extern "C" void _start() {
 
 	cock::rtc::handlePending();
 
+	Message message = {};
 	for (;;) {
 		cock::user::ipc_recv(message);
 		cock::rtc::handle(message);
