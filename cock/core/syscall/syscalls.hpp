@@ -394,6 +394,15 @@ uintptr_t sys_ipc_reply_to(uintptr_t ticket, uintptr_t word0, uintptr_t word1,
 						   uintptr_t word2, uintptr_t word3, uintptr_t);
 
 /**
+ * @brief Writes the scheduler figures of the calling thread (`abi::sched::Metrics`).
+ * @param buffer User address of the structure to fill.
+ * @return Success, or failure when the buffer is not writable user memory or the
+ * kernel was built without `SCHED_METRICS=1` (the call is then not registered).
+ */
+uintptr_t sys_sched_metrics(uintptr_t buffer, uintptr_t, uintptr_t, uintptr_t,
+							uintptr_t, uintptr_t);
+
+/**
  * @brief Retrieves the thread id of the calling thread.
  * @return The thread id, or all ones when there is no current thread.
  */

@@ -26,6 +26,10 @@ ifdef USE_LTO
 CPP_FLAGS += -flto
 endif
 
+ifdef SCHED_METRICS
+CPP_FLAGS += -DCOCK_SCHED_METRICS
+endif
+
 LN_FLAGS      = -ffreestanding -O2 -nostdlib
 LN_LIBS       = -lgcc
 BUILD         = build
@@ -216,6 +220,7 @@ help:
 	@echo "  HOST_TOOLCHAIN=1  - Use the host g++/ld (-m32) instead of i686-elf-*"
 	@echo "  TEST_BUILD=1      - Build the in-kernel test suite"
 	@echo "  USE_LTO=1         - Enable link time optimization"
+	@echo "  SCHED_METRICS=1   - Record response, CPU and turnaround ticks per thread (SYS_SCHED_METRICS); off by default"
 	@echo "  DISK=<image>      - With run or run-headless, attach the image as the first IDE disk (see make disk)"
 	@echo "  FUZZ=user|root    - With TEST_INITRD=1, boot the syscall fuzzer (FUZZ_SEED, FUZZ_ROUNDS, FUZZ_TRACE)"
 	@echo "  LOG_LEVEL=<level> - Lowest kernel log level compiled in: TRACE, DEBUG, INFO, WARN, ERROR, FATAL"

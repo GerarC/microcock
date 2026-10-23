@@ -124,6 +124,7 @@ Besides the asynchronous messages, a thread can **call** another and wait for th
 
 | `SYS_IPC_DEFER` | `0x187` | none | `EAX` ticket of the call being served (the id of its caller), or -1 when none is being served |
 | `SYS_IPC_REPLY_TO` | `0x188` | `EBX` ticket, `ECX` to `EDI` the four words of the answer | `EAX` 0, or -1 when this thread holds no detached call with that ticket |
+| `SYS_SCHED_METRICS` | `0x189` | `EBX` address of an `abi::sched::Metrics` | `EAX` 0, or -1 for a bad buffer or a kernel built without `SCHED_METRICS=1` (see [task management](task_management.md#metrics)) |
 
 `EAX` is `0` when the registers hold a call (or the answer), `1` when the time ran out, `2` when the wait ended because an asynchronous message or an interrupt notification is pending (fetch it with `SYS_IPC_TRY_RECV`), and `-1` on failure. The time is in milliseconds; `0xFFFFFFFF` means no limit and `0` never waits; anything else above `0x7FFFFFFF` is refused with `-1`.
 

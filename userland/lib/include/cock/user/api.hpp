@@ -13,6 +13,7 @@
 
 #include <cock/abi/capability.hpp>
 #include <cock/abi/process.hpp>
+#include <cock/abi/sched_metrics.hpp>
 #include <cock/ipc/message.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -358,6 +359,16 @@ inline uint32_t spawn(const void *image, size_t size, const char *name,
  */
 inline uint32_t gettid() {
 	return static_cast<uint32_t>(syscall(SYS_GETTID, 0, 0, 0, 0, 0, 0));
+}
+
+/**
+ * @brief Reads the scheduler figures of the calling thread (`SYS_SCHED_METRICS`).
+ * @param metrics Receives the response, CPU and turnaround time in timer ticks.
+ * @return True on success. False when the kernel was built without `SCHED_METRICS=1`.
+ */
+inline bool sched_metrics(abi::sched::Metrics &metrics) {
+	return syscall(SYS_SCHED_METRICS, reinterpret_cast<uintptr_t>(&metrics), 0, 0, 0, 0,
+				   0) != FAILURE;
 }
 
 /**

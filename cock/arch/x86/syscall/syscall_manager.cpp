@@ -2,6 +2,7 @@
 #include <cock/arch/x86/syscall/syscall_nums.hpp>
 #include <cock/core/syscall/syscall_manager.hpp>
 #include <cock/core/syscall/syscalls.hpp>
+#include <cock/core/task/thread_metrics.hpp>
 #include <stddef.h>
 
 namespace cock::core::syscall {
@@ -56,6 +57,8 @@ void SyscallManager::init() {
     syscall_table[SyscallNum::SYS_IPC_REPLY_WAIT] = sys_ipc_reply_wait;
     syscall_table[SyscallNum::SYS_IPC_DEFER] = sys_ipc_defer;
     syscall_table[SyscallNum::SYS_IPC_REPLY_TO] = sys_ipc_reply_to;
+    if constexpr (task::SCHED_METRICS_ENABLED)
+        syscall_table[SyscallNum::SYS_SCHED_METRICS] = sys_sched_metrics;
 }
 
 SystemCall SyscallManager::getSyscall(size_t code){

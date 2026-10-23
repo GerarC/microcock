@@ -124,6 +124,7 @@ constexpr Spec SPECS[] = {
 	 {Arg::NONE, Arg::VALUE, Arg::VALUE, Arg::VALUE, Arg::VALUE, Arg::MILLISECONDS}},
 	{SYS_IPC_DEFER, COMMON, {}},
 	{SYS_IPC_REPLY_TO, COMMON, {Arg::ID, Arg::VALUE, Arg::VALUE, Arg::VALUE, Arg::VALUE}},
+	{SYS_SCHED_METRICS, RARE, {Arg::ADDRESS_OUT}},
 };
 
 /** Number of entries of `SPECS`. */
