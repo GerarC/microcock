@@ -69,7 +69,15 @@ int failWith(int code) {
 	return FAILURE;
 }
 
-int failFromServer() { return failWith(errorFor(client.lastStatus())); }
+int failFromServer() {
+	cock::abi::fs::Status status = client.lastStatus();
+	if (status == cock::abi::fs::Status::NOT_CONNECTED) {
+		connected = false;
+		for (File &file : files)
+			file.used = false;
+	}
+	return failWith(errorFor(status));
+}
 
 bool ensureConnected() {
 	if (!connected) {

@@ -30,6 +30,7 @@ constexpr uint32_t VIDEO_SIZE = 0x20000;
 constexpr uint32_t PS2_PORT = 0x60;
 constexpr uint32_t KEYBOARD_LINE = 1;
 constexpr uint32_t FSCLIENT_RUNS = 10;
+constexpr uint32_t RESTART_LIMIT = 3;
 constexpr size_t KBD_GRANTS = 2;
 constexpr size_t KBD_PORT_GRANT = 0;
 constexpr size_t KBD_IRQ_GRANT = 1;
@@ -168,6 +169,21 @@ void checkRepeatBounds() {
 	CHECK_TRUE(errorOf("tool repeat=2\n") == Error::BAD_VALUE);
 }
 
+void checkRestartRules() {
+	Manifest manifest;
+	CHECK_TRUE(parses("server path=bin/server.elf restart=3\n", manifest));
+	CHECK_EQ(RESTART_LIMIT, manifest.entries[0].restarts);
+	CHECK_TRUE(parses("server path=bin/server.elf\n", manifest));
+	CHECK_EQ(cock::abi::manifest::NO_RESTARTS, manifest.entries[0].restarts);
+	CHECK_TRUE(parses("server path=x restart=16\n", manifest));
+	CHECK_TRUE(errorOf("server path=x restart=17\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("server path=x restart=0\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("server path=x restart=\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("server path=x restart=1 restart=2\n") == Error::DUPLICATE_KEY);
+	CHECK_TRUE(errorOf("server restart=1\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("server path=x repeat=2 restart=1\n") == Error::BAD_VALUE);
+}
+
 void checkNames() {
 	char text[LONG_TEXT_BYTES];
 	memset(text, LONG_FILL, sizeof(text) - 1);
@@ -228,6 +244,7 @@ void testManifest() {
 	checkGrantRules();
 	checkKeyRules();
 	checkRepeatBounds();
+	checkRestartRules();
 	checkNames();
 	checkErrorLines();
 	checkEntryLimit();

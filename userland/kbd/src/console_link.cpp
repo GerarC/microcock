@@ -1,3 +1,4 @@
+#include <cock/abi/console.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
 #include <kbd/console_link.hpp>
@@ -9,13 +10,16 @@ using cock::user::NO_PROCESS;
 
 namespace cock::kbd {
 
-void sendKey(uint32_t console, char character) {
-	if (console == NO_PROCESS || character == NO_CHARACTER) return;
+void sendKey(uint32_t &console, char character) {
+	if (character == NO_CHARACTER) return;
 
 	Message message = {};
 	message.type = MessageType::CONSOLE_KEY;
 	message.payload.args.arg0 = static_cast<uint32_t>(character);
-	cock::user::ipc_send(console, message);
+	if (console != NO_PROCESS && cock::user::ipc_send(console, message)) return;
+
+	console = cock::user::lookup(cock::abi::console::SERVER_NAME);
+	if (console != NO_PROCESS) cock::user::ipc_send(console, message);
 }
 
 } // namespace cock::kbd

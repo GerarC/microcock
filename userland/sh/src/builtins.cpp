@@ -20,7 +20,6 @@ constexpr size_t NO_LENGTH = 0;
 constexpr uint32_t NO_SECONDS = 0;
 
 cock::user::console::Client console;
-bool consoleReady = false;
 
 } // namespace
 
@@ -49,8 +48,7 @@ void sleepCommand(const Words &words) {
 }
 
 void clearCommand(const Words &) {
-	if (!consoleReady) consoleReady = console.connect();
-	if (!consoleReady || !console.clear())
+	if (!console.connect() || !console.clear())
 		printf("sh: clear: the console server does not answer\n");
 }
 

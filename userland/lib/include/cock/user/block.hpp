@@ -65,17 +65,27 @@ class Client {
 	 *
 	 * Looks the server up by name (`SYS_PROC_LOOKUP`), sends `BLK_CONNECT` and maps the
 	 * shared object that comes back, writable. Blocks until the server answers.
+	 *
+	 * After a failure the client is marked lost: the next `info`, `read` or `write` calls
+	 * `connect` again, so a block server that was started again is found by its name and
+	 * gets a new session. The mapping of the old window is not released.
 	 * @return true when connected; false when the server does not exist, refused the
 	 *         session, died, or the window could not be mapped.
 	 */
 	bool connect() {
+		lost = false;
 		server = lookup(abi::block::SERVER_NAME);
-		if (server == NO_PROCESS) return false;
+		if (server == NO_PROCESS) {
+			lost = true;
+			return false;
+		}
 
 		Reply reply = {};
 		if (!call(MessageType::BLK_CONNECT, 0, 0, 0, reply) ||
-			reply.status != Status::OK)
+			reply.status != Status::OK) {
+			lost = true;
 			return false;
+		}
 
 		view = static_cast<uint8_t *>(shm_map(reply.first, true));
 		devices = reply.second;
@@ -97,7 +107,7 @@ class Client {
 	 */
 	bool info(uint32_t device, DeviceInfo &found) {
 		Reply reply = {};
-		if (!call(MessageType::BLK_INFO, device, 0, 0, reply) ||
+		if (!attached() || !call(MessageType::BLK_INFO, device, 0, 0, reply) ||
 			reply.status != Status::OK)
 			return false;
 
@@ -119,7 +129,7 @@ class Client {
 	 *         out of range, the server reported an error or a short count, or it died.
 	 */
 	bool read(uint32_t device, uint32_t sector, uint32_t count, void *buffer) {
-		if (view == nullptr || count == 0 || count > abi::block::MAX_SECTORS_PER_READ)
+		if (!attached() || count == 0 || count > abi::block::MAX_SECTORS_PER_READ)
 			return false;
 
 		Reply reply = {};
@@ -143,7 +153,7 @@ class Client {
 	 *         out of range, the server reported an error or a short count, or it died.
 	 */
 	bool write(uint32_t device, uint32_t sector, uint32_t count, const void *buffer) {
-		if (view == nullptr || count == 0 || count > abi::block::MAX_SECTORS_PER_WRITE)
+		if (!attached() || count == 0 || count > abi::block::MAX_SECTORS_PER_WRITE)
 			return false;
 
 		memcpy(view, buffer, size_t(count) * abi::block::SECTOR_BYTES);
@@ -155,6 +165,16 @@ class Client {
 	}
 
   private:
+	/**
+	 * @brief Tells whether a window is mapped, connecting again first when the server was lost.
+	 * @return true when the client is connected to a live server; false when it never was or
+	 *         the server cannot be reached yet.
+	 */
+	bool attached() {
+		if (lost && !connect()) return false;
+		return view != nullptr;
+	}
+
 	/**
 	 * @brief Sends one request and waits for the reply with the same id.
 	 * @param type Request message type.
@@ -176,7 +196,10 @@ class Client {
 		request.payload.args.arg1 = first;
 		request.payload.args.arg2 = second;
 		request.payload.args.arg3 = third;
-		if (!ipc_send(server, request)) return false;
+		if (!ipc_send(server, request)) {
+			lost = !process_alive(server);
+			return false;
+		}
 
 		Message answer = {};
 		bool matches = receiveReply(
@@ -187,7 +210,10 @@ class Client {
 					   candidate.payload.args.arg0 == id;
 			},
 			onForeign);
-		if (!matches) return false;
+		if (!matches) {
+			lost = true;
+			return false;
+		}
 
 		reply.status = static_cast<Status>(answer.payload.args.arg1);
 		reply.first = answer.payload.args.arg2;
@@ -204,6 +230,8 @@ class Client {
 	uint32_t devices = 0;
 	/** Id of the next request. */
 	uint32_t nextId = 1;
+	/** True when the last attempt to reach the server failed because it was gone. */
+	bool lost = false;
 };
 
 } // namespace cock::user::block
