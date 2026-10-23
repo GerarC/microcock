@@ -31,7 +31,8 @@ Statuses: `OK` and `UNAVAILABLE` (the clock could not give a stable, valid readi
 
 | File | Holds |
 |------|-------|
-| `src/main.cpp` | `_start`: waits for the grant, opens the clock, drains the kept messages, then the request loop |
+| `src/main.cpp` | `_start`: `waitForCapabilities`, opens the clock, drains the kept messages, then the request loop |
+| `src/grant.cpp`, `include/rtc/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED`, keeping every other message |
 | `src/requests.cpp`, `include/rtc/requests.hpp` | `initClock` and `handle`, which answers `RTC_READ`; owns the `Cmos` reader |
 | `src/pending.cpp`, `include/rtc/pending.hpp` | `keepPending` and `handlePending`: requests that arrive before the grant |
 | `src/reply.cpp`, `include/rtc/reply.hpp` | `reply`: sends `RTC_REPLY` |
