@@ -34,9 +34,12 @@ Message layout: `shared/include/cock/ipc/message.hpp`. Per key the driver reads 
 
 | File | Holds |
 |------|-------|
-| `main.cpp` | `_start`: wait for the grant, `request_ports`, `irq_bind`, the receive loop, `show` |
-| `keymap.hpp` | `kbd::Decoder`, the two layout tables and the scan code constants |
-| `Makefile` | Build rules; `CONSOLE_CLIENT = no` |
+| `src/main.cpp` | `_start`: the grant, the controller, the receive loop that decodes and sends each key |
+| `src/grant.cpp`, `include/kbd/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED` and returns the console server |
+| `src/controller.cpp`, `include/kbd/controller.hpp` | The PS/2 controller: `openController` (port `0x60` and IRQ 1), `isInterrupt`, `readScancode`, `acknowledge` |
+| `src/console_link.cpp`, `include/kbd/console_link.hpp` | `sendKey`: sends a decoded key to the console as `CONSOLE_KEY` |
+| `include/kbd/keymap.hpp` | `cock::kbd::Decoder`, the two layout tables and the scan code constants; header only, with no I/O |
+| `Makefile` | `NAME = kbd`, `SRCS` under `src/`, `CONSOLE_CLIENT = no` |
 
 ## Build, run, test
 
