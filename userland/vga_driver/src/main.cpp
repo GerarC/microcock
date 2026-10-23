@@ -12,7 +12,7 @@ constexpr size_t MAX_STRING_CHUNK = STRING_ARGUMENT_WORDS * sizeof(uint32_t);
 
 }
 
-extern "C" void _start() {
+extern "C" int main() {
 	bool ready = false;
 
 	Message msg = {};

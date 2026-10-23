@@ -15,7 +15,7 @@ constexpr uintptr_t EXIT_REFUSED = 1;
 
 }
 
-extern "C" void _start() {
+extern "C" int main() {
 	cock::user::fs::Client client;
 	bool served = client.connect();
 	served = served && client.open(DEAD_PATH) == cock::abi::fs::NO_HANDLE;

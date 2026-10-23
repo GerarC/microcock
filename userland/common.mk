@@ -20,10 +20,12 @@ ifeq ($(CONSOLE_CLIENT),yes)
 LIBC_SRCS := $(LIBC_SRCS) $(filter-out $(LIBC_SRCS),$(CONSOLE_SRCS))
 endif
 
-TARGET = $(OUT_DIR)/$(NAME).elf
-OBJ = $(addprefix $(OUT_DIR)/$(NAME)_,$(addsuffix .o,$(notdir $(basename $(SRCS) $(LIBC_SRCS) $(LIBCXX_SRCS)))))
+CRT0_SRCS = crt0.cpp constructors.cpp
 
-vpath %.cpp . src $(addprefix $(LIBC)/,$(dir $(LIBC_SRCS))) $(addprefix $(LIBCXX)/,$(dir $(LIBCXX_SRCS)))
+TARGET = $(OUT_DIR)/$(NAME).elf
+OBJ = $(addprefix $(OUT_DIR)/$(NAME)_,$(addsuffix .o,$(notdir $(basename $(SRCS) $(CRT0_SRCS) $(LIBC_SRCS) $(LIBCXX_SRCS)))))
+
+vpath %.cpp . src $(USERLAND_ROOT)lib/src $(addprefix $(LIBC)/,$(dir $(LIBC_SRCS))) $(addprefix $(LIBCXX)/,$(dir $(LIBCXX_SRCS)))
 
 all: $(TARGET)
 

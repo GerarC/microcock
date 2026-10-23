@@ -6,13 +6,13 @@
 
 namespace {
 
-constexpr size_t CHECK_COUNT = 48;
+constexpr size_t CHECK_COUNT = 49;
 constexpr uintptr_t EXIT_ALL_PASSED = 0;
 constexpr uintptr_t EXIT_SOME_FAILED = 1;
 
 } // namespace
 
-extern "C" void _start() {
+extern "C" int main() {
 	bool results[CHECK_COUNT] = {
 		probe::portsAreDenied(),
 		probe::irqIsDenied(),
@@ -61,7 +61,8 @@ extern "C" void _start() {
 		probe::deadServerFailsEveryCaller(),
 		probe::callTimeoutExpiresAndLateReplyFails(),
 		probe::acceptWaitsForMessagesAndTimesOut(),
-		probe::deferredCallIsAnsweredAfterTheNextOne()};
+		probe::deferredCallIsAnsweredAfterTheNextOne(),
+		probe::staticConstructorsRun()};
 
 	unsigned passed = 0;
 	for (size_t idx = 0; idx < CHECK_COUNT; idx++) {

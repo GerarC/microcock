@@ -201,7 +201,7 @@ bool writesTheVolume(Client &client) {
 
 }
 
-extern "C" void _start() {
+extern "C" int main() {
 	Client client;
 	bool served = client.connect();
 

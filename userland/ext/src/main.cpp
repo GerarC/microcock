@@ -12,7 +12,7 @@ constexpr uintptr_t EXIT_FAILED_STATUS = 1;
 
 } // namespace
 
-extern "C" void _start() {
+extern "C" int main() {
 	uint32_t wanted = cock::ext::waitForCapabilities();
 
 	if (!cock::ext::mountVolume(wanted)) cock::user::exit_process(EXIT_FAILED_STATUS);

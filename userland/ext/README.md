@@ -29,7 +29,7 @@ It serves `FS_CONNECT`, `FS_OPEN` (with `OPEN_WRITE`, `OPEN_CREATE`, `OPEN_TRUNC
 
 | File | Holds |
 |------|-------|
-| `src/main.cpp` | `_start`: wait for the grant, mount, run the server |
+| `src/main.cpp` | `main`: wait for the grant, mount, run the server |
 | `include/ext/grant.hpp`, `src/grant.cpp` | `waitForCapabilities()`: waits for `CAPABILITY_GRANTED`, queues other messages with `Server::defer`, returns the device |
 | `include/ext/mount.hpp`, `src/mount.cpp` | `mountVolume()`: connects to `ata` and `rtc`, checks the superblock and the root, reports refusals |
 | `include/ext/volume.hpp`, `src/volume.cpp` | Superblock, sector buffers, `Node`, `Handle`, `Where`, `loadSector`, `storeSector` |

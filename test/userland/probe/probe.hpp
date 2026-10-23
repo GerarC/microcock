@@ -107,6 +107,9 @@ bool acceptWaitsForMessagesAndTimesOut();
 /** `ipc_defer` without a request and `ipc_reply_to` with an unknown ticket are refused; a request postponed with `ipc_defer` is answered with `ipc_reply_to` after the server has answered the next request. */
 bool deferredCallIsAnsweredAfterTheNextOne();
 
+/** A global object whose constructor writes to a volatile variable has run before `main` starts: `_start` of the shared `crt0` calls the static constructors. */
+bool staticConstructorsRun();
+
 /** A raw `SYS_WRITE` of 200 bytes is cut: it returns a positive count below 200, not a failure. */
 bool oversizedWriteIsCut();
 /** `printf` formats its conversions correctly and prints lines longer than its buffer completely. */

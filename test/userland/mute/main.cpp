@@ -7,7 +7,7 @@ constexpr uintptr_t EXIT_SILENT = 0;
 
 }
 
-extern "C" void _start() {
+extern "C" int main() {
 	cock::ipc::Message message = {};
 	cock::user::ipc_recv(message);
 	cock::user::exit_process(EXIT_SILENT);

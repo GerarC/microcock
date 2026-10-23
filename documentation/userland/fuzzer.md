@@ -61,7 +61,7 @@ The `call` lines count how many random calls of each number succeeded and failed
 ## What came out of it
 * `vga_driver` trusted the length of a `VIDEO_WRITE_STR` message: a program could send a length far above the 20 bytes the message holds and make the display server read past the message. It was found by reading the server while checking what the inbox storm sends it, not by a crash (the runs so far never sent that exact message), and it now clamps the length to the payload.
 * In 12 runs of 3000 to 6000 rounds (seeds 1 to 6 in `user` mode and 1 to 3 in `root` mode) the kernel did not panic, hang or fault the main thread.
-* A first version of the fuzzer passed every run because the generator was never constructed (programs do not run static constructors), so every call was number 0. The seed is now a constant initialized object (`constinit`). The `call` statistics and the scenario counters exist to show that a run is doing work.
+* The seed is a constant initialized object (`constinit`), so the generator does not depend on a constructor having run: a generator that was never constructed would make every call number 0 and every run pass with no work. The `call` statistics and the scenario counters exist to show that a run is doing work.
 
 ## Current limits
 * It does not fuzz the file servers' protocols in a structured way, only with random words and messages.

@@ -39,7 +39,7 @@ Messages used toward other servers: `VIDEO_WRITE_STR` (chunks of at most 20 byte
 
 | File | Holds |
 |------|-------|
-| `src/main.cpp` | `_start`: the grant, the serial port, and the `ipc_accept` loop with its timeout |
+| `src/main.cpp` | `main`: the grant, the serial port, and the `ipc_accept` loop with its timeout |
 | `src/grant.cpp`, `include/console/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED` and returns the display server |
 | `src/serial.cpp`, `include/console/serial.hpp` | `openSerial` and `serialWrite` for the first serial line |
 | `src/display.cpp`, `include/console/display.hpp` | The link to `vga_driver`: `setDisplay`, `screenWrite` in chunks with retries, `screenClear`, `screenCharacter` |

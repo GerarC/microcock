@@ -133,7 +133,7 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 3. `libc/include/sys/syscalls.h`: the raw system call and why it must not address memory through `EBP`.
 4. `userland/init/main.cpp`: the root server and its policy.
 
-**Look for:** every program defines `_start` and none returns from it. Most end with `exit_process`; servers such as `sh` and `vga_driver` loop forever on their input instead.
+**Look for:** every program defines `main` and `userland/lib/src/crt0.cpp` is the entry that calls it. Most programs end with `exit_process`; servers such as `sh` and `vga_driver` loop forever on their input instead.
 
 **Exercise:** read a small program (`userland/rtc/src/requests.cpp` is a good one), then write down which message it receives and what it answers.
 

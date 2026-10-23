@@ -41,7 +41,7 @@ On `BLK_CONNECT` the server creates a one page shared memory object, shares it w
 
 | File | Holds |
 |------|-------|
-| `src/main.cpp` | `_start`: `waitForCapabilities`, opens the drive, scans the partitions, drains the kept messages, then the request loop |
+| `src/main.cpp` | `main`: `waitForCapabilities`, opens the drive, scans the partitions, drains the kept messages, then the request loop |
 | `src/grant.cpp`, `include/ata/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED`, keeping every other message |
 | `src/dispatch.cpp` | `handle`: refuses unknown senders and requests without a session, then calls one handler |
 | `src/devices.cpp`, `include/ata/devices.hpp` | The drive, the table of devices and `scanPartitions` (MBR and GPT) |

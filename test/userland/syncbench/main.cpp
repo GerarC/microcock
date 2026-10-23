@@ -99,7 +99,7 @@ bool measureSync(uint64_t &cycles) {
 
 } // namespace
 
-extern "C" void _start() {
+extern "C" int main() {
 	uint64_t asyncCycles = 0;
 	uint64_t syncCycles = 0;
 	bool measured = measureAsync(asyncCycles) && measureSync(syncCycles);

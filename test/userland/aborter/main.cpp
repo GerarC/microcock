@@ -1,3 +1,3 @@
 #include <stdlib.h>
 
-extern "C" void _start() { abort(); }
+extern "C" int main() { abort(); }

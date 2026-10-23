@@ -45,7 +45,7 @@ The script needs QEMU, GRUB tools, Python 3, `sfdisk`, mtools, `dosfstools` and 
 
 ## Limits and known gaps
 
-- The expected check count of `probe` (48) and the other expected lines are written in `scripts/qemu_userland_test.sh`; add a check there when you add one to a program.
+- The expected check count of `probe` (49) and the other expected lines are written in `scripts/qemu_userland_test.sh`; add a check there when you add one to a program.
 - The tests run with timing waits (`BOOT_SECONDS`), so a very slow host may need larger values.
 - The fuzzer does not fuzz the file protocols in a structured way, and in root mode `spawn` only receives garbage images.
 - `muteclient` and the fuzzer are the only tests of a server dying; there is no test of a server restarting.

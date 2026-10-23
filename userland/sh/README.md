@@ -39,7 +39,7 @@ Paths are absolute. An unknown command prints `sh: <name>: command not found`; m
 
 | File | Holds |
 |------|-------|
-| `src/main.cpp` | `_start`: the banner, the prompt and the read and run loop |
+| `src/main.cpp` | `main`: the banner, the prompt and the read and run loop |
 | `src/input.cpp`, `include/sh/input.hpp` | `readLine`: one line from descriptor 0, in chunks of 12 bytes |
 | `src/commands.cpp`, `include/sh/commands.hpp` | The command table, `help`, `run` (split a line and call a command) and `usage` |
 | `src/builtins.cpp`, `include/sh/builtins.hpp` | `version`, `echo`, `sleep` and `clear` (the console client lives here) |
