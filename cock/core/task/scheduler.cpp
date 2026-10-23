@@ -5,6 +5,7 @@
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
 #include <cock/core/task/timeouts.hpp>
+#include <hal/cpu.hpp>
 #include <cock/utils/logger.hpp>
 #include <cock/utils/panic.hpp>
 #include <stddef.h>
@@ -26,10 +27,16 @@ bool Scheduler::rescheduleRequested = false;
 bool Scheduler::restartRequested = false;
 Thread *Scheduler::handoffTarget = nullptr;
 uintptr_t Scheduler::syscallFrame = 0;
+uint64_t Scheduler::lastTickCycles = 0;
+uint64_t Scheduler::runStartCycles = 0;
+uint32_t Scheduler::cyclesPerTick = 0;
 
 void Scheduler::init() {
 	currentThread = nullptr;
 	idleThread = nullptr;
+	lastTickCycles = 0;
+	runStartCycles = 0;
+	cyclesPerTick = 0;
 	currentTicks = 0;
 	ticksSinceLastBoost = 0;
 	initialized = true;
@@ -140,9 +147,13 @@ uintptr_t Scheduler::onTick(uintptr_t current_stack_pointer) {
 	Timeouts::onTick();
 	SchedMetrics::onTick(currentThread, idleThread);
 
+	uint64_t now = hal::read_cycle_counter();
+	measureTick(now);
 	if (currentThread && currentThread != idleThread &&
-		currentThread->getState() == ThreadState::RUNNING)
+		currentThread->getState() == ThreadState::RUNNING) {
 		currentThread->chargeLevelTick();
+		runStartCycles = now;
+	}
 
 	if (++ticksSinceLastBoost >= BOOST_TICKS) {
 		boostPriorities();
@@ -165,12 +176,29 @@ uintptr_t Scheduler::onYield(uintptr_t current_stack_pointer) {
 	return switchFrom(current_stack_pointer);
 }
 
+void Scheduler::measureTick(uint64_t now) {
+	uint64_t gap = now - lastTickCycles;
+	if (lastTickCycles != 0 && gap >= MIN_CYCLES_PER_TICK &&
+		gap <= MAX_CYCLES_PER_TICK)
+		cyclesPerTick = static_cast<uint32_t>(gap);
+	lastTickCycles = now;
+}
+
+void Scheduler::chargeRun(Thread &thread, uint64_t now) {
+	if (cyclesPerTick == 0) return;
+	uint64_t ran = now - runStartCycles;
+	if (ran > cyclesPerTick) ran = cyclesPerTick;
+	thread.chargeLevelCycles(static_cast<uint32_t>(ran), cyclesPerTick);
+}
+
 uintptr_t Scheduler::switchFrom(uintptr_t current_stack_pointer) {
 	rescheduleRequested = false;
 	Thread *previous = currentThread;
+	uint64_t now = hal::read_cycle_counter();
 
 	if (previous) {
 		previous->setStackPointer(current_stack_pointer);
+		if (previous != idleThread) chargeRun(*previous, now);
 
 		if (previous->getState() == ThreadState::RUNNING)
 			previous->setState(ThreadState::READY);
@@ -197,6 +225,7 @@ uintptr_t Scheduler::switchFrom(uintptr_t current_stack_pointer) {
 	if (!next) utils::panic("No runnable threads! System Halted.");
 
 	currentThread = next;
+	runStartCycles = now;
 	SchedMetrics::onDispatch(*currentThread);
 	currentThread->setState(ThreadState::RUNNING);
 	currentTicks = 0;

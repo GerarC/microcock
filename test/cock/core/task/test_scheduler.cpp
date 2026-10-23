@@ -4,6 +4,7 @@
 #include <cock/core/task/thread.hpp>
 #include <cock/ipc/message.hpp>
 #include <stddef.h>
+#include <hal/cpu.hpp>
 #include <stdint.h>
 #include <test/test_framework.hpp>
 
@@ -27,6 +28,10 @@ constexpr uint32_t QUANTUM_TICK_LIMIT = 64;
 constexpr uint32_t LEVEL_ALLOWANCE_TICKS = 10;
 constexpr uint32_t NO_TICKS = 0;
 constexpr uint32_t CHARGED_TWICE = 2;
+constexpr uint64_t SIMULATED_TICK_CYCLES = 400000;
+constexpr uint32_t SHORTEST_DEMOTION_ROUNDS = 10;
+constexpr uint32_t LONGEST_DEMOTION_ROUNDS = 32;
+constexpr uint32_t SHORT_RUN_ROUNDS = 16;
 constexpr size_t DRAIN_LIMIT = 64;
 constexpr uint32_t UNKNOWN_PID = 0xFFFFFFF0;
 constexpr uint32_t FIRST_ARGUMENT = 0xA1;
@@ -159,6 +164,63 @@ void checkBlockingBeforeTheTickKeepsLevel() {
 	Scheduler::addThread(worker);
 
 	for (uint32_t round = 0; round < QUANTUM_TICK_LIMIT; round++) {
+		EXPECT_TRUE(runNext() == worker);
+		worker->setState(ThreadState::BLOCKED);
+		EXPECT_TRUE(runNext() == idleThread);
+		worker->setState(ThreadState::READY);
+		Scheduler::addThread(worker);
+	}
+	EXPECT_TRUE(runNext() == worker);
+	EXPECT_TRUE(worker->getPriority() == ThreadPriority::NORMAL);
+	EXPECT_EQ(NO_TICKS, worker->getLevelTicks());
+
+	drain();
+	retire(worker);
+	TaskManager::buryDeadThreads();
+}
+
+void spinCycles(uint64_t cycles) {
+	uint64_t start = core::hal::read_cycle_counter();
+	while (core::hal::read_cycle_counter() - start < cycles) {
+	}
+}
+
+void calibrateTick() {
+	Scheduler::onTick(FAKE_STACK_POINTER);
+	spinCycles(SIMULATED_TICK_CYCLES);
+	Scheduler::onTick(FAKE_STACK_POINTER);
+}
+
+void checkStoppingBetweenTicksIsCharged() {
+	startScheduler();
+	calibrateTick();
+	Thread *worker = makeThread(ThreadPriority::NORMAL);
+	Scheduler::addThread(worker);
+	EXPECT_TRUE(runNext() == worker);
+
+	uint32_t rounds = 0;
+	while (worker->getPriority() == ThreadPriority::NORMAL &&
+		   rounds < QUANTUM_TICK_LIMIT) {
+		spinCycles(SIMULATED_TICK_CYCLES / 2 + SIMULATED_TICK_CYCLES / 10);
+		EXPECT_TRUE(runNext() == worker);
+		rounds++;
+	}
+	EXPECT_TRUE(worker->getPriority() == ThreadPriority::LOW);
+	EXPECT_TRUE(rounds > SHORTEST_DEMOTION_ROUNDS);
+	EXPECT_TRUE(rounds <= LONGEST_DEMOTION_ROUNDS);
+
+	drain();
+	retire(worker);
+	TaskManager::buryDeadThreads();
+}
+
+void checkShortRunsAreNotCharged() {
+	startScheduler();
+	calibrateTick();
+	Thread *worker = makeThread(ThreadPriority::NORMAL);
+	Scheduler::addThread(worker);
+
+	for (uint32_t round = 0; round < SHORT_RUN_ROUNDS; round++) {
 		EXPECT_TRUE(runNext() == worker);
 		worker->setState(ThreadState::BLOCKED);
 		EXPECT_TRUE(runNext() == idleThread);
@@ -404,6 +466,8 @@ void test_scheduler() {
 	checkYieldingEveryTickIsDemoted();
 	checkBlockingBeforeTheTickKeepsLevel();
 	checkNewLevelClearsTheCount();
+	checkStoppingBetweenTicksIsCharged();
+	checkShortRunsAreNotCharged();
 	checkIdleIsNotDemoted();
 	checkBoost();
 	checkRequestFlags();

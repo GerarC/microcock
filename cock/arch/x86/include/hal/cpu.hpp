@@ -186,6 +186,21 @@ constexpr uint32_t CR0_WRITE_PROTECT = 1u << 16;
 	__asm__ volatile("mov %0, %%cr3" : : "r"(value) : "memory");
 }
 
+/** Shift that places the high half of the time stamp counter above the low half. */
+constexpr unsigned CYCLE_COUNTER_HIGH_SHIFT = 32;
+
+/**
+ * @brief Reads the time stamp counter.
+ * @return CPU cycles since reset. It is monotonic on the CPU that reads it; the
+ * rate is not known to the caller, so measure it against the timer tick.
+ */
+[[gnu::always_inline]] inline uint64_t read_cycle_counter() {
+	uint32_t low;
+	uint32_t high;
+	__asm__ volatile("rdtsc" : "=a"(low), "=d"(high));
+	return (static_cast<uint64_t>(high) << CYCLE_COUNTER_HIGH_SHIFT) | low;
+}
+
 /**
  * @brief Reads control register CR0.
  * @return Current CR0 value.
