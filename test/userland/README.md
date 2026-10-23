@@ -27,6 +27,7 @@ Programs that exist only to test the system from Ring 3. The normal initrd never
 | `mute`, `muteclient` | `mute` reads one message and exits without replying; `muteclient` checks that a request through `vfs` to it fails instead of hanging, that the file system still answers and that a direct client fails too |
 | `phoenix`, `phoenixclient` | `phoenix` (manifest `restart=5`) answers one `SYS_PING` and exits; `phoenixclient` finds it again after each exit, three times, and prints `phoenixclient: ok` when every round is answered by a new process |
 | `crasher` | Exits at once with status 7 (manifest `restart=3`): `init` restarts it three times and prints `init: crasher gave up after 3 restarts` |
+| `spawner` | Holds the `SPAWN` capability (manifest `caps=spawn`) and no grant authority: waits for its grant, checks that `SYS_SPAWN` with a label it cannot give is refused, then starts a copy of `hello` and prints `spawner: ok` |
 | `fuzz` | Syscall fuzzer: random and hostile arguments, three multi-thread scenarios, a final sanity check; see `documentation/userland/fuzzer.md` |
 
 `lib/include/cock/user/write_check.hpp` is the write check that `fatclient` and `extclient` share: create and read back, large files in windows, overwrite and append, the exclusivity rules, truncate, delete, directories, long names, renames and hard links.

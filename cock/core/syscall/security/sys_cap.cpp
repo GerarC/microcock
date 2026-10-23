@@ -24,7 +24,7 @@ using utils::Logger;
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 constexpr uintptr_t SUCCESS = 0;
 constexpr uintptr_t HIGHEST_CAPABILITY_TYPE =
-	static_cast<uintptr_t>(CapabilityType::IPC);
+	static_cast<uintptr_t>(CapabilityType::SPAWN);
 
 uintptr_t sys_cap_grant(uintptr_t target_pid, uintptr_t type, uintptr_t first,
 						uintptr_t count, uintptr_t, uintptr_t) {

@@ -48,6 +48,8 @@ static bool read_rights(const Process &spawner, VirtAddr limit, uintptr_t rights
 		rights.ipcCount > abi::service::MAX_SPAWN_IPC ||
 		!capability_tree.hasRoom(rights.ipcCount))
 		return false;
+	if (!spawner.getCapabilities().mayGrant(CapabilityType::IPC, rights.label, SINGLE_LABEL))
+		return false;
 
 	for (uint32_t index = 0; index < rights.ipcCount; index++) {
 		const Capability *source = spawner.getCapabilities().grantable(
@@ -77,8 +79,9 @@ uintptr_t sys_spawn(uintptr_t image_ptr, uintptr_t image_size, uintptr_t name_pt
 					uintptr_t name_length, uintptr_t flags, uintptr_t rights_ptr) {
 	Thread *current = Scheduler::getCurrentThread();
 	if (!current) return FAILURE;
-	if (!current->getProcess()->getCapabilities().holdsGrantAuthority()) {
-		Logger::trace("sys_spawn: PID %d holds no grant authority",
+	if (!current->getProcess()->getCapabilities().covers(CapabilityType::SPAWN,
+														 abi::SPAWN_FIRST, abi::SPAWN_COUNT)) {
+		Logger::trace("sys_spawn: PID %d holds no spawn capability",
 					  current->getProcess()->getId());
 		return FAILURE;
 	}

@@ -5,7 +5,7 @@ BOOT_SECONDS="${BOOT_SECONDS:-6}"
 KEY_SECONDS="${KEY_SECONDS:-2}"
 CLIENTS_TIMEOUT="${CLIENTS_TIMEOUT:-60}"
 POLL_SECONDS=1
-CLIENTS_DONE_TEXT=("fatclient: ok" "extclient: ok" "cfile: ok" "muteclient: ok" "phoenixclient: ok" "init: crasher gave up after 3 restarts" "syncbench: ok async" "schedbench: done")
+CLIENTS_DONE_TEXT=("fatclient: ok" "extclient: ok" "cfile: ok" "spawner: ok" "muteclient: ok" "phoenixclient: ok" "init: crasher gave up after 3 restarts" "syncbench: ok async" "schedbench: done")
 SERIAL_FILE="${SERIAL_FILE:-build/userland_serial.txt}"
 SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
@@ -16,14 +16,14 @@ DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
 EXPECTED_SCREEN_TEXT="cock> echo after clear|after clear"
 PROJECT_VERSION="$(sed -n "s/^VERSION_MAJOR := //p" Makefile).$(sed -n "s/^VERSION_MINOR := //p" Makefile).$(sed -n "s/^VERSION_PATCH := //p" Makefile)"
-EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 57/57 checks passed|microcock v${PROJECT_VERSION} shell, type help|hello shell|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|sh: cat: /ext/scratch/moved.txt: not found|abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|Boot memory released|init: manifest has 26 entries|init: restarted phoenix 2 of 5|contruncated: cut|init: configured vga_driver|init: started console|console: ready|init: started kbd|init: started sh|init: started ata|init: started rtc|rtc: ready|init: started fat|init: started vfs|vfs: 4 mounts|init: fsclient exit notices 10/10|init: started probe|kbd: ready|Screen mapped by PID|reaped"
+EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 57/57 checks passed|microcock v${PROJECT_VERSION} shell, type help|hello shell|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|sh: cat: /ext/scratch/moved.txt: not found|abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|Boot memory released|init: manifest has 27 entries|init: restarted phoenix 2 of 5|contruncated: cut|init: configured vga_driver|init: started console|console: ready|init: started kbd|init: started sh|init: started ata|init: started rtc|rtc: ready|init: started fat|init: started vfs|vfs: 4 mounts|init: fsclient exit notices 10/10|init: started probe|kbd: ready|Screen mapped by PID|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"
 case "$DISK_SCHEME" in
 	gpt) PARTITION_KIND=$KIND_GPT_PARTITION ;;
 	*) PARTITION_KIND=$KIND_MBR_PARTITION ;;
 esac
-EXPECTED_SERIAL_TEXT="$EXPECTED_SERIAL_TEXT|ata: $DISK_SECTORS sectors, $DEVICE_COUNT devices|blkclient: device 0: kind $KIND_DISK first $DISK_FIRST_SECTOR sectors $DISK_SECTORS|blkclient: device 1: kind $PARTITION_KIND first $FIRST_START sectors $FIRST_SECTORS|blkclient: device 2: kind $PARTITION_KIND first $SECOND_START sectors $SECOND_SECTORS|blkclient: sector says $MARKER_TEXT|blkclient: device 3: kind $PARTITION_KIND first $THIRD_START sectors $THIRD_SECTORS|blkclient: device 4: kind $PARTITION_KIND first $FOURTH_START sectors $FOURTH_SECTORS|blkclient: ok|fat: device $FAT_DEVICE,|fatclient: hello says $FAT_HELLO_TEXT|fatclient: ok|ext: device $EXT_DEVICE,|ext: device $EXT4_DEVICE: unsupported feature extents|extclient: small says $EXT_SMALL_TEXT|extclient: ok|muteclient: dead server did not hang the vfs|muteclient: ok|cfile: ext ok|cfile: fat ok|cfile: directories ok|cfile: ok"
+EXPECTED_SERIAL_TEXT="$EXPECTED_SERIAL_TEXT|ata: $DISK_SECTORS sectors, $DEVICE_COUNT devices|blkclient: device 0: kind $KIND_DISK first $DISK_FIRST_SECTOR sectors $DISK_SECTORS|blkclient: device 1: kind $PARTITION_KIND first $FIRST_START sectors $FIRST_SECTORS|blkclient: device 2: kind $PARTITION_KIND first $SECOND_START sectors $SECOND_SECTORS|blkclient: sector says $MARKER_TEXT|blkclient: device 3: kind $PARTITION_KIND first $THIRD_START sectors $THIRD_SECTORS|blkclient: device 4: kind $PARTITION_KIND first $FOURTH_START sectors $FOURTH_SECTORS|blkclient: ok|fat: device $FAT_DEVICE,|fatclient: hello says $FAT_HELLO_TEXT|fatclient: ok|ext: device $EXT_DEVICE,|ext: device $EXT4_DEVICE: unsupported feature extents|extclient: small says $EXT_SMALL_TEXT|extclient: ok|muteclient: dead server did not hang the vfs|muteclient: ok|cfile: ext ok|cfile: fat ok|cfile: directories ok|cfile: ok|spawner: forged label refused|spawner: spawned a program|spawner: ok"
 
 make iso TEST_INITRD=1 "$@" || exit 2
 

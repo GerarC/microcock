@@ -73,6 +73,7 @@ static void grant_root_capabilities(Process &process, size_t module_count) {
 						  core::hal::PHYSICAL_ADDRESS_SPACE_SIZE);
 	grant_root_capability(process, CapabilityType::BOOT_MODULE, module_count);
 	grant_root_capability(process, CapabilityType::IPC, abi::service::SERVICE_LABEL_COUNT);
+	grant_root_capability(process, CapabilityType::SPAWN, abi::SPAWN_COUNT);
 	process.setServiceId(abi::service::ROOT_SERVICE);
 }
 
