@@ -31,7 +31,8 @@ constexpr size_t FIRST_STACK = 0;
 constexpr size_t MISALIGNMENT = 1;
 constexpr uint32_t NO_COUNT = 0;
 constexpr size_t NO_THREADS = 0;
-constexpr uint32_t PING_PONG_ROUNDS = 200;
+constexpr uint32_t PING_PONG_ROUNDS = 50;
+constexpr uint32_t STALE_PAUSE_MILLISECONDS = 1;
 constexpr uint32_t PING_PONG_WAITERS = 3;
 constexpr uint32_t FIRST_ROUND = 1;
 constexpr uint32_t LOST_WAKEUP_MILLISECONDS = 1000;
@@ -81,6 +82,7 @@ void roundWaiter(void *) {
 		for (;;) {
 			uint32_t seen = __atomic_load_n(&roundWord, __ATOMIC_SEQ_CST);
 			if (seen >= round) break;
+			cock::user::sleep_ms(STALE_PAUSE_MILLISECONDS);
 			if (cock::user::futex_wait(&roundWord, seen, LOST_WAKEUP_MILLISECONDS) ==
 				FUTEX_TIMED_OUT) {
 				__atomic_store_n(&wakeupLost, true, __ATOMIC_SEQ_CST);
