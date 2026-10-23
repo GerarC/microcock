@@ -36,6 +36,9 @@ jobs:
       - name: Kernel tests with link time optimization
         run: bash scripts/qemu_test.sh HOST_TOOLCHAIN=1 USE_LTO=1
 
+      - name: Boot with no user program
+        run: bash scripts/qemu_boot_test.sh HOST_TOOLCHAIN=1
+
       - name: Userland end to end
         run: bash scripts/qemu_userland_test.sh HOST_TOOLCHAIN=1
 
@@ -55,6 +58,7 @@ jobs:
           name: serial-logs
           path: |
             build/test_output.txt
+            build/boot_serial.txt
             build/userland_serial.txt
             build/fuzz_serial.txt
           if-no-files-found: ignore
