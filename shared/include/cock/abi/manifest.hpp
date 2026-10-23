@@ -8,7 +8,7 @@
  * by `CAPABILITY_GRANTED`), `repeat=<1..32>` (copies to start; 1 for boot modules), `restart=<1..16>` (times `init` starts the program
  * again after it ends, within one restart window; needs a path and `repeat` of 1), `arg=<number>` (one
  * numeric argument) and `caps=<grant>,<grant>...` with grants `io:<first>[+count]`, `irq:<line>[+count]` and
- * `mem:<first>+<bytes>` plus the bare `spawn` (the right to call `SYS_SPAWN`), and `ipc=<name>,<name>...` (programs this one may exchange messages with, calls
+ * `mem:<first>+<bytes>` plus the bare `spawn` (the right to call `SYS_PROC_CREATE`), and `ipc=<name>,<name>...` (programs this one may exchange messages with, calls
  * and shared memory with; `init` grants one IPC capability for the service label of each name).
  * Numbers are decimal or `0x` hexadecimal and must fit in 32 bits. The parser has no
  * dependencies and is covered by host tests; init reads the file, the kernel never does.

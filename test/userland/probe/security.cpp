@@ -1,6 +1,9 @@
 #include "probe.hpp"
 #include <cock/abi/capability.hpp>
+#include <cock/abi/executable.hpp>
+#include <cock/abi/process.hpp>
 #include <cock/user/api.hpp>
+#include <cock/user/spawn.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/mman.h>
@@ -25,6 +28,8 @@ constexpr const char MISSING_MODULE[] = "no-such-module";
 constexpr size_t OVERSIZED_MODULE_NAME = 4096;
 constexpr char SPAWN_NAME[] = "intruder";
 constexpr size_t SPAWN_IMAGE_BYTES = 64;
+constexpr uint32_t UNOWNED_HANDLE = 0;
+constexpr uintptr_t PROCESS_LIMIT = cock::abi::executable::USER_SPACE_LIMIT;
 
 bool mapPhysicalIsDenied(uintptr_t physical) {
 	return mmap(reinterpret_cast<void *>(MAP_TARGET), PAGE_BYTES,
@@ -80,13 +85,17 @@ bool bootModulesAreDenied() {
 
 bool spawnIsDenied() {
 	char image[SPAWN_IMAGE_BYTES] = {};
-	return cock::user::spawn(image, sizeof(image), SPAWN_NAME) == cock::user::NO_PROCESS &&
-		   syscall(SYS_SPAWN, KERNEL_ADDRESS, PROBE_LENGTH,
-				   reinterpret_cast<uintptr_t>(SPAWN_NAME), sizeof(SPAWN_NAME), 0,
+	using cock::user::NO_PROCESS;
+	return cock::user::spawn(image, sizeof(image), SPAWN_NAME) == NO_PROCESS &&
+		   cock::user::proc_create(SPAWN_NAME, false, nullptr, PROCESS_LIMIT) ==
+			   cock::abi::process::NO_PENDING_PROCESS &&
+		   syscall(SYS_PROC_CREATE, KERNEL_ADDRESS, sizeof(SPAWN_NAME), 0, 0, PROCESS_LIMIT,
 				   0) == cock::user::FAILURE &&
-		   syscall(SYS_SPAWN, reinterpret_cast<uintptr_t>(image), NO_PAGES,
-				   reinterpret_cast<uintptr_t>(SPAWN_NAME), sizeof(SPAWN_NAME), 0,
-				   0) == cock::user::FAILURE;
+		   !cock::user::proc_map(UNOWNED_HANDLE, MAP_TARGET, SINGLE_RESOURCE) &&
+		   !cock::user::proc_write(UNOWNED_HANDLE, MAP_TARGET, image, sizeof(image)) &&
+		   !cock::user::proc_protect(UNOWNED_HANDLE, MAP_TARGET, SINGLE_RESOURCE) &&
+		   cock::user::proc_start(UNOWNED_HANDLE, MAP_TARGET) == NO_PROCESS &&
+		   !cock::user::proc_discard(UNOWNED_HANDLE);
 }
 
 } // namespace probe

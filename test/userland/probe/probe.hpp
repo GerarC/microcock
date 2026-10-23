@@ -56,7 +56,7 @@ bool unmappedWriteIsDenied();
 bool kernelUnmapIsDenied();
 /** Opening a boot data module without the capability fails, as do kernel or unmapped name pointers and bad name lengths. */
 bool bootModulesAreDenied();
-/** Spawning a process without the capability fails, as do kernel pointers and a zero length image. */
+/** Spawning a process without the capability fails, as does each `SYS_PROC_*` call, with a kernel pointer or a handle the caller does not own. */
 bool spawnIsDenied();
 
 /** Anonymous memory can be mapped, starts zeroed, can be written and is unmapped; a second unmap of the same range fails. */

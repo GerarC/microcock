@@ -23,7 +23,7 @@ The manifest grammar (`shared/include/cock/abi/manifest.hpp`) has these keys aft
 | Key | Meaning |
 |-----|---------|
 | `path=` | File of the initrd to spawn; without it the entry is a boot module that is only configured |
-| `caps=` | Up to four grants: `io:first+count`, `irq:line`, `mem:first+size`, `spawn` (the right to call `SYS_SPAWN`) |
+| `caps=` | Up to four grants: `io:first+count`, `irq:line`, `mem:first+size`, `spawn` (the right to call `SYS_PROC_CREATE`) |
 | `peer=` | Name of a process whose id travels in `CAPABILITY_GRANTED` |
 | `arg=` | One number that travels in `CAPABILITY_GRANTED` (the block device of `fat` and `ext`) |
 | `ipc=` | Names of the programs this one may talk to (send, call, share memory), up to eight; `init` grants one `IPC` capability for the label of each |
@@ -62,7 +62,7 @@ The kernel still checks every grant against what `init` holds, so a manifest lin
 | `include/init/grant.hpp`, `src/grant.cpp` | `announce()` and `equip()`: grants of an entry and the `CAPABILITY_GRANTED` message |
 | `include/init/files.hpp`, `src/files.cpp` | `readInto()`: a whole file through the file client |
 | `include/init/manifest.hpp`, `src/manifest.cpp` | `loadManifest()`: connect, read `manifest.conf`, parse it; holds the parsed `manifest` |
-| `include/init/spawn.hpp`, `src/spawn.cpp` | `spawnProgram()`: reads the image into an anonymous mapping and calls `SYS_SPAWN` |
+| `include/init/spawn.hpp`, `src/spawn.cpp` | `spawnProgram()`: reads the image into an anonymous mapping and calls `cock::user::spawn` |
 | `include/init/supervise.hpp`, `src/supervise.cpp` | `awaitExit()`: polls `PROCESS_EXITED` and `process_alive`; `keepExitNotice()`: the hook of the file client |
 | `include/init/watch.hpp`, `src/watch.cpp` | `watchProgram()`, `anyWatched()`, `superviseServers()`: the table of watched programs and the restart loop |
 | `include/init/run.hpp`, `src/run.cpp` | `runEntry()`: configure a boot module or spawn `repeat` times; registers `restart=` programs |

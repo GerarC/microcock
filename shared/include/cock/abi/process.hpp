@@ -18,10 +18,22 @@ constexpr size_t MIN_THREAD_STACK_BYTES = 0x2000;
 constexpr uint32_t NO_PARENT = 0xFFFFFFFF;
 /** Exit status reported in `PROCESS_EXITED` when a CPU exception ended the process. */
 constexpr uint32_t FAULT_STATUS = 0xFFFFFFFF;
-/** Flag of `SYS_SPAWN`: send the spawner a `PROCESS_EXITED` message when the child ends. */
+/** Flag of `SYS_PROC_CREATE`: send the creator a `PROCESS_EXITED` message when the child ends. */
 constexpr uintptr_t SPAWN_NOTIFY_EXIT = 1;
-/** Most children with `SPAWN_NOTIFY_EXIT` a process may have at once, running or exited and not yet read; `SYS_SPAWN` fails past it, so no exit notice is ever dropped. */
+/** Most children with `SPAWN_NOTIFY_EXIT` a process may have at once, running or exited and not yet read; `SYS_PROC_START` fails past it, so no exit notice is ever dropped. */
 constexpr size_t MAX_NOTIFIED_CHILDREN = 16;
+/** Handle returned by wrappers when `SYS_PROC_CREATE` failed. */
+constexpr uint32_t NO_PENDING_PROCESS = 0xFFFFFFFF;
+/** Most processes that exist between `SYS_PROC_CREATE` and `SYS_PROC_START` at once, in the whole system. */
+constexpr size_t MAX_PENDING_PROCESSES = 8;
+/** Most pending processes one process may hold at once. */
+constexpr size_t MAX_PENDING_PER_PROCESS = 2;
+/** Most bytes of memory that `SYS_PROC_MAP` maps into one pending process. */
+constexpr size_t MAX_PENDING_IMAGE_BYTES = 0x400000;
+/** Size in bytes of the user stack the kernel maps just below the user space limit when `SYS_PROC_START` creates the first thread; `SYS_PROC_MAP` never maps into it. */
+constexpr size_t PENDING_STACK_BYTES = 0x10000;
+/** Alignment in bytes of every address and size given to the `SYS_PROC_*` calls that map memory (the page size). */
+constexpr size_t PENDING_PAGE_BYTES = 0x1000;
 
 /** Timeout of `SYS_FUTEX_WAIT` that means wait forever. */
 constexpr uint32_t FUTEX_NO_TIMEOUT = 0xFFFFFFFF;

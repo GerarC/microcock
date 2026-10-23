@@ -19,6 +19,7 @@ void testRangePool();
 void testConsole();
 void testPrng();
 void testShell();
+void testElfImage();
 } // namespace host_test
 
 int main() {
@@ -39,6 +40,7 @@ int main() {
 	host_test::testConsole();
 	host_test::testPrng();
 	host_test::testShell();
+	host_test::testElfImage();
 
 	printf("host tests: %d checks, %d failed\n", host_test::checksRun,
 		   host_test::checksFailed);

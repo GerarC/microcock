@@ -26,7 +26,7 @@ void announce(uint32_t pid, uint32_t peer, uint32_t argument = 0);
  * Grants every capability of the entry, then announces the peer and the argument. Nothing is
  * sent when the entry has no grants, no peer and no argument. The kernel checks every grant
  * against what `init` holds. The service label and the IPC capabilities are not given here:
- * `spawnProgram` passes them to `SYS_SPAWN`, so they exist before the program runs.
+ * `spawnProgram` passes them to the loader (`cock::user::spawn`), so they exist before the program runs.
  *
  * @param entry The manifest entry.
  * @param pid The process to equip.

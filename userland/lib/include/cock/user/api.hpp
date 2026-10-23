@@ -366,34 +366,83 @@ inline uint32_t module_index(const char *name) {
 }
 
 /**
- * @brief Starts a process from an ELF image in memory (`SYS_SPAWN`).
+ * @brief Creates a process with an empty address space and no thread (`SYS_PROC_CREATE`).
  *
- * Only a process that holds a `SPAWN` capability may call it. The new process starts with an
- * empty capability set, except for the rights in `rights`; the caller grants anything else with
- * `cap_grant`.
- * @param image ELF image in the memory of the caller (up to 4 MiB).
- * @param size Image size in bytes.
+ * Only a process that holds a `SPAWN` capability may call it. The process starts with an empty
+ * capability set, except for the rights in `rights`, applied by `proc_start`. `spawn` in
+ * `spawn.hpp` uses this call and the next ones to start a program from an ELF image.
  * @param name NUL terminated process name; its length is measured here.
- * @param notify_exit true to receive a `PROCESS_EXITED` message when the process ends; the call fails when the caller already has `MAX_NOTIFIED_CHILDREN` such children running or unread.
- * @param rights The service label of the new process and the labels it may talk to, applied before its first thread can run; null leaves the process with no label and no IPC capability. The caller must hold a grantable `IPC` capability for the label and for each label of the list.
- * @return The new process id (the id of its first thread), or `NO_PROCESS` when the caller
- *         may not spawn, a size is zero or too large, the image is not a loadable ELF, ids
- *         or memory ran out, a pointer is bad, or the rights are invalid (no label, too many
- *         labels, a label the caller cannot give, or the derivation tree is full).
+ * @param notify_exit true to receive a `PROCESS_EXITED` message when the process ends once it started; `proc_start` fails when the caller already has `MAX_NOTIFIED_CHILDREN` such children running or unread.
+ * @param rights The service label of the new process and the labels it may talk to; null leaves the process with no label and no IPC capability. The caller must hold a grantable `IPC` capability for the label and for each label of the list.
+ * @param user_limit First address the process may not use; page aligned and above the user stack.
+ * @return The handle of the pending process, or `abi::process::NO_PENDING_PROCESS` when the caller may not spawn, holds `MAX_PENDING_PER_PROCESS` pending processes already, the system holds `MAX_PENDING_PROCESSES`, a pointer or the limit is bad, ids or memory ran out, or the rights are invalid (no label, too many labels, a label the caller cannot give, or the derivation tree is full).
  */
-inline uint32_t spawn(const void *image, size_t size, const char *name,
-					  bool notify_exit = false,
-					  const abi::service::SpawnRights *rights = nullptr) {
+inline uint32_t proc_create(const char *name, bool notify_exit,
+							const abi::service::SpawnRights *rights, uintptr_t user_limit) {
 	size_t length = 0;
 	while (name[length] != '\0')
 		length++;
 
 	uintptr_t result =
-		syscall(SYS_SPAWN, reinterpret_cast<uintptr_t>(image), size,
-				reinterpret_cast<uintptr_t>(name), length,
+		syscall(SYS_PROC_CREATE, reinterpret_cast<uintptr_t>(name), length,
 				notify_exit ? abi::process::SPAWN_NOTIFY_EXIT : 0,
-				reinterpret_cast<uintptr_t>(rights));
+				reinterpret_cast<uintptr_t>(rights), user_limit, 0);
+	return result == FAILURE ? abi::process::NO_PENDING_PROCESS : static_cast<uint32_t>(result);
+}
+
+/**
+ * @brief Maps fresh zeroed writable pages into a pending process (`SYS_PROC_MAP`).
+ * @param handle Handle from `proc_create`.
+ * @param address Page aligned start, not in the first page, below the user stack of the process.
+ * @param pages Page count; at most `MAX_PENDING_IMAGE_BYTES` in all for the process.
+ * @return true when mapped; false for a handle that is not the caller's, a bad or overlapping range, or no memory. A failure can leave pages mapped: call `proc_discard`.
+ */
+inline bool proc_map(uint32_t handle, uintptr_t address, size_t pages) {
+	return syscall(SYS_PROC_MAP, handle, address, pages, 0, 0, 0) == SUCCESS;
+}
+
+/**
+ * @brief Copies bytes into mapped, still writable pages of a pending process (`SYS_PROC_WRITE`).
+ * @param handle Handle from `proc_create`.
+ * @param address Destination in the pending process.
+ * @param source Source in the caller.
+ * @param length Byte count, non zero.
+ * @return true when copied; false for a bad handle, an unreadable source or a destination that is not mapped and writable.
+ */
+inline bool proc_write(uint32_t handle, uintptr_t address, const void *source, size_t length) {
+	return syscall(SYS_PROC_WRITE, handle, address, reinterpret_cast<uintptr_t>(source), length,
+				   0, 0) == SUCCESS;
+}
+
+/**
+ * @brief Makes mapped pages of a pending process read only (`SYS_PROC_PROTECT`).
+ * @param handle Handle from `proc_create`.
+ * @param address Page aligned start.
+ * @param pages Page count; every page must be mapped.
+ * @return true when protected; false for a bad handle or range.
+ */
+inline bool proc_protect(uint32_t handle, uintptr_t address, size_t pages) {
+	return syscall(SYS_PROC_PROTECT, handle, address, pages, 0, 0, 0) == SUCCESS;
+}
+
+/**
+ * @brief Starts a pending process at an entry point (`SYS_PROC_START`).
+ * @param handle Handle from `proc_create`; it stops being valid on success.
+ * @param entry Entry point, inside a mapped page.
+ * @return The process id (the id of its first thread), or `NO_PROCESS` when the handle is not the caller's, the entry is not mapped, no id is free, the rights are no longer valid, or the caller has too many children with an exit notice. The process stays pending after a failure.
+ */
+inline uint32_t proc_start(uint32_t handle, uintptr_t entry) {
+	uintptr_t result = syscall(SYS_PROC_START, handle, entry, 0, 0, 0, 0);
 	return result == FAILURE ? NO_PROCESS : static_cast<uint32_t>(result);
+}
+
+/**
+ * @brief Destroys a pending process and frees its memory (`SYS_PROC_DISCARD`).
+ * @param handle Handle from `proc_create`.
+ * @return true when destroyed; false when the handle is not the caller's.
+ */
+inline bool proc_discard(uint32_t handle) {
+	return syscall(SYS_PROC_DISCARD, handle, 0, 0, 0, 0, 0) == SUCCESS;
 }
 
 /**

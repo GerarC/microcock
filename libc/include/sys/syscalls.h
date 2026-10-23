@@ -55,8 +55,8 @@
     #define SYS_MODULE_OPEN      0x178
     /** Resolves a boot module name to its index; only a process with grant authority may call it. a1: name pointer, a2: name length. Returns the index or all ones. */
     #define SYS_MODULE_INDEX     0x179
-    /** Starts a process from an ELF image of up to 4 MiB; only a process with grant authority may call it. a1: image pointer, a2: image length, a3: name pointer, a4: name length, a6: pointer to `SpawnRights` (the service label and the IPC labels of the new process) or 0, a5: flags (`SPAWN_NOTIFY_EXIT` asks for a `PROCESS_EXITED` message, and fails when the caller already has `MAX_NOTIFIED_CHILDREN` notified children running or unread). Returns the id of the new process or all ones. */
-    #define SYS_SPAWN            0x17A
+    /** Creates a process with an empty address space and no thread; needs a `SPAWN` capability. a1: name pointer, a2: name length, a3: flags (`SPAWN_NOTIFY_EXIT` asks for a `PROCESS_EXITED` message), a4: pointer to `SpawnRights` (the service label and the IPC labels of the new process) or 0, a5: user space limit of the process (page aligned, above the user stack). Returns a handle for the pending process, or all ones when the caller already holds `MAX_PENDING_PER_PROCESS` of them or the system `MAX_PENDING_PROCESSES`, ids or memory ran out, or an argument is invalid. */
+    #define SYS_PROC_CREATE      0x17A
     /** Tells whether the thread with an id (a process id names its first thread) exists and is not dead. a1: id. Returns 0 when alive, all ones otherwise. */
     #define SYS_PROC_ALIVE       0x17B
     /** Receives a message without blocking. a1: pointer where the message is stored. Returns 0 when a message was stored, 1 when nothing is pending, all ones for a bad pointer. */
@@ -89,6 +89,16 @@
     #define SYS_SCHED_METRICS    0x189
     #define SYS_CAP_REVOKE       0x18A
     #define SYS_SERVICE_SET      0x18B
+    /** Maps fresh zeroed writable pages into a pending process the caller created. a1: handle, a2: page aligned address (not the first page, below the user stack), a3: number of pages. At most `MAX_PENDING_IMAGE_BYTES` per process; the range must be unmapped. Returns 0 or all ones. */
+    #define SYS_PROC_MAP         0x18C
+    /** Copies bytes into mapped, still writable pages of a pending process the caller created. a1: handle, a2: destination address in that process, a3: source address in the caller, a4: length. Returns 0 or all ones. */
+    #define SYS_PROC_WRITE       0x18D
+    /** Makes mapped pages of a pending process read only and executable. a1: handle, a2: page aligned address, a3: number of pages. Returns 0 or all ones. */
+    #define SYS_PROC_PROTECT     0x18E
+    /** Creates the first thread of a pending process at an entry point and lets it run; applies the rights and the exit notice asked at creation. a1: handle, a2: entry point (inside a mapped page). Returns the process id and invalidates the handle, or all ones. */
+    #define SYS_PROC_START       0x18F
+    /** Destroys a pending process the caller created and frees its memory. a1: handle. Returns 0 or all ones. */
+    #define SYS_PROC_DISCARD     0x190
 
     #ifdef __cplusplus
     extern "C" {
