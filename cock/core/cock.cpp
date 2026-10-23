@@ -89,6 +89,7 @@ static void register_data_module(const BootModule &module, size_t index) {
 }
 
 ThreadResult kernel_idle() {
+	Logger::info("Idle thread running");
 	while (true)
 		core::hal::halt();
 	return ThreadResult::success();

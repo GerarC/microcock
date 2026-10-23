@@ -69,5 +69,8 @@ For each module:
 
 After the modules, the **reaper** thread is created (see [task management](task_management.md#garbage-collection)); it comes last so the process ids of the modules are the same on every boot. Finally `manual_timer()` raises the timer vector by software. The scheduler finds no current thread, picks the first ready one, and the `iret` that enters it turns interrupts on. `cock_main` never continues past that point.
 
+## Boot with no program
+The kernel does not need any user program to start. With no modules the loop of `cock_main` does nothing, the boot memory is released, the idle thread logs `Idle thread running` and halts. `scripts/qemu_boot_test.sh` boots `build/cock.bin` with QEMU `-kernel` (no GRUB, no modules) for ten seconds and requires the welcome line, `Boot memory released` and `Idle thread running` on the serial log, no panic, no `Exception{`, no module loading and no reset (QEMU must still be running when the time limit ends). CI runs it. A change that makes the kernel depend on a module (a panic or a fault when `mod_count` is zero) makes it fail; this was checked with two such mutants.
+
 ## Test mode
 When built with `COCK_TEST_MODE`, `cock_main` runs the test suite right after the banner, before any scheduling, and exits QEMU through `isa-debug-exit` with a status the test script turns into its own exit code. A suite that needs threads calls `TaskManager::init()` itself and retires them through the graveyard.
