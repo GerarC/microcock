@@ -1,4 +1,4 @@
-#include "vga.hpp"
+#include <vga_driver/vga.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
 

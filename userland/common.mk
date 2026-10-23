@@ -8,7 +8,7 @@ LIBC := $(USERLAND_ROOT)../libc
 LIBCXX := $(USERLAND_ROOT)../libcxx
 LINKER_SCRIPT := $(USERLAND_ROOT)linker.ld
 
-INCLUDE_FLAGS = -I$(LIBC)/include -I$(USERLAND_ROOT)../shared/include -I$(USERLAND_ROOT)lib/include -I$(USERLAND_ROOT)../test/userland/lib/include -I.
+INCLUDE_FLAGS = -I$(LIBC)/include -I$(USERLAND_ROOT)../shared/include -I$(USERLAND_ROOT)lib/include -I$(USERLAND_ROOT)../test/userland/lib/include -Iinclude -I.
 CXX_FLAGS = -std=gnu++20 -ffreestanding -nostdlib -fno-exceptions -fno-rtti \
             -fno-stack-protector -fno-pie -fno-tree-loop-distribute-patterns \
             -fno-asynchronous-unwind-tables -mno-sse -mno-mmx -mno-80387 -Wall -Wextra -Werror $(INCLUDE_FLAGS) -O2 \
@@ -23,7 +23,7 @@ endif
 TARGET = $(OUT_DIR)/$(NAME).elf
 OBJ = $(addprefix $(OUT_DIR)/$(NAME)_,$(addsuffix .o,$(notdir $(basename $(SRCS) $(LIBC_SRCS) $(LIBCXX_SRCS)))))
 
-vpath %.cpp . $(addprefix $(LIBC)/,$(dir $(LIBC_SRCS))) $(addprefix $(LIBCXX)/,$(dir $(LIBCXX_SRCS)))
+vpath %.cpp . src $(addprefix $(LIBC)/,$(dir $(LIBC_SRCS))) $(addprefix $(LIBCXX)/,$(dir $(LIBCXX_SRCS)))
 
 all: $(TARGET)
 
