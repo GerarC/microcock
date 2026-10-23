@@ -51,6 +51,12 @@ uintptr_t sys_spawn(uintptr_t image_ptr, uintptr_t image_size, uintptr_t name_pt
 												limit))
 		return FAILURE;
 	if (!TaskManager::hasFreePid()) return FAILURE;
+	bool notify = (flags & abi::process::SPAWN_NOTIFY_EXIT) != 0;
+	if (notify && !current->getProcess()->canReserveExitNotice()) {
+		Logger::trace("sys_spawn: PID %d has too many children with exit notices",
+					  current->getProcess()->getId());
+		return FAILURE;
+	}
 
 	char name[Process::MAX_NAME_LENGTH] = {};
 	memcpy(name, reinterpret_cast<const void *>(name_ptr), name_length);
@@ -79,7 +85,8 @@ uintptr_t sys_spawn(uintptr_t image_ptr, uintptr_t image_size, uintptr_t name_pt
 	Process *process = Process::create(address_space, image.user_space_limit);
 	process->setName(name);
 	process->setParentId(current->getProcess()->getId());
-	process->setNotifiesExit((flags & abi::process::SPAWN_NOTIFY_EXIT) != 0);
+	process->setNotifiesExit(notify);
+	if (notify) current->getProcess()->reserveExitNotice();
 	Thread *thread = new Thread(*process, image.entry, ThreadPriority::NORMAL);
 	Scheduler::addThread(thread);
 	return thread->getId();

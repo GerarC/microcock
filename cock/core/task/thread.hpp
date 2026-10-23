@@ -416,6 +416,24 @@ class Thread {
 	/** @return True when any interrupt line is raised. */
 	bool hasNotifications() const { return pendingNotifications != 0; }
 
+	/** @return True when this is the first thread of its process, the one whose id is the process id. */
+	bool isMainThread() const {
+		return process != nullptr && process->getId() == getId();
+	}
+	/**
+	 * @brief Takes the oldest exit notice of the children of the process.
+	 * @param notice Receives the child id and its status.
+	 * @return False when none is stored, or when this is not the main thread of
+	 * its process: only the main thread is the parent that notices go to.
+	 */
+	bool takeExitNotice(ExitNotice &notice) {
+		return isMainThread() && process->takeExitNotice(notice);
+	}
+	/** @return True when this is the main thread and an exit notice waits. */
+	bool hasExitNotices() const {
+		return isMainThread() && process->hasExitNotices();
+	}
+
 	/** @return The owning process. */
 	Process *getProcess() const { return process; }
 	/** @return Physical root of the address space of the owner. */

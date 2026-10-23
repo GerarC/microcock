@@ -64,6 +64,20 @@ class IPC {
 	 * full queue. Called from interrupt context.
 	 */
 	static bool notify(uint32_t to_pid, uint32_t line);
+	/**
+	 * @brief Records the exit of a child in the process record of its parent and
+	 * wakes the main thread of the parent when it waits for a message.
+	 * @param parent_pid Process id of the parent, which is the id of its main
+	 * thread.
+	 * @param child_pid Process id of the child.
+	 * @param status Exit status of the child.
+	 * @return True when recorded. False when no process has that id, or the
+	 * main thread of the parent is already reaped.
+	 * @note The record is not the inbox, so a full inbox cannot lose the notice.
+	 * Only the main thread of the parent reads it, as a `PROCESS_EXITED`
+	 * message sent by the kernel.
+	 */
+	static bool notifyExit(uint32_t parent_pid, uint32_t child_pid, uint32_t status);
 
 	/**
 	 * @brief Attempts to retrieve a message from the current thread's inbox.

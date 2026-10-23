@@ -333,7 +333,7 @@ inline uint32_t module_index(const char *name) {
  * @param image ELF image in the memory of the caller (up to 4 MiB).
  * @param size Image size in bytes.
  * @param name NUL terminated process name; its length is measured here.
- * @param notify_exit true to receive a `PROCESS_EXITED` message when the process ends.
+ * @param notify_exit true to receive a `PROCESS_EXITED` message when the process ends; the call fails when the caller already has `MAX_NOTIFIED_CHILDREN` such children running or unread.
  * @return The new process id (the id of its first thread), or `NO_PROCESS` when the caller
  *         may not spawn, a size is zero or too large, the image is not a loadable ELF, ids
  *         or memory ran out, or a pointer is bad.

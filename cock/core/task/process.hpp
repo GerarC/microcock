@@ -10,12 +10,19 @@
 #include <cock/core/memory/address.hpp>
 #include <cock/core/memory/memory_region.hpp>
 #include <cock/core/security/capability.hpp>
+#include <cock/data_structure/ring_buffer.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
 namespace cock::core::task {
 
 using cock::core::memory::MemoryRegion;
+
+/** @brief An exit notice kept for a parent until it reads it. */
+struct ExitNotice {
+	uint32_t child; /**< Process id of the child that exited. */
+	uint32_t status; /**< Its exit status. */
+};
 
 /**
  * @brief The resources shared by the threads of one program.
@@ -153,6 +160,34 @@ class Process {
 	 */
 	void setExitStatus(uint32_t status) { exitStatus = status; }
 
+	/** @return True when another child may be spawned with an exit notice. */
+	bool canReserveExitNotice() const {
+		return notifiedChildren < abi::process::MAX_NOTIFIED_CHILDREN;
+	}
+	/**
+	 * @brief Reserves the record slot of the exit notice of a child about to be
+	 * spawned.
+	 * @return False when MAX_NOTIFIED_CHILDREN children are already counted,
+	 * nothing is reserved then.
+	 */
+	bool reserveExitNotice();
+	/**
+	 * @brief Stores the exit notice of a child in the reserved slot.
+	 * @param child Process id of the child.
+	 * @param status Exit status of the child.
+	 * @return False when the record is full, which cannot happen for children
+	 * that reserved a slot at spawn.
+	 */
+	bool recordExitNotice(uint32_t child, uint32_t status);
+	/**
+	 * @brief Takes the oldest exit notice and gives its slot back.
+	 * @param notice Receives the child id and its status.
+	 * @return False when no notice is stored.
+	 */
+	bool takeExitNotice(ExitNotice &notice);
+	/** @return True when an exit notice waits to be read. */
+	bool hasExitNotices() const { return !exitNotices.isEmpty(); }
+
 	/** @return True when the region table has a free entry. */
 	bool hasRegionSlot() const { return regionCount < MAX_MAPPING_REGIONS; }
 	/**
@@ -237,6 +272,9 @@ class Process {
 	uint32_t parentId = abi::process::NO_PARENT; /**< Spawning process. */
 	bool notifyExit = false; /**< Tell the parent on exit. */
 	uint32_t exitStatus = 0; /**< Exit status. */
+	size_t notifiedChildren = 0; /**< Children with an exit notice that is reserved or stored. */
+	data_structure::RingBuffer<ExitNotice, abi::process::MAX_NOTIFIED_CHILDREN + 1>
+		exitNotices; /**< Exit notices of children, not yet read. */
 	MemoryRegion regions[MAX_MAPPING_REGIONS] = {}; /**< Mapped regions. */
 	size_t regionCount = 0; /**< Entries used in regions. */
 	size_t ownedPages = 0; /**< Pages charged to the quota. */

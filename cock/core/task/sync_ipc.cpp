@@ -104,7 +104,8 @@ AcceptResult SyncIpc::accept(Thread &server, uint32_t milliseconds) {
 		dispatch(server);
 		return AcceptResult::SERVED;
 	}
-	if (server.hasMessages() || server.hasNotifications()) return AcceptResult::PENDING;
+	if (server.hasMessages() || server.hasNotifications() || server.hasExitNotices())
+		return AcceptResult::PENDING;
 	if (milliseconds == 0) return AcceptResult::TIMED_OUT;
 
 	server.setState(ThreadState::WAITING_CALL);
