@@ -1,60 +1,89 @@
 #ifndef ARCH_X86_MEMORY_HPP
 #define ARCH_X86_MEMORY_HPP
+
+/**
+ * @file
+ * @brief Physical memory manager: a bitmap frame allocator for 4 KiB frames.
+ *
+ * Built from the Multiboot memory map. Frames below 1 MiB, the kernel image and
+ * the bootloader structures (info, memory map, modules, command lines) start
+ * out reserved. Allocation and release take an interrupt guard, so they are
+ * safe against interrupt handlers on a single CPU.
+ */
+
 #include <cock/arch/x86/boot/multiboot.hpp>
-#include <cock/arch/x86/memory/paging.hpp>
+#include <cock/arch/x86/memory/layout.hpp>
+#include <cock/core/memory/address.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
 namespace cock::arch::x86 {
 
-static constexpr size_t PAGE_DIR_SIZE = 0x400;
-static constexpr size_t FRAME_SIZE = 0x0020;
-static constexpr uint32_t DIRECTORY_MASK = 0x03FF;
-static constexpr uint32_t TABLE_MASK = 0xFFF;
-static constexpr uint32_t PAGE_DIRECTORY_IDX_OFFSET = 0x16;
-static constexpr uint32_t PAGE_TABLE_IDX_OFFSET = 0x0C;
-static constexpr uint32_t NULL_PTR = 0x0;
-static constexpr uint32_t LAST_ADDRESS = 0xFFFFFFFF;
-static constexpr uint32_t PAGE_SIZE = 0x1000;
-
+/** @brief Static facade over the frame bitmaps. */
 class PhysicalMemoryManager {
   public:
-	static void init(MBInfo *boot_info);
-	static void pmmInit(uint32_t mem_low, uint32_t mem_high);
-	static void invalidatePage(uint32_t virtual_address);
+	/**
+	 * @brief Builds the frame bitmaps from the bootloader information.
+	 *
+	 * Uses the Multiboot memory map when present, otherwise `mem_upper`, and
+	 * panics when neither is available. Marks as used the first MiB, the kernel
+	 * image and the boot structures. Must run once, after BootMemory::init(),
+	 * since it reads boot data through BootMemory::map().
+	 *
+	 * @param boot_info Kernel virtual pointer to the Multiboot information.
+	 * @param boot_info_phys Physical address of that same structure, so its
+	 * frames can be reserved.
+	 */
+	static void init(const MBInfo *boot_info,
+					 core::memory::PhysAddr boot_info_phys);
 
-	static uint32_t allocFrame();
-	static void freeFrame(uint32_t phys_addr);
+	/**
+	 * @brief Takes one free frame.
+	 *
+	 * The contents of the frame are undefined; clear it before exposing it to
+	 * user mode.
+	 *
+	 * @return Physical address of the frame, or a null PhysAddr when memory is
+	 * exhausted.
+	 */
+	static core::memory::PhysAddr allocFrame();
 
-	static void mapPage(uint32_t phys, uint32_t virt, uint32_t flags);
-	static void unmapPage(uint32_t virt);
-	static uint32_t getPhysicalAddress(uint32_t virt);
-	static uint32_t createAddressSpace();
-	static uint32_t getKernelDirectory();
+	/**
+	 * @brief Returns a frame obtained from allocFrame().
+	 *
+	 * Frames that were not handed out by allocFrame() (for example kernel or
+	 * boot frames) and out of range addresses are ignored, so a double free is
+	 * harmless.
+	 *
+	 * @param frame Physical address of the frame.
+	 */
+	static void freeFrame(core::memory::PhysAddr frame);
 
-  private:
-	static constexpr uint32_t PAGE_SIZE = 0x1000;
-	static constexpr uint32_t NUM_PAGE_DIRS = 0x100;
-	static constexpr uint32_t NUM_PAGE_FRAMES =
-		(0x100000000ULL / PAGE_SIZE / 8);
+	/**
+	 * @brief Recycles a frame that was reserved at boot (for example a
+	 * bootloader module that has been consumed).
+	 *
+	 * Only RAM frames that are currently reserved and were not allocated by
+	 * allocFrame() are released; anything else is ignored.
+	 *
+	 * @param frame Physical address of the frame.
+	 */
+	static void releaseBootFrame(core::memory::PhysAddr frame);
 
-	static constexpr uintptr_t KERNEL_START = 0xC0000000;
+	/**
+	 * @brief Tells whether an address is backed by RAM according to the boot
+	 * memory map.
+	 * @param frame Physical address to test.
+	 * @return True for RAM, false for holes, devices and addresses beyond
+	 * MAX_PHYSICAL_FRAMES.
+	 */
+	static bool isRam(core::memory::PhysAddr frame);
 
-	static MBInfo *bootInfo;
-	static uint32_t pageFrameMin;
-	static uint32_t pageFrameMax;
-	static uint32_t totalAlloc;
-
-	static uint32_t physicalMemoryBitMap[NUM_PAGE_FRAMES / 32];
-
-	static PageDirectory *currentDirectory;
-
-	static void initMemory(uint32_t physicalAllocStart);
-
-	static void setBit(uint32_t frame_idx);
-	static void unsetBit(uint32_t frame_idx);
-	static bool testBit(uint32_t frame_idx);
-	static uint32_t firstFreeFrame();
+	/**
+	 * @brief Reports how many frames are currently free.
+	 * @return Free frame count.
+	 */
+	static size_t freeFrameCount();
 };
 
 } // namespace cock::arch::x86

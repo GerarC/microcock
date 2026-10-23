@@ -1,0 +1,119 @@
+// libc/include/unistd.h
+/**
+ * @file unistd.h
+ * @brief Descriptor based I/O and process exit.
+ *
+ * Descriptors 0, 1 and 2 are stdin, stdout and stderr served by the console
+ * server (with the kernel debug console as fallback). Descriptors 3 and up
+ * are files opened through the `vfs` server; a process has at most 16 of
+ * them and offsets are kept by the library (no shared offsets, no `dup`).
+ * Offsets are 31 bit, so files are limited to 2 GiB minus one byte.
+ */
+#ifndef UNISTD_H
+#define UNISTD_H
+
+#include <stddef.h>
+#include <sys/cdefs.h>
+
+/** `lseek` origin: from the start of the file. */
+#define SEEK_SET 0
+/** `lseek` origin: from the current offset. */
+#define SEEK_CUR 1
+/** `lseek` origin: from the end of the file. */
+#define SEEK_END 2
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/** Signed byte count (32 bit on i386). */
+typedef int ssize_t;
+/** Signed file offset (32 bit on i386). */
+typedef int off_t;
+
+/**
+ * @brief Reads from a descriptor.
+ * @param fd 0 for the console, 3 or more for an open file.
+ * @param buf Destination, at least `count` bytes.
+ * @param count Maximum bytes to read.
+ * @return Bytes read (0 at end of file), or -1. File failures set `errno`
+ *         (`EBADF` when not open for reading, `EFAULT` for a null buffer).
+ */
+ssize_t read(int fd, void *buf, size_t count);
+
+/**
+ * @brief Writes to a descriptor.
+ * @param fd 1 or 2 for the console, 3 or more for an open file.
+ * @param buf Source, at least `count` bytes.
+ * @param count Bytes to write.
+ * @return Bytes written (can be less than `count` when the device fills up),
+ *         or -1. File failures set `errno` (`EBADF` when not open for
+ *         writing, `EFAULT`, `ENOSPC`, `EROFS`...).
+ */
+ssize_t write(int fd, const void *buf, size_t count);
+
+/**
+ * @brief Closes a file descriptor and frees its slot.
+ * @param fd Descriptor returned by `open`.
+ * @return 0, or -1 with `errno` set (`EBADF`, or the server error). The slot
+ *         is released even when the server reports a failure.
+ */
+int close(int fd);
+
+/**
+ * @brief Moves the offset of an open file.
+ * @param fd File descriptor (3 or more).
+ * @param offset Displacement in bytes, may be negative.
+ * @param whence `SEEK_SET`, `SEEK_CUR` or `SEEK_END`.
+ * @return The new offset, or -1 with `errno` set: `EBADF`, `EINVAL` (bad
+ *         whence or result outside 0 to 0x7FFFFFFF).
+ */
+off_t lseek(int fd, off_t offset, int whence);
+
+/**
+ * @brief Removes a file name.
+ * @param path Absolute path, null terminated.
+ * @return 0, or -1 with `errno` set (`EINVAL`, `ENOTCONN`, `ENOENT`,
+ *         `EBUSY`, `EROFS`...).
+ */
+int unlink(const char *path);
+
+/**
+ * @brief Removes an empty directory.
+ * @param path Absolute path, null terminated.
+ * @return 0, or -1 with `errno` set (`ENOTEMPTY`, `ENOENT`...).
+ */
+int rmdir(const char *path);
+
+/**
+ * @brief Renames or moves a file or directory.
+ * @param from Existing absolute path.
+ * @param to New absolute path; both must be on the same mount.
+ * @return 0, or -1 with `errno` set (`EXDEV` across mounts, `EEXIST`,
+ *         `ENOENT`, `EINVAL` for a null path...).
+ */
+int rename(const char *from, const char *to);
+
+/**
+ * @brief Creates a hard link.
+ * @param existing Absolute path of an existing file.
+ * @param name Absolute path of the new name, on the same mount.
+ * @return 0, or -1 with `errno` set (`EXDEV`, `EEXIST`, `ENOTSUP` on file
+ *         systems without links...).
+ */
+int link(const char *existing, const char *name);
+
+/**
+ * @brief Terminates the calling process immediately.
+ *
+ * Standard `_exit` semantics: no handlers or buffers are flushed (including
+ * the `printf` buffer, which is flushed on each call anyway).
+ * @param status Exit status handed to the kernel.
+ */
+__attribute__((__noreturn__)) void _exit(int status);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // UNISTD_H

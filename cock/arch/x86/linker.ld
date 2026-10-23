@@ -1,5 +1,8 @@
 ENTRY(_start)
 
+KERNEL_OFFSET = 0xC0000000;
+BOOT_MAPPED_SIZE = 0x400000;
+
 SECTIONS {
     . = 0x00100000;
 
@@ -14,21 +17,25 @@ SECTIONS {
         *(.boot*)
     }
 
-    . += 0xC0000000;
+    . += KERNEL_OFFSET;
 
-    .text ALIGN(4K) : AT(ADDR(.text) - 0xC0000000) {
+    .text ALIGN(4K) : AT(ADDR(.text) - KERNEL_OFFSET) {
+        _text_start = .;
         *(.text*)
+        _text_end = .;
     }
 
-    .rodata ALIGN(4K) : AT(ADDR(.rodata) - 0xC0000000) {
+    .rodata ALIGN(4K) : AT(ADDR(.rodata) - KERNEL_OFFSET) {
+        _rodata_start = .;
         *(.rodata*)
+        _rodata_end = .;
     }
 
-    .data ALIGN(4K) : AT(ADDR(.data) - 0xC0000000) {
+    .data ALIGN(4K) : AT(ADDR(.data) - KERNEL_OFFSET) {
         *(.data*)
     }
 
-    .bss ALIGN(4K) : AT(ADDR(.bss) - 0xC0000000) {
+    .bss ALIGN(4K) : AT(ADDR(.bss) - KERNEL_OFFSET) {
         __bss_start = .;
         *(COMMON)
         *(.bss*)
@@ -62,5 +69,8 @@ SECTIONS {
         *(.note*)
     }
     _kernel_end = .;
+
+    ASSERT(_kernel_end - KERNEL_OFFSET <= BOOT_MAPPED_SIZE,
+           "the kernel image does not fit in the memory mapped at boot")
 }
 

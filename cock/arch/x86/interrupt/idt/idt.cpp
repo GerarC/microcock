@@ -1,6 +1,6 @@
-#include <cock/utils/logger.hpp>
+#include <cock/arch/x86/gdt/segments.hpp>
 #include <cock/arch/x86/interrupt/idt/idt.hpp>
-#include <cock/arch/x86/interrupt/pic/pic.hpp>
+#include <cock/utils/logger.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -8,12 +8,19 @@
 extern "C" void *irq_stub_table[];
 extern "C" void *isr_stub_table[];
 extern "C" void *isr_stub_128;
-extern "C" void *isr_stub_177;
 
 extern "C" void idt_flush(uintptr_t);
 namespace cock::arch::x86 {
 
 using cock::utils::Logger;
+
+constexpr uint8_t KERNEL_INTERRUPT_GATE = 0x8E;
+constexpr uint8_t USER_INTERRUPT_GATE = 0xEE;
+constexpr uint8_t TASK_GATE = 0x85;
+constexpr uint32_t SYSCALL_VECTOR = 128;
+constexpr uint32_t NMI_VECTOR = 2;
+constexpr uint32_t DOUBLE_FAULT_VECTOR = 8;
+constexpr uint32_t TASK_GATE_OFFSET = 0;
 
 IDT::IDT() {}
 
@@ -26,17 +33,19 @@ void IDT::init() {
 	descriptor.base = reinterpret_cast<uintptr_t>(&entries);
 	memset(&entries, 0, entries_size);
 
-	PIC_remap(0x20, 0x28);
-
 	for (size_t isr = 0; isr < ISR_NUM; isr++)
-		setGate(isr, reinterpret_cast<uint32_t>(isr_stub_table[isr]), 0x08,
-				0x8E);
+		setGate(isr, reinterpret_cast<uint32_t>(isr_stub_table[isr]),
+				KERNEL_CODE_SELECTOR, KERNEL_INTERRUPT_GATE);
+
+	setGate(NMI_VECTOR, TASK_GATE_OFFSET, NMI_TSS_SELECTOR, TASK_GATE);
+	setGate(DOUBLE_FAULT_VECTOR, TASK_GATE_OFFSET, DOUBLE_FAULT_TSS_SELECTOR,
+			TASK_GATE);
 
 	for (size_t irq = 0; irq < IRQ_NUM; irq++)
 		setGate(ISR_NUM + irq, reinterpret_cast<uint32_t>(irq_stub_table[irq]),
-				0x08, 0x8E);
-	setGate(128, reinterpret_cast<uint32_t>(&isr_stub_128), 0x08, 0xEE);
-	setGate(177, reinterpret_cast<uint32_t>(&isr_stub_177), 0x08, 0x8E);
+				KERNEL_CODE_SELECTOR, KERNEL_INTERRUPT_GATE);
+	setGate(SYSCALL_VECTOR, reinterpret_cast<uint32_t>(&isr_stub_128),
+			KERNEL_CODE_SELECTOR, USER_INTERRUPT_GATE);
 
 	idt_flush(reinterpret_cast<uintptr_t>(&descriptor));
 	Logger::debug("IDT Initialized");

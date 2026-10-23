@@ -1,3 +1,11 @@
+/**
+ * @file message.hpp
+ * @brief Asynchronous IPC message (`SYS_IPC_SEND`, `SYS_IPC_RECV`) and the catalog of message types.
+ *
+ * A message is a fixed 36 byte record: sender, target, type and a payload of six 32 bit words. The kernel
+ * overwrites `sender_pid` with the real sender, so receivers can trust it. Request and reply protocols are
+ * described with the ABI header of each server (`fs.hpp`, `block.hpp`, `console.hpp`, `rtc.hpp`).
+ */
 #ifndef SHARED_COCK_IPC_HPP
 #define SHARED_COCK_IPC_HPP
 
@@ -5,21 +13,65 @@
 #include <stdint.h>
 namespace cock::ipc {
 
+/**
+ * @brief Maximum number of arguments a standard IPC message can carry.
+ */
 static constexpr size_t MAX_ARGUMENTS = 6;
+
+/** Value of `sender_pid` for messages that the kernel itself sends (interrupts, exit notices). */
+static constexpr uint32_t KERNEL_SENDER = 0;
+
+/**
+ * @brief Defines the classification of IPC messages used for routing and handling.
+ */
 enum class MessageType : uint32_t {
-	NONE = 0,
-	SYS_PING = 1,
-	SYS_PONG = 2,
-	SYS_DEBUG = 2,
+	NONE = 0,                       /**< Null or empty message. */
+	SYS_PING = 1,                   /**< System ping for heartbeat or test purposes. */
+	SYS_PONG = 2,                   /**< System pong response. */
+	SYS_DEBUG = 3,                  /**< Debugging message for the kernel logger. */
+	OUTPUT_WRITE_CHAR = 4,           /**< Request to write a single character to the output server (the process that owns the screen). */
+	OUTPUT_WRITE_STR = 5,            /**< Request to write a string to the output server (the process that owns the screen). */
+	SYS_REGISTER_MAILBOX = 6,       /**< System request to register a shared memory mailbox. */
+	IRQ_NOTIFICATION = 7,           /**< Kernel notice that a bound hardware interrupt fired; arg0 is the line. */
+	CAPABILITY_GRANTED = 8,         /**< Root server notice that the capabilities were granted; arg0 is a peer process id. */
+	FS_CONNECT = 9,                 /**< File server request: open a session and get a window; arg0 is the request id. */
+	FS_OPEN = 10,                   /**< File server request: open the path in the window; arg0 request id, arg1 path length, arg2 flags. */
+	FS_READ = 11,                   /**< File server request: read into the window; arg0 request id, arg1 handle, arg2 offset, arg3 length. */
+	FS_STAT = 12,                   /**< File server request: size and type of a handle; arg0 request id, arg1 handle. */
+	FS_CLOSE = 13,                  /**< File server request: drop a handle; arg0 request id, arg1 handle. */
+	FS_READDIR = 15,                /**< File server request: name of the entry at an index of a directory; arg0 request id, arg1 handle, arg2 index. */
+	FS_REPLY = 14,                  /**< File server answer; arg0 request id, arg1 status, arg2 and arg3 values. */
+	BLK_CONNECT = 16,               /**< Block server request: open a session and get a window; arg0 is the request id. */
+	BLK_INFO = 17,                  /**< Block server request: size of a device; arg0 request id, arg1 device. */
+	BLK_READ = 18,                  /**< Block server request: read sectors into the window; arg0 request id, arg1 device, arg2 first sector, arg3 sector count. */
+	BLK_REPLY = 19,                 /**< Block server answer; arg0 request id, arg1 status, arg2 to arg4 values. */
+	FS_WRITE = 20,                  /**< File server request: write the window into a file; arg0 request id, arg1 handle, arg2 offset, arg3 length. */
+	FS_UNLINK = 21,                 /**< File server request: delete the file at the path in the window; arg0 request id, arg1 path length. */
+	BLK_WRITE = 22,                 /**< Block server request: write the window to sectors; arg0 request id, arg1 device, arg2 first sector, arg3 sector count. */
+	FS_MKDIR = 23,                  /**< File server request: make the directory at the path in the window; arg0 request id, arg1 path length. */
+	FS_RMDIR = 24,                  /**< File server request: remove the empty directory at the path in the window; arg0 request id, arg1 path length. */
+	FS_RENAME = 25,                 /**< File server request: rename; the old path is at the start of the window and the new one at RENAME_NEW_OFFSET; arg0 request id, arg1 old length, arg2 new length. */
+	RTC_READ = 27,                  /**< Clock server request: read the date and time; arg0 is the request id. */
+	RTC_REPLY = 28,                 /**< Clock server answer; arg0 request id, arg1 status, arg2 packed date, arg3 packed time. */
+	PROCESS_EXITED = 29,            /**< Kernel notice to the spawner, only when it asked at spawn: arg0 is the process id, arg1 the exit status (FAULT_STATUS when an exception ended it). */
+	CONSOLE_KEY = 30,               /**< Keyboard driver notice to the console server: arg0 is the typed character. */
+	FS_LINK = 26,                 /**< File server request: make a hard link; the existing path is at the start of the window and the new name at RENAME_NEW_OFFSET; arg0 request id, arg1 existing length, arg2 new length. */
 };
 
+/**
+ * @brief Standard Inter-Process Communication (IPC) Message structure.
+ * * Used to pass data asynchronously between isolated Userland processes and the Kernel.
+ */
 typedef struct message_t {
-	uint32_t sender_pid;
-	uint32_t target_pid;
-    MessageType type;
+	uint32_t sender_pid;            /**< Process ID of the sender. */
+	uint32_t target_pid;            /**< Process ID of the intended recipient. */
+	MessageType type;               /**< The type/command of the message. */
 
+    /**
+     * @brief Payload carrying the actual data of the message.
+     */
 	union {
-		uint32_t argv[MAX_ARGUMENTS];
+		uint32_t argv[MAX_ARGUMENTS]; /**< Array access to arguments. */
 		struct {
 			uint32_t arg0;
 			uint32_t arg1;
@@ -27,8 +79,8 @@ typedef struct message_t {
 			uint32_t arg3;
 			uint32_t arg4;
 			uint32_t arg5;
-		} args;
-		void *ptr;
+		} args;                       /**< Named access to arguments. */
+		void *ptr;                    /**< Pointer access for shared memory/mailbox addresses. */
 	} payload;
 
 } Message;

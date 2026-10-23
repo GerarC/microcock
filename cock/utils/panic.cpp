@@ -1,8 +1,7 @@
+#include <cock/utils/macros.hpp>
 #include <cock/utils/panic.hpp>
 #include <stdarg.h>
 #include <stdio.h>
-
-#define FOR_ETERNAL for (;;)
 
 namespace cock::utils {
 constexpr const char *KERNEL_PANIC_MESSAGE = "cock panic: ";
