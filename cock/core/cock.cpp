@@ -50,7 +50,6 @@ using utils::LogLevel;
 uint32_t vga_server_pid = 0;
 
 constexpr const char *VGA_DRIVER_MODULE = "vga_driver";
-constexpr const char *ROOT_SERVER_MODULE = "init";
 
 static void grant_root_capabilities(Process &process, size_t module_count) {
 	Capability ports;
@@ -130,6 +129,7 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
 	Thread *idle_thread = new Thread(kernel_idle, ThreadPriority::IDLE);
 	Scheduler::setIdleThread(idle_thread);
 
+    bool root_task_started = false;
     for (size_t i = 0; i < mod_count; i++) {
         if (!has_elf_magic(modules[i].start_address, modules[i].size)) {
             register_data_module(modules[i], i);
@@ -153,8 +153,10 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
 
         Process *process = Process::create(new_cr3, image.user_space_limit);
         process->setName(modules[i].name);
-        if (strcmp(modules[i].name, ROOT_SERVER_MODULE) == 0)
+        if (!root_task_started) {
             grant_root_capabilities(*process, mod_count);
+            root_task_started = true;
+        }
         Thread *app_thread = new Thread(*process, image.entry, ThreadPriority::NORMAL);
         if (strcmp(modules[i].name, VGA_DRIVER_MODULE) == 0) {
             core::hal::console_detach();

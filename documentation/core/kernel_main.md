@@ -42,8 +42,10 @@ for (size_t i = 0; i < mod_count; i++) {
 
 	Process *process = Process::create(new_cr3, image.user_space_limit);
 	process->setName(modules[i].name);
-	if (strcmp(modules[i].name, ROOT_SERVER_MODULE) == 0)
-		grant_root_capabilities(*process);
+	if (!root_task_started) {
+		grant_root_capabilities(*process, mod_count);
+		root_task_started = true;
+	}
 	Thread *app_thread = new Thread(*process, image.entry, ThreadPriority::NORMAL);
 	...
 	Scheduler::addThread(app_thread);
@@ -61,7 +63,7 @@ For each module:
 1. A new address space is created that shares the kernel half.
 2. The ELF loader validates the image (class, machine, segment bounds, entry point), maps the segments writable, copies them, and then seals the read-only ones. A module that fails is skipped, and its address space is destroyed.
 3. A `Process` is created with the user-space limit of the ELF class, and named after the module.
-4. The module called `init` is given the root capabilities (see [capabilities](capabilities.md)); no other module is.
+4. The first module that loads is the root task and is given the root capabilities (see [capabilities](capabilities.md)); no other module is. The kernel does not look at the name: the order of the `module` lines in the boot configuration decides (`USERLAND_BOOT_ORDER` in the `Makefile` puts `init` first). A first module that fails to load is skipped, and the root task is the next one that loads.
 5. A thread is created for it, with its user stack.
 6. If the module is called `vga_driver`, the kernel console detaches from the screen and remembers the driver as the destination of `sys_write` output.
 
