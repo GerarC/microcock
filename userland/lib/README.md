@@ -52,7 +52,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler, and `USER_EXTRA_FLAGS=-fno-om
 ## Limits and known gaps
 
 - Not thread safe: `fs::Client`, `Clock` and the stash keep state per program; `malloc` of the C library is locked and safe for threads.
-- Clients look the server up by name and have no access control: any process may talk to `console`, `vfs`, `ata` or `rtc` until the IPC capability of stage 9.
+- Clients look the server up by name. The kernel lets a process talk to a server only when it holds an IPC capability for the server (or the server for it); the manifest key `ipc=` gives it. Knowing the id of a server grants nothing.
 - Wait times have a resolution of the kernel tick (10 ms for `sleep_ms`).
 - The wrappers keep the stash of 16 messages; more are dropped.
 - There is no x86_64 variant yet: the wrappers assume the `int 0x80` ABI of i386.

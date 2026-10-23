@@ -182,6 +182,13 @@ class CapabilityTree {
 	/** @return Number of nodes in the table. */
 	size_t size() const { return used; }
 
+	/**
+	 * @brief Tells whether the table can take more nodes.
+	 * @param nodes Number of nodes wanted.
+	 * @return True when that many free slots exist.
+	 */
+	bool hasRoom(size_t nodes) const { return nodes <= MAX_NODES - used; }
+
 	/** @brief Empties the table and restarts the ids. Used by tests. */
 	void reset() {
 		for (size_t idx = 0; idx < MAX_NODES; idx++)

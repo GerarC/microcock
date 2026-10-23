@@ -1,5 +1,6 @@
 #include <cock/core/memory/shared_memory.hpp>
 #include <cock/core/memory/vmm.hpp>
+#include <cock/core/security/ipc_access.hpp>
 #include <cock/core/syscall/mm/placement.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/process.hpp>
@@ -52,6 +53,11 @@ uintptr_t sys_shm_share(uintptr_t id, uintptr_t target_pid, uintptr_t writable,
 	if (!target || target->getProcess()->isKernel() ||
 		target->getProcess()->getId() != target_pid)
 		return FAILURE;
+	if (!security::mayTalk(*current->getProcess(), *target->getProcess())) {
+		Logger::trace("sys_shm_share: PID %d has no IPC capability for PID %u",
+					  current->getProcess()->getId(), static_cast<unsigned>(target_pid));
+		return FAILURE;
+	}
 
 	if (!SharedMemory::share(static_cast<uint32_t>(id),
 							 current->getProcess()->getId(),

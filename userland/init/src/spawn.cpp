@@ -1,6 +1,8 @@
 #include <cock/abi/fs.hpp>
+#include <cock/abi/service.hpp>
 #include <cock/user/api.hpp>
 #include <init/files.hpp>
+#include <init/service.hpp>
 #include <init/spawn.hpp>
 #include <stdio.h>
 #include <sys/mman.h>
@@ -28,6 +30,7 @@ uint32_t spawnProgram(Client &client, const Entry &entry, bool notify) {
 	}
 
 	uint32_t pid = NO_PROCESS;
+	cock::abi::service::SpawnRights rights = rightsOf(entry);
 	FileInfo info = {};
 	if (client.stat(handle, info) && info.size > NO_BYTES && info.size <= MAX_PROGRAM_BYTES) {
 		size_t bytes = (info.size + PAGE_BYTES - 1) / PAGE_BYTES * PAGE_BYTES;
@@ -35,7 +38,7 @@ uint32_t spawnProgram(Client &client, const Entry &entry, bool notify) {
 						   NO_FILE, NO_BYTES);
 		if (image != MAP_FAILED) {
 			if (readInto(client, handle, static_cast<uint8_t *>(image), info.size))
-				pid = cock::user::spawn(image, info.size, entry.name, notify);
+				pid = cock::user::spawn(image, info.size, entry.name, notify, &rights);
 			munmap(image, bytes);
 		}
 	}

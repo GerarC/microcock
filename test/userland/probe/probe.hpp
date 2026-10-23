@@ -157,6 +157,13 @@ bool manifestMatchesTheBoot();
 /** Resolving a boot module index without the capability fails. */
 bool moduleIndexIsDenied();
 
+/** A message and a synchronous call to the block server and to the clock server, for which the probe has no IPC capability, are both refused at once (the call fails, it does not time out). */
+bool ipcWithoutCapabilityIsRefused();
+/** A synchronous call to the console server, for which the probe has an IPC capability, is admitted and answered (with the status for an unknown operation). */
+bool ipcWithCapabilityIsAdmitted();
+/** Sharing a shared memory object with the block server (no IPC capability) fails, and with the console server (with one) succeeds. */
+bool sharedMemoryNeedsCapability();
+
 } // namespace probe
 
 #endif // !PROBE_PROBE_HPP

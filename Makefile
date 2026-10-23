@@ -140,7 +140,7 @@ $(INITRD_IMAGE): $(INITRD_FILES) userland | $(BUILD)
 		done; \
 	fi
 	@if [ "$(FUZZ)" = user ]; then \
-		echo "fuzz path=bin/fuzz.elf" >> $(INITRD_STAGE)/manifest.conf; \
+		echo "fuzz path=bin/fuzz.elf ipc=vga_driver,console,ata,rtc,fat,vfs,ext,ramfs" >> $(INITRD_STAGE)/manifest.conf; \
 	fi
 	@for name in $(USERLAND_PROGRAMS); do \
 		case " $(USERLAND_BOOT_ORDER) " in \

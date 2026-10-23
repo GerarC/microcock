@@ -23,10 +23,10 @@ void announce(uint32_t pid, uint32_t peer, uint32_t argument = 0);
 /**
  * @brief Gives a process what its manifest entry says.
  *
- * Labels the process and grants its IPC capabilities (see `connectProgram`), grants every
- * capability of the entry, then announces the peer and the argument. Nothing is sent when the
- * entry has no grants, no peer and no argument. The kernel checks every grant against what
- * `init` holds.
+ * Grants every capability of the entry, then announces the peer and the argument. Nothing is
+ * sent when the entry has no grants, no peer and no argument. The kernel checks every grant
+ * against what `init` holds. The service label and the IPC capabilities are not given here:
+ * `spawnProgram` passes them to `SYS_SPAWN`, so they exist before the program runs.
  *
  * @param entry The manifest entry.
  * @param pid The process to equip.

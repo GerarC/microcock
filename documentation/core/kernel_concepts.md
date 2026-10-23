@@ -31,6 +31,7 @@ The rule comes from Liedtke: a concept belongs in the kernel only if moving it o
 | `SYS_IRQ_BIND`, `SYS_IRQ_ACK` | Deliver a hardware interrupt as a message | Only the kernel takes interrupts | primitive |
 | `SYS_REQUEST_RESOURCE` | Ask for I/O ports | The port bitmap is read by the CPU | primitive |
 | `SYS_CAP_GRANT` | Pass part of a capability to another process | The kernel enforces capabilities, so it must see every transfer | primitive |
+| `SYS_SERVICE_SET`, the service label of a process, and the IPC capability checked in send, call and share | The stable identity under which the kernel decides who may talk to whom. The kernel enforces capabilities, so the label and the check cannot live in Ring 3; the policy (which program gets which label and which rights) is data in the manifest read by `init` | primitive |
 | `SYS_CAP_REVOKE` | Take a delegated capability, and what derives from it, away from its holders | Only the kernel can close ports, unbind lines and unmap device pages of another process | primitive |
 | `SYS_MODULE_OPEN` | Open a boot module as a read only shared object | The boot loader hands the modules to the kernel, and only the kernel can turn their frames into a shared object | primitive |
 | `SYS_MODULE_INDEX` | Find a boot module by name | A lookup by name; a name service | service (stage 9, with the data policy of the boot) |

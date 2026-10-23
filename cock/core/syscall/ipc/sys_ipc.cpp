@@ -1,7 +1,9 @@
 #include <cock/core/memory/vmm.hpp>
+#include <cock/core/security/ipc_access.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/ipc.hpp>
 #include <cock/core/task/scheduler.hpp>
+#include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
 #include <cock/core/task/timeouts.hpp>
 #include <cock/ipc/message.hpp>
@@ -14,6 +16,7 @@ using core::memory::VirtAddr;
 using core::memory::VirtualMemoryManager;
 using core::task::IPC;
 using core::task::Scheduler;
+using core::task::TaskManager;
 using core::task::Thread;
 using core::task::ThreadState;
 using core::task::TimeoutPhase;
@@ -47,6 +50,10 @@ uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
 	Message message;
 	memcpy(&message, reinterpret_cast<const void *>(msg_ptr), sizeof(message));
 	if (!sender_may_use(*current, message.type)) return FAILURE;
+
+	Thread *target = TaskManager::getThreadByPID(static_cast<uint32_t>(to_pid));
+	if (!target || !security::mayTalk(*current->getProcess(), *target->getProcess()))
+		return FAILURE;
 	return IPC::deliver(static_cast<uint32_t>(to_pid), message) ? SUCCESS
 																: FAILURE;
 }

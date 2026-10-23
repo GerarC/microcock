@@ -40,7 +40,7 @@ enum SyscallNum : uint32_t {
     SYS_SHM_RELEASE         = 0x177, /**< Drop the caller's reference to a shared memory object. */
     SYS_MODULE_OPEN         = 0x178, /**< Open a boot data module by name as a read only shared object (needs a BOOT_MODULE capability). */
     SYS_MODULE_INDEX        = 0x179, /**< Resolve a boot data module name to its index (grant authority only). */
-    SYS_SPAWN               = 0x17A, /**< Start a new process from an ELF image in memory (grant authority only). */
+    SYS_SPAWN               = 0x17A, /**< Start a new process from an ELF image in memory (grant authority only); the sixth argument optionally points to the service label and IPC labels the new process is born with. */
     SYS_PROC_ALIVE          = 0x17B, /**< Tell whether the thread with an id (a process id names its first thread) is alive. */
     SYS_IPC_TRY_RECV        = 0x17C, /**< Non blocking IPC receive: 0 message, 1 nothing pending. */
     SYS_IPC_RECV_TIMEOUT    = 0x17D, /**< IPC receive that gives up after a timeout in milliseconds: 0 message, 1 timeout. */

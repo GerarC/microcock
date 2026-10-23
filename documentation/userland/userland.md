@@ -79,7 +79,9 @@ When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED
 | `port_out8(port, value)`, `port_in8(port)`, `port_read_words(port, buffer, words)` | Port instructions (`outb`, `inb`, `rep insw`), allowed after `request_ports` |
 | `module_open(name)` | `SYS_MODULE_OPEN` |
 | `module_index(name)` | `SYS_MODULE_INDEX` |
-| `spawn(image, size, name, notify_exit)` | `SYS_SPAWN`; `notify_exit` asks for a `PROCESS_EXITED` message when the process ends |
+| `spawn(image, size, name, notify_exit, rights)` | `SYS_SPAWN`; `notify_exit` asks for a `PROCESS_EXITED` message when the process ends; `rights` (optional) gives the new process its service label and IPC capabilities before it runs |
+| `service_set(pid, label)` | `SYS_SERVICE_SET`; labels a running process once (used for boot modules) |
+| `cap_grant_node(pid, type, first, count)`, `cap_revoke(node)` | `SYS_CAP_GRANT` returning the derivation node, and `SYS_CAP_REVOKE` |
 | `process_alive(pid)` | `SYS_PROC_ALIVE` |
 | `ipc_try_recv(message)` | `SYS_IPC_TRY_RECV`; `Received::MESSAGE`, `EMPTY` or `FAILED` |
 | `ipc_recv_timeout(message, milliseconds)` | `SYS_IPC_RECV_TIMEOUT`; the same results, `EMPTY` when the time ran out; like `ipc_try_recv` it reads only the kernel inbox |

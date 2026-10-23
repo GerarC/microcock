@@ -74,12 +74,13 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_IRQ_ACK` (0x172): Re-enable an interrupt line after handling it.
 * `SYS_PROC_LOOKUP` (0x173): Find the process id of a boot module by name.
 * `SYS_SHM_CREATE` (0x174): Create a shared memory object of a number of pages, paid by the caller.
-* `SYS_SHM_SHARE` (0x175): Let another process map an object, read only or read and write.
+* `SYS_SHM_SHARE` (0x175): Let another process map an object, read only or read and write; needs an IPC capability with that process (or in the other direction).
 * `SYS_SHM_MAP` (0x176): Map a whole object into the caller, read only or read and write.
 * `SYS_SHM_RELEASE` (0x177): Drop the right of the caller to an object.
 * `SYS_MODULE_OPEN` (0x178): Open a data boot module by name as a read only shared memory object; needs a `BOOT_MODULE` capability.
 * `SYS_MODULE_INDEX` (0x179): Index of a data boot module by name; needs grant authority.
-* `SYS_SPAWN` (0x17A): Start a process from an ELF image in the memory of the caller, with no capabilities; needs grant authority.
+* `SYS_SPAWN` (0x17A): Start a process from an ELF image in the memory of the caller, with no capabilities except the service label and IPC capabilities that an optional sixth argument gives it before it runs; needs grant authority.
+* `SYS_SERVICE_SET` (0x18B): Give a running process its service label, once; needs grant authority. Used for the boot modules.
 * `SYS_PROC_ALIVE` (0x17B): Tell whether a process id is alive.
 * `SYS_IPC_TRY_RECV` (0x17C): Like `SYS_IPC_RECV` but returns 1 at once when there is nothing to receive.
 * `SYS_IPC_RECV_TIMEOUT` (0x17D): Like `SYS_IPC_RECV` but returns 1 when the given milliseconds pass with nothing to receive.

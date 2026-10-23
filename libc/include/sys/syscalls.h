@@ -55,7 +55,7 @@
     #define SYS_MODULE_OPEN      0x178
     /** Resolves a boot module name to its index; only a process with grant authority may call it. a1: name pointer, a2: name length. Returns the index or all ones. */
     #define SYS_MODULE_INDEX     0x179
-    /** Starts a process from an ELF image of up to 4 MiB; only a process with grant authority may call it. a1: image pointer, a2: image length, a3: name pointer, a4: name length, a5: flags (`SPAWN_NOTIFY_EXIT` asks for a `PROCESS_EXITED` message, and fails when the caller already has `MAX_NOTIFIED_CHILDREN` notified children running or unread). Returns the id of the new process or all ones. */
+    /** Starts a process from an ELF image of up to 4 MiB; only a process with grant authority may call it. a1: image pointer, a2: image length, a3: name pointer, a4: name length, a6: pointer to `SpawnRights` (the service label and the IPC labels of the new process) or 0, a5: flags (`SPAWN_NOTIFY_EXIT` asks for a `PROCESS_EXITED` message, and fails when the caller already has `MAX_NOTIFIED_CHILDREN` notified children running or unread). Returns the id of the new process or all ones. */
     #define SYS_SPAWN            0x17A
     /** Tells whether the thread with an id (a process id names its first thread) exists and is not dead. a1: id. Returns 0 when alive, all ones otherwise. */
     #define SYS_PROC_ALIVE       0x17B

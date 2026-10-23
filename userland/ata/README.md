@@ -66,7 +66,7 @@ Use `HOST_TOOLCHAIN=1` without the cross compiler. `make disk` takes `DISK_SCHEM
 
 ## Limits and known gaps
 
-- No access control between clients: any process may connect, read the whole disk and write any partition, until the IPC capability of stage 9.
+- Access control is by IPC capability: only `fat`, `ext` and the test client `blkclient` hold one for `ata`; a holder can read the whole disk and write any partition.
 - No DMA and no IRQ driven I/O; a DMA driver needs the DMA policy first.
 - One drive, 28 bit sector numbers (128 GiB), logical partitions inside an extended partition and the backup GPT are not read.
 

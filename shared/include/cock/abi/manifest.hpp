@@ -17,6 +17,7 @@
 #define SHARED_COCK_ABI_MANIFEST_HPP
 
 #include <cock/abi/capability.hpp>
+#include <cock/abi/service.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -35,7 +36,7 @@ constexpr size_t MAX_PATH_BYTES = 64;
 /** Most capability grants per entry. */
 constexpr size_t MAX_GRANTS = 4;
 /** Most names in the `ipc` list of one entry. */
-constexpr size_t MAX_IPC_PEERS = 8;
+constexpr size_t MAX_IPC_PEERS = service::MAX_SPAWN_IPC;
 /** Number of copies when `repeat` is not given. */
 constexpr uint32_t DEFAULT_REPEAT = 1;
 /** Largest accepted value of `repeat`. */
