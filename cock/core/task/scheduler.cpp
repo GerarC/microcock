@@ -1,5 +1,6 @@
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/hal/tasking.hpp>
+#include <cock/core/task/sched_metrics.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
@@ -41,6 +42,7 @@ void Scheduler::setIdleThread(Thread *thread) { idleThread = thread; }
 void Scheduler::enqueue(Thread *thread) {
 	if (thread->queued) return;
 	thread->queued = true;
+	SchedMetrics::onReady(*thread);
 	readyQueues[static_cast<uint8_t>(thread->getPriority())].push(thread);
 }
 
@@ -136,6 +138,7 @@ uintptr_t Scheduler::onTick(uintptr_t current_stack_pointer) {
 	if (!initialized) return current_stack_pointer;
 
 	Timeouts::onTick();
+	SchedMetrics::onTick(currentThread, idleThread);
 
 	if (++ticksSinceLastBoost >= BOOST_TICKS) {
 		boostPriorities();
@@ -191,6 +194,7 @@ uintptr_t Scheduler::switchFrom(uintptr_t current_stack_pointer,
 	if (!next) utils::panic("No runnable threads! System Halted.");
 
 	currentThread = next;
+	SchedMetrics::onDispatch(*currentThread);
 	currentThread->setState(ThreadState::RUNNING);
 	currentTicks = 0;
 

@@ -87,6 +87,7 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_FUTEX_WAIT` (0x180): Block while a 32 bit word still holds an expected value, with an optional timeout.
 * `SYS_FUTEX_WAKE` (0x181): Wake up to a given number of threads of the caller process waiting on a word.
 * `SYS_GETTID` (0x182): Retrieve the id of the calling thread.
+* `SYS_SCHED_METRICS` (0x189): Write the response, CPU and turnaround ticks of the calling thread. Registered only in a kernel built with `SCHED_METRICS=1`; otherwise it fails like any unknown call.
 * `SYS_IPC_CALL` (0x183), `SYS_IPC_ACCEPT` (0x184), `SYS_IPC_REPLY` (0x185), `SYS_IPC_REPLY_WAIT` (0x186), `SYS_IPC_DEFER` (0x187), `SYS_IPC_REPLY_TO` (0x188): Synchronous calls with four words in registers each way, a direct switch to the server and an optional timeout. `accept` also wakes for an asynchronous message or an interrupt. `defer` detaches the call being served and returns a ticket; `reply_to` answers it later.
 
 ## Building and Running
@@ -152,6 +153,7 @@ Build options:
 | `HOST_TOOLCHAIN=1` | Use the host `g++ -m32` and `ld -m elf_i386` instead of `i686-elf-*` |
 | `USE_LTO=1` | Link time optimization (the kernel text shrinks about a quarter) |
 | `LOG_LEVEL=<level>` | Lowest kernel log level compiled in: `TRACE` (default), `DEBUG`, `INFO`, `WARN`, `ERROR` or `FATAL`. Calls below it generate no code |
+| `SCHED_METRICS=1` | Record the response, CPU and turnaround ticks of every thread and register `SYS_SCHED_METRICS`. Off by default: the loaded kernel (`text`, `data`, `bss`) is the same as without the option |
 | `TEST_BUILD=1` | Build the in-kernel test suite |
 | `USER_EXTRA_FLAGS=...` | Extra compiler flags for the userland programs, for example `-fno-omit-frame-pointer` |
 
@@ -264,10 +266,10 @@ What the kernel already does, and what is planned next. Planned items are listed
 **Tests and C library**
 - Tests for the physical memory manager, the scheduler, IPC and the reaper, and host-side tests for the shared data structures.
 - Buffered `printf`, `malloc`, `calloc`, `realloc`, `free` and `operator new`, with `malloc` locked by a futex mutex so threads can share the heap.
+- Scheduler metrics (response, CPU and turnaround ticks per thread) behind `SCHED_METRICS=1`, off by default, read by a thread with `SYS_SCHED_METRICS`.
 
 ### Planned
 
-- Scheduler metrics (response and turnaround time) behind a build flag that is off by default, so they cost nothing unless enabled.
 - A scheduler that charges each priority level for the time its threads actually use, so a thread cannot keep a high level by yielding before its quantum ends.
 - A test that checks no thread sleeps forever when a futex word is set and waiters are woken.
 - A thread library with `join`, a mutex, a condition variable and a semaphore.

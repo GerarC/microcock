@@ -55,6 +55,7 @@ enum SyscallNum : uint32_t {
     SYS_IPC_REPLY_WAIT      = 0x186, /**< Server side: answer and wait for the next request in one call. */
     SYS_IPC_DEFER           = 0x187, /**< Server side: postpone the reply of the current request. */
     SYS_IPC_REPLY_TO        = 0x188, /**< Server side: answer a request that was deferred, named by the ticket that SYS_IPC_DEFER returned. */
+    SYS_SCHED_METRICS       = 0x189, /**< Write the response, CPU and turnaround ticks of the calling thread; registered only in a kernel built with SCHED_METRICS=1. */
 };
 
 }

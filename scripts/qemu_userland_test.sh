@@ -5,7 +5,7 @@ BOOT_SECONDS="${BOOT_SECONDS:-6}"
 KEY_SECONDS="${KEY_SECONDS:-2}"
 CLIENTS_TIMEOUT="${CLIENTS_TIMEOUT:-60}"
 POLL_SECONDS=1
-CLIENTS_DONE_TEXT=("fatclient: ok" "extclient: ok" "cfile: ok" "muteclient: ok" "syncbench: ok async")
+CLIENTS_DONE_TEXT=("fatclient: ok" "extclient: ok" "cfile: ok" "muteclient: ok" "syncbench: ok async" "schedbench: done")
 SERIAL_FILE="${SERIAL_FILE:-build/userland_serial.txt}"
 SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
@@ -15,7 +15,8 @@ FILE_CLIENT_RUNS=10
 DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
 EXPECTED_SCREEN_TEXT="cock> echo after clear|after clear"
-EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 49/49 checks passed|microcock v0.2.0 shell, type help|hello shell|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|sh: cat: /ext/scratch/moved.txt: not found|abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|Boot memory released|init: manifest has 22 entries|contruncated: cut|init: configured vga_driver|init: started console|console: ready|init: started kbd|init: started sh|init: started ata|init: started rtc|rtc: ready|init: started fat|init: started vfs|vfs: 4 mounts|init: fsclient exit notices 10/10|init: started probe|kbd: ready|VGA driver detected|reaped"
+PROJECT_VERSION="$(sed -n "s/^VERSION_MAJOR := //p" Makefile).$(sed -n "s/^VERSION_MINOR := //p" Makefile).$(sed -n "s/^VERSION_PATCH := //p" Makefile)"
+EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 49/49 checks passed|microcock v${PROJECT_VERSION} shell, type help|hello shell|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|sh: cat: /ext/scratch/moved.txt: not found|abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|Boot memory released|init: manifest has 23 entries|contruncated: cut|init: configured vga_driver|init: started console|console: ready|init: started kbd|init: started sh|init: started ata|init: started rtc|rtc: ready|init: started fat|init: started vfs|vfs: 4 mounts|init: fsclient exit notices 10/10|init: started probe|kbd: ready|VGA driver detected|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"
 case "$DISK_SCHEME" in
@@ -132,7 +133,7 @@ for expected in "${serial_checks[@]}"; do
 		status=1
 	fi
 done
-if ! grep -qE 'microcock v0\.2\.0[[:space:]]*$' "$SERIAL_FILE"; then
+if ! grep -qE "microcock v${PROJECT_VERSION//./\\.}[[:space:]]*\$" "$SERIAL_FILE"; then
 	echo "[qemu_userland_test] the shell command version printed nothing"
 	status=1
 fi

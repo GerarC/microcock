@@ -1,5 +1,6 @@
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/task/ipc.hpp>
+#include <cock/core/task/sched_metrics.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/sync_ipc.hpp>
 #include <cock/core/task/task_manager.hpp>
@@ -106,6 +107,7 @@ void TaskManager::notifyThreadDeath(Thread *thread) {
 	if (!thread) return;
 
 	InterruptGuard guard;
+	SchedMetrics::onExit(*thread);
 	SyncIpc::abandon(*thread);
 	graveyard.push(thread);
 

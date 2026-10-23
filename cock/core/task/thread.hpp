@@ -9,6 +9,7 @@
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/task/process.hpp>
+#include <cock/core/task/thread_metrics.hpp>
 #include <cock/data_structure/intrusive_queue.hpp>
 #include <cock/data_structure/ring_buffer.hpp>
 #include <cock/ipc/message.hpp>
@@ -190,6 +191,7 @@ class Thread {
 	uint32_t callWords[abi::call::WORD_COUNT] = {}; /**< Words of the pending
 													   request of this caller. */
 	bool queued = false; /**< True while on a ready queue. */
+	[[no_unique_address]] ThreadMetrics metrics; /**< Scheduler figures, empty unless built with SCHED_METRICS=1. */
 
 	/**
 	 * @brief Creates an additional thread in a user process.

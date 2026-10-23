@@ -85,6 +85,8 @@
     #define SYS_IPC_DEFER        0x187
     /** Server side: answers a deferred request. a1: ticket returned by `SYS_IPC_DEFER`, a2 to a5: four payload words. */
     #define SYS_IPC_REPLY_TO     0x188
+    /** Writes the scheduler figures of the calling thread. a1: address of a `cock::abi::sched::Metrics`. Fails unless the kernel was built with `SCHED_METRICS=1`. */
+    #define SYS_SCHED_METRICS    0x189
 
     #ifdef __cplusplus
     extern "C" {

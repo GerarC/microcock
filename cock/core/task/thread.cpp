@@ -3,6 +3,7 @@
 #include <cock/core/irq/irq_routing.hpp>
 #include <cock/core/memory/slab_pool.hpp>
 #include <cock/core/memory/vmm.hpp>
+#include <cock/core/task/sched_metrics.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/futex.hpp>
 #include <cock/core/task/task_manager.hpp>
@@ -115,6 +116,7 @@ void Thread::initBase(ThreadPriority priority, ThreadType type, Process *owner,
 						  ? kernel_stack
 						  : VirtualMemoryManager::allocStack(KERNEL_STACK_PAGES);
 	if (!this->stackBase) utils::panic("Thread: cannot allocate kernel stack");
+	SchedMetrics::onCreate(*this);
 }
 
 Thread::~Thread() {
