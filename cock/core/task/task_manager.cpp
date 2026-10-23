@@ -95,11 +95,7 @@ void TaskManager::announceExit(Process &process) {
 	if (!process.notifiesExit() || process.getParentId() == abi::process::NO_PARENT)
 		return;
 
-	Message message = {};
-	message.type = ipc::MessageType::PROCESS_EXITED;
-	message.payload.args.arg0 = process.getId();
-	message.payload.args.arg1 = process.getExitStatus();
-	if (!IPC::deliverAs(process.getParentId(), message, ipc::KERNEL_SENDER))
+	if (!IPC::notifyExit(process.getParentId(), process.getId(), process.getExitStatus()))
 		Logger::trace("Exit notice of %u was not delivered", process.getId());
 }
 

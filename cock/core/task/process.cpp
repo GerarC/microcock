@@ -86,6 +86,22 @@ bool Process::detachThread() {
 	return threadCount == 0;
 }
 
+bool Process::reserveExitNotice() {
+	if (!canReserveExitNotice()) return false;
+	notifiedChildren++;
+	return true;
+}
+
+bool Process::recordExitNotice(uint32_t child, uint32_t status) {
+	return exitNotices.push({child, status});
+}
+
+bool Process::takeExitNotice(ExitNotice &notice) {
+	if (!exitNotices.pop(notice)) return false;
+	if (notifiedChildren > 0) notifiedChildren--;
+	return true;
+}
+
 bool Process::reservePages(size_t pages) {
 	if (!canOwnPages(pages)) return false;
 	ownedPages += pages;

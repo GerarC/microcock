@@ -38,6 +38,26 @@ bool IPC::deliverAs(uint32_t to_pid, Message message, uint32_t sender_pid) {
 	return true;
 }
 
+bool IPC::notifyExit(uint32_t parent_pid, uint32_t child_pid, uint32_t status) {
+	uintptr_t flags = hal::save_and_block_interruptions();
+	Thread *target = TaskManager::getThreadByPID(parent_pid);
+
+	if (!target || target->getProcess()->getId() != parent_pid ||
+		!target->getProcess()->recordExitNotice(child_pid, status)) {
+		hal::restore_interruptions(flags);
+		return false;
+	}
+
+	if (target->getState() == ThreadState::WAITING_MSG) {
+		target->setState(ThreadState::READY);
+		Scheduler::addThread(target);
+	} else if (target->getState() == ThreadState::WAITING_CALL) {
+		SyncIpc::wakeForMessage(*target);
+	}
+	hal::restore_interruptions(flags);
+	return true;
+}
+
 bool IPC::notify(uint32_t to_pid, uint32_t line) {
 	uintptr_t flags = hal::save_and_block_interruptions();
 	Thread *target = TaskManager::getThreadByPID(to_pid);

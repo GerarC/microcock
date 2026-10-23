@@ -20,6 +20,8 @@ constexpr uint32_t NO_PARENT = 0xFFFFFFFF;
 constexpr uint32_t FAULT_STATUS = 0xFFFFFFFF;
 /** Flag of `SYS_SPAWN`: send the spawner a `PROCESS_EXITED` message when the child ends. */
 constexpr uintptr_t SPAWN_NOTIFY_EXIT = 1;
+/** Most children with `SPAWN_NOTIFY_EXIT` a process may have at once, running or exited and not yet read; `SYS_SPAWN` fails past it, so no exit notice is ever dropped. */
+constexpr size_t MAX_NOTIFIED_CHILDREN = 16;
 
 /** Timeout of `SYS_FUTEX_WAIT` that means wait forever. */
 constexpr uint32_t FUTEX_NO_TIMEOUT = 0xFFFFFFFF;

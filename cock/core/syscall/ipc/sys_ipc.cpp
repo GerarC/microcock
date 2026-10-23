@@ -60,6 +60,15 @@ static bool take_next(Thread &thread, Message &message) {
 		message.payload.args.arg0 = line;
 		return true;
 	}
+	task::ExitNotice notice;
+	if (thread.takeExitNotice(notice)) {
+		message.sender_pid = ipc::KERNEL_SENDER;
+		message.target_pid = thread.getId();
+		message.type = MessageType::PROCESS_EXITED;
+		message.payload.args.arg0 = notice.child;
+		message.payload.args.arg1 = notice.status;
+		return true;
+	}
 	return thread.getNextMessage(message);
 }
 
