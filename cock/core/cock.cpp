@@ -1,3 +1,4 @@
+#include <cock/abi/service.hpp>
 #include <cock/core/boot/module.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/cock.hpp>
@@ -71,6 +72,8 @@ static void grant_root_capabilities(Process &process, size_t module_count) {
 	grant_root_capability(process, CapabilityType::PHYSICAL_MEMORY,
 						  core::hal::PHYSICAL_ADDRESS_SPACE_SIZE);
 	grant_root_capability(process, CapabilityType::BOOT_MODULE, module_count);
+	grant_root_capability(process, CapabilityType::IPC, abi::service::SERVICE_LABEL_COUNT);
+	process.setServiceId(abi::service::ROOT_SERVICE);
 }
 
 static void register_data_module(const BootModule &module, size_t index) {

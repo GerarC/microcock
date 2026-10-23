@@ -4,7 +4,7 @@ The root server of MicroCOCK. It is the only process the kernel starts with auth
 
 ## Where it sits
 
-- It is a Multiboot module named `init` (see `USERLAND_BOOT_ORDER` in the root `Makefile`: `init`, `ramfs`, `vga_driver`). The kernel gives the root capabilities to the module with that name.
+- It is a Multiboot module named `init` (see `USERLAND_BOOT_ORDER` in the root `Makefile`: `init`, `ramfs`, `vga_driver`). The kernel gives the root capabilities to the first program module it loads, which the boot order makes `init`; it also gives it the service label `ROOT_SERVICE`.
 - It needs no line in the manifest: it is the one that reads it. Its own policy is written in the code: grant `ramfs` the `initrd` boot module and tell it so.
 - It starts the system and exits with status 0, unless an entry has `restart=`: then it stays alive and starts those programs again when they end (see "Restarting servers"). It exits with status 1 if `ramfs` or the `initrd` module is missing, if `manifest.conf` cannot be read, or if the parser rejects a line.
 - The C library console client is switched off (`CONSOLE_CLIENT = no`): `init` prints before `console` has its capabilities.
@@ -26,6 +26,7 @@ The manifest grammar (`shared/include/cock/abi/manifest.hpp`) has these keys aft
 | `caps=` | Up to four grants: `io:first+count`, `irq:line`, `mem:first+size` |
 | `peer=` | Name of a process whose id travels in `CAPABILITY_GRANTED` |
 | `arg=` | One number that travels in `CAPABILITY_GRANTED` (the block device of `fat` and `ext`) |
+| `ipc=` | Names of the programs this one may talk to (send, call, share memory), up to eight; `init` grants one `IPC` capability for the label of each |
 | `repeat=` | Run the program that many times in a row, 1 to 32 |
 | `restart=` | Start the program again when it ends, at most that many times in one window, 1 to 16; needs `path=` and no `repeat=` |
 

@@ -33,6 +33,7 @@ void SyscallManager::init() {
 
     syscall_table[SyscallNum::SYS_CAP_GRANT] = sys_cap_grant;
     syscall_table[SyscallNum::SYS_CAP_REVOKE] = sys_cap_revoke;
+    syscall_table[SyscallNum::SYS_SERVICE_SET] = sys_service_set;
     syscall_table[SyscallNum::SYS_IRQ_BIND] = sys_irq_bind;
     syscall_table[SyscallNum::SYS_IRQ_ACK] = sys_irq_ack;
     syscall_table[SyscallNum::SYS_PROC_LOOKUP] = sys_proc_lookup;

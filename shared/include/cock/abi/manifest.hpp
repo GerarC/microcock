@@ -8,7 +8,9 @@
  * by `CAPABILITY_GRANTED`), `repeat=<1..32>` (copies to start; 1 for boot modules), `restart=<1..16>` (times `init` starts the program
  * again after it ends, within one restart window; needs a path and `repeat` of 1), `arg=<number>` (one
  * numeric argument) and `caps=<grant>,<grant>...` with grants `io:<first>[+count]`, `irq:<line>[+count]` and
- * `mem:<first>+<bytes>`. Numbers are decimal or `0x` hexadecimal and must fit in 32 bits. The parser has no
+ * `mem:<first>+<bytes>`, and `ipc=<name>,<name>...` (programs this one may exchange messages with, calls
+ * and shared memory with; `init` grants one IPC capability for the service label of each name).
+ * Numbers are decimal or `0x` hexadecimal and must fit in 32 bits. The parser has no
  * dependencies and is covered by host tests; init reads the file, the kernel never does.
  */
 #ifndef SHARED_COCK_ABI_MANIFEST_HPP
@@ -32,6 +34,8 @@ constexpr size_t MAX_NAME_BYTES = 32;
 constexpr size_t MAX_PATH_BYTES = 64;
 /** Most capability grants per entry. */
 constexpr size_t MAX_GRANTS = 4;
+/** Most names in the `ipc` list of one entry. */
+constexpr size_t MAX_IPC_PEERS = 8;
 /** Number of copies when `repeat` is not given. */
 constexpr uint32_t DEFAULT_REPEAT = 1;
 /** Largest accepted value of `repeat`. */
@@ -63,6 +67,10 @@ struct Entry {
 	Grant grants[MAX_GRANTS];
 	/** Number of valid grants, at most `MAX_GRANTS`. */
 	size_t grantCount;
+	/** Names of the programs this one may talk to (the `ipc` key); only the first `ipcCount` are valid. */
+	char ipc[MAX_IPC_PEERS][MAX_NAME_BYTES];
+	/** Number of valid names in `ipc`, at most `MAX_IPC_PEERS`. */
+	size_t ipcCount;
 	/** Copies to start, 1 to `MAX_REPEAT`. */
 	uint32_t repeat;
 	/** Restarts `init` may make within one restart window, or `NO_RESTARTS` when the program is not supervised. */
@@ -102,6 +110,8 @@ enum class Error : uint32_t {
 	BAD_VALUE,
 	/** More than `MAX_GRANTS` grants on one line. */
 	TOO_MANY_GRANTS,
+	/** More than `MAX_IPC_PEERS` names in the `ipc` list of one line. */
+	TOO_MANY_PEERS,
 };
 
 namespace detail {
@@ -167,6 +177,8 @@ constexpr const char *KEY_RESTART = "restart";
 constexpr const char *KEY_CAPS = "caps";
 /** Key of the numeric argument. */
 constexpr const char *KEY_ARGUMENT = "arg";
+/** Key of the list of programs this one may talk to. */
+constexpr const char *KEY_IPC = "ipc";
 /** Grant type for `IO_PORTS`. */
 constexpr const char *TYPE_IO = "io";
 /** Grant type for `IRQ`. */
@@ -377,6 +389,31 @@ inline Error parseGrants(Slice list, Entry &entry) {
 }
 
 /**
+ * @brief Parses a comma separated list of program names and appends them to the `ipc` list of an entry.
+ * @param list Value of the `ipc` key.
+ * @param entry Entry whose `ipc` names are filled in.
+ * @return `Error::NONE`, `TOO_MANY_PEERS`, or `BAD_VALUE` for an empty or too long name or a repeated one.
+ */
+inline Error parseIpcNames(Slice list, Entry &entry) {
+	if (list.empty()) return Error::BAD_VALUE;
+	while (!list.empty()) {
+		Slice item;
+		Slice rest;
+		bool more = splitAt(list, LIST_SEPARATOR, item, rest);
+		list = rest;
+		if (more && rest.empty()) return Error::BAD_VALUE;
+
+		if (entry.ipcCount == MAX_IPC_PEERS) return Error::TOO_MANY_PEERS;
+		if (!copyText(item, entry.ipc[entry.ipcCount], MAX_NAME_BYTES)) return Error::BAD_VALUE;
+		for (size_t index = 0; index < entry.ipcCount; index++) {
+			if (item.equals(entry.ipc[index])) return Error::BAD_VALUE;
+		}
+		entry.ipcCount++;
+	}
+	return Error::NONE;
+}
+
+/**
  * @brief Parses one non blank line into an entry.
  * @param line Trimmed line.
  * @param entry Entry to fill; `repeat` must already hold the default.
@@ -397,6 +434,7 @@ inline Error parseLine(Slice line, Entry &entry) {
 	bool seenRestart = false;
 	bool seenCaps = false;
 	bool seenArgument = false;
+	bool seenIpc = false;
 
 	for (Slice token = nextToken(rest); !token.empty(); token = nextToken(rest)) {
 		Slice key;
@@ -428,6 +466,11 @@ inline Error parseLine(Slice line, Entry &entry) {
 			seenArgument = true;
 			if (!parseNumber(value, entry.argument)) return Error::BAD_VALUE;
 			entry.hasArgument = true;
+		} else if (key.equals(KEY_IPC)) {
+			if (seenIpc) return Error::DUPLICATE_KEY;
+			seenIpc = true;
+			Error error = parseIpcNames(value, entry);
+			if (error != Error::NONE) return error;
 		} else if (key.equals(KEY_CAPS)) {
 			if (seenCaps) return Error::DUPLICATE_KEY;
 			seenCaps = true;
