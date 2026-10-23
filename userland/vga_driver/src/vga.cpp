@@ -1,4 +1,4 @@
-#include "vga.hpp"
+#include <vga_driver/vga.hpp>
 #include <sys/mman.h>
 #include <string.h>
 
