@@ -213,8 +213,8 @@ The same checks run on every push through `.github/workflows/ci.yml`.
 * At most 8 threads per user process. A thread runs on a stack the program provides, an exception ends only the thread that caused it, and `SYS_EXIT` ends only the calling thread: the process is gone when its last thread ends.
 * A process that exits tells its spawner only if the spawner asked for it (`PROCESS_EXITED`), and the notice is lost when the inbox of the spawner is full; `SYS_PROC_ALIVE` stays the reliable check.
 * Capabilities are assigned at boot (the module named `init` holds the authority) and cannot be revoked; each process holds up to 16.
-* IPC is asynchronous with a small inbox per thread; there are no timeouts and no synchronous call and reply.
-* The user C library is minimal: it has buffered `printf`, `malloc` and `operator new` (locked with a futex mutex, safe for threads), and no file calls yet.
+* IPC has an asynchronous inbox with a small capacity per thread, and a synchronous call and reply in registers with timeouts.
+* The user C library has buffered `printf`, `malloc` and `operator new` (locked with a futex mutex, safe for threads), and file calls (`open`, `read`, `write`, `lseek`, `close`, `unlink`, `mkdir`, `rmdir`, `rename`) over the file server client.
 * `SYS_WRITE` is a debug and fallback channel owned by the kernel. Programs write and read descriptors 0 to 2 through the `console` server (the C library links the client by default); `read(0)` blocks in the kernel until a line is ready, through a deferred reply.
 * A process maps at most 4096 pages (16 MiB) in at most 32 regions.
 * The x86 build has no PAE, so no NX bit and no memory above 4 GiB.
@@ -233,61 +233,63 @@ so this is the space where I put those references that really helped me to move 
 
 ## Roadmap
 
-The path the project follows, in order. `[x]` is done, `[ ]` is planned.
+What the kernel already does, and what is planned next. Planned items are listed in the order they are expected to be built; none of them is started yet unless it is marked as in progress.
 
 ### Done
-- [x] Boot, memory management (PMM, paging, VMM, heap), scheduler, IPC, ELF32 and ELF64 loader.
-- [x] Zero-cost HAL, `PhysAddr` and `VirtAddr`, processes with their own context, lazy I/O permission bitmap.
-- [x] Drivers in Ring 3: VGA server and PS/2 keyboard, with capabilities and interrupts delivered as notifications.
-- [x] Hardening: authenticated reserved messages, per-process memory limits, reaper thread, write-protected kernel image, FPU disabled for programs.
-- [x] QEMU based tests and CI.
 
-### Next
-- [x] Tests for the physical memory manager, the scheduler, IPC and the reaper, and host-side tests for the shared data structures.
-- [x] **C library basics for programs:** `printf` with buffered output, and `malloc`, `calloc`, `realloc`, `free` and `operator new`.
-- [x] A separate stack for double fault and NMI.
-- [x] A generation counter in process ids.
+**Kernel foundations**
+- Boot through Multiboot, physical and virtual memory management (PMM, paging, VMM, heap), a scheduler, IPC, and ELF32 and ELF64 loaders.
+- A zero-cost hardware abstraction layer, typed `PhysAddr` and `VirtAddr`, processes with their own context, and a lazy I/O permission bitmap.
+- Own stacks for double fault and NMI, and a generation counter in process ids.
+- Timers (`sleep` and receive with a timeout), user threads with blocking primitives and exit notifications, and synchronous IPC with a register fast path.
 
-### File system
-The file system lives outside the kernel, as servers that talk by IPC. The kernel only gains small general mechanisms. The first one is a read-only initial RAM disk; a disk comes after it, on the same protocol.
-- [x] **F1** Shared memory between processes (the way to move file data).
-- [x] **F2** Data boot modules, a capability to open them, and an `initrd` built as a tar archive.
-- [x] **F3** `ramfs` server and a client library: a program reads a file from the initrd.
-- [x] **F4** `spawn`: `init` starts the programs from files instead of from boot modules, and `ramfs` releases the sessions of dead clients.
-- [x] **F5** A manifest read by `init` that lists each program and its capabilities. Adding a driver becomes adding a line.
-- [x] **F6** ATA driver (PIO), a block protocol and partition tables (MBR and GPT).
-- [x] **F7** FAT32 server (read only first) and a `vfs` with a mount table.
-- [x] **F8** `ext` server, ext2 read only.
-- [x] **F9** Writing for FAT32 and ext2.
-- [x] **F10** `open`, `read`, `write` and `close` in the C library, over the file client.
+**Drivers and servers in Ring 3**
+- VGA and a PS/2 keyboard, with capabilities, and interrupts delivered as notifications.
+- A console server: `printf` and `read(0)` go through it, readers block through deferred replies, and the client is linked by default.
+- A minimal shell with built-in commands (version 0.2.0, see [the shell](documentation/userland/shell.md)).
+- A syscall fuzzer that runs in Ring 3 and fails on any kernel panic, in unprivileged and root modes.
 
-### What comes next
-In this order. Each item is one change with its tests and documentation.
+**Hardening**
+- Authenticated reserved messages, per-process memory limits, a reaper thread, a write-protected kernel image, and the FPU disabled for programs.
+- `-Werror` in the kernel and userland builds, compile-time filtering of log levels, and fixed-size pools for threads and processes.
+- Reuse of kernel address ranges and freeing of the early boot memory.
 
-**1. Smaller debts**
-- [x] `-Werror` in the kernel and userland builds, and names for the remaining literals of the early files.
-- [x] Compile-time filtering of log levels.
-- [x] File system follow-ups: `rename` over an existing name, hard links for ext2, the clean flag of FAT, the superblock write time of ext2, a single owner of the clock (`rtc`) and a run of the whole suite with LTO. Symbolic links are postponed until something needs them.
-- [x] Reuse of kernel address ranges, and freeing the early boot memory.
-- [x] Fixed-size pools for threads and processes.
+**File system outside the kernel**
+- Shared memory between processes, and data boot modules with an `initrd` built as a tar archive.
+- A `ramfs` server, `spawn` from files, and a manifest read by `init` that lists each program and its capabilities.
+- An ATA driver (PIO), a block protocol, MBR and GPT partition tables, a FAT32 server and an ext2 server, both with write support.
+- A `vfs` with a mount table, and `open`, `read`, `write` and `close` in the C library.
+- File system follow-ups: `rename` over an existing name, hard links for ext2, and a single owner of the clock.
 
-**2. Microkernel features** (each needs the previous one)
-- [x] Timers: `sleep` and receive with a timeout.
-- [x] Threads, blocking primitives and exit notifications for `spawn`.
-- [x] Synchronous IPC with a register fast path.
-- [x] A console server (`console`): `printf` and `read(0)` go through it; readers block through deferred replies and the client is linked by default.
-- [ ] Capability check on the calls to the console server (needs the IPC capability of stage 9).
-- [x] A minimal shell with built-in commands (0.2.0, see [the shell](documentation/userland/shell.md)).
-- [ ] Running programs from the shell (needs a way to `spawn`), then `ps`, history, Ctrl+C and quoting.
-- [ ] Locking in `malloc` and a shared `crt0`.
+**Tests and C library**
+- Tests for the physical memory manager, the scheduler, IPC and the reaper, and host-side tests for the shared data structures.
+- Buffered `printf`, `malloc`, `calloc`, `realloc`, `free` and `operator new`, with `malloc` locked by a futex mutex so threads can share the heap.
 
-**3. Capabilities as data**
-- [ ] The kernel stops knowing the name `init`; revocation; a capability for IPC (which also decides who may write the disk); a policy for DMA-capable ports.
+### Planned
 
-**4. Later**
-- [x] A syscall fuzzer that runs in Ring 3 and fails on any kernel panic, in unprivileged and root modes.
-- [ ] A `tmpfs`: a writable file server that keeps its files in memory and is mounted on `/tmp`, so the system has a place to write without a disk.
-- [ ] Platform: APIC and IOAPIC, PAE with NX and memory above 4 GiB, SMP, an x86_64 port.
+- A shared `crt0` for programs.
+- Scheduler metrics (response and turnaround time) behind a build flag that is off by default, so they cost nothing unless enabled.
+- A scheduler that charges each priority level for the time its threads actually use, so a thread cannot keep a high level by yielding before its quantum ends.
+- A test that checks no thread sleeps forever when a futex word is set and waiters are woken.
+- A thread library with `join`, a mutex, a condition variable and a semaphore.
+- An exit notice that is never lost, even when the parent's inbox is full.
+- Restart of a server that dies: `init` starts it again, with a limit so a server that always crashes does not loop.
+- Capability transfer in messages: a client can give a server a shared buffer or a port, and the receiver gets it only when its policy allows.
+- Page faults handled by a server, so memory policy can live outside the kernel. This is the largest item and needs a decision first.
+- A process model like Linux's, kept by a process manager server (`pm`) outside the kernel, as in Minix 3; the kernel keeps only the primitives it must. It covers process states (running, sleeping, stopped, zombie) shown to `ps`; `wait` (a parent collects a child's exit status, and zombies until then), `exec` (a process replaces its program and keeps its pid), signals with `kill`, process groups so Ctrl+C reaches only the foreground job, a process table for `ps`, and `nice`.
+- Fuzzing of corrupt ELF images and of the file server protocols, so a malformed file or request cannot crash a server or the kernel.
+- `fork`, next to `spawn`: a process that splits into two, each with its own memory. It comes after `wait` and `exec`. Which file descriptors the child keeps is still to be decided.
+- Running programs from the shell (this needs a way to `spawn` from it), then `ps`, history, Ctrl+C and quoting.
+- A `tmpfs`: a writable file server that keeps its files in memory and is mounted on `/tmp`, so the system has a place to write without a disk.
+- A consistency check when FAT32 and ext2 volumes are mounted, so a damaged volume is reported instead of read silently. This is a check, not a journal.
+- A heap test under random allocation and release, to see whether the free space fragments.
+- An out-of-memory test: a program that uses up the physical memory must get an error, and the kernel must keep running.
+- A kernel stack overflow reported with a message instead of a silent reset.
+- A capability check on the calls to the console server (needs the IPC capability below).
+- Capabilities as data: the kernel no longer knows the name of any program (today it knows `init` and the VGA driver), a test checks that it boots with no user program at all, capabilities can be revoked, IPC gets a capability of its own (which also decides who may write the disk), and DMA-capable ports get a policy.
+- Platform: APIC and IOAPIC, PAE with NX and memory above 4 GiB, SMP (with the TLB of every CPU updated when a page table changes), and an x86_64 port.
+
+Symbolic links are postponed until a program needs them.
 
 ## Documentation
 For more detailed information regarding specific subsystems, please check the `documentation/` folder, split by layer: [core](documentation/core/README.md), [arch](documentation/arch/README.md), [userland](documentation/userland/README.md), [shared](documentation/shared/README.md) and [libs](documentation/libs/README.md). Every program in `userland/` has its own `README.md`. The pages:

@@ -9,7 +9,7 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 ## Before you start
 
 * Build and boot it once so everything you read has a visible effect: `make iso HOST_TOOLCHAIN=1`, then `make run-headless HOST_TOOLCHAIN=1` (the toolchain runs under WSL or Linux with `nasm`, `qemu-system-x86`, `grub-pc-bin` and `xorriso`).
-* Keep the serial log open while you read. The kernel logs each step of its initialization, so the log is a table of contents of stages 2 to 5.
+* Keep the serial log open while you read. The kernel logs most steps of its initialization at the debug level (GDT, physical memory, paging, interrupts, timer, boot modules), so the log is a table of contents of stages 2 to 5. The console, the boot memory window and the global constructors print nothing.
 * Read [project structure](project_structure.md) first. It explains the one rule that organizes everything: the core never includes `cock/arch/...`, it includes `<hal/...>`.
 
 ## Stage 0: the shape of the system
@@ -35,7 +35,7 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 
 **Look for:** why the kernel runs at a high virtual address, and what has to be true before the first C++ function can run (stack, paging, constructors).
 
-**Exercise:** change nothing, but find in the serial log the line printed by each step of `init_cock` and match it to the call that printed it.
+**Exercise:** change nothing, but find in the serial log the lines printed during `init_cock`, match each to the call that printed it, and name the steps that print nothing.
 
 ## Stage 2: the CPU tables and interrupts
 
@@ -133,7 +133,7 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 3. `libc/include/sys/syscalls.h`: the raw system call and why it must not address memory through `EBP`.
 4. `userland/init/main.cpp`: the root server and its policy.
 
-**Look for:** every program defines `_start` and ends with `exit_process`; none returns.
+**Look for:** every program defines `_start` and none returns from it. Most end with `exit_process`; servers such as `sh` and `vga_driver` loop forever on their input instead.
 
 **Exercise:** read a small program (`userland/rtc/main.cpp` is a good one), then write down which message it receives and what it answers.
 
