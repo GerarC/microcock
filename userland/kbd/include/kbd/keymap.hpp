@@ -11,7 +11,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-namespace kbd {
+namespace cock::kbd {
 
 /** Number of scancodes covered by the tables (codes 0x00 to 0x39). */
 constexpr size_t KEYMAP_SIZE = 0x3A;
@@ -98,6 +98,6 @@ class Decoder {
 	bool skipNext = false;
 };
 
-} // namespace kbd
+} // namespace cock::kbd
 
 #endif // !KBD_KEYMAP_HPP

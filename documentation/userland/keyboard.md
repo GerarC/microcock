@@ -55,7 +55,7 @@ A key press travels like this:
 The line stays masked while the driver works, so a burst of keys never piles up interrupts in the kernel. The thread is blocked in `ipc_recv` between keys and uses no CPU. Because the notification does not use the inbox, another program that fills the inbox of `kbd` with messages cannot make it miss a key. If the driver dies, the kernel masks and releases the line.
 
 ## The decoder
-`userland/kbd/keymap.hpp` turns scan codes into characters. It is a small state machine with no I/O, so it can be tested on its own.
+`userland/kbd/include/kbd/keymap.hpp` turns scan codes into characters. It is a small state machine with no I/O, so it can be tested on its own.
 
 * **Scan code set 1**, which is what the controller produces by default.
 * The high bit marks a key **release**; releases produce no character.
