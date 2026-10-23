@@ -31,8 +31,11 @@ Statuses: `OK` and `UNAVAILABLE` (the clock could not give a stable, valid readi
 
 | File | Holds |
 |------|-------|
-| `main.cpp` | `_start`, the pending list before the grant, `handle` and `reply` |
-| `Makefile` | `NAME = rtc` and the small `LIBC_SRCS` list |
+| `src/main.cpp` | `_start`: waits for the grant, opens the clock, drains the kept messages, then the request loop |
+| `src/requests.cpp`, `include/rtc/requests.hpp` | `initClock` and `handle`, which answers `RTC_READ`; owns the `Cmos` reader |
+| `src/pending.cpp`, `include/rtc/pending.hpp` | `keepPending` and `handlePending`: requests that arrive before the grant |
+| `src/reply.cpp`, `include/rtc/reply.hpp` | `reply`: sends `RTC_REPLY` |
+| `Makefile` | `NAME = rtc`, `SRCS` under `src/` and the small `LIBC_SRCS` list |
 | `../lib/include/cock/user/cmos.hpp` | `Cmos`, the register reader used only by this server |
 | `../lib/include/cock/user/clock.hpp` | `Clock`, the client other programs use |
 | `../../shared/include/cock/abi/rtc.hpp`, `datetime.hpp` | Protocol, packing and date arithmetic (Unix seconds, FAT date and time) |

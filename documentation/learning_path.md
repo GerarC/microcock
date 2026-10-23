@@ -135,7 +135,7 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 
 **Look for:** every program defines `_start` and none returns from it. Most end with `exit_process`; servers such as `sh` and `vga_driver` loop forever on their input instead.
 
-**Exercise:** read a small program (`userland/rtc/main.cpp` is a good one), then write down which message it receives and what it answers.
+**Exercise:** read a small program (`userland/rtc/src/requests.cpp` is a good one), then write down which message it receives and what it answers.
 
 ## Stage 9: the drivers and servers
 
