@@ -4,17 +4,21 @@
 #ifndef INIT_BOOT_HPP
 #define INIT_BOOT_HPP
 
+#include <stdint.h>
+
 namespace cock::init {
 
 /**
- * @brief Gives `ramfs` the right to open the `initrd` boot module and tells it so.
+ * @brief Gives `ramfs` its label and the right to open the `initrd` boot module, tells the name
+ * server which process it is, and tells `ramfs` so.
  *
- * Prints `init: initrd is boot module <n>`.
+ * Needs the name server to know `ramfs` already (`startNames`). Prints `init: initrd is boot
+ * module <n>`.
  *
- * @return True when the `ramfs` process and the `initrd` module exist and the grant was made,
- * false when either is missing.
+ * @return The process id of `ramfs`, or `NO_PROCESS` when the `ramfs` process or the `initrd`
+ * module is missing.
  */
-bool grantInitrd();
+uint32_t grantInitrd();
 
 } // namespace cock::init
 

@@ -94,13 +94,14 @@ class TaskManager {
 	static Thread *getThreadByPID(uint32_t pid);
 
 	/**
-	 * @brief Finds a live user process by name.
-	 * @param name Null terminated name.
+	 * @brief Finds a live process that the kernel started from a boot module, by name.
+	 * @param name Null terminated module name.
 	 * @return The process id of the first match, or all ones when none exists.
-	 * The kernel process and dead threads are skipped, only the main thread of
-	 * a process identifies it.
+	 * The kernel process, dead threads and every process that was not started
+	 * from a boot module are skipped, only the main thread of a process
+	 * identifies it.
 	 */
-	static uint32_t findProcessId(const char *name);
+	static uint32_t findBootModuleId(const char *name);
 	/**
 	 * @brief Sets the thread that reaps the dead.
 	 * @param thread Reaper thread, woken when a thread dies while it sleeps.

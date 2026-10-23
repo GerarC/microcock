@@ -9,6 +9,7 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | Program | Role |
 |---------|------|
 | `init` | Root server. The only process born with authority; it grants `ramfs` the `initrd`, reads `manifest.conf` through `ramfs` and does what each line says (starts programs with `cock::user::spawn`, grants capabilities), then exits |
+| `names` | Name server, the second boot module (process id `NAMES_PID`). `init` describes the system to it; a program asks it for the right to talk to a server; see [names](names.md) |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `init` can read the manifest) |
 | `console` | Console server: owns the serial port `0x3F8+8` and the input line; serves `CON_WRITE` and `CON_READ` as synchronous calls, echoes typed keys on the display server; see [console](console.md) |
@@ -32,13 +33,13 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `muteclient` | Checks that requests to a dead server fail instead of hanging, through `vfs` and directly |
 | `blkclient` | Lists the devices of `ata` and reads the first sector of the first partition; the end to end test checks its output |
 
-The processes see each other only by name: `init` calls `cock::user::lookup("kbd")` to get a process id. The kernel names a process after its module.
+The processes see each other through the name server: a program calls `cock::user::names::connect("kbd")` and gets the process id of the server and, if the manifest allows it, the right to talk to it. The kernel finds a process by name only for `init`, and only among the boot modules (`SYS_MODULE_PROCESS`). See [names](names.md).
 
 ## How the system starts the userland
 1. The Makefile builds every `userland/*/Makefile` into `build/userland/<name>.elf`. With `TEST_INITRD=1` it also builds `test/userland/*/Makefile`.
-2. It packs the files of the `initrd/` folder and, under `bin/`, every program of those folders that is not a boot module into `build/initrd.tar` (ustar). With `TEST_INITRD=1` the files of `test/initrd/` are added, and the `manifest.conf` and `mounts.conf` of the two folders are joined (system lines first), so a normal `make iso` boots the system with no test program and `make iso TEST_INITRD=1` boots the same system plus the tests. It writes a `grub.cfg` with one `module` line for each program of `USERLAND_BOOT_ORDER` (`init`, `ramfs`, `vga_driver`), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](../core/memory_management.md)), so it never becomes a process.
-3. The kernel loads each module as a process and gives the root capabilities to the one called `init`.
-4. `init` grants `ramfs` the `initrd` and sends it `CAPABILITY_GRANTED`; this is the only policy written in its code. It then reads `manifest.conf` through `ramfs`, parses it and runs each line in order (see below). A spawned process is born with no capabilities, so the grants of its line are what it gets. `vga_driver` maps the screen, and `kbd` enables the port and binds the interrupt.
+2. It packs the files of the `initrd/` folder and, under `bin/`, every program of those folders that is not a boot module into `build/initrd.tar` (ustar). With `TEST_INITRD=1` the files of `test/initrd/` are added, and the `manifest.conf` and `mounts.conf` of the two folders are joined (system lines first), so a normal `make iso` boots the system with no test program and `make iso TEST_INITRD=1` boots the same system plus the tests. It writes a `grub.cfg` with one `module` line for each program of `USERLAND_BOOT_ORDER` (`init`, `names`, `ramfs`, `vga_driver`), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](../core/memory_management.md)), so it never becomes a process.
+3. The kernel loads each module as a process (`init`, `names`, `ramfs`, `vga_driver`) and gives the root capabilities to the first one, `init`.
+4. `init` labels `names` and gives it the right to pass on `IPC` capabilities, registers `ramfs`, grants `ramfs` the `initrd` and sends it `CAPABILITY_GRANTED`; this is the only policy written in its code. It then reads `manifest.conf` through `ramfs`, parses it, sends the programs and the `ipc=` policy to the name server, and runs each line in order (see below). A spawned process is born with no capabilities, so the grants of its line are what it gets. `vga_driver` maps the screen, and `kbd` enables the port and binds the interrupt.
 5. A key press travels: keyboard controller, IRQ 1, kernel (`IRQ_NOTIFICATION`), `kbd` reads the scan code and acknowledges the line, `kbd` sends `CONSOLE_KEY` to `console`, `console` edits the line and sends the echo to `vga_driver`, which draws it.
 
 A driver that needs a new capability needs a new `cap_grant` in `userland/init/main.cpp`; see [capabilities](../core/capabilities.md). The display server is described in [VGA](vga.md) and the keyboard driver in [keyboard](keyboard.md).
@@ -49,7 +50,7 @@ A driver that needs a new capability needs a new `cap_grant` in `userland/init/m
 ```
 vga_driver caps=mem:0xA0000+0x20000
 fsclient path=bin/fsclient.elf repeat=10
-kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 peer=vga_driver
+kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 ipc=console
 ```
 
 | Part | Meaning |
@@ -57,13 +58,12 @@ kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 peer=vga_driver
 | first word | The name of the entry. It is the process name; names are unique and at most 31 bytes |
 | `path=` | A file of the initrd that `init` reads and spawns. Without it the entry is a boot module that already runs, and `init` only grants it what the line says |
 | `caps=` | Comma separated grants: `io:first+count` (ports), `irq:line` and `mem:first+size` (physical memory) and `spawn` (the right to call `SYS_PROC_CREATE`, with no range). Numbers are decimal or `0x` hexadecimal. The count of `io` and `irq` defaults to 1, `mem` needs it. At most 4 grants |
-| `peer=` | Name of a process whose id travels in the `CAPABILITY_GRANTED` message (the display server for `kbd`) |
-| `arg=` | A number (decimal or `0x`) that travels in the second argument of the `CAPABILITY_GRANTED` message, for a server that needs one value (the device of `fat`). It makes `init` send the message even when the line has no grants or peer |
-| `ipc=` | Comma separated names of the programs this one may talk to: send messages, make synchronous calls and share memory. Up to 8 names, no repeats. `init` gives the process one `IPC` capability for the service label of each name; the label of an entry is `PROGRAM_SERVICE_BASE` plus its position in the manifest (and `ramfs`, which has no entry, has `RAMFS_SERVICE`), so it is the same after a restart. The right works in both directions: when `sh` may talk to `console`, `console` may answer `sh` |
+| `arg=` | A number (decimal or `0x`) that travels in the first argument of the `CAPABILITY_GRANTED` message, for a server that needs one value (the device of `fat`). It makes `init` send the message even when the line has no grants |
+| `ipc=` | Comma separated names of the programs this one may talk to: send messages, make synchronous calls and share memory. Up to 8 names, no repeats. It is the policy the name server checks when the program connects to one of them (`names::connect`): the caller gets an `IPC` capability for the service label of the server then, not at start. The policy is symmetric: it allows the connection when either program lists the other. The label of an entry is `PROGRAM_SERVICE_BASE` plus its position in the manifest (and `ramfs`, which has no entry, has `RAMFS_SERVICE`), so it is the same after a restart. The right works in both directions: when `sh` may talk to `console`, `console` may answer `sh` |
 | `repeat=` | Run the program that many times (1 to 32), one after the other, waiting for each to exit. Only for entries with `path=` |
 | `restart=` | After the manifest is done, `init` starts the program again each time it ends, at most that many times (1 to 16) in a window of 60 seconds of its own waiting time; past the limit it gives up. Only for entries with `path=` and no `repeat=`. See `userland/init/README.md` |
 
-When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED` after granting. The kernel still checks every grant against what `init` holds, so a line cannot give more than `init` has. The parser rejects the whole file at the first bad line (unknown key, repeated key, bad number, range that wraps the address space, too many entries or grants, repeated name) and `init` then starts nothing and exits; the serial log shows the line number and the error. The file is at most 4096 bytes and 32 entries. Adding a driver means adding a line here, not editing `init`.
+When an entry has grants or an argument, `init` sends the process `CAPABILITY_GRANTED` after granting. The kernel still checks every grant against what `init` holds, so a line cannot give more than `init` has. The parser rejects the whole file at the first bad line (unknown key, repeated key, bad number, range that wraps the address space, too many entries or grants, repeated name) and `init` then starts nothing and exits; the serial log shows the line number and the error. The file is at most 4096 bytes and 32 entries. Adding a driver means adding a line here, not editing `init`.
 
 ## The `cock::user` API
 `userland/lib/include/cock/user/api.hpp` wraps the system calls for the programs written in C++:
@@ -73,8 +73,9 @@ When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED
 | `ipc_send(pid, message)`, `ipc_recv(message)` | `SYS_IPC_SEND`, `SYS_IPC_RECV`; `ipc_recv` returns the messages stashed by the C library first |
 | `request_ports(first, count)` | `SYS_REQUEST_RESOURCE` |
 | `irq_bind(line)`, `irq_ack(line)` | `SYS_IRQ_BIND`, `SYS_IRQ_ACK` |
-| `cap_grant(pid, type, first, count)` | `SYS_CAP_GRANT` |
-| `lookup(name)` | `SYS_PROC_LOOKUP` |
+| `cap_grant(pid, type, first, count, delegate)` | `SYS_CAP_GRANT`; `delegate` lets the receiver pass the capability on |
+| `names::connect(name)`, `names::server(name)` (`names.hpp`) | A synchronous call to the name server: it checks the `ipc=` policy, gives the caller an `IPC` capability for the server and answers with its process id; `connect` returns the status and the id, `server` only the id (`NO_PROCESS` when refused) |
+| `module_process(name)` | `SYS_MODULE_PROCESS`; the process of a boot module, for the root server |
 | `shm_create(pages)`, `shm_share(id, pid, writable)`, `shm_map(id, writable)`, `shm_release(id)` | `SYS_SHM_CREATE`, `SYS_SHM_SHARE`, `SYS_SHM_MAP`, `SYS_SHM_RELEASE` |
 | `port_out8(port, value)`, `port_in8(port)`, `port_read_words(port, buffer, words)` | Port instructions (`outb`, `inb`, `rep insw`), allowed after `request_ports` |
 | `module_open(name)` | `SYS_MODULE_OPEN` |

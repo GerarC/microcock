@@ -13,7 +13,7 @@
 
 namespace cock::abi::rtc {
 
-/** Name of the clock server for `SYS_PROC_LOOKUP`. */
+/** Name of the clock server for the name server. */
 constexpr char SERVER_NAME[] = "rtc";
 
 /** Result code in `arg1` of `RTC_REPLY`. */

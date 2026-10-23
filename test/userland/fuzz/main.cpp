@@ -2,8 +2,10 @@
 #include "scenarios.hpp"
 #include "specs.hpp"
 #include <cock/abi/process.hpp>
+#include <cock/abi/service.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <cock/user/names.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -78,6 +80,7 @@ constexpr const char *SERVER_NAMES[] = {"vga_driver", "console", "ata", "rtc",
 										"fat",        "vfs",     "ext", "kbd", "ramfs"};
 constexpr size_t SERVER_NAME_COUNT = sizeof(SERVER_NAMES) / sizeof(SERVER_NAMES[0]);
 constexpr const char *CONSOLE_NAME = "console";
+constexpr const char *NAMES_LABEL = "names";
 constexpr const char *NAME_SAMPLES[] = {"init", "ramfs", "initrd", "vfs", "fuzz", "x",
 										"vga_driver"};
 
@@ -471,15 +474,30 @@ void printStatistics() {
 	}
 }
 
+uint32_t findServer(const char *name) {
+#ifdef FUZZ_ROOT
+	return cock::user::module_process(name);
+#else
+	return cock::user::names::server(name);
+#endif
+}
+
 void collectServers() {
 	for (size_t index = 0; index < SERVER_NAME_COUNT && serverCount < MAX_SERVERS; index++) {
-		uint32_t pid = cock::user::lookup(SERVER_NAMES[index]);
+		uint32_t pid = findServer(SERVER_NAMES[index]);
 		if (pid == NO_PROCESS) continue;
 
 		serverLabels[serverCount] = SERVER_NAMES[index];
 		servers[serverCount++] = pid;
 		if (strcmp(SERVER_NAMES[index], CONSOLE_NAME) != 0 && pid != selfPid)
 			callTargets[callTargetCount++] = pid;
+	}
+
+	uint32_t names = cock::abi::service::NAMES_PID;
+	if (serverCount < MAX_SERVERS && names != selfPid && cock::user::process_alive(names)) {
+		serverLabels[serverCount] = NAMES_LABEL;
+		servers[serverCount++] = names;
+		callTargets[callTargetCount++] = names;
 	}
 }
 

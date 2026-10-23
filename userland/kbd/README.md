@@ -12,9 +12,9 @@ keyboard controller --IRQ--> kernel --IRQ_NOTIFICATION--> kbd --CONSOLE_KEY--> c
 |------|---------------------------------|
 | `IO_PORTS` | `io:0x60+1`, the data port of the controller |
 | `IRQ` | `irq:1` |
-| Peer | `peer=console`, the process id the driver sends characters to |
+| Console | `ipc=console`: the driver connects to the console server through the name server and sends it the characters |
 
-The manifest line is `kbd path=bin/kbd.elf` with those grants. `init` grants them and then sends `CAPABILITY_GRANTED`; `arg0` of that message is the process id of the console server. The test manifest adds nothing for `kbd`. The program opts out of the console client (`CONSOLE_CLIENT = no`): the input path must not depend on the server it feeds.
+The manifest line is `kbd path=bin/kbd.elf` with those grants. `init` grants them and then sends `CAPABILITY_GRANTED`; The message carries nothing the driver needs. The test manifest adds nothing for `kbd`. The program opts out of the console client (`CONSOLE_CLIENT = no`): the input path must not depend on the server it feeds.
 
 ## Protocol
 

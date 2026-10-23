@@ -29,6 +29,7 @@ constexpr uint64_t SINGLE = 1;
 constexpr uint64_t LINE_COUNT = 4;
 constexpr uint64_t FIRST_LINE = 1;
 constexpr uint64_t PAST_THE_END = UINT64_MAX;
+constexpr uint64_t IPC_LABELS = uint64_t(1) << 32;
 constexpr uint32_t LATE_LINE = 9;
 constexpr uint32_t SOME_NODE = 77;
 constexpr uint32_t KEYBOARD_LINE = 1;
@@ -100,6 +101,10 @@ void checkGrantAuthority() {
 	EXPECT_TRUE(set.grantable(CapabilityType::IRQ, LATE_LINE, LINE_COUNT) == nullptr);
 
 	set.clear();
+	EXPECT_FALSE(set.holdsGrantAuthority());
+
+	EXPECT_TRUE(set.add(make(CapabilityType::IPC, CAPABILITY_FLAG_GRANT, 0, IPC_LABELS)));
+	EXPECT_TRUE(set.mayGrant(CapabilityType::IPC, FIRST_LINE, SINGLE));
 	EXPECT_FALSE(set.holdsGrantAuthority());
 }
 

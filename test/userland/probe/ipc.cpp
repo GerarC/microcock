@@ -2,6 +2,7 @@
 #include <cock/abi/fs.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <cock/user/names.hpp>
 #include <stdint.h>
 
 using cock::ipc::Message;
@@ -125,7 +126,7 @@ bool sleepReturnsAndKeepsMessages() {
 
 bool processAliveReportsLiveness() {
 	return cock::user::process_alive(cock::user::self()) &&
-		   cock::user::process_alive(cock::user::lookup(cock::abi::fs::SERVER_NAME)) &&
+		   cock::user::process_alive(cock::user::names::server(cock::abi::fs::SERVER_NAME)) &&
 		   !cock::user::process_alive(UNKNOWN_PROCESS) &&
 		   !cock::user::process_alive(cock::user::NO_PROCESS);
 }

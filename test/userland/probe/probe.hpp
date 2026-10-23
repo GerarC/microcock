@@ -157,12 +157,18 @@ bool manifestMatchesTheBoot();
 /** Resolving a boot module index without the capability fails. */
 bool moduleIndexIsDenied();
 
-/** A message and a synchronous call to the block server and to the clock server, for which the probe has no IPC capability, are both refused at once (the call fails, it does not time out). */
-bool ipcWithoutCapabilityIsRefused();
-/** A synchronous call to the console server, for which the probe has an IPC capability, is admitted and answered (with the status for an unknown operation). */
-bool ipcWithCapabilityIsAdmitted();
-/** Sharing a shared memory object with the block server (no IPC capability) fails, and with the console server (with one) succeeds. */
-bool sharedMemoryNeedsCapability();
+/** The name server refuses to connect the probe to the block server and to the clock server, which its `ipc=` list does not name (`DENIED`, no process id), answers `NOT_FOUND` for a name nobody has and `BAD_REQUEST` for a name that does not fit the wire. */
+bool connectRefusesWhatThePolicyDoesNotList();
+/** A message to each live process of the first pids that is not the probe is refused by the kernel for at least three of them: the servers the probe never connected to. */
+bool unconnectedServersRefuseMessages();
+/** After `connect` to the console server, which the `ipc=` list names, a synchronous call to it is admitted and answered (with the status for an unknown operation). */
+bool connectGivesTheRightToTalk();
+/** `DEFINE`, `ALLOW` and `BIND` sent to the name server by the probe are refused with `NOT_ROOT`: only `init` describes the system. */
+bool registrationIsRootOnly();
+/** Connecting to the same server forty times, more than the capability table holds, still succeeds: the name server gives the capability once. */
+bool connectingTwiceUsesNoNewCapability();
+/** Sharing a shared memory object with the console server works after `connect`. */
+bool sharedMemoryNeedsConnect();
 
 } // namespace probe
 

@@ -7,11 +7,11 @@ using cock::ipc::MessageType;
 
 namespace cock::console {
 
-uint32_t waitForCapabilities() {
+void waitForCapabilities() {
 	Message message = {};
 	for (;;) {
 		cock::user::ipc_recv(message);
-		if (message.type == MessageType::CAPABILITY_GRANTED) return message.payload.args.arg0;
+		if (message.type == MessageType::CAPABILITY_GRANTED) return;
 	}
 }
 

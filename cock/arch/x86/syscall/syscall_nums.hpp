@@ -33,7 +33,7 @@ enum SyscallNum : uint32_t {
     SYS_CAP_GRANT           = 0x170, /**< Grant part of a grantable capability held by the caller to another process; returns the id of the derivation tree node, or -1. */
     SYS_IRQ_BIND            = 0x171, /**< Bind a hardware interrupt line to the calling thread (needs an IRQ capability). */
     SYS_IRQ_ACK             = 0x172, /**< Acknowledge a bound interrupt and re-enable the line. */
-    SYS_PROC_LOOKUP         = 0x173, /**< Find a process id by its registered name. */
+    SYS_MODULE_PROCESS      = 0x173, /**< Find the process the kernel started from a boot module, by module name (grant authority only). */
     SYS_SHM_CREATE          = 0x174, /**< Create a shared memory object. */
     SYS_SHM_SHARE           = 0x175, /**< Share a shared memory object with another process. */
     SYS_SHM_MAP             = 0x176, /**< Map a shared memory object into the caller. */

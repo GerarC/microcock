@@ -209,15 +209,16 @@ uintptr_t sys_irq_ack(uintptr_t line, uintptr_t, uintptr_t, uintptr_t,
 					  uintptr_t, uintptr_t);
 
 /**
- * @brief Finds a process by name.
+ * @brief Finds the process that the kernel started from a boot module, by module name.
  * @param name_ptr User pointer to the name bytes, not null terminated.
  * @param length Name length, from 1 up to the maximum name length minus one.
- * @return The id of the live user process with that name, or all ones when
- * the arguments are invalid or no process has the name (the kernel process is
- * never found).
+ * @return The id of the live process started from the boot module with that
+ * name, or all ones when the caller holds no grant authority, the arguments are
+ * invalid or no boot module process has the name. Processes started with the
+ * `SYS_PROC_*` calls and the kernel process are never found.
  */
-uintptr_t sys_proc_lookup(uintptr_t name_ptr, uintptr_t length, uintptr_t,
-						  uintptr_t, uintptr_t, uintptr_t);
+uintptr_t sys_module_process(uintptr_t name_ptr, uintptr_t length, uintptr_t,
+							 uintptr_t, uintptr_t, uintptr_t);
 
 
 /**

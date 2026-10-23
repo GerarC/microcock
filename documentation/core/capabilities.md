@@ -43,7 +43,7 @@ static void grant_root_capabilities(Process &process, size_t module_count) {
 }
 ```
 
-`init` (`userland/init/main.cpp`) looks the drivers up by name and gives each exactly what it needs, then tells it that it may start:
+`init` (`userland/init/main.cpp`) finds the boot modules with `SYS_MODULE_PROCESS` and gives each exactly what it needs, then tells it that it may start:
 
 | Process | Granted |
 |---------|---------|
@@ -51,10 +51,10 @@ static void grant_root_capabilities(Process &process, size_t module_count) {
 | `kbd` | `IO_PORTS`: port `0x60`; `IRQ`: line 1 |
 
 ## Delegation
-`SYS_CAP_GRANT(target, type, first, count)` lets a process pass part of what it holds to another:
+`SYS_CAP_GRANT(target, type, first, count, flags)` lets a process pass part of what it holds to another:
 
 * the caller must hold a capability of that type **with `GRANT`** that contains the range,
-* the delegated capability never carries `GRANT`, so authority cannot be passed down a chain,
+* the delegated capability carries `GRANT` only when `flags` is `GRANT_DELEGATE` (`cock/abi/capability.hpp`); with `flags` zero it never does, so authority is not passed down a chain by accident. Any other value of `flags` is refused. `init` uses the flag once, to let the name server pass on `IPC` capabilities.
 * the target must be a user process, and the id must be the id of a process, not of any thread,
 * the call returns the id of the node of the derivation tree that records the grant (greater than 0, below `0x7FFFFFFF`), and `-1` on failure. The user wrapper `cap_grant_node` returns the id (`abi::NO_CAPABILITY_NODE` on failure); `cap_grant` returns only success or failure.
 
@@ -92,8 +92,9 @@ It decides who may exchange messages, make synchronous calls and share memory wi
 * **The capability.** `CapabilityType::IPC` covers a range of labels. The root capability covers all of them; `init` derives single label capabilities from it, so they appear in the derivation tree and can be revoked.
 * **The rule** (`mayTalk` in `cock/core/security/ipc_access.hpp`): a process may send to, call or share memory with another when they are the same process, or when it holds an `IPC` capability that covers the label of the other, **or the other holds one that covers its label**. The right is symmetric, so a client given the right to talk to a server also receives the server's asynchronous answers with no extra grant, and revoking the capability cuts both directions. Replies to a synchronous call are not checked.
 * **Where it is enforced:** `SYS_IPC_SEND`, `SYS_IPC_CALL` and `SYS_SHM_SHARE`. A refusal returns `-1` and logs at `trace` only. The kernel's own sends (the forwarding of `SYS_WRITE` to the display server, interrupt notices and exit notices) are not user sends and are not checked.
-* **Granted at spawn.** `SYS_PROC_CREATE` takes an optional `SpawnRights` (the label and up to eight labels the program may talk to). The kernel sets them, and derives the capabilities from a grantable `IPC` capability of the spawner, before the first thread of the new process can run. Granting them afterwards leaves a window in which the program already runs and is refused by its own servers; this was seen: `vfs` failed to read `mounts.conf` before `init` had finished.
-* **Policy as data.** The manifest key `ipc=<name>,<name>` lists them (`userland/init/README.md`). `init` resolves each name to a label from the manifest, so the order in which programs start does not matter and a restarted server needs no new grant for its clients.
+* **Given at spawn: the label.** `SYS_PROC_CREATE` takes an optional `SpawnRights` (the label, and a list of labels the program may talk to, which `init` leaves empty). The kernel sets them before the first thread of the new process can run. Giving a label afterwards leaves a window in which the program already runs and is refused by its own servers; this was seen: `vfs` failed to read `mounts.conf` before `init` had finished.
+* **Given at connect: the right to talk.** A program has no `IPC` capability when it starts. It gets one for each server when it asks the name server to connect it (`documentation/userland/names.md`): the name server checks the `ipc=` policy of the manifest and passes on an `IPC` capability for the label of the server with `SYS_CAP_GRANT`. The name server holds one `IPC` capability over every label, delegated by `init` with `GRANT_DELEGATE`; that gives it no other power, because `holdsGrantAuthority` does not count `IPC` entries. Since the right is symmetric, a server that was never asked to connect still answers the clients it has.
+* **Policy as data.** The manifest key `ipc=<name>,<name>` lists the programs one may connect to (`userland/init/README.md`). `init` resolves each name to a label and sends the policy to the name server, so the order in which programs start does not matter and a restarted server needs no new grant for its clients: they connect again and find its new process id.
 * **Cost.** Two scans of the 16 entry table at most per send, call or share. `syncbench`, which calls between threads of one process, went from about 8400 to 9300 cycles per round trip (three runs) to about 9400 to 14600, with large noise from the emulator.
 
 ## The spawn capability
@@ -115,7 +116,7 @@ A denied call fails with `-1` and is logged at `trace` level with the process id
 Two message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
 
 * `IRQ_NOTIFICATION` can only come from the kernel; a program that sends one is refused.
-* `CAPABILITY_GRANTED` can only be sent by a process that holds at least one capability with the grant right (`CapabilitySet::holdsGrantAuthority`). In practice that is the root server. A driver that waits for it knows it came from there and does not need to check the sender.
+* `CAPABILITY_GRANTED` can only be sent by a process that holds at least one capability with the grant right over hardware or boot resources (`CapabilitySet::holdsGrantAuthority`, which ignores `IPC` entries, so the name server cannot send it). In practice that is the root server. A driver that waits for it knows it came from there and does not need to check the sender.
 
 ## Testing it
 `test/userland/probe` runs sixteen checks from Ring 3 that must be denied or must work:
@@ -129,17 +130,19 @@ Two message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
 * it creates a shared memory object, sees it zeroed, keeps data across a map, an unmap and a new map, and cannot map it after releasing it,
 * it asks for objects of no pages and of too many pages, for an unknown object and for a share with an unknown process, and is refused,
 * and it fills the table of shared memory objects and finds it bounded,
-* it sends and calls the block server and the clock server, for which it has no IPC capability, and is refused at once; it calls the console, for which it has one, and is answered; and it shares memory with the console but not with the block server.
+* it asks the name server to connect it to the block server and the clock server, which its `ipc=` list does not name, and is refused (`DENIED`); it sees that the kernel refuses its messages to the servers it never connected to; it connects to the console, for which its list has a name, calls it and is answered; it connects forty times, more than its capability table holds, and still succeeds because the capability is given once; it is refused when it tries to register a service, since only `init` may; and it shares memory with the console after connecting.
 
 The in-kernel suites `Capability revocation` and `IPC access` cover revocation and the rule of `mayTalk` with real processes (same process, no capability, the capability of either side, a range that does not cover, the root, revocation cutting both directions, and a label that can be set once).
 
-`scripts/qemu_userland_test.sh` requires `probe: 57/57 checks passed`.
+`scripts/qemu_userland_test.sh` requires `probe: 60/60 checks passed`.
 
 ## Current limits
 * The policy is fixed at boot: the kernel trusts the first program module it loads (the root task, `init` in the shipped boot order; the kernel does not read its name), and the root task decides who gets what.
 * Only the delegated capabilities can be revoked, not the ones of the first program. `init` does not use `SYS_CAP_REVOKE` yet: a revocation is only reached from a program that holds an ancestor node, and no shipped program does it. It is exercised by the kernel suite `Capability revocation` and by the root fuzzer.
 * A boot module that was already opened is not closed by a revocation.
 * The table has a fixed size.
-* The IPC capability is only as precise as the labels `init` hands out; the root task can be reached by every process, because its root capability covers every label, and the lookup by name (`SYS_PROC_LOOKUP`) still tells any process the id of any server (knowing it grants nothing).
-* A boot module (`ramfs`, `vga_driver`) is labeled by `init` after it starts, so it cannot be reached by the programs that wait for no message until `init` has given the label; both only wait for messages.
+* The IPC capability is only as precise as the labels `init` hands out; the root task and the name server can be reached by every process, because their capabilities cover every label.
+* A program that `init` did not start (a child of a spawner) has no entry in the name server, so it cannot connect to anything until the process manager registers it.
+* Only the first thread of a process can connect through the name server: a call carries the id of the calling thread, and the name server knows processes.
+* A boot module (`names`, `ramfs`, `vga_driver`) is labeled by `init` after it starts, so it cannot be reached by the programs that wait for no message until `init` has given the label; both only wait for messages.
 * A capability over ports that drive DMA (disk controllers, the PCI configuration ports) lets its owner write anywhere in physical memory, since there is no IOMMU. It is as strong as root and should be granted accordingly.

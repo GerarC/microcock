@@ -110,14 +110,17 @@ class CapabilitySet {
 	}
 
 	/**
-	 * @brief Tells whether the holder has any grantable capability at all.
-	 * @return True when at least one entry has the grant flag. This is the
-	 * test for operations reserved to the root server, such as spawning
-	 * processes and sending capability messages.
+	 * @brief Tells whether the holder has grant authority over hardware or boot resources.
+	 * @return True when at least one entry that is not of the `IPC` type has the
+	 * grant flag. This is the test for operations reserved to the root server,
+	 * such as labelling processes, finding boot modules and sending capability
+	 * messages. A holder that may only pass on `IPC` capabilities, as the name
+	 * server does, has no such authority.
 	 */
 	bool holdsGrantAuthority() const {
 		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++) {
 			if (entries[idx].type != CapabilityType::NONE &&
+				entries[idx].type != CapabilityType::IPC &&
 				(entries[idx].flags & CAPABILITY_FLAG_GRANT))
 				return true;
 		}

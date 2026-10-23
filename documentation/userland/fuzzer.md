@@ -33,7 +33,7 @@ FUZZ=root SEED=7 ROUNDS=4000 bash scripts/qemu_fuzz_test.sh HOST_TOOLCHAIN=1
 
 ## How a call is made
 * `specs.hpp` has a table with the number, a weight and the kind of each argument of every call (`ID`, `ADDRESS_IN`, `ADDRESS_OUT`, `LENGTH`, `FLAGS`, `MILLISECONDS`, `SHM`, `NAME_POINTER`, `ENTRY`, and so on). `exit` is not in it.
-* `main.cpp` builds each argument: about 70% plausible (its own scratch buffer, a live region, a process id learned with `lookup`, a small length) and 30% hostile (null, the kernel half, `0xFFFFFFFF`, a pointer plus a length that wraps past 2^32, ids of dead threads, a stale generation). In 4% of the rounds the call number itself is random.
+* `main.cpp` builds each argument: about 70% plausible (its own scratch buffer, a live region, a process id learned from the name server (`names::server`) or, in root mode, from `SYS_MODULE_PROCESS`, a small length) and 30% hostile (null, the kernel half, `0xFFFFFFFF`, a pointer plus a length that wraps past 2^32, ids of dead threads, a stale generation). In 4% of the rounds the call number itself is random.
 * Calls that can block get a finite time: `ipc_recv` is preceded by a message the fuzzer sends itself, and every time argument is a few milliseconds or a value the kernel refuses (`0x80000000` and above, never `0xFFFFFFFF`).
 * Resources that would run out (shared memory objects, mapped regions) are released every 64 rounds. A `MAP_PHYS` mapping is unmapped at once and never touched.
 * The generator is an xorshift32 (`prng.hpp`, tested on the host). It has a compile time seed (`FUZZ_SEED`) and no state outside the program, so the same seed repeats the same sequence of random calls. The scenarios below use several threads, so their interleaving is not repeatable.

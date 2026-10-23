@@ -30,9 +30,9 @@ namespace cock::init {
 
 cock::abi::manifest::Manifest manifest;
 
-bool loadManifest(Client &client) {
+bool loadManifest(Client &client, uint32_t files) {
 	size_t length = NO_BYTES;
-	if (!client.connect(cock::abi::fs::RAMFS_SERVER_NAME) || !readManifestText(client, length)) {
+	if (!client.connectTo(files) || !readManifestText(client, length)) {
 		printf("init: cannot read %s\n", cock::abi::manifest::FILE_PATH);
 		return false;
 	}

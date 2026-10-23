@@ -1,13 +1,16 @@
 #include "probe.hpp"
 #include <cock/abi/block.hpp>
 #include <cock/abi/console.hpp>
+#include <cock/abi/names.hpp>
 #include <cock/abi/rtc.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/call.hpp>
+#include <cock/user/names.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
+using cock::abi::names::Status;
 using cock::user::CALL_WORDS;
 using cock::user::NO_PROCESS;
 
@@ -18,51 +21,77 @@ namespace {
 constexpr size_t SHARED_PAGES = 1;
 constexpr uint32_t UNKNOWN_OPERATION = 0xFF;
 constexpr size_t NO_LENGTH = 0;
-constexpr uint32_t REFUSAL_WAIT_MILLISECONDS = 200;
+constexpr uint32_t FIRST_SCANNED_PID = 1;
+constexpr uint32_t LAST_SCANNED_PID = 63;
+constexpr size_t LEAST_REFUSALS = 3;
+constexpr size_t CONNECT_ROUNDS = 40;
+constexpr uint32_t FORGED_LABEL = 5;
+constexpr const char UNKNOWN_SERVER[] = "nothing";
+constexpr const char TOO_LONG_SERVER[] = "a_name_longer_than_twelve";
 
-uint32_t liveServer(const char *name) {
-	uint32_t pid = cock::user::lookup(name);
-	return pid != NO_PROCESS && cock::user::process_alive(pid) ? pid : NO_PROCESS;
 }
 
-bool refusedBy(uint32_t server) {
-	if (server == NO_PROCESS) return false;
+bool connectRefusesWhatThePolicyDoesNotList() {
+	return cock::user::names::connect(cock::abi::block::SERVER_NAME).status == Status::DENIED &&
+		   cock::user::names::connect(cock::abi::rtc::SERVER_NAME).status == Status::DENIED &&
+		   cock::user::names::connect(cock::abi::block::SERVER_NAME).pid == NO_PROCESS &&
+		   cock::user::names::connect(UNKNOWN_SERVER).status == Status::NOT_FOUND &&
+		   cock::user::names::connect(TOO_LONG_SERVER).status == Status::BAD_REQUEST;
+}
 
+bool unconnectedServersRefuseMessages() {
+	size_t refused = 0;
 	cock::ipc::Message message = {};
-	const uint32_t words[CALL_WORDS] = {};
-	return !cock::user::ipc_send(server, message) &&
-		   cock::user::ipc_call(server, words, REFUSAL_WAIT_MILLISECONDS).status ==
-			   cock::user::CallStatus::FAILED;
+	for (uint32_t pid = FIRST_SCANNED_PID; pid <= LAST_SCANNED_PID; pid++) {
+		if (pid == cock::user::self() || !cock::user::process_alive(pid)) continue;
+		if (!cock::user::ipc_send(pid, message)) refused++;
+	}
+	return refused >= LEAST_REFUSALS;
 }
 
-} // namespace
-
-bool ipcWithoutCapabilityIsRefused() {
-	return refusedBy(liveServer(cock::abi::block::SERVER_NAME)) &&
-		   refusedBy(liveServer(cock::abi::rtc::SERVER_NAME));
-}
-
-bool ipcWithCapabilityIsAdmitted() {
-	uint32_t console = liveServer(cock::abi::console::SERVER_NAME);
-	if (console == NO_PROCESS) return false;
+bool connectGivesTheRightToTalk() {
+	cock::user::names::Connection connection =
+		cock::user::names::connect(cock::abi::console::SERVER_NAME);
+	if (connection.status != Status::OK || connection.pid == NO_PROCESS) return false;
 
 	const uint32_t words[CALL_WORDS] = {
 		cock::abi::console::pack(UNKNOWN_OPERATION, NO_LENGTH), 0, 0, 0};
-	cock::user::CallResult answer = cock::user::ipc_call(console, words);
+	cock::user::CallResult answer = cock::user::ipc_call(connection.pid, words);
 	return answer.ok &&
 		   (answer.words[cock::abi::console::HEADER_WORD] & cock::abi::console::BYTE_MASK) ==
 			   static_cast<uint32_t>(cock::abi::console::Status::BAD_REQUEST);
 }
 
-bool sharedMemoryNeedsCapability() {
+bool registrationIsRootOnly() {
+	constexpr cock::abi::names::Op OPERATIONS[] = {cock::abi::names::Op::DEFINE,
+												   cock::abi::names::Op::ALLOW,
+												   cock::abi::names::Op::BIND};
+	for (cock::abi::names::Op operation : OPERATIONS) {
+		const uint32_t words[CALL_WORDS] = {cock::abi::names::pack(operation, FORGED_LABEL),
+											FORGED_LABEL, 0, 0};
+		cock::user::CallResult answer = cock::user::ipc_call(cock::abi::service::NAMES_PID, words);
+		if (!answer.ok ||
+			static_cast<Status>(answer.words[cock::abi::names::HEADER_WORD]) != Status::NOT_ROOT)
+			return false;
+	}
+	return true;
+}
+
+bool connectingTwiceUsesNoNewCapability() {
+	for (size_t round = 0; round < CONNECT_ROUNDS; round++) {
+		cock::user::names::Connection connection =
+			cock::user::names::connect(cock::abi::console::SERVER_NAME);
+		if (connection.status != Status::OK) return false;
+	}
+	return true;
+}
+
+bool sharedMemoryNeedsConnect() {
 	uint32_t object = cock::user::shm_create(SHARED_PAGES);
 	if (object == cock::user::NO_SHM) return false;
 
-	uint32_t blocks = liveServer(cock::abi::block::SERVER_NAME);
-	uint32_t console = liveServer(cock::abi::console::SERVER_NAME);
-	bool ok = blocks != NO_PROCESS && console != NO_PROCESS &&
-			  !cock::user::shm_share(object, blocks, false) &&
-			  cock::user::shm_share(object, console, false);
+	uint32_t console = cock::user::names::server(cock::abi::console::SERVER_NAME);
+	bool ok = console != NO_PROCESS && cock::user::shm_share(object, console, false);
 	return cock::user::shm_release(object) && ok;
 }
 

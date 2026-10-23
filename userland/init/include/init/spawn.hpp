@@ -11,7 +11,8 @@
 namespace cock::init {
 
 /**
- * @brief Reads the program of an entry into an anonymous mapping and spawns it.
+ * @brief Reads the program of an entry into an anonymous mapping, spawns it and tells the name
+ * server which process runs it.
  *
  * Prints `init: started <name>` or the reason it could not start. The image must not be empty
  * and must be at most 1 MiB.

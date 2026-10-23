@@ -10,9 +10,9 @@ sh, other programs --ipc_call--> console --VIDEO_WRITE_*--> vga_driver
 kbd ------------CONSOLE_KEY---------+
 ```
 
-- Capability: `io:0x3F8+8` (the serial port), granted by `init` in `initrd/manifest.conf` with `peer=vga_driver`. The test manifest adds nothing for it.
-- `init` sends `CAPABILITY_GRANTED` and `arg0` is the process id of the display server. The server waits for that message before it opens the serial port, then prints `console: ready`.
-- It looks `kbd` up by name (`cock::abi::console::KEYBOARD_NAME`) and accepts `CONSOLE_KEY` only from that process, so a program cannot type for the user.
+- Capability: `io:0x3F8+8` (the serial port), granted by `init` in `initrd/manifest.conf`, which also lists `ipc=vga_driver`. The test manifest adds nothing for it.
+- `init` sends `CAPABILITY_GRANTED`. The server waits for that message before it opens the serial port, connects to the display server (`cock::abi::console::DISPLAY_NAME`) through the name server and prints `console: ready`; without a display it prints `console: no display server` and keeps the serial output.
+- It asks the name server for `kbd` (`cock::abi::console::KEYBOARD_NAME`) and accepts `CONSOLE_KEY` only from that process, so a program cannot type for the user.
 - It opts out of the console client of the C library (`CONSOLE_CLIENT = no`), because it would call itself.
 
 ## Protocol
@@ -65,7 +65,7 @@ Use `HOST_TOOLCHAIN=1` where there is no cross compiler. The userland script typ
 
 ## Limits and known gaps
 
-- Any process may read the keyboard and write the screen: there is no capability check on the calls until the IPC capability of stage 9. Only `CONSOLE_KEY` is checked, by name.
+- A process may read the keyboard and write the screen only when it holds an `IPC` capability for the console, which the name server gives when the program's `ipc=` list names `console` (or the console's names it). Inside the console, `CONSOLE_KEY` is checked against the process the name server calls `kbd`.
 - No raw mode and no Ctrl+C.
 - A reader whose reply fails (its thread died after the line was taken) loses that line.
 - Text of a dead program shows up to 50 ms late; a live program that never sends `LAST` keeps its text in the slot.

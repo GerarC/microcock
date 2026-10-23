@@ -3,8 +3,8 @@
  * @brief Client of the console server, over synchronous IPC calls.
  *
  * Each request is one `ipc_call` of four words: a header (operation, length, flag) plus
- * packed bytes. The server is found by name and the call target is its thread id, as
- * returned by lookup. All calls block until the server answers.
+ * packed bytes. The server is found through the name server and the call target is its
+ * thread id, as the name server returns it. All calls block until the server answers.
  */
 #ifndef COCK_USER_CONSOLE_HPP
 #define COCK_USER_CONSOLE_HPP
@@ -12,6 +12,7 @@
 #include <cock/abi/console.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/call.hpp>
+#include <cock/user/names.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -26,15 +27,17 @@ constexpr long FAILED = -1;
 class Client {
   public:
 	/**
-	 * @brief Finds the console server (`SYS_PROC_LOOKUP`).
+	 * @brief Connects to the console server through the name server.
 	 *
-	 * Reuses the known server while it is alive, otherwise looks it up again, so it can
-	 * be called after the server restarted.
-	 * @return true when a server is known; false when no process has the console name.
+	 * Reuses the known server while it is alive, otherwise connects again, so it can
+	 * be called after the server restarted. Only the first thread of a process can connect;
+	 * another thread uses the connection the first one made.
+	 * @return true when a server is known; false when no process has the console name or the
+	 *         manifest does not let the caller talk to it.
 	 */
 	bool connect() {
 		if (server != NO_PROCESS && process_alive(server)) return true;
-		server = lookup(abi::console::SERVER_NAME);
+		server = names::server(abi::console::SERVER_NAME);
 		return server != NO_PROCESS;
 	}
 

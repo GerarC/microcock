@@ -13,6 +13,7 @@
 #include <cock/abi/block.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <cock/user/names.hpp>
 #include <cock/user/reply.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -63,7 +64,7 @@ class Client {
 	/**
 	 * @brief Finds the block server, asks for a session and maps the shared window.
 	 *
-	 * Looks the server up by name (`SYS_PROC_LOOKUP`), sends `BLK_CONNECT` and maps the
+	 * Connects to the server through the name server, sends `BLK_CONNECT` and maps the
 	 * shared object that comes back, writable. Blocks until the server answers.
 	 *
 	 * After a failure the client is marked lost: the next `info`, `read` or `write` calls
@@ -74,7 +75,7 @@ class Client {
 	 */
 	bool connect() {
 		lost = false;
-		server = lookup(abi::block::SERVER_NAME);
+		server = names::server(abi::block::SERVER_NAME);
 		if (server == NO_PROCESS) {
 			lost = true;
 			return false;

@@ -41,8 +41,8 @@
     #define SYS_IRQ_BIND         0x171
     /** Acknowledges and unmasks an interrupt line that the calling thread bound. a1: IRQ number. Returns 0 or all ones. */
     #define SYS_IRQ_ACK          0x172
-    /** Looks up a live user process id by name. a1: name pointer, a2: name length (not counting the terminator). Returns the id or all ones. */
-    #define SYS_PROC_LOOKUP      0x173
+    /** Finds the live process the kernel started from a boot module, by module name; only a process with grant authority may call it. a1: name pointer, a2: name length (not counting the terminator). Returns the id or all ones. */
+    #define SYS_MODULE_PROCESS   0x173
     /** Creates a shared memory object held by the caller. a1: pages. Returns its id or all ones. */
     #define SYS_SHM_CREATE       0x174
     /** Makes another live process a holder of an object; only a holder can share and nobody gives more access than it has. a1: object, a2: process id, a3: non zero for write access. Returns 0 or all ones. */

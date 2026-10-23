@@ -72,7 +72,7 @@ Thread *TaskManager::getThreadByPID(uint32_t pid) {
 	return (thread && thread->getId() == pid) ? thread : nullptr;
 }
 
-uint32_t TaskManager::findProcessId(const char *name) {
+uint32_t TaskManager::findBootModuleId(const char *name) {
 	InterruptGuard guard;
 
 	for (size_t slot = 0; slot < MAX_PROCESSES; slot++) {
@@ -80,7 +80,8 @@ uint32_t TaskManager::findProcessId(const char *name) {
 		if (!thread || thread->getState() == ThreadState::DEAD) continue;
 
 		Process *process = thread->getProcess();
-		if (process->isKernel() || process->getId() != thread->getId())
+		if (process->isKernel() || !process->isBootModule() ||
+			process->getId() != thread->getId())
 			continue;
 		if (strcmp(process->getName(), name) == 0) return process->getId();
 	}

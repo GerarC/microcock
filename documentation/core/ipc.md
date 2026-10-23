@@ -19,7 +19,7 @@ void SyscallManager::init() {
 	syscall_table[SyscallNum::SYS_CAP_GRANT] = sys_cap_grant;
 	syscall_table[SyscallNum::SYS_IRQ_BIND] = sys_irq_bind;
 	syscall_table[SyscallNum::SYS_IRQ_ACK] = sys_irq_ack;
-	syscall_table[SyscallNum::SYS_PROC_LOOKUP] = sys_proc_lookup;
+	syscall_table[SyscallNum::SYS_MODULE_PROCESS] = sys_module_process;
 	syscall_table[SyscallNum::SYS_SHM_CREATE] = sys_shm_create;
 	syscall_table[SyscallNum::SYS_SHM_SHARE] = sys_shm_share;
 	syscall_table[SyscallNum::SYS_SHM_MAP] = sys_shm_map;
@@ -69,14 +69,14 @@ The kernel writes `sender_pid` and `target_pid` itself on delivery; whatever the
 | `NONE` | Empty message; the display server treats it as a request to clear the screen |
 | `SYS_PING`, `SYS_PONG`, `SYS_DEBUG`, `SYS_REGISTER_MAILBOX` | Reserved for tests, debugging and future use |
 | `OUTPUT_WRITE_CHAR` | Write one character (`arg0`) on the display server |
-| `CONSOLE_KEY` | Keyboard driver to console server (value 30): `arg0` is the typed character; the console accepts it only from the process named `kbd`; see [console](../userland/console.md) |
+| `CONSOLE_KEY` | Keyboard driver to console server (value 30): `arg0` is the typed character; the console accepts it only from the process the name server calls `kbd`; see [console](../userland/console.md) |
 | `OUTPUT_WRITE_STR` | Write `arg0` bytes that follow in `arg1` and the next arguments |
 | `PROCESS_EXITED` | The kernel tells the spawner that a process it asked about ended (`arg0` process id, `arg1` exit status, `0xFFFFFFFF` when an exception ended it). It comes from a per-process record, not from the inbox, so it is never lost; only the main thread of the spawner receives it. Only the kernel produces it; a program that tries to send one gets `-1` |
 | `IRQ_NOTIFICATION` | The kernel tells a driver that its interrupt line fired (`arg0` is the line). Only the kernel produces it, with `KERNEL_SENDER` as sender; a program that tries to send one gets `-1` |
 | `FS_CONNECT`, `FS_OPEN`, `FS_READ`, `FS_STAT`, `FS_READDIR`, `FS_CLOSE`, `FS_REPLY`, `FS_WRITE`, `FS_UNLINK`, `FS_MKDIR`, `FS_RMDIR`, `FS_RENAME`, `FS_LINK` | The file server protocol (values 9 to 15, 20, 21 and 23 to 26); see [file system](../userland/filesystem.md) |
 | `BLK_CONNECT`, `BLK_INFO`, `BLK_READ`, `BLK_REPLY`, `BLK_WRITE` | The block server protocol (values 16 to 19 and 22); see [block storage](../userland/block_storage.md) |
 | `RTC_READ`, `RTC_REPLY` | The clock server protocol (values 27 and 28): `arg0` request id; the reply carries the status in `arg1` and the date and time packed in `arg2` and `arg3` (`shared/include/cock/abi/rtc.hpp`) |
-| `CAPABILITY_GRANTED` | The root server tells a driver that its capabilities are in place (`arg0` is a peer process id). Only a process that holds a capability with the grant right can send it |
+| `CAPABILITY_GRANTED` | The root server tells a driver that its capabilities are in place (`arg0` is the numeric argument of its manifest entry, for example the device of `fat`; zero when it has none). Only a process that holds a capability with the grant right can send it |
 
 ### Sending (`sys_ipc_send`)
 Before delivering, the system call checks that the sender may use the message type: `IRQ_NOTIFICATION` and `PROCESS_EXITED` are refused to every program, and `CAPABILITY_GRANTED` is refused unless the sender holds grant authority. A server can therefore trust the type of a message it receives without checking who sent it. Then it checks the IPC capability (`mayTalk`): the sender and the target must be the same process, or one of them must hold an `IPC` capability that covers the service label of the other; see [capabilities](capabilities.md#the-ipc-capability). `SYS_IPC_CALL` and `SYS_SHM_SHARE` make the same check, and a refusal costs the caller nothing but a `-1`. `IPC::deliver` then validates the target, stamps the message and pushes it into the inbox of the target. If the target was blocked waiting for a message (`WAITING_MSG`), it is set to `READY` and put back in the scheduler. The call fails, and the sender is told, when the target does not exist or its inbox is full.

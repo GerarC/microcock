@@ -21,12 +21,12 @@ namespace cock::init {
 
 void runEntry(Client &client, const Entry &entry) {
 	if (entry.isBootModule()) {
-		uint32_t pid = cock::user::lookup(entry.name);
+		uint32_t pid = cock::user::module_process(entry.name);
 		if (pid == NO_PROCESS) {
 			printf("init: no boot module %s\n", entry.name);
 			return;
 		}
-		connectBootModule(entry, pid);
+		labelBootModule(entry, pid);
 		equip(entry, pid);
 		printf("init: configured %s\n", entry.name);
 		return;

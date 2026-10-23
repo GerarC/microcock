@@ -1,6 +1,7 @@
 #include <cock/abi/console.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/call.hpp>
+#include <cock/user/names.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -22,7 +23,7 @@ bool sendWithoutLast(uint32_t server, const char *text, size_t length) {
 }
 
 extern "C" int main() {
-	uint32_t server = cock::user::lookup(cock::abi::console::SERVER_NAME);
+	uint32_t server = cock::user::names::server(cock::abi::console::SERVER_NAME);
 	if (server == cock::user::NO_PROCESS) cock::user::exit_process(EXIT_FAILED);
 
 	bool sent = sendWithoutLast(server, FIRST_PART, sizeof(FIRST_PART) - 1) &&

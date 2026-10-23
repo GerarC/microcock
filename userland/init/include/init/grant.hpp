@@ -12,21 +12,21 @@ namespace cock::init {
 /**
  * @brief Sends a `CAPABILITY_GRANTED` message to a process.
  *
- * `arg0` of the message carries the peer and `arg1` the argument.
+ * `arg0` of the message carries the argument of the program.
  *
  * @param pid Process to tell.
- * @param peer Process id of its peer, or `NO_PROCESS` for none.
  * @param argument One number for the program, such as the block device of `fat`.
  */
-void announce(uint32_t pid, uint32_t peer, uint32_t argument = 0);
+void announce(uint32_t pid, uint32_t argument = 0);
 
 /**
  * @brief Gives a process what its manifest entry says.
  *
- * Grants every capability of the entry, then announces the peer and the argument. Nothing is
- * sent when the entry has no grants, no peer and no argument. The kernel checks every grant
- * against what `init` holds. The service label and the IPC capabilities are not given here:
- * `spawnProgram` passes them to the loader (`cock::user::spawn`), so they exist before the program runs.
+ * Grants every capability of the entry, then announces the argument. Nothing is sent when the
+ * entry has no grants and no argument. The kernel checks every grant against what `init` holds.
+ * The service label is not given here: `spawnProgram` passes it to the loader
+ * (`cock::user::spawn`), so it exists before the program runs, and the right to talk to other
+ * programs comes from the name server when the program connects.
  *
  * @param entry The manifest entry.
  * @param pid The process to equip.
