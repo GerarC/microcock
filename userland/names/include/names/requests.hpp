@@ -10,7 +10,7 @@
 namespace cock::names {
 
 /**
- * @brief Serves one call.
+ * @brief Serves one call, which may be one part of a name.
  * @param caller Thread id of the caller, as the kernel stamped it.
  * @param words The request words.
  * @param reply Receives the reply: the status in word 0, and for a successful `CONNECT` the process id and the label of the server.

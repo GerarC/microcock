@@ -10,18 +10,27 @@
 namespace cock::names {
 
 /**
- * @brief Serves a `DEFINE`, `ALLOW` or `BIND` request.
+ * @brief Serves an `ALLOW` or a `BIND` request.
  *
  * Only the root server may register: any other caller gets `NOT_ROOT` and nothing changes.
- * @param caller Process id of the caller, as the kernel stamped it.
+ * @param process Process id of the caller (not the thread id), from `thread_process`.
  * @param words The request words.
- * @return `OK` when the table changed; `NOT_ROOT` for a caller that is not `ROOT_PID`; `BAD_REQUEST` for a label
- *         out of range, a duplicate label or name, an unknown label in `ALLOW` or `BIND`, a service that already
- *         lists eight labels, a table that is full, a process id that is not alive or already runs another
- *         service, or an operation that is not a registration.
+ * @return `OK` when the table changed; `NOT_ROOT` for a caller that is not `ROOT_PID`; `BAD_REQUEST` for an unknown
+ *         label, a service that already lists eight labels, a process id that is not alive or already runs another
+ *         service, or an operation that is not `ALLOW` or `BIND`.
  */
-abi::names::Status registerService(uint32_t caller,
+abi::names::Status registerService(uint32_t process,
 								   const uint32_t (&words)[abi::names::CALL_WORDS]);
+
+/**
+ * @brief Serves a `DEFINE` request whose name is complete.
+ * @param process Process id of the caller.
+ * @param label Service label from the header.
+ * @param name The name as it came on the wire; it is stored as a path (short names get `/run/`).
+ * @return `OK` when the service was added; `NOT_ROOT` for a caller that is not `ROOT_PID`; `BAD_REQUEST` for a label
+ *         out of range or taken, a name taken, or a full table.
+ */
+abi::names::Status defineProgram(uint32_t process, uint32_t label, const char *name);
 
 } // namespace cock::names
 

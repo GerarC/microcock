@@ -75,6 +75,7 @@ When an entry has grants or an argument, `init` sends the process `CAPABILITY_GR
 | `irq_bind(line)`, `irq_ack(line)` | `SYS_IRQ_BIND`, `SYS_IRQ_ACK` |
 | `cap_grant(pid, type, first, count, delegate)` | `SYS_CAP_GRANT`; `delegate` lets the receiver pass the capability on |
 | `names::connect(name)`, `names::server(name)` (`names.hpp`) | A synchronous call to the name server: it checks the `ipc=` policy, gives the caller an `IPC` capability for the server and answers with its process id; `connect` returns the status and the id, `server` only the id (`NO_PROCESS` when refused) |
+| `thread_process(tid)` | `SYS_THREAD_PROCESS`; the process a thread belongs to |
 | `module_process(name)` | `SYS_MODULE_PROCESS`; the process of a boot module, for the root server |
 | `shm_create(pages)`, `shm_share(id, pid, writable)`, `shm_map(id, writable)`, `shm_release(id)` | `SYS_SHM_CREATE`, `SYS_SHM_SHARE`, `SYS_SHM_MAP`, `SYS_SHM_RELEASE` |
 | `port_out8(port, value)`, `port_in8(port)`, `port_read_words(port, buffer, words)` | Port instructions (`outb`, `inb`, `rep insw`), allowed after `request_ports` |

@@ -12,10 +12,10 @@ namespace cock::names {
 /**
  * @brief Serves a `CONNECT` request.
  *
- * Finds the client by its process id (the kernel stamps it, a client cannot lie about it), finds the server
- * by name, applies `mayConnect` and gives the client an `IPC` capability for the label of the server, once.
+ * Finds the client by its process id (the kernel stamps the calling thread and `thread_process` gives its
+ * process, a client cannot lie about it), finds the server by path, applies `mayConnect` and gives the client an `IPC` capability for the label of the server, once.
  * @param client Process id of the caller.
- * @param name NUL terminated name of the server.
+ * @param name NUL terminated path of the server, already normalized.
  * @param reply Receives the reply words; the process id and label of the server are set only on `OK`.
  * @return The status: `UNKNOWN_CLIENT` when the caller is not bound to a service, `NOT_FOUND` when no service
  *         has the name or its process ended or is not bound yet, `DENIED` when the policy refuses,

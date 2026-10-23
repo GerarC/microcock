@@ -6,11 +6,13 @@
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/call.hpp>
+#include <cock/user/joinable_thread.hpp>
 #include <cock/user/names.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
 using cock::abi::names::Status;
+using cock::user::JoinableThread;
 using cock::user::CALL_WORDS;
 using cock::user::NO_PROCESS;
 
@@ -27,7 +29,20 @@ constexpr size_t LEAST_REFUSALS = 3;
 constexpr size_t CONNECT_ROUNDS = 40;
 constexpr uint32_t FORGED_LABEL = 5;
 constexpr const char UNKNOWN_SERVER[] = "nothing";
-constexpr const char TOO_LONG_SERVER[] = "a_name_longer_than_twelve";
+constexpr const char TOO_LONG_SERVER[] =
+	"a_name_that_is_longer_than_sixty_bytes_because_it_goes_on_and_on_and_on_and_on";
+constexpr const char PATH_SERVER[] = "/run/console";
+constexpr const char LONG_UNKNOWN_SERVER[] = "/run/a_server_with_a_long_name_that_nobody_runs";
+constexpr size_t STACK_BYTES = 0x4000;
+constexpr uint32_t THREAD_DEADLINE_MILLISECONDS = 3000;
+
+alignas(PAGE_BYTES) uint8_t connectStack[STACK_BYTES];
+JoinableThread connectThread;
+uint32_t pidSeenByThread = NO_PROCESS;
+
+void connectFromThread(void *) {
+	pidSeenByThread = cock::user::names::server(cock::abi::console::SERVER_NAME);
+}
 
 }
 
@@ -75,6 +90,21 @@ bool registrationIsRootOnly() {
 			return false;
 	}
 	return true;
+}
+
+bool connectAcceptsPathsAndLongNames() {
+	uint32_t console = cock::user::names::server(cock::abi::console::SERVER_NAME);
+	return console != NO_PROCESS && cock::user::names::server(PATH_SERVER) == console &&
+		   cock::user::names::connect(LONG_UNKNOWN_SERVER).status == Status::NOT_FOUND;
+}
+
+bool connectWorksFromAnotherThread() {
+	uint32_t console = cock::user::names::server(cock::abi::console::SERVER_NAME);
+	pidSeenByThread = NO_PROCESS;
+	if (console == NO_PROCESS ||
+		!connectThread.start(connectFromThread, nullptr, connectStack, STACK_BYTES))
+		return false;
+	return connectThread.join(THREAD_DEADLINE_MILLISECONDS) && pidSeenByThread == console;
 }
 
 bool connectingTwiceUsesNoNewCapability() {

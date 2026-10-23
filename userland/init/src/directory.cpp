@@ -9,6 +9,7 @@
 #include <init/manifest.hpp>
 #include <init/service.hpp>
 #include <stdio.h>
+#include <string.h>
 
 using cock::abi::CapabilityType;
 using cock::abi::manifest::Entry;
@@ -24,6 +25,8 @@ namespace {
 
 constexpr const char NAMES_MODULE[] = "names";
 constexpr uintptr_t FIRST_LABEL = 0;
+constexpr size_t NO_LENGTH = 0;
+constexpr size_t SINGLE_PART = 1;
 
 bool ask(const uint32_t (&words)[CALL_WORDS]) {
 	cock::user::CallResult result = cock::user::ipc_call(NAMES_PID, words);
@@ -32,11 +35,26 @@ bool ask(const uint32_t (&words)[CALL_WORDS]) {
 }
 
 bool define(uint32_t label, const char *name) {
-	uint32_t words[CALL_WORDS] = {cock::abi::names::pack(Op::DEFINE, label)};
-	if (!cock::abi::names::packName(name, words))
+	size_t length = strlen(name);
+	if (length > cock::abi::names::MAX_NAME_BYTES) {
 		printf("init: %s cannot be reached by name (up to %u bytes)\n", name,
 			   static_cast<unsigned>(cock::abi::names::MAX_NAME_BYTES));
-	return ask(words);
+		length = NO_LENGTH;
+	}
+
+	size_t parts = length == NO_LENGTH ? SINGLE_PART : cock::abi::names::partCount(length);
+	for (size_t part = 0; part < parts; part++) {
+		bool last = part + 1 == parts;
+		uint32_t words[CALL_WORDS] = {cock::abi::names::pack(Op::DEFINE, label, part, last)};
+		cock::abi::names::packPart(name, length, part, words);
+
+		cock::user::CallResult result = cock::user::ipc_call(NAMES_PID, words);
+		Status expected = last ? Status::OK : Status::MORE;
+		if (!result.ok ||
+			static_cast<Status>(result.words[cock::abi::names::HEADER_WORD]) != expected)
+			return false;
+	}
+	return true;
 }
 
 bool allow(uint32_t from, uint32_t to) {
