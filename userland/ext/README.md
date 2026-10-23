@@ -29,8 +29,21 @@ It serves `FS_CONNECT`, `FS_OPEN` (with `OPEN_WRITE`, `OPEN_CREATE`, `OPEN_TRUNC
 
 | File | Holds |
 |------|-------|
-| `main.cpp` | The `Ext` backend: mount, inode and block reads, path resolution with links, allocation, directory records, create, write, truncate, rename, remove, link, superblock state; `_start` |
-| `Makefile` | `NAME = ext` and the `LIBC_SRCS` list |
+| `src/main.cpp` | `_start`: wait for the grant, mount, run the server |
+| `include/ext/grant.hpp`, `src/grant.cpp` | `waitForCapabilities()`: waits for `CAPABILITY_GRANTED`, queues other messages with `Server::defer`, returns the device |
+| `include/ext/mount.hpp`, `src/mount.cpp` | `mountVolume()`: connects to `ata` and `rtc`, checks the superblock and the root, reports refusals |
+| `include/ext/volume.hpp`, `src/volume.cpp` | Superblock, sector buffers, `Node`, `Handle`, `Where`, `loadSector`, `storeSector` |
+| `include/ext/stamp.hpp`, `src/stamp.cpp` | Times from `rtc`, the fixed mark without it |
+| `include/ext/state.hpp`, `src/state.cpp` | `VALID` flag and free counters: `beginUpdate`, `endUpdate` |
+| `include/ext/inode.hpp`, `src/inode.cpp` | Group descriptors, `loadInode`, `storeInode` |
+| `include/ext/alloc.hpp`, `src/alloc.cpp` | Block and inode bitmaps: allocate, free, group counters |
+| `include/ext/blockmap.hpp`, `src/blockmap.cpp` | Direct and indirect blocks: map, grow, release, empty a file |
+| `include/ext/file.hpp`, `src/file.cpp` | File data: read and write |
+| `include/ext/directory.hpp`, `src/directory.cpp` | Directory records: find, list, add, remove, empty check |
+| `include/ext/lookup.hpp`, `src/lookup.cpp` | Paths with symbolic links, `parentAndName`, `isAncestor` |
+| `include/ext/operations.hpp`, `src/operations.cpp` | Create, truncate, unlink, mkdir, rmdir, rename, link, write, each between `beginUpdate` and `endUpdate` |
+| `include/ext/server.hpp` | `Backend` adapter and `Server = FileServer<Backend>` |
+| `Makefile` | `NAME = ext`, `SRCS` and the `LIBC_SRCS` list |
 | `../lib/include/cock/user/file_server.hpp` | Server template shared with `fat` |
 | `../../shared/include/cock/abi/ext2.hpp` | Format parsers and constants, covered by host tests |
 
