@@ -60,6 +60,7 @@ kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 peer=vga_driver
 | `peer=` | Name of a process whose id travels in the `CAPABILITY_GRANTED` message (the display server for `kbd`) |
 | `arg=` | A number (decimal or `0x`) that travels in the second argument of the `CAPABILITY_GRANTED` message, for a server that needs one value (the device of `fat`). It makes `init` send the message even when the line has no grants or peer |
 | `repeat=` | Run the program that many times (1 to 32), one after the other, waiting for each to exit. Only for entries with `path=` |
+| `restart=` | After the manifest is done, `init` starts the program again each time it ends, at most that many times (1 to 16) in a window of 60 seconds of its own waiting time; past the limit it gives up. Only for entries with `path=` and no `repeat=`. See `userland/init/README.md` |
 
 When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED` after granting. The kernel still checks every grant against what `init` holds, so a line cannot give more than `init` has. The parser rejects the whole file at the first bad line (unknown key, repeated key, bad number, range that wraps the address space, too many entries or grants, repeated name) and `init` then starts nothing and exits; the serial log shows the line number and the error. The file is at most 4096 bytes and 32 entries. Adding a driver means adding a line here, not editing `init`.
 

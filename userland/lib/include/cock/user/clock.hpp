@@ -32,23 +32,31 @@ class Clock {
 	 */
 	bool init() {
 		server = lookup(abi::rtc::SERVER_NAME);
-		return server != NO_PROCESS;
+		lost = server == NO_PROCESS;
+		return !lost;
 	}
 
 	/**
 	 * @brief Reads the current date and time (`RTC_READ`). Blocks until the server answers.
 	 * @param time Receives the date and time on success.
+	 *
+	 * When the last call found the server gone, the next call looks it up again by name, so
+	 * a server that was started again is used without the caller doing anything.
 	 * @return true on success; false when `init` did not succeed, the send failed, the
 	 *         server died, reported an error, or sent a value that is not a valid date.
 	 */
 	bool now(abi::datetime::DateTime &time) {
+		if (lost && !init()) return false;
 		if (server == NO_PROCESS) return false;
 
 		uint32_t id = nextId++;
 		ipc::Message request = {};
 		request.type = ipc::MessageType::RTC_READ;
 		request.payload.args.arg0 = id;
-		if (!ipc_send(server, request)) return false;
+		if (!ipc_send(server, request)) {
+			lost = !process_alive(server);
+			return false;
+		}
 
 		ipc::Message answer = {};
 		bool matches = receiveReply(
@@ -58,8 +66,11 @@ class Clock {
 					   candidate.sender_pid == server && candidate.payload.args.arg0 == id;
 			},
 			onForeign);
-		if (!matches ||
-			static_cast<abi::rtc::Status>(answer.payload.args.arg1) != abi::rtc::Status::OK)
+		if (!matches) {
+			lost = true;
+			return false;
+		}
+		if (static_cast<abi::rtc::Status>(answer.payload.args.arg1) != abi::rtc::Status::OK)
 			return false;
 
 		return abi::rtc::unpack(answer.payload.args.arg2, answer.payload.args.arg3, time);
@@ -70,6 +81,8 @@ class Clock {
 	uint32_t server = NO_PROCESS;
 	/** Id of the next request. */
 	uint32_t nextId = 1;
+	/** True when the last attempt to reach the server failed because it was gone. */
+	bool lost = false;
 };
 
 } // namespace cock::user

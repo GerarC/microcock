@@ -3,6 +3,7 @@
 #include <init/run.hpp>
 #include <init/spawn.hpp>
 #include <init/supervise.hpp>
+#include <init/watch.hpp>
 #include <stdio.h>
 
 using cock::abi::manifest::Entry;
@@ -30,11 +31,13 @@ void runEntry(Client &client, const Entry &entry) {
 	}
 
 	bool supervised = entry.repeat > cock::abi::manifest::DEFAULT_REPEAT;
+	bool watched = entry.restarts != cock::abi::manifest::NO_RESTARTS;
 	uint32_t notices = NO_NOTICES;
 	for (uint32_t run = 0; run < entry.repeat; run++) {
-		uint32_t pid = spawnProgram(client, entry, supervised);
+		uint32_t pid = spawnProgram(client, entry, supervised || watched);
 		if (pid == NO_PROCESS) return;
 		equip(entry, pid);
+		if (watched) watchProgram(entry, pid);
 		if (supervised && awaitExit(pid)) notices++;
 	}
 	if (supervised)

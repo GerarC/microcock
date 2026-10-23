@@ -71,6 +71,7 @@ bool connectFiles() {
 }
 
 void failFile(const char *command, const char *path) {
+	if (fs.lastStatus() == Status::NOT_CONNECTED) fsReady = false;
 	printf("sh: %s: %s: %s\n", command, path, statusText(fs.lastStatus()));
 }
 

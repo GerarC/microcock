@@ -1,6 +1,7 @@
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
 #include <init/supervise.hpp>
+#include <stddef.h>
 
 using cock::ipc::Message;
 using cock::ipc::MessageType;
@@ -13,8 +14,25 @@ constexpr uint32_t SUPERVISE_POLL_MILLISECONDS = 20;
 
 namespace cock::init {
 
+void keepExitNotice(const Message &message) {
+	if (message.type == MessageType::PROCESS_EXITED &&
+		message.sender_pid == cock::ipc::KERNEL_SENDER)
+		cock::user::stash_message(message);
+}
+
 bool awaitExit(uint32_t pid) {
 	Message message = {};
+	size_t kept = cock::user::stashedCount;
+	bool noticed = false;
+	for (size_t index = 0; index < kept; index++) {
+		cock::user::take_stashed(message);
+		if (!noticed && message.payload.args.arg0 == pid)
+			noticed = true;
+		else
+			cock::user::stash_message(message);
+	}
+	if (noticed) return true;
+
 	for (;;) {
 		cock::user::Received received =
 			cock::user::ipc_recv_timeout(message, SUPERVISE_POLL_MILLISECONDS);
@@ -23,6 +41,7 @@ bool awaitExit(uint32_t pid) {
 				message.sender_pid == cock::ipc::KERNEL_SENDER &&
 				message.payload.args.arg0 == pid)
 				return true;
+			keepExitNotice(message);
 			continue;
 		}
 		if (received == cock::user::Received::FAILED || !cock::user::process_alive(pid))

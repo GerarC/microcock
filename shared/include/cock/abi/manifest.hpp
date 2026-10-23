@@ -5,7 +5,8 @@
  * The file is text, one entry per line: `name key=value ...`. Blank lines and lines that start with `#` are
  * ignored, and tokens are separated by spaces or tabs. Keys:
  * `path=<file>` (ELF in the initrd; no path means a boot data module), `peer=<name>` (process told about
- * by `CAPABILITY_GRANTED`), `repeat=<1..32>` (copies to start; 1 for boot modules), `arg=<number>` (one
+ * by `CAPABILITY_GRANTED`), `repeat=<1..32>` (copies to start; 1 for boot modules), `restart=<1..16>` (times `init` starts the program
+ * again after it ends, within one restart window; needs a path and `repeat` of 1), `arg=<number>` (one
  * numeric argument) and `caps=<grant>,<grant>...` with grants `io:<first>[+count]`, `irq:<line>[+count]` and
  * `mem:<first>+<bytes>`. Numbers are decimal or `0x` hexadecimal and must fit in 32 bits. The parser has no
  * dependencies and is covered by host tests; init reads the file, the kernel never does.
@@ -35,6 +36,10 @@ constexpr size_t MAX_GRANTS = 4;
 constexpr uint32_t DEFAULT_REPEAT = 1;
 /** Largest accepted value of `repeat`. */
 constexpr uint32_t MAX_REPEAT = 32;
+/** Value of `restarts` for a program that `init` does not start again. */
+constexpr uint32_t NO_RESTARTS = 0;
+/** Largest accepted value of `restart`. */
+constexpr uint32_t MAX_RESTARTS = 16;
 
 /** One capability granted to a process. */
 struct Grant {
@@ -60,6 +65,8 @@ struct Entry {
 	size_t grantCount;
 	/** Copies to start, 1 to `MAX_REPEAT`. */
 	uint32_t repeat;
+	/** Restarts `init` may make within one restart window, or `NO_RESTARTS` when the program is not supervised. */
+	uint32_t restarts;
 	/** Numeric argument; valid only when `hasArgument` is true. */
 	uint32_t argument;
 	/** True when the line had `arg=`. */
@@ -154,6 +161,8 @@ constexpr const char *KEY_PATH = "path";
 constexpr const char *KEY_PEER = "peer";
 /** Key of the copy count. */
 constexpr const char *KEY_REPEAT = "repeat";
+/** Key of the restart limit. */
+constexpr const char *KEY_RESTART = "restart";
 /** Key of the capability list. */
 constexpr const char *KEY_CAPS = "caps";
 /** Key of the numeric argument. */
@@ -385,6 +394,7 @@ inline Error parseLine(Slice line, Entry &entry) {
 	bool seenPath = false;
 	bool seenPeer = false;
 	bool seenRepeat = false;
+	bool seenRestart = false;
 	bool seenCaps = false;
 	bool seenArgument = false;
 
@@ -407,6 +417,12 @@ inline Error parseLine(Slice line, Entry &entry) {
 			if (!parseNumber(value, entry.repeat) || entry.repeat == 0 ||
 				entry.repeat > MAX_REPEAT)
 				return Error::BAD_VALUE;
+		} else if (key.equals(KEY_RESTART)) {
+			if (seenRestart) return Error::DUPLICATE_KEY;
+			seenRestart = true;
+			if (!parseNumber(value, entry.restarts) || entry.restarts == NO_RESTARTS ||
+				entry.restarts > MAX_RESTARTS)
+				return Error::BAD_VALUE;
 		} else if (key.equals(KEY_ARGUMENT)) {
 			if (seenArgument) return Error::DUPLICATE_KEY;
 			seenArgument = true;
@@ -423,6 +439,8 @@ inline Error parseLine(Slice line, Entry &entry) {
 	}
 
 	if (entry.isBootModule() && entry.repeat != DEFAULT_REPEAT) return Error::BAD_VALUE;
+	if (entry.restarts != NO_RESTARTS && (entry.isBootModule() || entry.repeat != DEFAULT_REPEAT))
+		return Error::BAD_VALUE;
 	return Error::NONE;
 }
 
