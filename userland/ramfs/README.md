@@ -38,8 +38,14 @@ On start the server walks the tar headers once and keeps up to 64 entries (name,
 
 | File | Holds |
 |------|-------|
-| `main.cpp` | Tar constants, `buildIndex`, sessions and window release, the handlers, the request loop |
-| `Makefile` | `NAME = ramfs`, `CONSOLE_CLIENT = no` and a small `LIBC_SRCS` list |
+| `src/main.cpp` | `_start`: waits for the grant, loads the archive, drains the kept messages, then the request loop |
+| `src/dispatch.cpp` | `handle`: refuses unknown senders and requests without a session, answers writes with `READ_ONLY`, then calls one handler |
+| `src/archive.cpp`, `include/ramfs/archive.hpp` | The tar archive: `loadArchive`, the index of entries, `findEntry`, `isChild` |
+| `src/sessions.cpp`, `include/ramfs/sessions.hpp` | The sessions of the clients and their open files: `connect`, `releaseDeadSessions`, `handleEntry` |
+| `src/requests.cpp`, `include/ramfs/requests.hpp` | `openFile`, `readFile`, `statFile`, `listDirectory`, `closeFile` |
+| `src/pending.cpp`, `include/ramfs/pending.hpp` | `keepPending` and `handlePending`: requests that arrive before the grant |
+| `src/reply.cpp`, `include/ramfs/reply.hpp` | `reply`: sends `FS_REPLY` |
+| `Makefile` | `NAME = ramfs`, `SRCS` under `src/`, `CONSOLE_CLIENT = no` and a small `LIBC_SRCS` list |
 | `../lib/include/cock/user/session.hpp` | Session helpers shared with `vfs`, `fat`, `ext` and `ata` |
 | `../../initrd/` | The files packed into the archive (`manifest.conf`, `mounts.conf`) |
 
