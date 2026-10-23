@@ -47,8 +47,15 @@ The kernel still checks every grant against what `init` holds, so a manifest lin
 
 | File | Holds |
 |------|-------|
-| `main.cpp` | `_start`: grant to `ramfs`, `loadManifest`, `spawnProgram` (reads the image into an anonymous mapping and calls `SYS_SPAWN`), `equip` (grants and announce), `awaitExit` (polls `PROCESS_EXITED` and `process_alive`), `runEntry` |
-| `Makefile` | `NAME = init`, a minimal `LIBC_SRCS` list, includes `../common.mk` |
+| `src/main.cpp` | `_start`: `grantInitrd`, `loadManifest`, `runEntry` for each entry, exit |
+| `include/init/boot.hpp`, `src/boot.cpp` | `grantInitrd()`: the policy in the code, the `initrd` boot module for `ramfs` |
+| `include/init/grant.hpp`, `src/grant.cpp` | `announce()` and `equip()`: grants of an entry and the `CAPABILITY_GRANTED` message |
+| `include/init/files.hpp`, `src/files.cpp` | `readInto()`: a whole file through the file client |
+| `include/init/manifest.hpp`, `src/manifest.cpp` | `loadManifest()`: connect, read `manifest.conf`, parse it; holds the parsed `manifest` |
+| `include/init/spawn.hpp`, `src/spawn.cpp` | `spawnProgram()`: reads the image into an anonymous mapping and calls `SYS_SPAWN` |
+| `include/init/supervise.hpp`, `src/supervise.cpp` | `awaitExit()`: polls `PROCESS_EXITED` and `process_alive` |
+| `include/init/run.hpp`, `src/run.cpp` | `runEntry()`: configure a boot module or spawn `repeat` times |
+| `Makefile` | `NAME = init`, `SRCS`, a minimal `LIBC_SRCS` list, includes `../common.mk` |
 
 ## Build, run, test
 
