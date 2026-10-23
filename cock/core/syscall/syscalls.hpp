@@ -288,12 +288,17 @@ uintptr_t sys_module_index(uintptr_t name_ptr, uintptr_t length, uintptr_t,
  * @param name_length Name length, from 1 up to the name limit minus one.
  * @param flags Spawn flags. The notify on exit flag makes the kernel send the
  * parent a message when the child exits.
+ * @param rights_ptr Zero, or a user pointer to an `abi::service::SpawnRights`: the
+ * label of the new process and the IPC labels it may talk to. The kernel sets them
+ * before the first thread can run. Each IPC label needs a grantable IPC
+ * capability of the caller that covers it, and the derivation tree needs room for
+ * one node per label.
  * @return The id of the first thread, or all ones when the caller holds no
  * grant authority, a size or buffer is invalid, no process id is free, the
- * image is not a valid ELF or memory runs out.
+ * image is not a valid ELF, the rights are invalid or memory runs out.
  */
 uintptr_t sys_spawn(uintptr_t image_ptr, uintptr_t image_size, uintptr_t name_ptr,
-					uintptr_t name_length, uintptr_t, uintptr_t);
+					uintptr_t name_length, uintptr_t flags, uintptr_t rights_ptr);
 
 /**
  * @brief Tells whether the thread of a process id is alive.

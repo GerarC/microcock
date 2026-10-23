@@ -14,6 +14,7 @@
 #include <cock/abi/capability.hpp>
 #include <cock/abi/process.hpp>
 #include <cock/abi/sched_metrics.hpp>
+#include <cock/abi/service.hpp>
 #include <cock/ipc/message.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -368,17 +369,21 @@ inline uint32_t module_index(const char *name) {
  * @brief Starts a process from an ELF image in memory (`SYS_SPAWN`).
  *
  * Only a process with grant authority may call it. The new process starts with an empty
- * capability set; the caller grants what it needs with `cap_grant`.
+ * capability set, except for the rights in `rights`; the caller grants anything else with
+ * `cap_grant`.
  * @param image ELF image in the memory of the caller (up to 4 MiB).
  * @param size Image size in bytes.
  * @param name NUL terminated process name; its length is measured here.
  * @param notify_exit true to receive a `PROCESS_EXITED` message when the process ends; the call fails when the caller already has `MAX_NOTIFIED_CHILDREN` such children running or unread.
+ * @param rights The service label of the new process and the labels it may talk to, applied before its first thread can run; null leaves the process with no label and no IPC capability. The caller must hold a grantable `IPC` capability for each label of the list.
  * @return The new process id (the id of its first thread), or `NO_PROCESS` when the caller
  *         may not spawn, a size is zero or too large, the image is not a loadable ELF, ids
- *         or memory ran out, or a pointer is bad.
+ *         or memory ran out, a pointer is bad, or the rights are invalid (no label, too many
+ *         labels, a label the caller cannot give, or the derivation tree is full).
  */
 inline uint32_t spawn(const void *image, size_t size, const char *name,
-					  bool notify_exit = false) {
+					  bool notify_exit = false,
+					  const abi::service::SpawnRights *rights = nullptr) {
 	size_t length = 0;
 	while (name[length] != '\0')
 		length++;
@@ -386,7 +391,8 @@ inline uint32_t spawn(const void *image, size_t size, const char *name,
 	uintptr_t result =
 		syscall(SYS_SPAWN, reinterpret_cast<uintptr_t>(image), size,
 				reinterpret_cast<uintptr_t>(name), length,
-				notify_exit ? abi::process::SPAWN_NOTIFY_EXIT : 0, 0);
+				notify_exit ? abi::process::SPAWN_NOTIFY_EXIT : 0,
+				reinterpret_cast<uintptr_t>(rights));
 	return result == FAILURE ? NO_PROCESS : static_cast<uint32_t>(result);
 }
 

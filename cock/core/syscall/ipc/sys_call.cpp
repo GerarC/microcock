@@ -1,7 +1,9 @@
 #include <cock/abi/call.hpp>
+#include <cock/core/security/ipc_access.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/sync_ipc.hpp>
+#include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
 #include <stdint.h>
 
@@ -16,6 +18,7 @@ using core::task::AcceptResult;
 using core::task::CallStart;
 using core::task::Scheduler;
 using core::task::SyncIpc;
+using core::task::TaskManager;
 using core::task::Thread;
 
 namespace {
@@ -51,6 +54,10 @@ uintptr_t sys_ipc_call(uintptr_t target, uintptr_t word0, uintptr_t word1,
 					   uintptr_t word2, uintptr_t word3, uintptr_t milliseconds) {
 	Thread *current = Scheduler::getCurrentThread();
 	if (!current || !timeoutOk(milliseconds)) return FAILURE;
+
+	Thread *server = TaskManager::getThreadByPID(static_cast<uint32_t>(target));
+	if (!server || !security::mayTalk(*current->getProcess(), *server->getProcess()))
+		return FAILURE;
 
 	Words words = pack(word0, word1, word2, word3);
 	switch (SyncIpc::call(*current, static_cast<uint32_t>(target), words.values,

@@ -1,6 +1,7 @@
 #include <cock/user/api.hpp>
 #include <init/grant.hpp>
 #include <init/run.hpp>
+#include <init/service.hpp>
 #include <init/spawn.hpp>
 #include <init/supervise.hpp>
 #include <init/watch.hpp>
@@ -25,6 +26,7 @@ void runEntry(Client &client, const Entry &entry) {
 			printf("init: no boot module %s\n", entry.name);
 			return;
 		}
+		connectBootModule(entry, pid);
 		equip(entry, pid);
 		printf("init: configured %s\n", entry.name);
 		return;

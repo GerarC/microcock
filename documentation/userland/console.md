@@ -43,7 +43,7 @@ A length of 0 or more than 12 is `BAD_REQUEST`. `BUSY` answers a `READ` when the
 | `ramfs` | It starts before the server |
 
 ## Limits
-* Any process may read the keyboard and write the screen: the calls have no capability check until stage 9 adds the IPC capability (see [block storage](block_storage.md#current-limits) for the same gap in `ata`). Only `CONSOLE_KEY` is checked, by the name `kbd`.
+* Only a process that holds an IPC capability for `console` (or that `console` holds one for) can call it; the shipped manifest gives it to `sh`, `vfs`, `fat`, `ext`, `ata` and `rtc`. A holder can read the keyboard and write the screen. `CONSOLE_KEY` is still checked by the name `kbd`, which waits for the name service of a later step.
 * Input is line oriented; there is no raw mode and no Ctrl+C.
 * The echo goes to the screen only, not to the serial port.
 * A program that does not link the client still prints through `SYS_WRITE`, and its lines can interleave with those of `console` on the screen.

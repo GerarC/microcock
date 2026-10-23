@@ -33,6 +33,7 @@ extern void test_frames();
 namespace cock::test::security {
 extern void test_capabilities();
 extern void test_revocation();
+extern void test_ipc_access();
 } // namespace cock::test::security
 
 namespace cock::test {
@@ -52,6 +53,7 @@ void run_all_tests() {
 	arch::test_paging();
 	security::test_capabilities();
 	security::test_revocation();
+	security::test_ipc_access();
 	task::test_scheduler();
 	task::test_reaper();
 	task::test_timeouts();

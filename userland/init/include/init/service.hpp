@@ -5,6 +5,7 @@
 #define INIT_SERVICE_HPP
 
 #include <cock/abi/manifest.hpp>
+#include <cock/abi/service.hpp>
 #include <stdint.h>
 
 namespace cock::init {
@@ -29,20 +30,27 @@ uint32_t labelOf(const cock::abi::manifest::Entry &entry);
 uint32_t labelOfName(const char *name);
 
 /**
- * @brief Labels a started process and gives it the IPC capabilities of its entry.
+ * @brief The rights a program is born with: its label and the labels of its `ipc` list.
  *
- * Sets the label of the entry on the process, then grants one `IPC` capability for the label of
- * each name in the `ipc` list. A name that matches no entry, or a refused grant, prints
- * `init: <program> cannot talk to <name>`; a refused label prints `init: cannot label <program>`.
- * Nothing is printed for a process that has already ended, which is normal for programs that
- * exit at once.
- * The label is known from the manifest, so the order in which programs start does not matter and
- * a restarted server needs no new grant for its clients.
+ * Given to `SYS_SPAWN`, which sets them before the first thread of the program can run. A name
+ * that matches no entry prints `init: <program> cannot talk to <name>` and is left out.
  *
- * @param entry The manifest entry the process was started from.
- * @param pid Process id of the new process.
+ * @param entry The manifest entry the program is started from.
+ * @return The rights to pass to `cock::user::spawn`.
  */
-void connectProgram(const cock::abi::manifest::Entry &entry, uint32_t pid);
+cock::abi::service::SpawnRights rightsOf(const cock::abi::manifest::Entry &entry);
+
+/**
+ * @brief Labels a boot module and gives it the IPC capabilities of its entry.
+ *
+ * Boot modules are started by the kernel, so this happens after they run: it is meant for
+ * programs that only wait for messages, such as the display server. A refused label or grant
+ * prints `init: cannot label <program>` or `init: <program> cannot talk to <name>`.
+ *
+ * @param entry The manifest entry of the boot module.
+ * @param pid Process id of the boot module.
+ */
+void connectBootModule(const cock::abi::manifest::Entry &entry, uint32_t pid);
 
 } // namespace cock::init
 

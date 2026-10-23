@@ -43,7 +43,7 @@ The sector in `BLK_READ` is relative to the device, so a file system server sees
 ### Window and sessions
 Same design as the file server: on `BLK_CONNECT` the **server** creates a one page shared memory object, shares it with the client with write access, maps it and replies with its id; the data of `BLK_READ` goes to the start of the window. The server keeps up to 8 sessions keyed by the kernel stamped `sender_pid`; when the table is full it asks `SYS_PROC_ALIVE` about every session and frees the ones of dead clients. Requests that arrive before the capability grant are kept (up to 16) and answered afterwards.
 
-There is no access control between clients yet: any process may connect, read the whole disk and write any partition. Who may talk to the block server is a decision for the IPC capability of the capability stage.
+Only a process that holds an IPC capability for `ata`, or that `ata` holds one for, can talk to the block server (see the IPC capability in [capabilities](../core/capabilities.md)): in the shipped manifest that is `fat` and `ext`. A holder can still read the whole disk and write any partition, so who gets the capability is the policy.
 
 ## Client library
 `userland/lib/include/cock/user/block.hpp` offers `cock::user::block::Client` with `connect`, `deviceCount`, `info`, `read` and `write`. A program that uses it lists `string/memcpy.cpp` and `string/strlen.cpp` in `LIBC_SRCS`. `api.hpp` has `port_out8`, `port_read_words` and `port_write_words` for the driver.

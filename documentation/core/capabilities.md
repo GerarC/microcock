@@ -83,6 +83,17 @@ static void grant_root_capabilities(Process &process, size_t module_count) {
 
 The tree is a plain data structure and is tested on the host (`test/host/test_capability_tree.cpp`); the death of a process is tested in the kernel suite (`test_process.cpp`).
 
+## The IPC capability
+It decides who may exchange messages, make synchronous calls and share memory with whom. It is the first step of the route to Unix style IPC (see the roadmap): the capability plays the part of the file descriptor, and the stable name is a **service label**.
+
+* **Labels.** A label (`cock/abi/service.hpp`) belongs to a program, not to a running process: `init` gives the label `PROGRAM_SERVICE_BASE` plus the position of the entry in the manifest to every process started from that entry, so a server that restarts comes back with the same label. `Process::serviceId` holds it, and it can be set once. The kernel labels only the first program (`ROOT_SERVICE`); `ramfs` has `RAMFS_SERVICE`, set by `init`. `SYS_SERVICE_SET(pid, label)` (grant authority only) labels a running process, and is used for the boot modules.
+* **The capability.** `CapabilityType::IPC` covers a range of labels. The root capability covers all of them; `init` derives single label capabilities from it, so they appear in the derivation tree and can be revoked.
+* **The rule** (`mayTalk` in `cock/core/security/ipc_access.hpp`): a process may send to, call or share memory with another when they are the same process, or when it holds an `IPC` capability that covers the label of the other, **or the other holds one that covers its label**. The right is symmetric, so a client given the right to talk to a server also receives the server's asynchronous answers with no extra grant, and revoking the capability cuts both directions. Replies to a synchronous call are not checked.
+* **Where it is enforced:** `SYS_IPC_SEND`, `SYS_IPC_CALL` and `SYS_SHM_SHARE`. A refusal returns `-1` and logs at `trace` only. The kernel's own sends (the forwarding of `SYS_WRITE` to the display server, interrupt notices and exit notices) are not user sends and are not checked.
+* **Granted at spawn.** `SYS_SPAWN` takes an optional `SpawnRights` (the label and up to eight labels the program may talk to). The kernel sets them, and derives the capabilities from a grantable `IPC` capability of the spawner, before the first thread of the new process can run. Granting them afterwards leaves a window in which the program already runs and is refused by its own servers; this was seen: `vfs` failed to read `mounts.conf` before `init` had finished.
+* **Policy as data.** The manifest key `ipc=<name>,<name>` lists them (`userland/init/README.md`). `init` resolves each name to a label from the manifest, so the order in which programs start does not matter and a restarted server needs no new grant for its clients.
+* **Cost.** Two scans of the 16 entry table at most per send, call or share. `syncbench`, which calls between threads of one process, went from about 8400 to 9300 cycles per round trip (three runs) to about 9400 to 14600, with large noise from the emulator.
+
 ## What each check does
 * **Ports** (`SYS_REQUEST_RESOURCE`): the capability must cover the range. Then the kernel refuses the ports of the PIC (`0x20`, `0x21`, `0xA0`, `0xA1`) and the timer (`0x40` to `0x43`), which are the kernel's. Only then are the bits turned on in the permission bitmap of the process, which the CPU enforces from there on (see [GDT](../arch/gdt.md)).
 * **Interrupts** (`SYS_IRQ_BIND`): the capability must cover the line; the timer line and the cascade line are reserved; a line has one owner. `SYS_IRQ_ACK` only works for the owner.
@@ -107,14 +118,18 @@ Two message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
 
 * it creates a shared memory object, sees it zeroed, keeps data across a map, an unmap and a new map, and cannot map it after releasing it,
 * it asks for objects of no pages and of too many pages, for an unknown object and for a share with an unknown process, and is refused,
-* and it fills the table of shared memory objects and finds it bounded.
+* and it fills the table of shared memory objects and finds it bounded,
+* it sends and calls the block server and the clock server, for which it has no IPC capability, and is refused at once; it calls the console, for which it has one, and is answered; and it shares memory with the console but not with the block server.
 
-`scripts/qemu_userland_test.sh` requires `probe: 26/26 checks passed`.
+The in-kernel suites `Capability revocation` and `IPC access` cover revocation and the rule of `mayTalk` with real processes (same process, no capability, the capability of either side, a range that does not cover, the root, revocation cutting both directions, and a label that can be set once).
+
+`scripts/qemu_userland_test.sh` requires `probe: 57/57 checks passed`.
 
 ## Current limits
 * The policy is fixed at boot: the kernel trusts the first program module it loads (the root task, `init` in the shipped boot order; the kernel does not read its name), and the root task decides who gets what.
 * Only the delegated capabilities can be revoked, not the ones of the first program. `init` does not use `SYS_CAP_REVOKE` yet: a revocation is only reached from a program that holds an ancestor node, and no shipped program does it. It is exercised by the kernel suite `Capability revocation` and by the root fuzzer.
 * A boot module that was already opened is not closed by a revocation.
 * The table has a fixed size.
-* There is no capability for IPC: any process may send a message to any process id.
+* The IPC capability is only as precise as the labels `init` hands out; the root task can be reached by every process, because its root capability covers every label, and the lookup by name (`SYS_PROC_LOOKUP`) still tells any process the id of any server (knowing it grants nothing).
+* A boot module (`ramfs`, `vga_driver`) is labeled by `init` after it starts, so it cannot be reached by the programs that wait for no message until `init` has given the label; both only wait for messages.
 * A capability over ports that drive DMA (disk controllers, the PCI configuration ports) lets its owner write anywhere in physical memory, since there is no IOMMU. It is as strong as root and should be granted accordingly.
