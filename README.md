@@ -273,7 +273,7 @@ What the kernel already does, and what is planned next. Planned items are listed
 
 ### Planned
 
-- Restart of a server that dies: `init` starts it again, with a limit so a server that always crashes does not loop.
+- Keeping the kernel small is the next goal, in this order. First, capabilities as data (below): the kernel stops knowing program names, and IPC gets a capability of its own. Then a page that lists every concept the kernel holds and says why each one cannot live outside it, the ELF loader and `spawn` moved out of the kernel into a user library, and the name lookup and the debug channel (`SYS_WRITE`, `SYS_READ`, kernel console) moved out of the core, the debug channel kept only behind a build option.
 - Capability transfer in messages: a client can give a server a shared buffer or a port, and the receiver gets it only when its policy allows.
 - Page faults handled by a server, so memory policy can live outside the kernel. This is the largest item and needs a decision first.
 - A process model like Linux's, kept by a process manager server (`pm`) outside the kernel, as in Minix 3; the kernel keeps only the primitives it must. It covers process states (running, sleeping, stopped, zombie) shown to `ps`; `wait` (a parent collects a child's exit status, and zombies until then), `exec` (a process replaces its program and keeps its pid), signals with `kill`, process groups so Ctrl+C reaches only the foreground job, a process table for `ps`, and `nice`.
@@ -301,6 +301,7 @@ For more detailed information regarding specific subsystems, please check the `d
 * [Task Management](documentation/core/task_management.md): Processes, threads, scheduler and MLFQ.
 * [Inter-Process Communication](documentation/core/ipc.md): Syscalls and messaging.
 * [Capabilities](documentation/core/capabilities.md): Authority over ports, IRQs and physical memory.
+* [Kernel concepts](documentation/core/kernel_concepts.md): Every concept the kernel holds, why it cannot live outside, and what is planned to move.
 * [Userland](documentation/userland/userland.md): Boot modules, the system call ABI and the drivers.
 * [GDT](documentation/arch/gdt.md) & [IDT](documentation/arch/idt.md): CPU descriptor tables and interrupt handling.
 * [VGA](documentation/userland/vga.md): Kernel console and the userland display server.

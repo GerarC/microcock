@@ -9,5 +9,6 @@ The code under `cock/core`. It is architecture agnostic: it never includes `cock
 | [task_management.md](task_management.md) | Processes, threads, MLFQ scheduler, timeouts, futexes, the reaper |
 | [ipc.md](ipc.md) | Asynchronous messages, synchronous calls, interrupts as messages |
 | [capabilities.md](capabilities.md) | Authority over ports, IRQs, physical memory and boot modules |
+| [kernel_concepts.md](kernel_concepts.md) | Every concept the kernel holds, why it cannot live outside, and what is planned to move |
 
 Where the core meets the machine: [arch/](../arch/README.md). What the core serves: [userland/](../userland/README.md).
