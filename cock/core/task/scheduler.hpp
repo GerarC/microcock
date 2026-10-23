@@ -124,6 +124,15 @@ class Scheduler {
 	/** @brief Ticks a thread may use at one level, summed over all its runs,
 	 * before it drops a level. Yielding early does not reset the count. */
 	static constexpr uint32_t LEVEL_ALLOWANCE_TICKS = QUANTUM;
+	/** @brief Smallest gap between two ticks, in cycles, taken as a real
+	 * measurement of the tick period. Shorter gaps (a test that calls onTick in
+	 * a loop) are ignored. */
+	static constexpr uint64_t MIN_CYCLES_PER_TICK = 10000;
+	/** @brief Largest tick period accepted, so cycle sums fit 32 bits. */
+	static constexpr uint64_t MAX_CYCLES_PER_TICK = 0x7FFFFFFF;
+	static uint64_t lastTickCycles; /**< Cycle counter at the previous tick, zero before the first. */
+	static uint64_t runStartCycles; /**< Cycle counter when the current thread was last charged or dispatched. */
+	static uint32_t cyclesPerTick; /**< Measured cycles per tick, zero until measured. */
 	/** @brief Ticks between priority boosts that prevent starvation. */
 	static constexpr uint32_t BOOST_TICKS = 1000;
 	static ThreadQueue readyQueues[PRIORITY_NUMBER]; /**< One queue per priority. */
@@ -136,6 +145,20 @@ class Scheduler {
 	static bool restartRequested; /**< Pending restart request. */
 	static Thread *handoffTarget; /**< Thread to run next, if any. */
 	static uintptr_t syscallFrame; /**< Saved context of the current call. */
+	/**
+	 * @brief Measures the tick period from the cycle counter.
+	 * @param now Cycle counter read at this tick.
+	 * @note Keeps the old period when the gap is outside the accepted range.
+	 */
+	static void measureTick(uint64_t now);
+	/**
+	 * @brief Charges the cycles a thread ran since it was last charged, so a thread
+	 * that stops between two ticks still pays for the part of the tick it used.
+	 * @param thread Thread that stops running.
+	 * @param now Cycle counter read at the switch.
+	 * @note Does nothing until the tick period has been measured.
+	 */
+	static void chargeRun(Thread &thread, uint64_t now);
 	/** @brief Moves every ready thread to the highest priority. */
 	static void boostPriorities();
 	/**
