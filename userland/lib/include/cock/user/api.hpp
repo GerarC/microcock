@@ -368,14 +368,14 @@ inline uint32_t module_index(const char *name) {
 /**
  * @brief Starts a process from an ELF image in memory (`SYS_SPAWN`).
  *
- * Only a process with grant authority may call it. The new process starts with an empty
- * capability set, except for the rights in `rights`; the caller grants anything else with
+ * Only a process that holds a `SPAWN` capability may call it. The new process starts with an
+ * empty capability set, except for the rights in `rights`; the caller grants anything else with
  * `cap_grant`.
  * @param image ELF image in the memory of the caller (up to 4 MiB).
  * @param size Image size in bytes.
  * @param name NUL terminated process name; its length is measured here.
  * @param notify_exit true to receive a `PROCESS_EXITED` message when the process ends; the call fails when the caller already has `MAX_NOTIFIED_CHILDREN` such children running or unread.
- * @param rights The service label of the new process and the labels it may talk to, applied before its first thread can run; null leaves the process with no label and no IPC capability. The caller must hold a grantable `IPC` capability for each label of the list.
+ * @param rights The service label of the new process and the labels it may talk to, applied before its first thread can run; null leaves the process with no label and no IPC capability. The caller must hold a grantable `IPC` capability for the label and for each label of the list.
  * @return The new process id (the id of its first thread), or `NO_PROCESS` when the caller
  *         may not spawn, a size is zero or too large, the image is not a loadable ELF, ids
  *         or memory ran out, a pointer is bad, or the rights are invalid (no label, too many

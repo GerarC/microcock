@@ -19,6 +19,8 @@ struct Capability {
 | `IRQ` | First line and number of lines | `SYS_IRQ_BIND` |
 | `PHYSICAL_MEMORY` | First physical address and length in bytes | `SYS_MMAP` with `MAP_PHYS` |
 | `BOOT_MODULE` | First module index and number of modules | `SYS_MODULE_OPEN` |
+| `IPC` | First service label and number of labels | `SYS_IPC_SEND`, `SYS_IPC_CALL`, `SYS_SHM_SHARE` (see below) |
+| `SPAWN` | `SPAWN_FIRST` (0) and `SPAWN_COUNT` (1): the right has no range | `SYS_SPAWN` |
 
 Except for the `initrd` grant to `ramfs`, which `init` makes itself, the grants of the boot are data: they come from `manifest.conf` (see [userland](../userland/userland.md#the-manifest)).
 
@@ -93,6 +95,14 @@ It decides who may exchange messages, make synchronous calls and share memory wi
 * **Granted at spawn.** `SYS_SPAWN` takes an optional `SpawnRights` (the label and up to eight labels the program may talk to). The kernel sets them, and derives the capabilities from a grantable `IPC` capability of the spawner, before the first thread of the new process can run. Granting them afterwards leaves a window in which the program already runs and is refused by its own servers; this was seen: `vfs` failed to read `mounts.conf` before `init` had finished.
 * **Policy as data.** The manifest key `ipc=<name>,<name>` lists them (`userland/init/README.md`). `init` resolves each name to a label from the manifest, so the order in which programs start does not matter and a restarted server needs no new grant for its clients.
 * **Cost.** Two scans of the 16 entry table at most per send, call or share. `syncbench`, which calls between threads of one process, went from about 8400 to 9300 cycles per round trip (three runs) to about 9400 to 14600, with large noise from the emulator.
+
+## The spawn capability
+`SYS_SPAWN` needs a `SPAWN` capability, not grant authority. The first program receives it with the right to grant, like the other root capabilities, and `init` gives it to a program that lists `caps=spawn` in the manifest. The delegated capability never carries `GRANT`, so a program that holds it can start processes but cannot pass the right on, cannot send `CAPABILITY_GRANTED` messages and cannot label processes freely.
+
+* **Labels.** A spawner may give the new process a label, and derive `IPC` capabilities for it, only for labels it holds a grantable `IPC` capability for (`read_rights` in `sys_spawn.cpp`). A holder of `SPAWN` alone can start a process but only with no label and no rights: otherwise it could start a process under the label of `ata` or `vfs` and receive what their clients send.
+* **What it is not.** The child starts with an empty capability table, as before. A holder of `SPAWN` has no hardware capability to give, so the child can do nothing the spawner could not.
+* **Checked by** the `spawner` test program (manifest `caps=spawn`), which starts a copy of `hello` and is refused when it asks for a label, and by `probe`, which holds no `SPAWN` and is refused.
+* **Not changed.** `SYS_MODULE_INDEX`, `SYS_SERVICE_SET` and the `CAPABILITY_GRANTED` message still require grant authority: they are the root server's job, not a program's.
 
 ## What each check does
 * **Ports** (`SYS_REQUEST_RESOURCE`): the capability must cover the range. Then the kernel refuses the ports of the PIC (`0x20`, `0x21`, `0xA0`, `0xA1`) and the timer (`0x40` to `0x43`), which are the kernel's. Only then are the bits turned on in the permission bitmap of the process, which the CPU enforces from there on (see [GDT](../arch/gdt.md)).

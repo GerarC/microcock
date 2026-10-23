@@ -43,6 +43,8 @@ constexpr size_t NO_LINE = 0;
 constexpr size_t ONE_ENTRY = 1;
 constexpr size_t ONE_GRANT = 1;
 constexpr uint32_t SINGLE_UNIT = 1;
+constexpr size_t PORT_AND_SPAWN_GRANTS = 2;
+constexpr size_t SPAWN_GRANT_INDEX = 1;
 constexpr uint32_t PAIR_UNITS = 2;
 constexpr uint32_t HEX_FF_VALUE = 0xFF;
 constexpr size_t NAME_BUFFER_BYTES = 128;
@@ -176,6 +178,18 @@ void checkGrantRules() {
 	CHECK_TRUE(errorOf("a caps=io:1 caps=irq:1\n") == Error::DUPLICATE_KEY);
 }
 
+void checkSpawnGrant() {
+	Manifest manifest;
+	CHECK_TRUE(parses("a caps=io:1,spawn\n", manifest));
+	CHECK_EQ(PORT_AND_SPAWN_GRANTS, manifest.entries[0].grantCount);
+	const cock::abi::manifest::Grant &spawn = manifest.entries[0].grants[SPAWN_GRANT_INDEX];
+	CHECK_TRUE(spawn.type == cock::abi::CapabilityType::SPAWN);
+	CHECK_EQ(cock::abi::SPAWN_FIRST, spawn.first);
+	CHECK_EQ(cock::abi::SPAWN_COUNT, spawn.count);
+	CHECK_TRUE(errorOf("a caps=spawn:1\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("a caps=spawns\n") == Error::BAD_VALUE);
+}
+
 void checkKeyRules() {
 	CHECK_TRUE(errorOf("a flag\n") == Error::UNKNOWN_KEY);
 	CHECK_TRUE(errorOf("a mode=fast\n") == Error::UNKNOWN_KEY);
@@ -302,6 +316,7 @@ void testManifest() {
 	checkEmptyInput();
 	checkNumbers();
 	checkGrantRules();
+	checkSpawnGrant();
 	checkKeyRules();
 	checkRepeatBounds();
 	checkRestartRules();

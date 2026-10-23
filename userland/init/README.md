@@ -23,7 +23,7 @@ The manifest grammar (`shared/include/cock/abi/manifest.hpp`) has these keys aft
 | Key | Meaning |
 |-----|---------|
 | `path=` | File of the initrd to spawn; without it the entry is a boot module that is only configured |
-| `caps=` | Up to four grants: `io:first+count`, `irq:line`, `mem:first+size` |
+| `caps=` | Up to four grants: `io:first+count`, `irq:line`, `mem:first+size`, `spawn` (the right to call `SYS_SPAWN`) |
 | `peer=` | Name of a process whose id travels in `CAPABILITY_GRANTED` |
 | `arg=` | One number that travels in `CAPABILITY_GRANTED` (the block device of `fat` and `ext`) |
 | `ipc=` | Names of the programs this one may talk to (send, call, share memory), up to eight; `init` grants one `IPC` capability for the label of each |
