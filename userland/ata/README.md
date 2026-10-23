@@ -41,9 +41,16 @@ On `BLK_CONNECT` the server creates a one page shared memory object, shares it w
 
 | File | Holds |
 |------|-------|
-| `main.cpp` | Device table, partition scan, sessions, `answerInfo`, `answerRead`, `answerWrite`, the request loop |
-| `ata.hpp` | `ata::Drive`: port registers, `init`, `read`, `write`, status polling |
-| `Makefile` | Build rules and the small `LIBC_SRCS` list |
+| `src/main.cpp` | `_start`: `waitForCapabilities`, opens the drive, scans the partitions, drains the kept messages, then the request loop |
+| `src/grant.cpp`, `include/ata/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED`, keeping every other message |
+| `src/dispatch.cpp` | `handle`: refuses unknown senders and requests without a session, then calls one handler |
+| `src/devices.cpp`, `include/ata/devices.hpp` | The drive, the table of devices and `scanPartitions` (MBR and GPT) |
+| `src/sessions.cpp`, `include/ata/sessions.hpp` | The sessions of the clients: `connect`, `releaseDeadSessions` |
+| `src/requests.cpp`, `include/ata/requests.hpp` | `answerInfo`, `answerRead`, `answerWrite` |
+| `src/pending.cpp`, `include/ata/pending.hpp` | `keepPending` and `handlePending`: requests that arrive before the grant |
+| `src/reply.cpp`, `include/ata/reply.hpp` | `reply`: sends `BLK_REPLY` |
+| `include/ata/drive.hpp` | `cock::ata::Drive`: port registers, `init`, `read`, `write`, status polling; header only |
+| `Makefile` | `NAME = ata`, `SRCS` under `src/` and the small `LIBC_SRCS` list |
 
 ## Build, run, test
 

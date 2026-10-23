@@ -1,5 +1,5 @@
 /**
- * @file ata.hpp
+ * @file drive.hpp
  * @brief Polling ATA PIO driver for the primary channel, master drive, LBA28.
  *
  * Runs in the ATA driver process in Ring 3 and talks to the controller with port I/O
@@ -7,14 +7,14 @@
  * disabled and every wait is a bounded spin on the status register, so each call blocks
  * the process (busy waits) until the drive finishes or `POLL_LIMIT` is reached.
  */
-#ifndef USERLAND_ATA_ATA_HPP
-#define USERLAND_ATA_ATA_HPP
+#ifndef ATA_DRIVE_HPP
+#define ATA_DRIVE_HPP
 
 #include <cock/user/api.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
-namespace ata {
+namespace cock::ata {
 
 /** First port of the command block of the primary channel. */
 constexpr uint16_t COMMAND_BASE = 0x1F0;
@@ -284,6 +284,6 @@ class Drive {
 	}
 };
 
-} // namespace ata
+} // namespace cock::ata
 
-#endif // !USERLAND_ATA_ATA_HPP
+#endif // !ATA_DRIVE_HPP
