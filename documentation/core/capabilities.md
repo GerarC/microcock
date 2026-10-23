@@ -87,7 +87,7 @@ Two message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
 `scripts/qemu_userland_test.sh` requires `probe: 26/26 checks passed`.
 
 ## Current limits
-* The policy is fixed at boot: the kernel trusts the module named `init`, and `init` decides who gets what.
+* The policy is fixed at boot: the kernel trusts the first program module it loads (the root task, `init` in the shipped boot order; the kernel does not read its name), and the root task decides who gets what.
 * Capabilities cannot be revoked, and the table does not remember where a delegated capability came from.
 * The table has a fixed size.
 * There is no capability for IPC: any process may send a message to any process id.

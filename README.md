@@ -214,7 +214,7 @@ The same checks run on every push through `.github/workflows/ci.yml`.
 
 * At most 8 threads per user process. A thread runs on a stack the program provides, an exception ends only the thread that caused it, and `SYS_EXIT` ends only the calling thread: the process is gone when its last thread ends.
 * A process that exits tells its spawner only if the spawner asked for it (`PROCESS_EXITED`). The notice is kept in a record of the parent, never lost to a full inbox; a process can have at most 16 notified children running or unread, and `SYS_SPAWN` with the flag fails past that.
-* Capabilities are assigned at boot (the module named `init` holds the authority) and cannot be revoked; each process holds up to 16.
+* Capabilities are assigned at boot (the first program module, `init`, holds the authority) and cannot be revoked; each process holds up to 16.
 * IPC has an asynchronous inbox with a small capacity per thread, and a synchronous call and reply in registers with timeouts.
 * The user C library has buffered `printf`, `malloc` and `operator new` (locked with a futex mutex, safe for threads), and file calls (`open`, `read`, `write`, `lseek`, `close`, `unlink`, `mkdir`, `rmdir`, `rename`) over the file server client.
 * `SYS_WRITE` is a debug and fallback channel owned by the kernel. Programs write and read descriptors 0 to 2 through the `console` server (the C library links the client by default); `read(0)` blocks in the kernel until a line is ready, through a deferred reply.
