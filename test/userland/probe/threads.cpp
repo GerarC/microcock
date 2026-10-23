@@ -31,6 +31,10 @@ constexpr size_t FIRST_STACK = 0;
 constexpr size_t MISALIGNMENT = 1;
 constexpr uint32_t NO_COUNT = 0;
 constexpr size_t NO_THREADS = 0;
+constexpr uint32_t PING_PONG_ROUNDS = 200;
+constexpr uint32_t PING_PONG_WAITERS = 3;
+constexpr uint32_t FIRST_ROUND = 1;
+constexpr uint32_t LOST_WAKEUP_MILLISECONDS = 1000;
 
 alignas(PAGE_BYTES) uint8_t stacks[STACK_COUNT][STACK_BYTES];
 
@@ -38,6 +42,9 @@ cock::user::Mutex lock;
 uint32_t counter = 0;
 uint32_t finished = 0;
 uint32_t gate = GATE_CLOSED;
+uint32_t roundWord = 0;
+uint32_t acknowledged = 0;
+bool wakeupLost = false;
 
 void finish() {
 	__atomic_add_fetch(&finished, 1, __ATOMIC_SEQ_CST);
@@ -68,6 +75,24 @@ void gateWaiter(void *) {
 }
 
 void idle(void *) {}
+
+void roundWaiter(void *) {
+	for (uint32_t round = FIRST_ROUND; round <= PING_PONG_ROUNDS; round++) {
+		for (;;) {
+			uint32_t seen = __atomic_load_n(&roundWord, __ATOMIC_SEQ_CST);
+			if (seen >= round) break;
+			if (cock::user::futex_wait(&roundWord, seen, LOST_WAKEUP_MILLISECONDS) ==
+				FUTEX_TIMED_OUT) {
+				__atomic_store_n(&wakeupLost, true, __ATOMIC_SEQ_CST);
+				finish();
+				return;
+			}
+		}
+		__atomic_add_fetch(&acknowledged, 1, __ATOMIC_SEQ_CST);
+		cock::user::futex_wake(&acknowledged, WAKE_EVERYONE);
+	}
+	finish();
+}
 
 } // namespace
 
@@ -107,6 +132,41 @@ bool futexWakesEveryWaiterAndThreadsAreBounded() {
 	uintptr_t woken = cock::user::futex_wake(&gate, WAKE_EVERYONE);
 	waitFinished(static_cast<uint32_t>(created));
 	return woken == created;
+}
+
+bool futexLosesNoWakeup() {
+	cock::user::sleep_ms(SETTLE_MILLISECONDS);
+	__atomic_store_n(&finished, NO_COUNT, __ATOMIC_SEQ_CST);
+	__atomic_store_n(&roundWord, NO_COUNT, __ATOMIC_SEQ_CST);
+	__atomic_store_n(&acknowledged, NO_COUNT, __ATOMIC_SEQ_CST);
+	__atomic_store_n(&wakeupLost, false, __ATOMIC_SEQ_CST);
+
+	for (size_t waiter = 0; waiter < PING_PONG_WAITERS; waiter++)
+		if (cock::user::thread_start(roundWaiter, nullptr, stacks[FIRST_STACK + waiter],
+									 STACK_BYTES) == NO_PROCESS)
+			return false;
+
+	bool stalled = false;
+	for (uint32_t round = FIRST_ROUND; round <= PING_PONG_ROUNDS && !stalled; round++) {
+		__atomic_store_n(&roundWord, round, __ATOMIC_SEQ_CST);
+		cock::user::futex_wake(&roundWord, WAKE_EVERYONE);
+
+		uint32_t target = round * PING_PONG_WAITERS;
+		for (;;) {
+			uint32_t seen = __atomic_load_n(&acknowledged, __ATOMIC_SEQ_CST);
+			if (seen >= target) break;
+			if (cock::user::futex_wait(&acknowledged, seen, LOST_WAKEUP_MILLISECONDS) ==
+				FUTEX_TIMED_OUT) {
+				stalled = true;
+				break;
+			}
+		}
+	}
+
+	waitFinished(PING_PONG_WAITERS);
+	return !stalled && !__atomic_load_n(&wakeupLost, __ATOMIC_SEQ_CST) &&
+		   __atomic_load_n(&acknowledged, __ATOMIC_SEQ_CST) ==
+			   PING_PONG_ROUNDS * PING_PONG_WAITERS;
 }
 
 bool futexAndThreadCallsRefuseBadInput() {
