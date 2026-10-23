@@ -268,11 +268,11 @@ What the kernel already does, and what is planned next. Planned items are listed
 - Buffered `printf`, `malloc`, `calloc`, `realloc`, `free` and `operator new`, with `malloc` locked by a futex mutex so threads can share the heap.
 - Scheduler metrics (response, CPU and turnaround ticks per thread) behind `SCHED_METRICS=1`, off by default, read by a thread with `SYS_SCHED_METRICS`.
 - The scheduler charges each priority level for the ticks a thread actually uses, summed over its runs, so yielding before the quantum ends no longer keeps a high level.
+- A probe check that no thread sleeps forever when a futex word is set and waiters are woken.
+- A thread library in `userland/lib` with `JoinableThread` (`join`, optional time limit), `ConditionVariable` and `Semaphore` next to `Mutex`, all over the futex calls and with no change in the kernel.
 
 ### Planned
 
-- A test that checks no thread sleeps forever when a futex word is set and waiters are woken.
-- A thread library with `join`, a mutex, a condition variable and a semaphore.
 - Restart of a server that dies: `init` starts it again, with a limit so a server that always crashes does not loop.
 - Capability transfer in messages: a client can give a server a shared buffer or a port, and the receiver gets it only when its policy allows.
 - Page faults handled by a server, so memory policy can live outside the kernel. This is the largest item and needs a decision first.

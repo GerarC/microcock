@@ -31,6 +31,10 @@ constexpr uintptr_t FUTEX_WOKEN = 0;
 constexpr uintptr_t FUTEX_VALUE_CHANGED = 1;
 /** Result of `SYS_FUTEX_WAIT`: the time limit ran out. */
 constexpr uintptr_t FUTEX_TIMED_OUT = 2;
+/** `count` of `SYS_FUTEX_WAKE` that wakes a single waiter. */
+constexpr uint32_t FUTEX_WAKE_ONE = 1;
+/** `count` of `SYS_FUTEX_WAKE` that wakes every waiter (more than a process has threads). */
+constexpr uint32_t FUTEX_WAKE_ALL = 0xFFFFFFFF;
 /** Required alignment in bytes of a futex word (4); unaligned addresses are refused. */
 constexpr uintptr_t FUTEX_WORD_ALIGNMENT = sizeof(uint32_t);
 

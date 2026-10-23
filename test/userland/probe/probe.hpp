@@ -112,6 +112,15 @@ bool deferredCallIsAnsweredAfterTheNextOne();
 /** A global object whose constructor writes to a volatile variable has run before `main` starts: `_start` of the shared `crt0` calls the static constructors. */
 bool staticConstructorsRun();
 
+/** A `JoinableThread` that works 30 ms is not joined by a 10 ms wait, is joined by a long one after its function stored a value, cannot be joined twice or started twice before the join, is joined when it ended long before, and the join of an object never started or whose start was refused (stack below the minimum) fails. */
+bool joinWaitsForTheThread();
+/** Two threads pass a turn back and forth fifty times each with a `Mutex` and a `ConditionVariable` (wait in a loop, broadcast), and both are joined within three seconds with the exact number of turns taken; then a thread waits twenty times on a mutex whose `unlock` signals the condition variable, which places the signal between the release and the sleep, and it must not sleep forever: a wait that reads the wake counter after it releases the mutex loses that wakeup and fails here. */
+bool conditionVariablePassesTheTurn();
+/** Three threads wait for a token under a mutex: none passes before a token exists, one `signal` with one token lets exactly one pass, and a `broadcast` with two more tokens lets the other two pass. */
+bool conditionVariableSignalsOneAndBroadcastsAll();
+/** A `Semaphore` created with two units gives two `tryWait` and refuses the third, takes back one posted unit; three threads blocked in `wait` pass one by one as units are posted. */
+bool semaphoreCountsAndBlocks();
+
 /** A raw `SYS_WRITE` of 200 bytes is cut: it returns a positive count below 200, not a failure. */
 bool oversizedWriteIsCut();
 /** `printf` formats its conversions correctly and prints lines longer than its buffer completely. */
