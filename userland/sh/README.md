@@ -39,8 +39,14 @@ Paths are absolute. An unknown command prints `sh: <name>: command not found`; m
 
 | File | Holds |
 |------|-------|
-| `main.cpp` | The command table, one function per command, `statusText`, `run`, `readLine`, `_start` |
-| `Makefile` | `NAME = sh`, the `LIBC_SRCS` list and the version flags |
+| `src/main.cpp` | `_start`: the banner, the prompt and the read and run loop |
+| `src/input.cpp`, `include/sh/input.hpp` | `readLine`: one line from descriptor 0, in chunks of 12 bytes |
+| `src/commands.cpp`, `include/sh/commands.hpp` | The command table, `help`, `run` (split a line and call a command) and `usage` |
+| `src/builtins.cpp`, `include/sh/builtins.hpp` | `version`, `echo`, `sleep` and `clear` (the console client lives here) |
+| `src/file_commands.cpp`, `include/sh/file_commands.hpp` | `ls`, `cat`, `write`, `mkdir`, `rmdir`, `rm`, `mv`, the file client and `statusText` |
+| `include/sh/arguments.hpp` | Positions of the words of a line and the sizes shared by the modules |
+| `include/sh/version.hpp` | The version printed by the shell, from the `SH_VERSION_*` flags |
+| `Makefile` | `NAME = sh`, the `SRCS` under `src/`, the `LIBC_SRCS` list and the version flags |
 | `../../shared/include/cock/shell/words.hpp` | `split`, `join` and `parseNumber`, with no I/O, tested on the host |
 | `../../test/host/test_shell.cpp` | Host tests of the line splitter and number parser |
 
