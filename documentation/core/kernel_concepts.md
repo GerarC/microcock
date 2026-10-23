@@ -55,7 +55,7 @@ The rule comes from Liedtke: a concept belongs in the kernel only if moving it o
 | Idle thread and reaper thread | The kernel frees its own objects | primitive |
 | Port bitmap per process, built on the first grant | The CPU reads it | primitive |
 | ELF loader (`core/loader`, ELF32 and ELF64) | Reads a file format | service (M1) |
-| Process names, and the check against the VGA driver module name | A registry and one hard coded program (the name `init` went on 2026-10-23: the first program module is the root task). The kernel must not know programs by name | service (stage 9 for the VGA name, M2 for the registry) |
+| Process names | A registry (the names `init` and `vga_driver` went on 2026-10-23: the first program module is the root task, and the screen goes to whoever maps it). The kernel must not know programs by name | service (M2 for the registry) |
 | Kernel console and `Logger` output | Debug output and the early boot | debug (M2) |
 
 ## Open questions

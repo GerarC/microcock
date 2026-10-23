@@ -65,7 +65,7 @@ For each module:
 3. A `Process` is created with the user-space limit of the ELF class, and named after the module.
 4. The first module that loads is the root task and is given the root capabilities (see [capabilities](capabilities.md)); no other module is. The kernel does not look at the name: the order of the `module` lines in the boot configuration decides (`USERLAND_BOOT_ORDER` in the `Makefile` puts `init` first). A first module that fails to load is skipped, and the root task is the next one that loads.
 5. A thread is created for it, with its user stack.
-6. If the module is called `vga_driver`, the kernel console detaches from the screen and remembers the driver as the destination of `sys_write` output.
+6. The kernel does not look for a display driver by name. The first process that maps the screen memory through `MAP_PHYS` (it needs a `PHYSICAL_MEMORY` capability over it) detaches the kernel console and becomes the destination of `sys_write` output (`claim_screen_if_mapped` in `sys_mmap.cpp`).
 
 After the modules, the **reaper** thread is created (see [task management](task_management.md#garbage-collection)); it comes last so the process ids of the modules are the same on every boot. Finally `manual_timer()` raises the timer vector by software. The scheduler finds no current thread, picks the first ready one, and the `iret` that enters it turns interrupts on. `cock_main` never continues past that point.
 

@@ -47,9 +47,7 @@ using core::loader::LoadedImage;
 using utils::Logger;
 using utils::LogLevel;
 
-uint32_t vga_server_pid = 0;
-
-constexpr const char *VGA_DRIVER_MODULE = "vga_driver";
+uint32_t debug_output_pid = 0;
 
 static void grant_root_capabilities(Process &process, size_t module_count) {
 	Capability ports;
@@ -158,11 +156,6 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
             root_task_started = true;
         }
         Thread *app_thread = new Thread(*process, image.entry, ThreadPriority::NORMAL);
-        if (strcmp(modules[i].name, VGA_DRIVER_MODULE) == 0) {
-            core::hal::console_detach();
-            vga_server_pid = app_thread->getId();
-            Logger::info("VGA driver detected. Assigned PID: %d", vga_server_pid);
-        }
 
         Scheduler::addThread(app_thread);
     }

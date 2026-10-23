@@ -27,7 +27,7 @@ Header: `shared/include/cock/abi/console.hpp`. Requests are synchronous calls (`
 
 Statuses: `OK`, `BAD_REQUEST` (length 0 or above 12, unknown operation), `BUSY` (eight readers already wait). The line editor is `shared/include/cock/abi/console_line.hpp` (`LineDiscipline`, a 128 character line, a 512 byte ready queue, Backspace, echo kinds), free of I/O and tested on the host.
 
-Messages used toward other servers: `VIDEO_WRITE_STR` (chunks of at most 20 bytes), `VIDEO_WRITE_CHAR` (the echo of keys and Backspace) and the `NONE` message that clears the screen.
+Messages used toward other servers: `OUTPUT_WRITE_STR` (chunks of at most 20 bytes), `OUTPUT_WRITE_CHAR` (the echo of keys and Backspace) and the `NONE` message that clears the screen.
 
 ## Behaviour
 

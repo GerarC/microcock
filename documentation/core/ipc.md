@@ -68,9 +68,9 @@ The kernel writes `sender_pid` and `target_pid` itself on delivery; whatever the
 |------|---------|
 | `NONE` | Empty message; the display server treats it as a request to clear the screen |
 | `SYS_PING`, `SYS_PONG`, `SYS_DEBUG`, `SYS_REGISTER_MAILBOX` | Reserved for tests, debugging and future use |
-| `VIDEO_WRITE_CHAR` | Write one character (`arg0`) on the display server |
+| `OUTPUT_WRITE_CHAR` | Write one character (`arg0`) on the display server |
 | `CONSOLE_KEY` | Keyboard driver to console server (value 30): `arg0` is the typed character; the console accepts it only from the process named `kbd`; see [console](../userland/console.md) |
-| `VIDEO_WRITE_STR` | Write `arg0` bytes that follow in `arg1` and the next arguments |
+| `OUTPUT_WRITE_STR` | Write `arg0` bytes that follow in `arg1` and the next arguments |
 | `PROCESS_EXITED` | The kernel tells the spawner that a process it asked about ended (`arg0` process id, `arg1` exit status, `0xFFFFFFFF` when an exception ended it). It comes from a per-process record, not from the inbox, so it is never lost; only the main thread of the spawner receives it. Only the kernel produces it; a program that tries to send one gets `-1` |
 | `IRQ_NOTIFICATION` | The kernel tells a driver that its interrupt line fired (`arg0` is the line). Only the kernel produces it, with `KERNEL_SENDER` as sender; a program that tries to send one gets `-1` |
 | `FS_CONNECT`, `FS_OPEN`, `FS_READ`, `FS_STAT`, `FS_READDIR`, `FS_CLOSE`, `FS_REPLY`, `FS_WRITE`, `FS_UNLINK`, `FS_MKDIR`, `FS_RMDIR`, `FS_RENAME`, `FS_LINK` | The file server protocol (values 9 to 15, 20, 21 and 23 to 26); see [file system](../userland/filesystem.md) |
