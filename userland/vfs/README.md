@@ -29,8 +29,19 @@ It speaks the same protocol on both sides (`shared/include/cock/abi/fs.hpp`): `F
 
 | File | Holds |
 |------|-------|
-| `main.cpp` | `loadMounts`, `pickMount`, sessions, the open table, one handler per request type, the request loop |
-| `Makefile` | `NAME = vfs` and the `LIBC_SRCS` list (printf and string functions) |
+| `src/main.cpp` | `_start`: loads the mount table, then the request loop |
+| `src/dispatch.cpp` | `handle`: refuses unknown senders and requests without a session, then calls one handler |
+| `src/mounts.cpp`, `include/vfs/mounts.hpp` | The mount table: `loadMounts`, `pickMount`, `ensureMount`, `markDown`, `failure`, `isMountPoint` |
+| `src/opens.cpp`, `include/vfs/opens.hpp` | The table of open files: `findOpen`, `freeOpen`, `closeOpen`, `closeOwnedBy` |
+| `src/clients.cpp`, `include/vfs/clients.hpp` | The sessions of the clients: `connect`, `releaseDead` |
+| `src/routing.cpp`, `include/vfs/routing.hpp` | `route`: a path in a client window becomes a mount and a path inside it |
+| `src/file_requests.cpp` | `openFile`, `readFile`, `writeFile`, `statFile`, `closeFile` |
+| `src/path_requests.cpp` | `pathRequest` (mkdir and rmdir), `unlinkFile`, `renameEntry`, `linkEntry` |
+| `src/directory_requests.cpp` | `listDirectory` and the mounts shown as directories in `/` |
+| `src/pending.cpp`, `include/vfs/pending.hpp` | The queue of requests that arrive while a backend server is awaited |
+| `src/reply.cpp`, `include/vfs/reply.hpp` | `reply`: sends `FS_REPLY` |
+| `include/vfs/limits.hpp`, `include/vfs/requests.hpp` | Shared limits and path constants; the declaration of every handler |
+| `Makefile` | `NAME = vfs`, the `SRCS` under `src/` and the `LIBC_SRCS` list (printf and string functions) |
 | `../lib/include/cock/user/fs.hpp` | `fs::Client`, used by `vfs` and by every program |
 | `../lib/include/cock/user/reply.hpp` | `receiveReply`, the wait with liveness checks |
 | `../lib/include/cock/user/session.hpp` | Session helpers |
