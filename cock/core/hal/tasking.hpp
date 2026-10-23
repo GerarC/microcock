@@ -152,6 +152,19 @@ bool grant_hardware_resource(ArchProcessContext &context, uint32_t resource_id,
 							 uint32_t size);
 
 /**
+ * @brief Takes back access to hardware resources that grant_hardware_resource
+ * gave (the ports in the permission map on x86).
+ * @param context Context of the process that loses the access.
+ * @param resource_id First resource, a port number on x86.
+ * @param size Number of consecutive resources. A range that is empty, outside
+ * the bounds or was never granted changes nothing.
+ * @note Bumps the context version so the next apply_process_context reloads the
+ * map. When the process is the one running, the caller applies the context.
+ */
+void revoke_hardware_resource(ArchProcessContext &context, uint32_t resource_id,
+							  uint32_t size);
+
+/**
  * @brief Applies the architecture-specific context (like IOPM) to the CPU.
  * @param context Context of the process about to run.
  * @note Called by the scheduler when switching processes.

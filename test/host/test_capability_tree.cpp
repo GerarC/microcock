@@ -32,6 +32,7 @@ constexpr size_t NO_NODES = 0;
 constexpr size_t ONE_NODE = 1;
 constexpr size_t TWO_NODES = 2;
 constexpr size_t THREE_NODES = 3;
+constexpr size_t FOUR_NODES = 4;
 
 CapabilityNodeId rootPorts(CapabilityTree &tree) {
 	return tree.createRoot(ROOT_HOLDER, CapabilityType::IO_PORTS, PORTS_FIRST, PORTS_COUNT);
@@ -180,6 +181,49 @@ void checkIdsAreNotReused() {
 	CHECK_TRUE(second <= HIGHEST_CAPABILITY_NODE);
 }
 
+void checkAncestors() {
+	CapabilityTree tree;
+	CapabilityNodeId root = rootPorts(tree);
+	CapabilityNodeId driver = tree.derive(root, DRIVER_HOLDER, CapabilityType::IO_PORTS,
+										  DRIVER_FIRST, DRIVER_COUNT);
+	CapabilityNodeId client = tree.derive(driver, CLIENT_HOLDER, CapabilityType::IO_PORTS,
+										  CLIENT_FIRST, CLIENT_COUNT);
+
+	CHECK_TRUE(tree.hasAncestorHeldBy(client, DRIVER_HOLDER));
+	CHECK_TRUE(tree.hasAncestorHeldBy(client, ROOT_HOLDER));
+	CHECK_TRUE(tree.hasAncestorHeldBy(driver, ROOT_HOLDER));
+	CHECK_FALSE(tree.hasAncestorHeldBy(client, CLIENT_HOLDER));
+	CHECK_FALSE(tree.hasAncestorHeldBy(driver, CLIENT_HOLDER));
+	CHECK_FALSE(tree.hasAncestorHeldBy(driver, DRIVER_HOLDER));
+	CHECK_FALSE(tree.hasAncestorHeldBy(root, ROOT_HOLDER));
+	CHECK_FALSE(tree.hasAncestorHeldBy(UNKNOWN_NODE, ROOT_HOLDER));
+	CHECK_FALSE(tree.hasAncestorHeldBy(NO_CAPABILITY_NODE, ROOT_HOLDER));
+}
+
+void checkSubtree() {
+	CapabilityTree tree;
+	CapabilityNodeId root = rootPorts(tree);
+	CapabilityNodeId driver = tree.derive(root, DRIVER_HOLDER, CapabilityType::IO_PORTS,
+										  DRIVER_FIRST, DRIVER_COUNT);
+	CapabilityNodeId other = tree.derive(root, DRIVER_HOLDER, CapabilityType::IO_PORTS,
+										 PORTS_FIRST, SINGLE);
+	CapabilityNodeId client = tree.derive(driver, CLIENT_HOLDER, CapabilityType::IO_PORTS,
+										  CLIENT_FIRST, CLIENT_COUNT);
+
+	CapabilityNodeId ids[CapabilityTree::MAX_NODES];
+	CHECK_EQ(TWO_NODES, tree.collectSubtree(driver, ids, CapabilityTree::MAX_NODES));
+	CHECK_EQ(driver, ids[0]);
+	CHECK_EQ(client, ids[ONE_NODE]);
+
+	CHECK_EQ(ONE_NODE, tree.collectSubtree(other, ids, CapabilityTree::MAX_NODES));
+	CHECK_EQ(other, ids[0]);
+	CHECK_EQ(FOUR_NODES, tree.collectSubtree(root, ids, CapabilityTree::MAX_NODES));
+	CHECK_EQ(ONE_NODE, tree.collectSubtree(root, ids, ONE_NODE));
+	CHECK_EQ(NO_NODES, tree.collectSubtree(root, ids, NO_NODES));
+	CHECK_EQ(NO_NODES, tree.collectSubtree(UNKNOWN_NODE, ids, CapabilityTree::MAX_NODES));
+	CHECK_EQ(NO_NODES, tree.collectSubtree(NO_CAPABILITY_NODE, ids, CapabilityTree::MAX_NODES));
+}
+
 void checkReset() {
 	CapabilityTree tree;
 	rootPorts(tree);
@@ -197,6 +241,8 @@ void testCapabilityTree() {
 	checkReleaseHolder();
 	checkTableIsBounded();
 	checkIdsAreNotReused();
+	checkAncestors();
+	checkSubtree();
 	checkReset();
 }
 

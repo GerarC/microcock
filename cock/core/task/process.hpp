@@ -222,11 +222,24 @@ class Process {
 	 * @param owned True when the frames belong to the process and count against
 	 * its quota.
 	 * @param shared_object Shared object id behind the region, or none.
+	 * @param device_base Physical address of the first page for a region that maps
+	 * device memory, or NO_DEVICE_BASE.
 	 * @return False when the table is full, the size is zero or an owned region
 	 * exceeds the quota.
 	 */
 	bool addMemoryRegion(memory::VirtAddr addr, size_t pages, bool owned,
-						 uint32_t shared_object = memory::NO_SHARED_OBJECT);
+						 uint32_t shared_object = memory::NO_SHARED_OBJECT,
+						 uint64_t device_base = memory::NO_DEVICE_BASE);
+	/**
+	 * @brief Reads one entry of the region table.
+	 * @param index Position, below getRegionCount().
+	 * @return A copy of the entry. An index out of range gives an empty region
+	 * (no pages, no device).
+	 */
+	memory::MemoryRegion getRegion(size_t index) const {
+		if (index >= regionCount) return {0, 0, false, memory::NO_SHARED_OBJECT, memory::NO_DEVICE_BASE};
+		return regions[index];
+	}
 	/**
 	 * @brief Removes a region from the table.
 	 * @param addr Exact start of the region.

@@ -81,7 +81,7 @@ On a machine without the cross compiler add `HOST_TOOLCHAIN=1`. The end to end s
 ## Limits and known gaps
 
 - A program image is at most 1 MiB and must fit the quota of `init`; the manifest is at most 4096 bytes and 32 entries.
-- The capability policy is a text file read from the initrd: there is no revocation, no IPC capability and no DMA policy yet (stage 9 of the roadmap).
+- The capability policy is a text file read from the initrd: there is no IPC capability and no DMA policy yet (stage 9 of the roadmap). The kernel can revoke a grant (`SYS_CAP_REVOKE`), but `init` does not use it.
 - Entries run in file order and a `repeat=` entry blocks the rest until its runs end.
 - `console`, `ata`, `rtc`, `fat`, `vfs`, `kbd` and `ext` have `restart=3` in `initrd/manifest.conf`. `ramfs` has none (`init` itself reads files through it and gives it the `initrd`), `vga_driver` is a boot module, and `sh` is not a server. Restarting `vga_driver` or `ramfs` is not done.
 - Each holder of a server's process id finds the new one by name: `vfs` reconnects a mount the next time it is used, the C library and the shell reconnect to `vfs` after a `NOT_CONNECTED` failure (their open files are forgotten), `kbd` looks `console` up again when a send fails, the console client of the C library looks it up on every call, and the block and clock clients used by `fat` and `ext` connect again on the next call after the server was found gone (`attached()` in `block.hpp`, `lost` in `clock.hpp`). A client reconnect does not release the old shared window.

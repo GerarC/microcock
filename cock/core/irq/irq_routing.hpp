@@ -50,6 +50,24 @@ class IrqRouting {
 	static void release(uint32_t owner_thread_id);
 
 	/**
+	 * @brief Tells which thread owns a line.
+	 * @param line Interrupt line.
+	 * @param owner_thread_id Receives the thread id of the owner.
+	 * @return True when the line is in range and owned. False otherwise, and
+	 * `owner_thread_id` is not written.
+	 * @note Takes an InterruptGuard.
+	 */
+	static bool ownerOf(uint32_t line, uint32_t &owner_thread_id);
+
+	/**
+	 * @brief Drops the binding of one line and masks it, whoever owns it.
+	 * @param line Interrupt line. A line out of range or unowned changes nothing.
+	 * @note Takes an InterruptGuard. Used when the capability for the line is
+	 * revoked.
+	 */
+	static void unbind(uint32_t line);
+
+	/**
 	 * @brief Delivers an interrupt to the owner of its line.
 	 *
 	 * Masks the line and sends the owner an asynchronous notification whose

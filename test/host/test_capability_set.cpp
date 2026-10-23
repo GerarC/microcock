@@ -9,6 +9,7 @@ using cock::core::security::Capability;
 using cock::core::security::CAPABILITY_FLAG_GRANT;
 using cock::core::security::CapabilitySet;
 using cock::core::security::CapabilityType;
+using cock::core::security::NO_CAPABILITY_NODE;
 
 namespace {
 
@@ -22,6 +23,9 @@ constexpr uint32_t NO_FLAGS = 0;
 constexpr uint64_t IRQ_FIRST = 1;
 constexpr uint64_t IRQ_COUNT = 2;
 constexpr uint64_t DOUBLE = 2;
+constexpr uint32_t FIRST_NODE = 11;
+constexpr uint32_t SECOND_NODE = 12;
+constexpr uint32_t UNKNOWN_NODE = 99;
 
 Capability make(CapabilityType type, uint32_t flags, uint64_t first,
 				uint64_t count) {
@@ -95,6 +99,26 @@ void checkTableIsBounded() {
 	CHECK_FALSE(set.covers(CapabilityType::IO_PORTS, OTHER_FIRST, SINGLE));
 }
 
+void checkRemoveNode() {
+	CapabilitySet set;
+	Capability first = ports(NO_FLAGS, PORTS_FIRST, PORTS_COUNT);
+	first.node = FIRST_NODE;
+	Capability second = ports(NO_FLAGS, OTHER_FIRST, SINGLE);
+	second.node = SECOND_NODE;
+	CHECK_TRUE(set.add(first));
+	CHECK_TRUE(set.add(second));
+
+	CHECK_FALSE(set.removeNode(NO_CAPABILITY_NODE));
+	CHECK_FALSE(set.removeNode(UNKNOWN_NODE));
+	CHECK_TRUE(set.removeNode(FIRST_NODE));
+	CHECK_FALSE(set.removeNode(FIRST_NODE));
+	CHECK_FALSE(set.covers(CapabilityType::IO_PORTS, PORTS_FIRST, SINGLE));
+	CHECK_TRUE(set.covers(CapabilityType::IO_PORTS, OTHER_FIRST, SINGLE));
+
+	for (size_t idx = 0; idx < CapabilitySet::MAX_CAPABILITIES - SINGLE; idx++)
+		CHECK_TRUE(set.add(ports(NO_FLAGS, PORTS_FIRST + idx, SINGLE)));
+}
+
 void checkClear() {
 	CapabilitySet set;
 	CHECK_TRUE(set.add(ports(CAPABILITY_FLAG_GRANT, PORTS_FIRST, PORTS_COUNT)));
@@ -114,6 +138,7 @@ void testCapabilitySet() {
 	checkRangesAreNotMerged();
 	checkGrantAuthority();
 	checkTableIsBounded();
+	checkRemoveNode();
 	checkClear();
 }
 

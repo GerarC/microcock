@@ -138,6 +138,47 @@ class CapabilityTree {
 		return removed;
 	}
 
+	/**
+	 * @brief Tells whether a process holds a node above another one.
+	 * @param id Node whose ancestors are searched.
+	 * @param holder Id of the process.
+	 * @return True when some ancestor of the node (its parent, the parent of
+	 * that, up to the root) is held by the process. A node is not its own
+	 * ancestor, and a root node has none.
+	 */
+	bool hasAncestorHeldBy(CapabilityNodeId id, uint32_t holder) const {
+		const CapabilityNode *node = find(id);
+		for (size_t steps = 0; node != nullptr && steps < MAX_NODES; steps++) {
+			node = find(node->parent);
+			if (node != nullptr && node->holder == holder) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * @brief Lists a node and all the nodes derived from it, directly or not.
+	 * @param id Node at the top of the subtree.
+	 * @param out Receives the ids, the node itself first, then each level in turn.
+	 * @param capacity Number of ids `out` can take.
+	 * @return Number of ids written. Zero when the node does not exist. At most
+	 * `capacity`; with `capacity` equal to MAX_NODES nothing is left out.
+	 */
+	size_t collectSubtree(CapabilityNodeId id, CapabilityNodeId *out,
+						  size_t capacity) const {
+		if (find(id) == nullptr || capacity == 0) return 0;
+
+		size_t count = 0;
+		out[count++] = id;
+		for (size_t next = 0; next < count; next++) {
+			for (size_t idx = 0; idx < MAX_NODES && count < capacity; idx++) {
+				if (nodes[idx].id != NO_CAPABILITY_NODE &&
+					nodes[idx].parent == out[next])
+					out[count++] = nodes[idx].id;
+			}
+		}
+		return count;
+	}
+
 	/** @return Number of nodes in the table. */
 	size_t size() const { return used; }
 

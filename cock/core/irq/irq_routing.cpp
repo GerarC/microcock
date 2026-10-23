@@ -40,6 +40,26 @@ void IrqRouting::release(uint32_t owner_thread_id) {
 	}
 }
 
+bool IrqRouting::ownerOf(uint32_t line, uint32_t &owner_thread_id) {
+	if (line >= hal::IRQ_LINE_COUNT) return false;
+
+	InterruptGuard guard;
+	if (ownerSlots[line] == NO_OWNER_SLOT) return false;
+
+	owner_thread_id = ownerSlots[line] - 1;
+	return true;
+}
+
+void IrqRouting::unbind(uint32_t line) {
+	if (line >= hal::IRQ_LINE_COUNT) return;
+
+	InterruptGuard guard;
+	if (ownerSlots[line] == NO_OWNER_SLOT) return;
+
+	hal::irq_mask(line);
+	ownerSlots[line] = NO_OWNER_SLOT;
+}
+
 bool IrqRouting::forward(uint32_t line) {
 	if (line >= hal::IRQ_LINE_COUNT || ownerSlots[line] == NO_OWNER_SLOT)
 		return false;

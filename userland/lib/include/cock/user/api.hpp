@@ -236,6 +236,20 @@ inline bool cap_grant(uint32_t pid, abi::CapabilityType type, uintptr_t first,
 }
 
 /**
+ * @brief Revokes a capability that was granted, and everything derived from it (`SYS_CAP_REVOKE`).
+ *
+ * The holder loses the capability, and the ports, interrupt lines and device mappings it opened
+ * with it are closed unless another capability still covers them.
+ * @param node Node id that `cap_grant_node` returned.
+ * @return true when revoked; false when the id is unknown, or the caller holds no ancestor of the
+ *         node (a node the caller holds itself and the capabilities of the first program cannot
+ *         be revoked by their holder).
+ */
+inline bool cap_revoke(uint32_t node) {
+	return syscall(SYS_CAP_REVOKE, node, 0, 0, 0, 0, 0) == SUCCESS;
+}
+
+/**
  * @brief Finds a process by name (`SYS_PROC_LOOKUP`).
  * @param name NUL terminated process name; its length is measured here.
  * @return The process id, or `NO_PROCESS` when no live user process has that name or the

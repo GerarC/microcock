@@ -1,5 +1,6 @@
 #include <cock/core/security/capability.hpp>
 #include <cock/core/security/capability_tree.hpp>
+#include <cock/core/security/revocation.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
@@ -11,6 +12,7 @@ namespace cock::core::syscall {
 
 using security::Capability;
 using security::capability_tree;
+using security::HIGHEST_CAPABILITY_NODE;
 using security::CapabilityNodeId;
 using security::CapabilityType;
 using security::NO_CAPABILITY_NODE;
@@ -20,6 +22,7 @@ using task::Thread;
 using utils::Logger;
 
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
+constexpr uintptr_t SUCCESS = 0;
 constexpr uintptr_t HIGHEST_CAPABILITY_TYPE =
 	static_cast<uintptr_t>(CapabilityType::BOOT_MODULE);
 
@@ -63,6 +66,18 @@ uintptr_t sys_cap_grant(uintptr_t target_pid, uintptr_t type, uintptr_t first,
 		return FAILURE;
 	}
 	return node;
+}
+
+uintptr_t sys_cap_revoke(uintptr_t node, uintptr_t, uintptr_t, uintptr_t,
+						 uintptr_t, uintptr_t) {
+	Thread *current = Scheduler::getCurrentThread();
+	if (!current) return FAILURE;
+	if (node == NO_CAPABILITY_NODE || node > HIGHEST_CAPABILITY_NODE) return FAILURE;
+
+	return security::revoke_capability(*current->getProcess(),
+									   static_cast<CapabilityNodeId>(node))
+			   ? SUCCESS
+			   : FAILURE;
 }
 
 } // namespace cock::core::syscall

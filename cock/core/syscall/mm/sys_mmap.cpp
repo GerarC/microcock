@@ -115,7 +115,8 @@ static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 			return FAILURE;
 		}
 	}
-	if (!current.getProcess()->addMemoryRegion(virt, pages, false)) {
+	if (!current.getProcess()->addMemoryRegion(virt, pages, false,
+											   memory::NO_SHARED_OBJECT, phys.raw())) {
 		VirtualMemoryManager::freePages(virt.as<void>(), pages);
 		return FAILURE;
 	}

@@ -69,6 +69,7 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_IPC_SEND` (0x160): Send a message to another process.
 * `SYS_IPC_RECV` (0x161): Receive the next interrupt notification or message of the thread, blocking when there is none.
 * `SYS_CAP_GRANT` (0x170): Delegate part of a capability to another process; returns the id of the node of the derivation tree that records it.
+* `SYS_CAP_REVOKE` (0x18A): Revoke a delegated capability and everything derived from it; the caller must hold an ancestor of the node. Closes the ports, unbinds the lines and unmaps the device memory that the holders opened with it.
 * `SYS_IRQ_BIND` (0x171): Route an interrupt line to the calling process. Requires an `IRQ` capability.
 * `SYS_IRQ_ACK` (0x172): Re-enable an interrupt line after handling it.
 * `SYS_PROC_LOOKUP` (0x173): Find the process id of a boot module by name.
@@ -214,7 +215,7 @@ The same checks run on every push through `.github/workflows/ci.yml`.
 
 * At most 8 threads per user process. A thread runs on a stack the program provides, an exception ends only the thread that caused it, and `SYS_EXIT` ends only the calling thread: the process is gone when its last thread ends.
 * A process that exits tells its spawner only if the spawner asked for it (`PROCESS_EXITED`). The notice is kept in a record of the parent, never lost to a full inbox; a process can have at most 16 notified children running or unread, and `SYS_SPAWN` with the flag fails past that.
-* Capabilities are assigned at boot (the first program module, `init`, holds the authority) and cannot be revoked; each process holds up to 16.
+* Capabilities are assigned at boot (the first program module, `init`, holds the authority); what is delegated can be revoked by a holder of an ancestor (`SYS_CAP_REVOKE`), what the first program holds cannot; each process holds up to 16.
 * IPC has an asynchronous inbox with a small capacity per thread, and a synchronous call and reply in registers with timeouts.
 * The user C library has buffered `printf`, `malloc` and `operator new` (locked with a futex mutex, safe for threads), and file calls (`open`, `read`, `write`, `lseek`, `close`, `unlink`, `mkdir`, `rmdir`, `rename`) over the file server client.
 * `SYS_WRITE` is a debug and fallback channel owned by the kernel. Programs write and read descriptors 0 to 2 through the `console` server (the C library links the client by default); `read(0)` blocks in the kernel until a line is ready, through a deferred reply.
@@ -286,7 +287,7 @@ What the kernel already does, and what is planned next. Planned items are listed
 - An out-of-memory test: a program that uses up the physical memory must get an error, and the kernel must keep running.
 - A kernel stack overflow reported with a message instead of a silent reset.
 - A capability check on the calls to the console server (needs the IPC capability below).
-- Capabilities as data: the kernel no longer knows the name of any program (done for `init` and the VGA driver), a test checks that it boots with no user program at all, capabilities can be revoked, IPC gets a capability of its own (which also decides who may write the disk), and DMA-capable ports get a policy.
+- Capabilities as data: the kernel no longer knows the name of any program (done for `init` and the VGA driver), a test checks that it boots with no user program at all (done), capabilities can be revoked (done in the kernel; `init` does not use it yet), IPC gets a capability of its own (which also decides who may write the disk), and DMA-capable ports get a policy.
 - Platform: APIC and IOAPIC, PAE with NX and memory above 4 GiB, SMP (with the TLB of every CPU updated when a page table changes), and an x86_64 port.
 
 Symbolic links are postponed until a program needs them.
