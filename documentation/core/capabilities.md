@@ -62,8 +62,24 @@ static void grant_root_capabilities(Process &process, size_t module_count) {
 * A capability the kernel gives to the first program is a root node (parent none).
 * A grant adds a node whose range lies inside the range of its parent, of the same type. The parent is the entry of the caller that carries `GRANT` and contains the range. If the tree is full, the grant fails and nothing is left behind.
 * Ids count up and are never reused while the node exists.
-* When a process ends, its nodes are removed and their children are attached to the grandparent, so a delegation chain stays connected to a root. The tree is only a record for now: nothing reads it to revoke (see the limits).
+* When a process ends, its nodes are removed and their children are attached to the grandparent, so a delegation chain stays connected to a root. Revocation reads the tree (next section).
 * The table is touched with interrupts off (system calls) or under an interrupt guard (process destruction).
+
+## Revocation
+`SYS_CAP_REVOKE(node)` takes a delegated capability away, with everything derived from it (`revoke_capability` in `cock/core/security/revocation.cpp`).
+
+* **Who may ask.** The caller must hold an ancestor of the node: the process that granted it, a process above that one, or the root task, which holds the root of every chain. A root node (what the kernel gave to the first program) has no ancestor, so nobody can revoke it, and a process cannot revoke a node it holds itself. A refusal returns `-1` and changes nothing.
+* **What happens.** First the entry of every node of the subtree leaves the table of its holder and the node leaves the tree. Then, for every value the holder no longer covers through another capability, the effect is undone:
+
+| Capability | Undone |
+|------------|--------|
+| `IO_PORTS` | The ports are closed in the permission map of the holder (`hal::revoke_hardware_resource`); when the holder is the running process the map is applied at once |
+| `IRQ` | A line that a thread of the holder owns is unbound and masked |
+| `PHYSICAL_MEMORY` | A region the holder made with `MAP_PHYS` that touches the revoked range is unmapped whole, even if only part of it lost its capability, unless another capability still covers all of it. `Process` keeps the physical base of each such region (`MemoryRegion::device_base`) |
+| `BOOT_MODULE` | Nothing is unmapped: a module already opened stays mapped until the holder unmaps it; only opening it again is refused |
+
+* **Cost.** One check per port or line revoked, with interrupts off: revoking a whole port range is about 65536 checks of a 16 entry table. It runs on a rare path and nothing else pays for it.
+* **A holder that exited** has no node left and nothing to undo.
 
 The tree is a plain data structure and is tested on the host (`test/host/test_capability_tree.cpp`); the death of a process is tested in the kernel suite (`test_process.cpp`).
 
@@ -97,7 +113,8 @@ Two message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
 
 ## Current limits
 * The policy is fixed at boot: the kernel trusts the first program module it loads (the root task, `init` in the shipped boot order; the kernel does not read its name), and the root task decides who gets what.
-* Capabilities cannot be revoked yet. The derivation tree records where each delegated capability came from, but no call uses it (stage 9, item 9b).
+* Only the delegated capabilities can be revoked, not the ones of the first program. `init` does not use `SYS_CAP_REVOKE` yet: a revocation is only reached from a program that holds an ancestor node, and no shipped program does it. It is exercised by the kernel suite `Capability revocation` and by the root fuzzer.
+* A boot module that was already opened is not closed by a revocation.
 * The table has a fixed size.
 * There is no capability for IPC: any process may send a message to any process id.
 * A capability over ports that drive DMA (disk controllers, the PCI configuration ports) lets its owner write anywhere in physical memory, since there is no IOMMU. It is as strong as root and should be granted accordingly.

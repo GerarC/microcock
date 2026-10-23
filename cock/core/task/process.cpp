@@ -121,11 +121,11 @@ void Process::returnPages(size_t pages) {
 }
 
 bool Process::addMemoryRegion(VirtAddr addr, size_t pages, bool owned,
-							  uint32_t shared_object) {
+							  uint32_t shared_object, uint64_t device_base) {
 	if (!hasRegionSlot() || pages == 0) return false;
 	if (owned && !canOwnPages(pages)) return false;
 
-	regions[regionCount++] = {addr.raw(), pages, owned, shared_object};
+	regions[regionCount++] = {addr.raw(), pages, owned, shared_object, device_base};
 	if (owned) ownedPages += pages;
 	return true;
 }

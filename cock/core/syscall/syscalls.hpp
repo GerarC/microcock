@@ -160,13 +160,25 @@ uintptr_t sys_ipc_try_recv(uintptr_t msg_ptr, uintptr_t, uintptr_t, uintptr_t,
  * @param type Capability type, between the first valid type and the highest.
  * @param first Start of the range (port, line, address or module index).
  * @param count Length of the range.
- * @return 0 on success. All ones when the type is invalid, the caller does not
- * hold a grantable capability that covers the whole range, the target is
- * invalid or the target capability table is full. The copy never carries the
- * grant flag.
+ * @return The id of the node of the derivation tree that records the grant
+ * (above 0 and below all ones). All ones when the type is invalid, the caller
+ * does not hold a grantable capability that covers the whole range, the target
+ * is invalid, the target capability table is full or the derivation tree is
+ * full. The copy never carries the grant flag.
  */
 uintptr_t sys_cap_grant(uintptr_t target_pid, uintptr_t type, uintptr_t first,
 						uintptr_t count, uintptr_t, uintptr_t);
+
+/**
+ * @brief Revokes a delegated capability and everything derived from it.
+ * @param node Id of the node, as `sys_cap_grant` returned it.
+ * @return 0 on success. All ones when the id is zero, above the highest id or
+ * unknown, or when the caller holds no ancestor of the node (a root node, or a
+ * node the caller holds itself, cannot be revoked by the caller). See
+ * `revoke_capability` for what is undone.
+ */
+uintptr_t sys_cap_revoke(uintptr_t node, uintptr_t, uintptr_t, uintptr_t,
+						 uintptr_t, uintptr_t);
 
 /**
  * @brief Binds a hardware interrupt line to the calling thread.

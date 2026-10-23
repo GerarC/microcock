@@ -124,6 +124,23 @@ class CapabilitySet {
 		return false;
 	}
 
+	/**
+	 * @brief Removes the entry that belongs to a node of the derivation tree.
+	 * @param node Node id of the entry.
+	 * @return True when an entry with that node existed. False for
+	 * NO_CAPABILITY_NODE and for an unknown node.
+	 */
+	bool removeNode(CapabilityNodeId node) {
+		if (node == NO_CAPABILITY_NODE) return false;
+		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++) {
+			if (entries[idx].type == CapabilityType::NONE || entries[idx].node != node)
+				continue;
+			entries[idx] = Capability();
+			return true;
+		}
+		return false;
+	}
+
 	/** @brief Removes every capability. */
 	void clear() {
 		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++)

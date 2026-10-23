@@ -69,6 +69,19 @@ bool grant_hardware_resource(ArchProcessContext &context, uint32_t resource_id,
 	return true;
 }
 
+void revoke_hardware_resource(ArchProcessContext &context, uint32_t resource_id,
+							  uint32_t size) {
+	if (context.iopm == nullptr || size == 0 || resource_id >= MAX_RESOURCE ||
+		size > MAX_RESOURCE - resource_id)
+		return;
+
+	for (uint32_t i = 0; i < size; i++) {
+		uint32_t port = resource_id + i;
+		context.iopm[port / BITS_PER_BYTE] |= (1 << (port % BITS_PER_BYTE));
+	}
+	context.version = nextContextVersion++;
+}
+
 void apply_process_context(const ArchProcessContext &context) {
 	arch::x86::GDT::applyIoPermissions(context.iopm, context.iopm_bytes,
 									   context.version);

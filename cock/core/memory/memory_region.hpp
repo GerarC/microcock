@@ -13,6 +13,10 @@ namespace cock::core::memory {
  * by a shared memory object. */
 constexpr uint32_t NO_SHARED_OBJECT = 0;
 
+/** @brief Value of MemoryRegion::device_base for a region that does not map
+ * device memory. */
+constexpr uint64_t NO_DEVICE_BASE = UINT64_MAX;
+
 /**
  * @brief Tracks dynamically allocated virtual memory pages for a process.
  * * Used by the Thread class for garbage collection and memory leak prevention.
@@ -23,6 +27,8 @@ typedef struct memory_region_t {
 	bool owned;                 /**< True when the frames belong to the process and count against its quota. */
 	uint32_t shared_object;     /**< Id of the shared memory object that backs the
 									region, or NO_SHARED_OBJECT for private memory. */
+	uint64_t device_base;       /**< Physical address of the first page when the region maps
+									device memory (`MAP_PHYS`), or NO_DEVICE_BASE. */
 } MemoryRegion;
 
 } // namespace cock::core::memory
