@@ -140,6 +140,10 @@ uintptr_t Scheduler::onTick(uintptr_t current_stack_pointer) {
 	Timeouts::onTick();
 	SchedMetrics::onTick(currentThread, idleThread);
 
+	if (currentThread && currentThread != idleThread &&
+		currentThread->getState() == ThreadState::RUNNING)
+		currentThread->chargeLevelTick();
+
 	if (++ticksSinceLastBoost >= BOOST_TICKS) {
 		boostPriorities();
 		ticksSinceLastBoost = 0;
@@ -153,29 +157,28 @@ uintptr_t Scheduler::onTick(uintptr_t current_stack_pointer) {
 		}
 	}
 
-	return switchFrom(current_stack_pointer, true);
+	return switchFrom(current_stack_pointer);
 }
 
 uintptr_t Scheduler::onYield(uintptr_t current_stack_pointer) {
 	if (!initialized) return current_stack_pointer;
-	return switchFrom(current_stack_pointer, false);
+	return switchFrom(current_stack_pointer);
 }
 
-uintptr_t Scheduler::switchFrom(uintptr_t current_stack_pointer,
-								bool quantum_expired) {
+uintptr_t Scheduler::switchFrom(uintptr_t current_stack_pointer) {
 	rescheduleRequested = false;
 	Thread *previous = currentThread;
 
 	if (previous) {
 		previous->setStackPointer(current_stack_pointer);
 
-		if (previous->getState() == ThreadState::RUNNING) {
+		if (previous->getState() == ThreadState::RUNNING)
 			previous->setState(ThreadState::READY);
-			uint8_t priority = static_cast<uint8_t>(previous->getPriority());
-			if (quantum_expired && previous != idleThread && priority > 0)
-				previous->setPriority(
-					static_cast<ThreadPriority>(priority - 1));
-		}
+
+		uint8_t priority = static_cast<uint8_t>(previous->getPriority());
+		if (previous != idleThread && priority > 0 &&
+			previous->getLevelTicks() >= LEVEL_ALLOWANCE_TICKS)
+			previous->setPriority(static_cast<ThreadPriority>(priority - 1));
 
 		if (previous->getState() == ThreadState::READY &&
 			previous != idleThread)

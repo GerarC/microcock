@@ -267,10 +267,10 @@ What the kernel already does, and what is planned next. Planned items are listed
 - Tests for the physical memory manager, the scheduler, IPC and the reaper, and host-side tests for the shared data structures.
 - Buffered `printf`, `malloc`, `calloc`, `realloc`, `free` and `operator new`, with `malloc` locked by a futex mutex so threads can share the heap.
 - Scheduler metrics (response, CPU and turnaround ticks per thread) behind `SCHED_METRICS=1`, off by default, read by a thread with `SYS_SCHED_METRICS`.
+- The scheduler charges each priority level for the ticks a thread actually uses, summed over its runs, so yielding before the quantum ends no longer keeps a high level.
 
 ### Planned
 
-- A scheduler that charges each priority level for the time its threads actually use, so a thread cannot keep a high level by yielding before its quantum ends.
 - A test that checks no thread sleeps forever when a futex word is set and waiters are woken.
 - A thread library with `join`, a mutex, a condition variable and a semaphore.
 - An exit notice that is never lost, even when the parent's inbox is full.

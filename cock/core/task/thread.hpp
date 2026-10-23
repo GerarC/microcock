@@ -153,6 +153,7 @@ class Thread {
 	TimeoutState timeoutState = TimeoutState::NONE; /**< Deadline state. */
 	uintptr_t futexAddress = NO_FUTEX_ADDRESS; /**< Word being waited on. */
 	bool futexWoken = false; /**< A wake arrived and was not consumed yet. */
+	uint32_t levelTicks = 0; /**< Ticks charged at the current priority level. */
 	uint32_t writeRetries = 0; /**< Restarts of SYS_WRITE because the display server inbox was full. */
 	/**
 	 * @brief Common construction: allocates the id, attaches to the process
@@ -303,10 +304,19 @@ class Thread {
 	/** @return The scheduling priority. */
 	ThreadPriority getPriority() const { return priority; }
 	/**
-	 * @brief Sets the scheduling priority.
+	 * @brief Sets the scheduling priority and clears the ticks charged at the
+	 * old level.
 	 * @param priority New level, used at the next enqueue.
 	 */
-	void setPriority(ThreadPriority priority) { this->priority = priority; }
+	void setPriority(ThreadPriority priority) {
+		this->priority = priority;
+		this->levelTicks = 0;
+	}
+
+	/** @return Ticks charged to the thread since it entered its current level. */
+	uint32_t getLevelTicks() const { return levelTicks; }
+	/** @brief Charges one timer tick to the current level of the thread. */
+	void chargeLevelTick() { levelTicks++; }
 
 	/** @return Kernel or user. */
 	ThreadType getType() const { return type; }
