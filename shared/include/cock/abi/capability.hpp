@@ -9,6 +9,12 @@
 
 namespace cock::abi {
 
+/** Identifier of a node of the derivation tree of capabilities. `SYS_CAP_GRANT` returns one. */
+using CapabilityNodeId = uint32_t;
+
+/** Value that names no node. A grant that fails never returns it as an id. */
+constexpr CapabilityNodeId NO_CAPABILITY_NODE = 0;
+
 /** Kind of resource that a capability gives access to. The kernel checks it before every privileged call. */
 enum class CapabilityType : uint8_t {
 	/** Empty slot; grants nothing. */

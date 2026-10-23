@@ -1,6 +1,7 @@
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/memory/address.hpp>
 #include <cock/core/memory/vmm.hpp>
+#include <cock/core/security/capability_tree.hpp>
 #include <cock/core/task/process.hpp>
 #include <hal/address_space.hpp>
 #include <stddef.h>
@@ -13,12 +14,22 @@ using core::hal::ArchProcessContext;
 using core::memory::PhysAddr;
 using core::memory::VirtAddr;
 using core::memory::VirtualMemoryManager;
+using core::security::CapabilityNodeId;
+using core::security::CapabilityTree;
+using core::security::CapabilityType;
+using core::security::NO_CAPABILITY_NODE;
 using core::task::Process;
 
 namespace {
 
 constexpr uint32_t FIRST_THREAD_ID = 7;
 constexpr uint32_t SECOND_THREAD_ID = 8;
+constexpr uint32_t HOLDER_ID = 900;
+constexpr uint32_t CHILD_HOLDER_ID = 901;
+constexpr uint64_t PORTS_FIRST = 0;
+constexpr uint64_t PORTS_COUNT = 0x100;
+constexpr size_t ONE_NODE = 1;
+constexpr size_t TWO_NODES = 2;
 constexpr size_t NO_THREADS = 0;
 constexpr size_t TWO_THREADS = 2;
 constexpr uintptr_t REGION_START = 0x40000000;
@@ -69,6 +80,36 @@ void checkLifecycle() {
 	EXPECT_FALSE(process->takeMemoryRegion(region, REGION_PAGES));
 
 	delete process;
+}
+
+void checkDeathReleasesCapabilityNodes() {
+	CapabilityTree &tree = core::security::capability_tree;
+	size_t before = tree.size();
+
+	PhysAddr space = VirtualMemoryManager::createAddressSpace();
+	EXPECT_FALSE(space.isNull());
+	if (space.isNull()) return;
+	Process *process =
+		Process::create(space, VirtAddr(core::hal::USER_SPACE_LIMIT));
+	process->attachThread(HOLDER_ID);
+
+	CapabilityNodeId root =
+		tree.createRoot(HOLDER_ID, CapabilityType::IO_PORTS, PORTS_FIRST, PORTS_COUNT);
+	CapabilityNodeId child = tree.derive(root, CHILD_HOLDER_ID, CapabilityType::IO_PORTS,
+										 PORTS_FIRST, SINGLE_PORT);
+	EXPECT_TRUE(root != NO_CAPABILITY_NODE);
+	EXPECT_TRUE(child != NO_CAPABILITY_NODE);
+	EXPECT_EQ(before + TWO_NODES, tree.size());
+
+	delete process;
+
+	EXPECT_EQ(before + ONE_NODE, tree.size());
+	EXPECT_TRUE(tree.find(root) == nullptr);
+	const core::security::CapabilityNode *remaining = tree.find(child);
+	EXPECT_TRUE(remaining != nullptr);
+	if (remaining != nullptr) EXPECT_EQ(NO_CAPABILITY_NODE, remaining->parent);
+	tree.detach(child);
+	EXPECT_EQ(before, tree.size());
 }
 
 void checkRegionLimits() {
@@ -160,6 +201,7 @@ void checkPortGrants() {
 void test_process() {
 	TestRunner::begin_suite("Process and hardware permissions");
 	checkLifecycle();
+	checkDeathReleasesCapabilityNodes();
 	checkRegionLimits();
 	checkFreeRange();
 	checkPortGrants();

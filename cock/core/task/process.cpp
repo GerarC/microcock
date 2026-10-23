@@ -1,7 +1,9 @@
 #include <cock/core/memory/shared_memory.hpp>
 #include <cock/core/memory/slab_pool.hpp>
 #include <cock/utils/panic.hpp>
+#include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/memory/vmm.hpp>
+#include <cock/core/security/capability_tree.hpp>
 #include <cock/core/task/process.hpp>
 #include <hal/address_space.hpp>
 #include <hal/page.hpp>
@@ -18,6 +20,7 @@ using utils::panic;
 namespace {
 
 constexpr size_t PROCESS_POOL_CHUNK_PAGES = 4;
+constexpr uint32_t NO_PROCESS_ID = 0;
 
 using ProcessPool = memory::SlabPool<Process, PROCESS_POOL_CHUNK_PAGES>;
 
@@ -42,6 +45,11 @@ void Process::operator delete(void *pointer) { ProcessPool::release(pointer); }
 Process::~Process() {
 	hal::release_process_context(context);
 	if (kernel) return;
+
+	if (id != NO_PROCESS_ID) {
+		hal::InterruptGuard guard;
+		security::capability_tree.releaseHolder(id);
+	}
 
 	VirtualMemoryManager::destroyAddressSpace(addressSpace);
 	for (size_t idx = 0; idx < regionCount; idx++) {

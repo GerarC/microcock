@@ -1,4 +1,5 @@
 #include <cock/core/security/capability.hpp>
+#include <cock/core/security/capability_tree.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
@@ -9,14 +10,16 @@
 namespace cock::core::syscall {
 
 using security::Capability;
+using security::capability_tree;
+using security::CapabilityNodeId;
 using security::CapabilityType;
+using security::NO_CAPABILITY_NODE;
 using task::Scheduler;
 using task::TaskManager;
 using task::Thread;
 using utils::Logger;
 
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
-constexpr uintptr_t SUCCESS = 0;
 constexpr uintptr_t HIGHEST_CAPABILITY_TYPE =
 	static_cast<uintptr_t>(CapabilityType::BOOT_MODULE);
 
@@ -27,8 +30,9 @@ uintptr_t sys_cap_grant(uintptr_t target_pid, uintptr_t type, uintptr_t first,
 	if (type == 0 || type > HIGHEST_CAPABILITY_TYPE) return FAILURE;
 
 	CapabilityType capability_type = static_cast<CapabilityType>(type);
-	if (!current->getProcess()->getCapabilities().mayGrant(capability_type,
-														   first, count)) {
+	const Capability *source = current->getProcess()->getCapabilities().grantable(
+		capability_type, first, count);
+	if (source == nullptr) {
 		Logger::trace("sys_cap_grant: PID %d may not grant type %u [0x%x, +0x%x)",
 					 current->getProcess()->getId(),
 					 static_cast<unsigned>(type), static_cast<unsigned>(first),
@@ -41,12 +45,24 @@ uintptr_t sys_cap_grant(uintptr_t target_pid, uintptr_t type, uintptr_t first,
 	if (!target || target->getProcess()->isKernel()) return FAILURE;
 	if (target->getProcess()->getId() != target_pid) return FAILURE;
 
+	CapabilityNodeId node = capability_tree.derive(
+		source->node, target->getProcess()->getId(), capability_type, first, count);
+	if (node == NO_CAPABILITY_NODE) {
+		Logger::trace("sys_cap_grant: no derivation node for PID %d",
+					 current->getProcess()->getId());
+		return FAILURE;
+	}
+
 	Capability granted;
 	granted.type = capability_type;
 	granted.first = first;
 	granted.count = count;
-	return target->getProcess()->getCapabilities().add(granted) ? SUCCESS
-																: FAILURE;
+	granted.node = node;
+	if (!target->getProcess()->getCapabilities().add(granted)) {
+		capability_tree.detach(node);
+		return FAILURE;
+	}
+	return node;
 }
 
 } // namespace cock::core::syscall

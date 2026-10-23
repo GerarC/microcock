@@ -30,7 +30,7 @@ enum SyscallNum : uint32_t {
     SYS_SCHED_YIELD         = 0x9E,  /**< Give up the CPU voluntarily. */
     SYS_IPC_SEND            = 0x160, /**< Send an IPC message to the inbox of a thread (a process id reaches its first thread). */
     SYS_IPC_RECV            = 0x161, /**< Block until an interrupt notification or a message in the inbox of the calling thread arrives. */
-    SYS_CAP_GRANT           = 0x170, /**< Grant part of a grantable capability held by the caller to another process. */
+    SYS_CAP_GRANT           = 0x170, /**< Grant part of a grantable capability held by the caller to another process; returns the id of the derivation tree node, or -1. */
     SYS_IRQ_BIND            = 0x171, /**< Bind a hardware interrupt line to the calling thread (needs an IRQ capability). */
     SYS_IRQ_ACK             = 0x172, /**< Acknowledge a bound interrupt and re-enable the line. */
     SYS_PROC_LOOKUP         = 0x173, /**< Find a process id by its registered name. */

@@ -14,6 +14,7 @@ using core::security::Capability;
 using core::security::CAPABILITY_FLAG_GRANT;
 using core::security::CapabilitySet;
 using core::security::CapabilityType;
+using core::security::NO_CAPABILITY_NODE;
 using core::task::TaskManager;
 using core::task::Thread;
 using core::task::ThreadPriority;
@@ -29,6 +30,7 @@ constexpr uint64_t LINE_COUNT = 4;
 constexpr uint64_t FIRST_LINE = 1;
 constexpr uint64_t PAST_THE_END = UINT64_MAX;
 constexpr uint32_t LATE_LINE = 9;
+constexpr uint32_t SOME_NODE = 77;
 constexpr uint32_t KEYBOARD_LINE = 1;
 constexpr uint32_t UNBOUND_LINE = 3;
 constexpr uint32_t OUT_OF_RANGE_LINE = core::hal::IRQ_LINE_COUNT;
@@ -86,6 +88,16 @@ void checkGrantAuthority() {
 	EXPECT_TRUE(set.add(make(CapabilityType::IRQ, CAPABILITY_FLAG_GRANT,
 							 FIRST_LINE, SINGLE)));
 	EXPECT_TRUE(set.holdsGrantAuthority());
+	EXPECT_EQ(NO_CAPABILITY_NODE, set.grantable(CapabilityType::IRQ, FIRST_LINE, SINGLE)->node);
+	EXPECT_TRUE(set.grantable(CapabilityType::IO_PORTS, PORTS_START, SINGLE) == nullptr);
+
+	Capability derived = make(CapabilityType::IRQ, CAPABILITY_FLAG_GRANT, LATE_LINE, SINGLE);
+	derived.node = SOME_NODE;
+	EXPECT_TRUE(set.add(derived));
+	const Capability *entry = set.grantable(CapabilityType::IRQ, LATE_LINE, SINGLE);
+	EXPECT_TRUE(entry != nullptr);
+	if (entry != nullptr) EXPECT_EQ(SOME_NODE, entry->node);
+	EXPECT_TRUE(set.grantable(CapabilityType::IRQ, LATE_LINE, LINE_COUNT) == nullptr);
 
 	set.clear();
 	EXPECT_FALSE(set.holdsGrantAuthority());

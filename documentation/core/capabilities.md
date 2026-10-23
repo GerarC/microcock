@@ -29,18 +29,15 @@ Every capability describes a **range**. `covers(type, first, count)` is true whe
 The flag `CAPABILITY_FLAG_GRANT` marks a capability that its owner may pass on.
 
 ## Who holds what
-At boot, **only the module called `init`** receives capabilities: all the I/O ports, all the interrupt lines and all the physical memory, each with the right to grant. Every other process starts with an empty table.
+At boot, **only the first program module** (`init` in the shipped boot order; the kernel does not read its name) receives capabilities: all the I/O ports, all the interrupt lines, all the physical memory and every boot module, each with the right to grant. Every other process starts with an empty table. Each of these is also recorded as a root node of the derivation tree (see below).
 
 ```cpp
-static void grant_root_capabilities(Process &process) {
-	Capability ports;
-	ports.type = CapabilityType::IO_PORTS;
-	ports.flags = CAPABILITY_FLAG_GRANT;
-	ports.count = core::hal::IO_PORT_COUNT;
-	...
-	process.getCapabilities().add(ports);
-	process.getCapabilities().add(irqs);
-	process.getCapabilities().add(memory);
+static void grant_root_capabilities(Process &process, size_t module_count) {
+	grant_root_capability(process, CapabilityType::IO_PORTS, core::hal::IO_PORT_COUNT);
+	grant_root_capability(process, CapabilityType::IRQ, core::hal::IRQ_LINE_COUNT);
+	grant_root_capability(process, CapabilityType::PHYSICAL_MEMORY,
+						  core::hal::PHYSICAL_ADDRESS_SPACE_SIZE);
+	grant_root_capability(process, CapabilityType::BOOT_MODULE, module_count);
 }
 ```
 
@@ -56,7 +53,19 @@ static void grant_root_capabilities(Process &process) {
 
 * the caller must hold a capability of that type **with `GRANT`** that contains the range,
 * the delegated capability never carries `GRANT`, so authority cannot be passed down a chain,
-* the target must be a user process, and the id must be the id of a process, not of any thread.
+* the target must be a user process, and the id must be the id of a process, not of any thread,
+* the call returns the id of the node of the derivation tree that records the grant (greater than 0, below `0x7FFFFFFF`), and `-1` on failure. The user wrapper `cap_grant_node` returns the id (`abi::NO_CAPABILITY_NODE` on failure); `cap_grant` returns only success or failure.
+
+## The derivation tree
+`CapabilityTree` (`cock/core/security/capability_tree.hpp`) is a table of `MAX_NODES` (256) nodes, with no allocation. Each node records `{id, parent, holder, type, first, count}`: which capability was given out of which, and which process holds it. Every entry of a process table carries the id of its node (`Capability::node`).
+
+* A capability the kernel gives to the first program is a root node (parent none).
+* A grant adds a node whose range lies inside the range of its parent, of the same type. The parent is the entry of the caller that carries `GRANT` and contains the range. If the tree is full, the grant fails and nothing is left behind.
+* Ids count up and are never reused while the node exists.
+* When a process ends, its nodes are removed and their children are attached to the grandparent, so a delegation chain stays connected to a root. The tree is only a record for now: nothing reads it to revoke (see the limits).
+* The table is touched with interrupts off (system calls) or under an interrupt guard (process destruction).
+
+The tree is a plain data structure and is tested on the host (`test/host/test_capability_tree.cpp`); the death of a process is tested in the kernel suite (`test_process.cpp`).
 
 ## What each check does
 * **Ports** (`SYS_REQUEST_RESOURCE`): the capability must cover the range. Then the kernel refuses the ports of the PIC (`0x20`, `0x21`, `0xA0`, `0xA1`) and the timer (`0x40` to `0x43`), which are the kernel's. Only then are the bits turned on in the permission bitmap of the process, which the CPU enforces from there on (see [GDT](../arch/gdt.md)).
@@ -88,7 +97,7 @@ Two message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
 
 ## Current limits
 * The policy is fixed at boot: the kernel trusts the first program module it loads (the root task, `init` in the shipped boot order; the kernel does not read its name), and the root task decides who gets what.
-* Capabilities cannot be revoked, and the table does not remember where a delegated capability came from.
+* Capabilities cannot be revoked yet. The derivation tree records where each delegated capability came from, but no call uses it (stage 9, item 9b).
 * The table has a fixed size.
 * There is no capability for IPC: any process may send a message to any process id.
 * A capability over ports that drive DMA (disk controllers, the PCI configuration ports) lets its owner write anywhere in physical memory, since there is no IOMMU. It is as strong as root and should be granted accordingly.

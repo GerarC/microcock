@@ -4,6 +4,7 @@
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/hal/utils.hpp>
 #include <cock/core/security/capability.hpp>
+#include <cock/core/security/capability_tree.hpp>
 #include <cock/core/task/process.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
@@ -27,8 +28,10 @@
 
 namespace cock {
 
+using core::security::capability_tree;
 using core::security::Capability;
 using core::security::CapabilityType;
+using core::security::NO_CAPABILITY_NODE;
 using core::security::CAPABILITY_FLAG_GRANT;
 using core::task::Process;
 using core::task::Scheduler;
@@ -49,31 +52,25 @@ using utils::LogLevel;
 
 uint32_t debug_output_pid = 0;
 
+static void grant_root_capability(Process &process, CapabilityType type, uint64_t count) {
+	Capability capability;
+	capability.type = type;
+	capability.flags = CAPABILITY_FLAG_GRANT;
+	capability.count = count;
+	capability.node =
+		capability_tree.createRoot(process.getId(), type, capability.first, count);
+	if (capability.node == NO_CAPABILITY_NODE)
+		Logger::error("No derivation node for a root capability of type %u",
+					  static_cast<unsigned>(type));
+	process.getCapabilities().add(capability);
+}
+
 static void grant_root_capabilities(Process &process, size_t module_count) {
-	Capability ports;
-	ports.type = CapabilityType::IO_PORTS;
-	ports.flags = CAPABILITY_FLAG_GRANT;
-	ports.count = core::hal::IO_PORT_COUNT;
-
-	Capability irqs;
-	irqs.type = CapabilityType::IRQ;
-	irqs.flags = CAPABILITY_FLAG_GRANT;
-	irqs.count = core::hal::IRQ_LINE_COUNT;
-
-	Capability memory;
-	memory.type = CapabilityType::PHYSICAL_MEMORY;
-	memory.flags = CAPABILITY_FLAG_GRANT;
-	memory.count = core::hal::PHYSICAL_ADDRESS_SPACE_SIZE;
-
-	Capability modules;
-	modules.type = CapabilityType::BOOT_MODULE;
-	modules.flags = CAPABILITY_FLAG_GRANT;
-	modules.count = module_count;
-
-	process.getCapabilities().add(ports);
-	process.getCapabilities().add(irqs);
-	process.getCapabilities().add(memory);
-	process.getCapabilities().add(modules);
+	grant_root_capability(process, CapabilityType::IO_PORTS, core::hal::IO_PORT_COUNT);
+	grant_root_capability(process, CapabilityType::IRQ, core::hal::IRQ_LINE_COUNT);
+	grant_root_capability(process, CapabilityType::PHYSICAL_MEMORY,
+						  core::hal::PHYSICAL_ADDRESS_SPACE_SIZE);
+	grant_root_capability(process, CapabilityType::BOOT_MODULE, module_count);
 }
 
 static void register_data_module(const BootModule &module, size_t index) {
@@ -152,11 +149,11 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
 
         Process *process = Process::create(new_cr3, image.user_space_limit);
         process->setName(modules[i].name);
+        Thread *app_thread = new Thread(*process, image.entry, ThreadPriority::NORMAL);
         if (!root_task_started) {
             grant_root_capabilities(*process, mod_count);
             root_task_started = true;
         }
-        Thread *app_thread = new Thread(*process, image.entry, ThreadPriority::NORMAL);
 
         Scheduler::addThread(app_thread);
     }
