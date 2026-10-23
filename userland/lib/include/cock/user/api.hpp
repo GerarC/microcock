@@ -236,6 +236,20 @@ inline bool cap_grant(uint32_t pid, abi::CapabilityType type, uintptr_t first,
 }
 
 /**
+ * @brief Gives a process its service label (`SYS_SERVICE_SET`), the stable name under which IPC
+ * capabilities authorize communication with it.
+ *
+ * The label can be set once per process. The caller needs grant authority.
+ * @param pid Process id of a live user process.
+ * @param label Label, not `abi::service::NO_SERVICE`.
+ * @return true when set; false when the caller has no grant authority, the process is unknown or
+ *         is a kernel process, the label is `NO_SERVICE`, or the process already has a label.
+ */
+inline bool service_set(uint32_t pid, uint32_t label) {
+	return syscall(SYS_SERVICE_SET, pid, label, 0, 0, 0, 0) == SUCCESS;
+}
+
+/**
  * @brief Revokes a capability that was granted, and everything derived from it (`SYS_CAP_REVOKE`).
  *
  * The holder loses the capability, and the ports, interrupt lines and device mappings it opened

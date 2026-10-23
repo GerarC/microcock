@@ -50,6 +50,43 @@ constexpr size_t LONG_TEXT_BYTES = 256;
 constexpr char LONG_FILL = 'a';
 constexpr char REPEAT_BASE[] = "tool path=bin/tool.elf repeat=";
 
+constexpr size_t NO_NAMES = 0;
+constexpr size_t ONE_NAME = 1;
+constexpr size_t TWO_NAMES = 2;
+constexpr char FIRST_PEER_LETTER = 'a';
+
+struct Text {
+	char bytes[LONG_TEXT_BYTES];
+
+	const char *c_str() const { return bytes; }
+};
+
+Text longIpcName() {
+	Text text = {};
+	size_t length = 0;
+	const char *prefix = "a ipc=";
+	for (; prefix[length] != '\0'; length++)
+		text.bytes[length] = prefix[length];
+	for (size_t index = 0; index < cock::abi::manifest::MAX_NAME_BYTES; index++)
+		text.bytes[length++] = LONG_FILL;
+	text.bytes[length] = '\0';
+	return text;
+}
+
+Text ipcListOf(size_t names) {
+	Text text = {};
+	size_t length = 0;
+	const char *prefix = "a ipc=";
+	for (; prefix[length] != '\0'; length++)
+		text.bytes[length] = prefix[length];
+	for (size_t index = 0; index < names; index++) {
+		if (index != 0) text.bytes[length++] = ',';
+		text.bytes[length++] = static_cast<char>(FIRST_PEER_LETTER + index);
+	}
+	text.bytes[length] = '\0';
+	return text;
+}
+
 bool parses(const char *text, Manifest &manifest) {
 	return manifest.parse(text, strlen(text));
 }
@@ -184,6 +221,29 @@ void checkRestartRules() {
 	CHECK_TRUE(errorOf("server path=x repeat=2 restart=1\n") == Error::BAD_VALUE);
 }
 
+void checkIpcRules() {
+	Manifest manifest;
+	CHECK_TRUE(parses("sh path=bin/sh.elf ipc=console,vfs\n", manifest));
+	const Entry &shell = manifest.entries[0];
+	CHECK_EQ(TWO_NAMES, shell.ipcCount);
+	CHECK_TRUE(strcmp(shell.ipc[0], "console") == 0);
+	CHECK_TRUE(strcmp(shell.ipc[1], "vfs") == 0);
+
+	CHECK_TRUE(parses("a path=bin/a.elf\n", manifest));
+	CHECK_EQ(NO_NAMES, manifest.entries[0].ipcCount);
+	CHECK_TRUE(parses("a path=bin/a.elf ipc=b caps=io:1 peer=b\n", manifest));
+	CHECK_EQ(ONE_NAME, manifest.entries[0].ipcCount);
+	CHECK_TRUE(Error::BAD_VALUE == errorOf("a ipc=\n"));
+	CHECK_TRUE(Error::BAD_VALUE == errorOf("a ipc=b,\n"));
+	CHECK_TRUE(Error::BAD_VALUE == errorOf("a ipc=,b\n"));
+	CHECK_TRUE(Error::BAD_VALUE == errorOf("a ipc=b,b\n"));
+	CHECK_TRUE(Error::DUPLICATE_KEY == errorOf("a ipc=b ipc=c\n"));
+	CHECK_TRUE(Error::BAD_VALUE == errorOf(longIpcName().c_str()));
+	CHECK_TRUE(Error::NONE == errorOf(ipcListOf(cock::abi::manifest::MAX_IPC_PEERS).c_str()));
+	CHECK_TRUE(Error::TOO_MANY_PEERS ==
+			   errorOf(ipcListOf(cock::abi::manifest::MAX_IPC_PEERS + ONE_NAME).c_str()));
+}
+
 void checkNames() {
 	char text[LONG_TEXT_BYTES];
 	memset(text, LONG_FILL, sizeof(text) - 1);
@@ -245,6 +305,7 @@ void testManifest() {
 	checkKeyRules();
 	checkRepeatBounds();
 	checkRestartRules();
+	checkIpcRules();
 	checkNames();
 	checkErrorLines();
 	checkEntryLimit();

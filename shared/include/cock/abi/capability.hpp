@@ -27,6 +27,8 @@ enum class CapabilityType : uint8_t {
 	PHYSICAL_MEMORY = 3,
 	/** Access to a boot data module opened with `SYS_MODULE_OPEN`. */
 	BOOT_MODULE = 4,
+	/** Right to exchange messages, synchronous calls and shared memory with the processes whose service label is in the range (see `service.hpp`). */
+	IPC = 5,
 };
 
 } // namespace cock::abi

@@ -6,6 +6,7 @@
 #define CORE_PROCESS_HPP
 
 #include <cock/abi/process.hpp>
+#include <cock/abi/service.hpp>
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/memory/address.hpp>
 #include <cock/core/memory/memory_region.hpp>
@@ -136,6 +137,22 @@ class Process {
 	 * exited.
 	 */
 	bool threadExited();
+
+	/** @return The service label of the process, NO_SERVICE until one is set. */
+	uint32_t getServiceId() const { return serviceId; }
+	/**
+	 * @brief Gives the process its service label, once.
+	 * @param label New label, not NO_SERVICE.
+	 * @return False when the label is NO_SERVICE or the process already has one;
+	 * nothing changes then.
+	 */
+	bool setServiceId(uint32_t label) {
+		if (label == abi::service::NO_SERVICE ||
+			serviceId != abi::service::NO_SERVICE)
+			return false;
+		serviceId = label;
+		return true;
+	}
 
 	/** @return Id of the process that spawned this one, or the no parent
 	 * value. */
@@ -285,6 +302,7 @@ class Process {
 	uint32_t parentId = abi::process::NO_PARENT; /**< Spawning process. */
 	bool notifyExit = false; /**< Tell the parent on exit. */
 	uint32_t exitStatus = 0; /**< Exit status. */
+	uint32_t serviceId = abi::service::NO_SERVICE; /**< Service label, set once. */
 	size_t notifiedChildren = 0; /**< Children with an exit notice that is reserved or stored. */
 	data_structure::RingBuffer<ExitNotice, abi::process::MAX_NOTIFIED_CHILDREN + 1>
 		exitNotices; /**< Exit notices of children, not yet read. */

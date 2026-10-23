@@ -88,6 +88,7 @@
     /** Writes the scheduler figures of the calling thread. a1: address of a `cock::abi::sched::Metrics`. Fails unless the kernel was built with `SCHED_METRICS=1`. */
     #define SYS_SCHED_METRICS    0x189
     #define SYS_CAP_REVOKE       0x18A
+    #define SYS_SERVICE_SET      0x18B
 
     #ifdef __cplusplus
     extern "C" {

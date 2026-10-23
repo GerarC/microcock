@@ -1,5 +1,6 @@
 #include <cock/abi/capability.hpp>
 #include <cock/abi/fs.hpp>
+#include <cock/abi/service.hpp>
 #include <cock/user/api.hpp>
 #include <init/boot.hpp>
 #include <init/grant.hpp>
@@ -20,6 +21,8 @@ bool grantInitrd() {
 	uint32_t initrd = cock::user::module_index(cock::abi::fs::INITRD_MODULE_NAME);
 	if (files == NO_PROCESS || initrd == cock::user::NO_MODULE) return false;
 
+	if (!cock::user::service_set(files, cock::abi::service::RAMFS_SERVICE))
+		printf("init: cannot label %s\n", cock::abi::fs::RAMFS_SERVER_NAME);
 	printf("init: initrd is boot module %u\n", initrd);
 	cock::user::cap_grant(files, cock::abi::CapabilityType::BOOT_MODULE, initrd, SINGLE_RESOURCE);
 	announce(files, NO_PROCESS);

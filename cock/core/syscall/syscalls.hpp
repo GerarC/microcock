@@ -181,6 +181,17 @@ uintptr_t sys_cap_revoke(uintptr_t node, uintptr_t, uintptr_t, uintptr_t,
 						 uintptr_t, uintptr_t);
 
 /**
+ * @brief Gives a process its service label, once.
+ * @param target_pid Process id of a live user process; a thread id or a kernel
+ * process is refused.
+ * @param label New label, not `NO_SERVICE`.
+ * @return 0 on success. All ones when the caller has no grant authority, the
+ * target is invalid, the label is `NO_SERVICE` or the target already has a label.
+ */
+uintptr_t sys_service_set(uintptr_t target_pid, uintptr_t label, uintptr_t,
+						  uintptr_t, uintptr_t, uintptr_t);
+
+/**
  * @brief Binds a hardware interrupt line to the calling thread.
  * @param line Interrupt line.
  * @return 0 on success. All ones when the process lacks an IRQ capability for
