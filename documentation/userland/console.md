@@ -5,7 +5,7 @@
 ## Pieces
 | Piece | File |
 |-------|------|
-| Server | `userland/console/main.cpp` |
+| Server | `userland/console/src/` and `userland/console/include/console/` |
 | Protocol and packing | `shared/include/cock/abi/console.hpp` |
 | Line editor (no I/O, tested on the host) | `shared/include/cock/abi/console_line.hpp`, `test/host/test_console.cpp` |
 | Client | `userland/lib/include/cock/user/console.hpp` |

@@ -39,8 +39,16 @@ Messages used toward other servers: `VIDEO_WRITE_STR` (chunks of at most 20 byte
 
 | File | Holds |
 |------|-------|
-| `main.cpp` | Serial output, display delivery with retries, slots, readers table, `serve`, the main `ipc_accept` loop |
-| `Makefile` | Build rules; `CONSOLE_CLIENT = no` |
+| `src/main.cpp` | `_start`: the grant, the serial port, and the `ipc_accept` loop with its timeout |
+| `src/grant.cpp`, `include/console/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED` and returns the display server |
+| `src/serial.cpp`, `include/console/serial.hpp` | `openSerial` and `serialWrite` for the first serial line |
+| `src/display.cpp`, `include/console/display.hpp` | The link to `vga_driver`: `setDisplay`, `screenWrite` in chunks with retries, `screenClear`, `screenCharacter` |
+| `src/writers.cpp`, `include/console/writers.hpp` | The slots that hold each writer's text until its last chunk: `handleWrite`, `hasPartialText`, `sweepDeadWriters` |
+| `src/input.cpp`, `include/console/input.hpp` | The line discipline, the keyboard check, the echo: `handleMessage`, `drainMessages` |
+| `src/readers.cpp`, `include/console/readers.hpp` | Readers held with a deferred reply: `deferRead`, `fillRead`, `wakeReaders` |
+| `src/requests.cpp`, `include/console/requests.hpp` | `serve`: write, clear and read calls |
+| `src/reply.cpp`, `include/console/reply.hpp` | `ANSWER_WORDS` and `answer`, the header word of an answer |
+| `Makefile` | `NAME = console`, `SRCS` under `src/`, `CONSOLE_CLIENT = no` |
 | `../lib/include/cock/user/console.hpp` | The client (`connect`, `write`, `read`, `clear`) |
 | `../../libc/unistd/console.cpp`, `read.cpp`, `write.cpp` | Hooks that route descriptors 0 to 2 to the server |
 
