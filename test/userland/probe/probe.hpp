@@ -91,6 +91,8 @@ bool sleepReturnsAndKeepsMessages();
 bool threadsShareMemoryUnderMutex();
 /** Threads are started that block on a futex word until thread creation is refused (fewer than the per process limit succeed); one `futex_wake` then wakes exactly as many as were created. */
 bool futexWakesEveryWaiterAndThreadsAreBounded();
+/** Three threads wait on one futex word while the main thread sets it and wakes them, two hundred rounds in lock step; every waiter wakes every round (none reaches the one second limit) and the acknowledgements add up to the exact total. */
+bool futexLosesNoWakeup();
 /** `futex_wait` and `futex_wake` fail on null, unaligned, kernel and unmapped words, and `futex_wait` on a time above the maximum; `futex_wait` returns `FUTEX_VALUE_CHANGED` for a different value and `FUTEX_TIMED_OUT` for a zero or short time, and `futex_wake` on a word without waiters returns zero; `thread_create_raw` fails for kernel or unmapped entry points, kernel or unmapped stacks and a stack below the minimum. */
 bool futexAndThreadCallsRefuseBadInput();
 
