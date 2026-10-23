@@ -214,14 +214,25 @@ inline bool irq_ack(uint32_t line) {
  * @param type Kind of capability (ports, IRQ, boot module, ...).
  * @param first First port, line or module index.
  * @param count Number of items from `first`.
- * @return true when granted; false when the type is unknown, the caller holds no grantable
+ * @return The id of the node of the derivation tree that records the grant (greater than 0),
+ *         or `abi::NO_CAPABILITY_NODE` when the type is unknown, the caller holds no grantable
  *         capability covering the range, the target does not exist or is a kernel process,
- *         or the capability table of the target is full.
+ *         the capability table of the target is full, or the derivation tree is full.
+ */
+inline uint32_t cap_grant_node(uint32_t pid, abi::CapabilityType type, uintptr_t first,
+							   uintptr_t count) {
+	uintptr_t result = syscall(SYS_CAP_GRANT, pid, static_cast<uintptr_t>(type), first,
+							   count, 0, 0);
+	return result == FAILURE ? abi::NO_CAPABILITY_NODE : static_cast<uint32_t>(result);
+}
+
+/**
+ * @brief Same as `cap_grant_node`, for callers that do not need the node id.
+ * @return true when granted; false in every case where `cap_grant_node` fails.
  */
 inline bool cap_grant(uint32_t pid, abi::CapabilityType type, uintptr_t first,
 					  uintptr_t count) {
-	return syscall(SYS_CAP_GRANT, pid, static_cast<uintptr_t>(type), first,
-				   count, 0, 0) == SUCCESS;
+	return cap_grant_node(pid, type, first, count) != abi::NO_CAPABILITY_NODE;
 }
 
 /**

@@ -7,6 +7,7 @@ void testIntrusiveQueue();
 void testLinkedList();
 void testMessage();
 void testCapabilitySet();
+void testCapabilityTree();
 void testManifest();
 void testPartition();
 void testFat32();
@@ -26,6 +27,7 @@ int main() {
 	host_test::testLinkedList();
 	host_test::testMessage();
 	host_test::testCapabilitySet();
+	host_test::testCapabilityTree();
 	host_test::testManifest();
 	host_test::testPartition();
 	host_test::testFat32();

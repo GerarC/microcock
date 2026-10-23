@@ -68,7 +68,7 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_SCHED_YIELD` (0x9E): Yield CPU to the next ready thread.
 * `SYS_IPC_SEND` (0x160): Send a message to another process.
 * `SYS_IPC_RECV` (0x161): Receive the next interrupt notification or message of the thread, blocking when there is none.
-* `SYS_CAP_GRANT` (0x170): Delegate part of a capability to another process.
+* `SYS_CAP_GRANT` (0x170): Delegate part of a capability to another process; returns the id of the node of the derivation tree that records it.
 * `SYS_IRQ_BIND` (0x171): Route an interrupt line to the calling process. Requires an `IRQ` capability.
 * `SYS_IRQ_ACK` (0x172): Re-enable an interrupt line after handling it.
 * `SYS_PROC_LOOKUP` (0x173): Find the process id of a boot module by name.
@@ -173,7 +173,7 @@ map, paging protections, the physical memory manager, the scheduler, IPC,
 capabilities and the reaper.
 
 `scripts/host_test.sh` compiles the structures of `shared/` (`RingBuffer`,
-`IntrusiveQueue`, `LinkedList`, the message layout) and `CapabilitySet` with the
+`IntrusiveQueue`, `LinkedList`, the message layout), `CapabilitySet` and `CapabilityTree` with the
 host `g++` and runs them as a normal program, with no emulator:
 ```bash
 bash scripts/host_test.sh

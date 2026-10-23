@@ -11,7 +11,9 @@
 
 namespace cock::core::security {
 
+using cock::abi::CapabilityNodeId;
 using cock::abi::CapabilityType;
+using cock::abi::NO_CAPABILITY_NODE;
 
 /** @brief Capability flag: the holder may grant this capability, or part of
  * it, to other processes. */
@@ -28,6 +30,7 @@ constexpr uint32_t CAPABILITY_FLAG_GRANT = 1u << 0;
 struct Capability {
 	CapabilityType type = CapabilityType::NONE; /**< Kind of resource, none for an empty slot. */
 	uint32_t flags = 0; /**< Combination of CAPABILITY_FLAG values. */
+	CapabilityNodeId node = NO_CAPABILITY_NODE; /**< Node of the derivation tree that records where this entry came from. */
 	uint64_t first = 0; /**< First resource of the range. */
 	uint64_t count = 0; /**< Number of resources in the range. */
 
@@ -76,7 +79,7 @@ class CapabilitySet {
 	 * @return True when one entry of that type contains the whole range.
 	 */
 	bool covers(CapabilityType type, uint64_t first, uint64_t count) const {
-		return find(type, first, count, false);
+		return find(type, first, count, false) != nullptr;
 	}
 
 	/**
@@ -88,6 +91,21 @@ class CapabilitySet {
 	 * whole range.
 	 */
 	bool mayGrant(CapabilityType type, uint64_t first, uint64_t count) const {
+		return grantable(type, first, count) != nullptr;
+	}
+
+	/**
+	 * @brief Finds the entry that lets the holder give a range away.
+	 * @param type Kind of resource.
+	 * @param first First resource.
+	 * @param count Number of resources.
+	 * @return The first entry that carries the grant flag and contains the whole
+	 * range, or null when there is none (including the none type, a zero count
+	 * and a range that wraps around). The pointer is valid until the table
+	 * changes.
+	 */
+	const Capability *grantable(CapabilityType type, uint64_t first,
+								uint64_t count) const {
 		return find(type, first, count, true);
 	}
 
@@ -119,23 +137,23 @@ class CapabilitySet {
 	 * @param first First resource.
 	 * @param count Number of resources.
 	 * @param needs_grant True to accept only entries with the grant flag.
-	 * @return True when found. False for the none type, a zero count, a range
-	 * that wraps around or no containing entry.
+	 * @return The containing entry, or null for the none type, a zero count, a
+	 * range that wraps around or no containing entry.
 	 */
-	bool find(CapabilityType type, uint64_t first, uint64_t count,
-			  bool needs_grant) const {
+	const Capability *find(CapabilityType type, uint64_t first, uint64_t count,
+						   bool needs_grant) const {
 		if (type == CapabilityType::NONE || count == 0 ||
 			first + count < first)
-			return false;
+			return nullptr;
 
 		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++) {
 			const Capability &entry = entries[idx];
 			if (entry.type != type) continue;
 			if (needs_grant && !(entry.flags & CAPABILITY_FLAG_GRANT)) continue;
 			if (first >= entry.first && first + count <= entry.end())
-				return true;
+				return &entry;
 		}
-		return false;
+		return nullptr;
 	}
 
 	Capability entries[MAX_CAPABILITIES]; /**< The table, empty slots have the none type. */
