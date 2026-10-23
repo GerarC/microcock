@@ -29,18 +29,18 @@ constexpr size_t VIDEO_CHUNK_SIZE = 20;
 constexpr uint32_t WRITE_RETRY_LIMIT = 1000;
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 
-static size_t forward_to_video_server(const char *data, size_t count) {
+static size_t forward_to_output_server(const char *data, size_t count) {
 	size_t sent = 0;
 	while (sent < count) {
 		size_t chunk_size = count - sent;
 		if (chunk_size > VIDEO_CHUNK_SIZE) chunk_size = VIDEO_CHUNK_SIZE;
 
 		Message msg = {};
-		msg.type = MessageType::VIDEO_WRITE_STR;
+		msg.type = MessageType::OUTPUT_WRITE_STR;
 		msg.payload.args.arg0 = static_cast<uint32_t>(chunk_size);
 		memcpy(&msg.payload.args.arg1, data + sent, chunk_size);
 
-		if (!IPC::deliver(cock::vga_server_pid, msg)) break;
+		if (!IPC::deliver(cock::debug_output_pid, msg)) break;
 		sent += chunk_size;
 	}
 	return sent;
@@ -58,15 +58,15 @@ uintptr_t sys_write(uintptr_t fd, uintptr_t buf_ptr, uintptr_t count, uintptr_t,
 		return FAILURE;
 
 	const char *user_buf = reinterpret_cast<const char *>(buf_ptr);
-	if (cock::vga_server_pid == 0) {
+	if (cock::debug_output_pid == 0) {
 		hal::console_write(user_buf, count);
 		return count;
 	}
 
-	size_t accepted = forward_to_video_server(user_buf, count);
+	size_t accepted = forward_to_output_server(user_buf, count);
 	if (accepted != 0) current->resetWriteRetries();
 	if (accepted == 0 && count != 0) {
-		Thread *server = TaskManager::getThreadByPID(cock::vga_server_pid);
+		Thread *server = TaskManager::getThreadByPID(cock::debug_output_pid);
 		if (server && server->getState() != ThreadState::DEAD) {
 			if (current->countWriteRetry() > WRITE_RETRY_LIMIT) {
 				current->resetWriteRetries();
@@ -78,7 +78,7 @@ uintptr_t sys_write(uintptr_t fd, uintptr_t buf_ptr, uintptr_t count, uintptr_t,
 			return 0;
 		}
 
-		cock::vga_server_pid = 0;
+		cock::debug_output_pid = 0;
 		hal::console_attach();
 		hal::console_write(user_buf, count);
 		return count;

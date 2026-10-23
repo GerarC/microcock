@@ -20,6 +20,12 @@
 
 namespace cock::core::hal {
 
+/** @brief Physical address of the memory that holds the screen text. */
+inline constexpr uintptr_t CONSOLE_SCREEN_BASE = arch::x86::VGA::PHYSICAL_BUFFER;
+/** @brief Size in bytes of the screen text memory (one 16 bit cell per character). */
+inline constexpr size_t CONSOLE_SCREEN_SIZE =
+	arch::x86::VGA::WIDTH * arch::x86::VGA::HEIGHT * sizeof(uint16_t);
+
 /** @brief The kernel owned VGA text writer. */
 inline constinit arch::x86::VGA console_screen;
 /** @brief True while kernel output is also drawn on the VGA screen. */

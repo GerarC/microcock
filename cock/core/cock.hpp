@@ -14,12 +14,14 @@ namespace cock {
 using core::boot::BootModule;
 
 /**
- * @brief Global variable holding the Process ID of the Userland VGA Server.
- * * Used by sys_write to route standard output from the kernel to the userland display driver.
- * Zero means no server: output goes straight to the kernel console. The
- * value is cleared when the server dies.
+ * @brief Global variable holding the id of the process that owns the screen.
+ * * Used by sys_write to route standard output from the kernel to that process
+ * as `OUTPUT_WRITE_STR` messages. The kernel does not know which program it
+ * is: it is the first process that maps the screen memory (see `sys_mmap`).
+ * Zero means no owner: output goes straight to the kernel console. The
+ * value is cleared when the owner dies. This debug channel goes away with M2.
  */
-extern uint32_t vga_server_pid;
+extern uint32_t debug_output_pid;
 
 extern "C" {
 /**

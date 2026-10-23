@@ -39,7 +39,7 @@ void screenWrite(const char *text, size_t length) {
 		if (piece > DISPLAY_CHUNK_BYTES) piece = DISPLAY_CHUNK_BYTES;
 
 		Message message = {};
-		message.type = MessageType::VIDEO_WRITE_STR;
+		message.type = MessageType::OUTPUT_WRITE_STR;
 		message.payload.args.arg0 = static_cast<uint32_t>(piece);
 		char *target = reinterpret_cast<char *>(&message.payload.args.arg1);
 		for (size_t index = 0; index < piece; index++)
@@ -56,7 +56,7 @@ void screenClear() {
 
 void screenCharacter(char character) {
 	Message message = {};
-	message.type = MessageType::VIDEO_WRITE_CHAR;
+	message.type = MessageType::OUTPUT_WRITE_CHAR;
 	message.payload.args.arg0 = static_cast<uint32_t>(character);
 	deliverToDisplay(message);
 }

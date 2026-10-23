@@ -16,7 +16,7 @@ inline void console_write(const char *data, size_t size) {
 `VGA` is a final class with no virtual functions and a `constexpr` constructor, so the screen object is initialized at compile time and every call is direct. The serial output is what the test scripts read, and it keeps working when the screen belongs to the userland server.
 
 ## Userland VGA Server
-The fully isolated Ring 3 display server handles standard output for the operating system. When the kernel loads a module called `vga_driver`, it detaches the kernel console from the screen and remembers the module as the destination of the output of `sys_write`. When the inbox of the display server is full, `sys_write` restarts the call so the server can drain it; after 1000 restarts it writes the text to the kernel console instead (`WRITE_RETRY_LIMIT`), so a stuck display server cannot keep a writer spinning forever.
+The fully isolated Ring 3 display server handles standard output for the operating system. The kernel does not know the driver by name: the first process that maps the screen memory (`0xB8000`, with a `PHYSICAL_MEMORY` capability) makes the kernel detach its console from the screen and remember that process as the destination of the output of `sys_write`. Without that capability the map is refused, so no other program can take the screen. When the inbox of the display server is full, `sys_write` restarts the call so the server can drain it; after 1000 restarts it writes the text to the kernel console instead (`WRITE_RETRY_LIMIT`), so a stuck display server cannot keep a writer spinning forever.
 
 The server cannot touch the hardware until it is allowed to. It waits for the `CAPABILITY_GRANTED` message of the root server, which has given it a `PHYSICAL_MEMORY` capability over the legacy video window (`0xA0000` to `0xBFFFF`). Only then does it use the `mmap` syscall to map the physical text buffer (`0xB8000`) into its own virtual address space at `0xA0000000`. The kernel checks that the capability covers the range and that the range is not RAM.
 
@@ -35,7 +35,7 @@ bool VgaServer::init() {
 }
 ```
 
-After that it loops on `sys_ipc_recv`. The kernel routes text data to it via IPC messages containing types like `VIDEO_WRITE_CHAR` or `VIDEO_WRITE_STR`, and so does any other program, such as the keyboard driver.
+After that it loops on `sys_ipc_recv`. The kernel routes text data to it via IPC messages containing types like `OUTPUT_WRITE_CHAR` or `OUTPUT_WRITE_STR`, and so does any other program, such as the keyboard driver.
 
 ```cpp
 extern "C" int main() {
@@ -48,10 +48,10 @@ extern "C" int main() {
 			case MessageType::CAPABILITY_GRANTED:
 				if (!ready) ready = VgaServer::init();
 				break;
-			case MessageType::VIDEO_WRITE_CHAR:
+			case MessageType::OUTPUT_WRITE_CHAR:
 				if (ready) VgaServer::putChar(static_cast<char>(msg.payload.args.arg0));
 				break;
-			case MessageType::VIDEO_WRITE_STR: {
+			case MessageType::OUTPUT_WRITE_STR: {
 				if (!ready) break;
 				size_t length = msg.payload.args.arg0;
 				const char *str_chunk =
@@ -70,6 +70,6 @@ extern "C" int main() {
 ```
 
 ### When the server is not there
-`VIDEO_WRITE_CHAR` also understands the backspace character: it moves the cursor one column back and blanks the cell (the console server uses it to echo an erased key); at column 0 it does nothing. The console server draws its output with `VIDEO_WRITE_STR` too.
+`OUTPUT_WRITE_CHAR` also understands the backspace character: it moves the cursor one column back and blanks the cell (the console server uses it to echo an erased key); at column 0 it does nothing. The console server draws its output with `OUTPUT_WRITE_STR` too.
 
 `sys_write` takes at most 128 bytes per call and sends the text to the server in chunks of 20 bytes. If the server has died, the kernel notices, takes the screen back and writes to it directly, so the system keeps printing. Its mapping of the video memory is not returned to the frame allocator when the server dies, because device pages are marked as not owned.

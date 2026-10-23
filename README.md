@@ -286,7 +286,7 @@ What the kernel already does, and what is planned next. Planned items are listed
 - An out-of-memory test: a program that uses up the physical memory must get an error, and the kernel must keep running.
 - A kernel stack overflow reported with a message instead of a silent reset.
 - A capability check on the calls to the console server (needs the IPC capability below).
-- Capabilities as data: the kernel no longer knows the name of any program (today it knows `init` and the VGA driver), a test checks that it boots with no user program at all, capabilities can be revoked, IPC gets a capability of its own (which also decides who may write the disk), and DMA-capable ports get a policy.
+- Capabilities as data: the kernel no longer knows the name of any program (done for `init` and the VGA driver), a test checks that it boots with no user program at all, capabilities can be revoked, IPC gets a capability of its own (which also decides who may write the disk), and DMA-capable ports get a policy.
 - Platform: APIC and IOAPIC, PAE with NX and memory above 4 GiB, SMP (with the TLB of every CPU updated when a page table changes), and an x86_64 port.
 
 Symbolic links are postponed until a program needs them.

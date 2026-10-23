@@ -29,8 +29,8 @@ enum class MessageType : uint32_t {
 	SYS_PING = 1,                   /**< System ping for heartbeat or test purposes. */
 	SYS_PONG = 2,                   /**< System pong response. */
 	SYS_DEBUG = 3,                  /**< Debugging message for the kernel logger. */
-	VIDEO_WRITE_CHAR = 4,           /**< Request to write a single character to the Video server. */
-	VIDEO_WRITE_STR = 5,            /**< Request to write a string to the Video server. */
+	OUTPUT_WRITE_CHAR = 4,           /**< Request to write a single character to the output server (the process that owns the screen). */
+	OUTPUT_WRITE_STR = 5,            /**< Request to write a string to the output server (the process that owns the screen). */
 	SYS_REGISTER_MAILBOX = 6,       /**< System request to register a shared memory mailbox. */
 	IRQ_NOTIFICATION = 7,           /**< Kernel notice that a bound hardware interrupt fired; arg0 is the line. */
 	CAPABILITY_GRANTED = 8,         /**< Root server notice that the capabilities were granted; arg0 is a peer process id. */

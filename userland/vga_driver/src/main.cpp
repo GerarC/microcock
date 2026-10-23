@@ -22,10 +22,10 @@ extern "C" int main() {
 			case MessageType::CAPABILITY_GRANTED:
 				if (!ready) ready = VgaServer::init();
 				break;
-			case MessageType::VIDEO_WRITE_CHAR:
+			case MessageType::OUTPUT_WRITE_CHAR:
 				if (ready) VgaServer::putChar(static_cast<char>(msg.payload.args.arg0));
 				break;
-			case MessageType::VIDEO_WRITE_STR: {
+			case MessageType::OUTPUT_WRITE_STR: {
 				if (!ready) break;
 				size_t length = msg.payload.args.arg0;
 				if (length > MAX_STRING_CHUNK) length = MAX_STRING_CHUNK;

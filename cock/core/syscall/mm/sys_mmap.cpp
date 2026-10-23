@@ -1,3 +1,4 @@
+#include <cock/core/cock.hpp>
 #include <cock/core/memory/shared_memory.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/security/capability.hpp>
@@ -7,6 +8,7 @@
 #include <cock/core/task/thread.hpp>
 #include <cock/utils/logger.hpp>
 #include <hal/address_space.hpp>
+#include <hal/console.hpp>
 #include <hal/page.hpp>
 #include <stdint.h>
 
@@ -69,6 +71,16 @@ static uintptr_t map_anonymous(Thread &current, size_t pages, bool writable) {
 	return base.raw();
 }
 
+static void claim_screen_if_mapped(Thread &current, PhysAddr phys, size_t span) {
+	if (cock::debug_output_pid != 0) return;
+	if (phys.raw() >= hal::CONSOLE_SCREEN_BASE + hal::CONSOLE_SCREEN_SIZE ||
+		phys.raw() + span <= hal::CONSOLE_SCREEN_BASE)
+		return;
+	hal::console_detach();
+	cock::debug_output_pid = current.getId();
+	Logger::info("Screen mapped by PID %d, kernel console detached", current.getId());
+}
+
 static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 							  uintptr_t offset, bool writable) {
 	if (addr == 0) {
@@ -107,6 +119,7 @@ static uintptr_t map_physical(Thread &current, uintptr_t addr, size_t pages,
 		VirtualMemoryManager::freePages(virt.as<void>(), pages);
 		return FAILURE;
 	}
+	claim_screen_if_mapped(current, phys, span);
 	return virt.raw();
 }
 
