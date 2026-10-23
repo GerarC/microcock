@@ -1,6 +1,11 @@
 /** @file
  * @brief Public interface of the ELF loader: detection and loading of
  * executables into a user address space.
+ *
+ * Only `cock_main` uses it, for the Multiboot boot modules, which start before
+ * any program could load them. No system call reaches it: a program started at
+ * run time is loaded in user space (`cock::user::spawn`) through the
+ * `SYS_PROC_*` calls.
  */
 #ifndef CORE_LOADER_ELF_HPP
 #define CORE_LOADER_ELF_HPP

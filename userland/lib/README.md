@@ -17,7 +17,7 @@ programs (init, sh, ata, fat, ext, vfs, ...) --> cock::user --> system call wrap
 
 | Header | Holds |
 |--------|-------|
-| `api.hpp` | System call wrappers: `ipc_send`, `ipc_recv`, `ipc_try_recv`, `ipc_recv_timeout`, `sleep_ms`, `request_ports`, `irq_bind`, `irq_ack`, `cap_grant`, `cap_grant_node`, `cap_revoke`, `lookup`, `shm_create`, `shm_share`, `shm_map`, `shm_release`, `module_open`, `module_index`, `spawn`, `process_alive`, `gettid`, `futex_wait`, `futex_wake`, port I/O, `write_text`, `exit_process`; the stash of messages that other waits received |
+| `api.hpp` | System call wrappers: `ipc_send`, `ipc_recv`, `ipc_try_recv`, `ipc_recv_timeout`, `sleep_ms`, `request_ports`, `irq_bind`, `irq_ack`, `cap_grant`, `cap_grant_node`, `cap_revoke`, `lookup`, `shm_create`, `shm_share`, `shm_map`, `shm_release`, `module_open`, `module_index`, `proc_create`, `proc_map`, `proc_write`, `proc_protect`, `proc_start`, `proc_discard`, `process_alive`, `gettid`, `futex_wait`, `futex_wake`, port I/O, `write_text`, `exit_process`; the stash of messages that other waits received |
 | `call.hpp` | Synchronous calls with four words in registers: `ipc_call`, `ipc_accept`, `ipc_reply`, `ipc_reply_wait`, `ipc_defer`, `ipc_reply_to`; `CallStatus` and `CallResult` |
 | `crt0.hpp`, `constructors.hpp` | The start of every program: `_start` (`src/crt0.cpp`) runs `runConstructors` (`src/constructors.cpp`, the `.init_array`), calls `main` and passes its value to `exit_process` |
 | `thread.hpp`, `mutex.hpp` | `thread_start` on a caller supplied stack, and a futex mutex for threads of one process |
@@ -26,6 +26,7 @@ programs (init, sh, ata, fat, ext, vfs, ...) --> cock::user --> system call wrap
 | `session.hpp`, `reply.hpp` | Session helpers (`findSession`, `freeSession`, `openSession`, `releaseSession`) and `receiveReply`, which waits with a timeout and gives up when the server is gone |
 | `block.hpp` | `block::Client` for `ata`: `connect`, `deviceCount`, `info`, `read`, `write` |
 | `console.hpp` | `console::Client` for `console`: `connect`, `write`, `read`, `clear` |
+| `spawn.hpp` | `spawn`: the loader of programs in user space. Reads an ELF32 image with `cock/elf/image.hpp` and builds the process with the `proc_*` wrappers; the kernel knows nothing about ELF on this path |
 | `clock.hpp`, `cmos.hpp` | `Clock`, the client of `rtc`, and `Cmos`, the port reader that only `rtc` uses |
 
 ## Protocols it implements

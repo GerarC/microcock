@@ -29,7 +29,7 @@ enum class CapabilityType : uint8_t {
 	BOOT_MODULE = 4,
 	/** Right to exchange messages, synchronous calls and shared memory with the processes whose service label is in the range (see `service.hpp`). */
 	IPC = 5,
-	/** Right to start processes with `SYS_SPAWN`. It is a range of one (`SPAWN_FIRST`, `SPAWN_COUNT`). */
+	/** Right to create processes with `SYS_PROC_CREATE`. It is a range of one (`SPAWN_FIRST`, `SPAWN_COUNT`). */
 	SPAWN = 6,
 };
 

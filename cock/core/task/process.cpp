@@ -4,6 +4,7 @@
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/security/capability_tree.hpp>
+#include <cock/core/task/pending_process.hpp>
 #include <cock/core/task/process.hpp>
 #include <hal/address_space.hpp>
 #include <hal/page.hpp>
@@ -51,6 +52,7 @@ Process::~Process() {
 		security::capability_tree.releaseHolder(id);
 	}
 
+	PendingProcesses::discardOwnedBy(this);
 	VirtualMemoryManager::destroyAddressSpace(addressSpace);
 	for (size_t idx = 0; idx < regionCount; idx++) {
 		if (regions[idx].shared_object != NO_SHARED_OBJECT)

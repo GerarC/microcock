@@ -40,7 +40,7 @@ enum SyscallNum : uint32_t {
     SYS_SHM_RELEASE         = 0x177, /**< Drop the caller's reference to a shared memory object. */
     SYS_MODULE_OPEN         = 0x178, /**< Open a boot data module by name as a read only shared object (needs a BOOT_MODULE capability). */
     SYS_MODULE_INDEX        = 0x179, /**< Resolve a boot data module name to its index (grant authority only). */
-    SYS_SPAWN               = 0x17A, /**< Start a new process from an ELF image in memory (grant authority only); the sixth argument optionally points to the service label and IPC labels the new process is born with. */
+    SYS_PROC_CREATE         = 0x17A, /**< Create a process with an empty address space and no thread, and return a handle for it (needs a SPAWN capability); the fourth argument optionally points to the service label and IPC labels the process is born with. */
     SYS_PROC_ALIVE          = 0x17B, /**< Tell whether the thread with an id (a process id names its first thread) is alive. */
     SYS_IPC_TRY_RECV        = 0x17C, /**< Non blocking IPC receive: 0 message, 1 nothing pending. */
     SYS_IPC_RECV_TIMEOUT    = 0x17D, /**< IPC receive that gives up after a timeout in milliseconds: 0 message, 1 timeout. */
@@ -58,6 +58,11 @@ enum SyscallNum : uint32_t {
     SYS_SCHED_METRICS       = 0x189, /**< Write the response, CPU and turnaround ticks of the calling thread; registered only in a kernel built with SCHED_METRICS=1. */
     SYS_CAP_REVOKE          = 0x18A, /**< Revoke a node of the derivation tree and every capability derived from it; the caller must hold an ancestor of the node. */
     SYS_SERVICE_SET         = 0x18B, /**< Give a process its service label, once; the caller must hold grant authority. */
+    SYS_PROC_MAP            = 0x18C, /**< Map fresh zeroed writable pages into a process that was created and not started. */
+    SYS_PROC_WRITE          = 0x18D, /**< Copy bytes from the caller into the mapped pages of a process that was created and not started. */
+    SYS_PROC_PROTECT        = 0x18E, /**< Make mapped pages of a process that was created and not started read only. */
+    SYS_PROC_START          = 0x18F, /**< Create the first thread of a process that was created, at an entry point, and let it run; returns the process id. */
+    SYS_PROC_DISCARD        = 0x190, /**< Destroy a process that was created and not started. */
 };
 
 }

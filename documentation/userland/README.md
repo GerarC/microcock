@@ -5,6 +5,7 @@ Programs that run in Ring 3 under `userland/` and `test/userland/`. Only `init` 
 | Page | Topic | Program README |
 |------|-------|----------------|
 | [userland.md](userland.md) | Boot modules, the system call ABI, the manifest, the user library | [lib](../../userland/lib/README.md), [init](../../userland/init/README.md) |
+| [init_contract.md](init_contract.md) | What the first program receives and must do, and how to replace `init` | [init](../../userland/init/README.md) |
 | [keyboard.md](keyboard.md) | The PS/2 driver and how an interrupt reaches it | [kbd](../../userland/kbd/README.md) |
 | [vga.md](vga.md) | The kernel console and the display server | [vga_driver](../../userland/vga_driver/README.md) |
 | [console.md](console.md) | The console server: input line, serial and screen output | [console](../../userland/console/README.md) |

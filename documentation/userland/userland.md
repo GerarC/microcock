@@ -8,7 +8,7 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 
 | Program | Role |
 |---------|------|
-| `init` | Root server. The only process born with authority; it grants `ramfs` the `initrd`, reads `manifest.conf` through `ramfs` and does what each line says (starts programs with `SYS_SPAWN`, grants capabilities), then exits |
+| `init` | Root server. The only process born with authority; it grants `ramfs` the `initrd`, reads `manifest.conf` through `ramfs` and does what each line says (starts programs with `cock::user::spawn`, grants capabilities), then exits |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `init` can read the manifest) |
 | `console` | Console server: owns the serial port `0x3F8+8` and the input line; serves `CON_WRITE` and `CON_READ` as synchronous calls, echoes typed keys on the display server; see [console](console.md) |
@@ -56,7 +56,7 @@ kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 peer=vga_driver
 |------|---------|
 | first word | The name of the entry. It is the process name; names are unique and at most 31 bytes |
 | `path=` | A file of the initrd that `init` reads and spawns. Without it the entry is a boot module that already runs, and `init` only grants it what the line says |
-| `caps=` | Comma separated grants: `io:first+count` (ports), `irq:line` and `mem:first+size` (physical memory) and `spawn` (the right to call `SYS_SPAWN`, with no range). Numbers are decimal or `0x` hexadecimal. The count of `io` and `irq` defaults to 1, `mem` needs it. At most 4 grants |
+| `caps=` | Comma separated grants: `io:first+count` (ports), `irq:line` and `mem:first+size` (physical memory) and `spawn` (the right to call `SYS_PROC_CREATE`, with no range). Numbers are decimal or `0x` hexadecimal. The count of `io` and `irq` defaults to 1, `mem` needs it. At most 4 grants |
 | `peer=` | Name of a process whose id travels in the `CAPABILITY_GRANTED` message (the display server for `kbd`) |
 | `arg=` | A number (decimal or `0x`) that travels in the second argument of the `CAPABILITY_GRANTED` message, for a server that needs one value (the device of `fat`). It makes `init` send the message even when the line has no grants or peer |
 | `ipc=` | Comma separated names of the programs this one may talk to: send messages, make synchronous calls and share memory. Up to 8 names, no repeats. `init` gives the process one `IPC` capability for the service label of each name; the label of an entry is `PROGRAM_SERVICE_BASE` plus its position in the manifest (and `ramfs`, which has no entry, has `RAMFS_SERVICE`), so it is the same after a restart. The right works in both directions: when `sh` may talk to `console`, `console` may answer `sh` |
@@ -79,7 +79,7 @@ When an entry has grants or a peer, `init` sends the process `CAPABILITY_GRANTED
 | `port_out8(port, value)`, `port_in8(port)`, `port_read_words(port, buffer, words)` | Port instructions (`outb`, `inb`, `rep insw`), allowed after `request_ports` |
 | `module_open(name)` | `SYS_MODULE_OPEN` |
 | `module_index(name)` | `SYS_MODULE_INDEX` |
-| `spawn(image, size, name, notify_exit, rights)` | `SYS_SPAWN`; `notify_exit` asks for a `PROCESS_EXITED` message when the process ends; `rights` (optional) gives the new process its service label and IPC capabilities before it runs |
+| `spawn(image, size, name, notify_exit, rights)` (`spawn.hpp`) | The loader in user space: reads the ELF image and builds the process with `SYS_PROC_CREATE`, `SYS_PROC_MAP`, `SYS_PROC_WRITE`, `SYS_PROC_PROTECT` and `SYS_PROC_START`, and destroys it with `SYS_PROC_DISCARD` if a step fails; `notify_exit` asks for a `PROCESS_EXITED` message when the process ends; `rights` (optional) gives the new process its service label and IPC capabilities before it runs |
 | `service_set(pid, label)` | `SYS_SERVICE_SET`; labels a running process once (used for boot modules) |
 | `cap_grant_node(pid, type, first, count)`, `cap_revoke(node)` | `SYS_CAP_GRANT` returning the derivation node, and `SYS_CAP_REVOKE` |
 | `process_alive(pid)` | `SYS_PROC_ALIVE` |

@@ -35,7 +35,7 @@ The rule comes from Liedtke: a concept belongs in the kernel only if moving it o
 | `SYS_CAP_REVOKE` | Take a delegated capability, and what derives from it, away from its holders | Only the kernel can close ports, unbind lines and unmap device pages of another process | primitive |
 | `SYS_MODULE_OPEN` | Open a boot module as a read only shared object | The boot loader hands the modules to the kernel, and only the kernel can turn their frames into a shared object | primitive |
 | `SYS_MODULE_INDEX` | Find a boot module by name | A lookup by name; a name service | service (stage 9, with the data policy of the boot) |
-| `SYS_SPAWN` | Start a process from an ELF image in memory | The kernel parses ELF, which is not a protection matter. Only creating the address space and the first thread is | service (M1) |
+| `SYS_PROC_CREATE`, `SYS_PROC_MAP`, `SYS_PROC_WRITE`, `SYS_PROC_PROTECT`, `SYS_PROC_START`, `SYS_PROC_DISCARD` | Build a process piece by piece: an empty address space, zeroed pages, bytes copied in, pages made read only, the first thread, or the whole thing thrown away | Only the kernel can create an address space, map frames into it and create the first thread. The ELF format is not here: `cock::user::spawn` reads it (M1, done). Every range is validated by the kernel, so a broken loader can only hurt its own spawner | primitive |
 | `SYS_PROC_LOOKUP` | Find a process id by its registered name | A registry of names, which is a service | service (M2) |
 | `SYS_WRITE`, `SYS_READ` | Console output and input for descriptors 0 to 2 | A debug channel: the console server does the real work, and the kernel forwards to the display server or to its own console | debug (M2) |
 | `SYS_SCHED_METRICS` | Read the scheduler figures of the caller | Counts are taken inside the scheduler | debug (already behind `SCHED_METRICS=1`) |
@@ -56,7 +56,8 @@ The rule comes from Liedtke: a concept belongs in the kernel only if moving it o
 | GDT, TSS, IDT, PIC, timer, double fault and NMI stacks | The CPU and the interrupt controller | primitive |
 | Idle thread and reaper thread | The kernel frees its own objects | primitive |
 | Port bitmap per process, built on the first grant | The CPU reads it | primitive |
-| ELF loader (`core/loader`, ELF32 and ELF64) | Reads a file format | service (M1) |
+| Pending processes (`PendingProcesses`) | A process has no id until it has a thread, so a process under construction needs a name that only its creator can use, and it must die with the creator | primitive |
+| ELF loader for boot modules (`core/loader`, ELF32 and ELF64) | Reads a file format, but only for the Multiboot modules `init`, `ramfs` and `vga_driver`, which start before any program that could load them. It is reachable from no system call | boot only (M1: the loader that served `spawn` is gone) |
 | Process names | A registry (the names `init` and `vga_driver` went on 2026-10-23: the first program module is the root task, and the screen goes to whoever maps it). The kernel must not know programs by name | service (M2 for the registry) |
 | Kernel console and `Logger` output | Debug output and the early boot | debug (M2) |
 
@@ -65,7 +66,7 @@ These come out of the list and are not decided; each one is a question for the n
 
 - **Two message paths.** L4 has only synchronous IPC. Here the asynchronous inbox is also used for interrupt notifications and exit notices, so it stays for now. Check, when stage 9 gives IPC its capability, whether the asynchronous send can be cut down to notifications from the kernel.
 - **`SYS_PROC_ALIVE`.** With the exit notice of a parent, the call may no longer be needed. A process that is not the parent still uses it.
-- **Who may spawn.** `SYS_SPAWN` and `SYS_MODULE_INDEX` are open only to the holder of a grantable capability. After M1 the question becomes who may create an address space, and stage 9 answers it with a capability.
+- **Who may spawn.** `SYS_PROC_CREATE` needs the `SPAWN` capability (9d), and `SYS_MODULE_INDEX` is open only to the holder of a grantable capability. With M1 done, the `SPAWN` capability is what decides who may create an address space.
 
 ## Keeping the list true
 Update this page in the same change that adds, removes or moves a system call, an object or a policy of the kernel. When a roadmap item in stage M or stage 9 ends, the rows it names change verdict or go.

@@ -25,14 +25,15 @@ constexpr uint32_t RAMFS_SERVICE = 2;
 constexpr uint32_t PROGRAM_SERVICE_BASE = 16;
 /** Number of labels that the root IPC capability covers, from `NO_SERVICE` on: all of them. */
 constexpr uint64_t SERVICE_LABEL_COUNT = uint64_t(1) << 32;
-/** Most IPC labels that one `SYS_SPAWN` can give to the new process. */
+/** Most IPC labels that one `SYS_PROC_CREATE` can give to the new process. */
 constexpr size_t MAX_SPAWN_IPC = 8;
 
 /**
- * @brief The rights a process is born with, given to `SYS_SPAWN` as its sixth argument.
+ * @brief The rights a process is born with, given to `SYS_PROC_CREATE` as its fourth argument.
  *
- * The kernel sets the label and derives one `IPC` capability for each label of the list from
- * a capability of the spawner, before the first thread of the new process can run. Giving them
+ * The kernel checks them at creation and sets the label and derives one `IPC` capability for
+ * each label of the list from a capability of the creator when `SYS_PROC_START` creates the
+ * first thread, before it can run. Giving them
  * later with `SYS_SERVICE_SET` and `SYS_CAP_GRANT` leaves a window in which the program already
  * runs and is refused by its own servers.
  */

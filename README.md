@@ -25,7 +25,7 @@ MicroCOCK or _Micro Colombian Open Code Kernel_ is a 32-bit x86 higher-half micr
 * **Dead threads are reaped by a kernel thread** that sleeps when there is nothing to free and wakes when a thread dies.
 * **The FPU is off for programs:** `CR0.EM` is set, so floating point, MMX and SSE fault instead of sharing state between processes.
 * **Custom LibC & LibCXX:** Freestanding implementation of standard C/C++ libraries, including dynamic memory allocation (`new`/`delete`) and global constructors/destructors support.
-* **ELF Loader:** Loads ELF32 and ELF64 executables through two separate descriptions. Each class has its own user-space limit. The x86 build accepts ELF32 only.
+* **ELF Loader:** The kernel keeps a loader only for the Multiboot boot modules (ELF32 and ELF64 through two separate descriptions, each with its own user-space limit; the x86 build accepts ELF32 only). Every other program is loaded in user space by `cock::user::spawn`, which reads ELF32 and builds the process with the `SYS_PROC_*` calls.
 
 ## Project Architecture
 
@@ -79,7 +79,9 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_SHM_RELEASE` (0x177): Drop the right of the caller to an object.
 * `SYS_MODULE_OPEN` (0x178): Open a data boot module by name as a read only shared memory object; needs a `BOOT_MODULE` capability.
 * `SYS_MODULE_INDEX` (0x179): Index of a data boot module by name; needs grant authority.
-* `SYS_SPAWN` (0x17A): Start a process from an ELF image in the memory of the caller, with no capabilities except the service label and IPC capabilities that an optional sixth argument gives it before it runs; needs grant authority.
+* `SYS_PROC_CREATE` (0x17A): Create a process with an empty address space and no thread, and get a handle for it; needs a `SPAWN` capability. An optional argument gives the service label and IPC capabilities that the process is born with. At most 2 pending processes per caller and 8 in the system.
+* `SYS_PROC_MAP` (0x18C), `SYS_PROC_WRITE` (0x18D), `SYS_PROC_PROTECT` (0x18E): Map zeroed writable pages into a pending process, copy bytes into them, and make them read only. Only the creator may use the handle; at most 4 MiB, never the first page or the user stack.
+* `SYS_PROC_START` (0x18F): Create the first thread of a pending process at an entry point and let it run; returns the process id. `SYS_PROC_DISCARD` (0x190): destroy a pending process. A pending process dies with its creator. The ELF parsing is not in the kernel path of these calls: `cock::user::spawn` (`userland/lib/include/cock/user/spawn.hpp`) reads the image and calls them.
 * `SYS_SERVICE_SET` (0x18B): Give a running process its service label, once; needs grant authority. Used for the boot modules.
 * `SYS_PROC_ALIVE` (0x17B): Tell whether a process id is alive.
 * `SYS_IPC_TRY_RECV` (0x17C): Like `SYS_IPC_RECV` but returns 1 at once when there is nothing to receive.
@@ -215,7 +217,7 @@ The same checks run on every push through `.github/workflows/ci.yml`.
 ### Current limitations
 
 * At most 8 threads per user process. A thread runs on a stack the program provides, an exception ends only the thread that caused it, and `SYS_EXIT` ends only the calling thread: the process is gone when its last thread ends.
-* A process that exits tells its spawner only if the spawner asked for it (`PROCESS_EXITED`). The notice is kept in a record of the parent, never lost to a full inbox; a process can have at most 16 notified children running or unread, and `SYS_SPAWN` with the flag fails past that.
+* A process that exits tells its spawner only if the spawner asked for it (`PROCESS_EXITED`). The notice is kept in a record of the parent, never lost to a full inbox; a process can have at most 16 notified children running or unread, and `SYS_PROC_START` of a process created with the flag fails past that.
 * Capabilities are assigned at boot (the first program module, `init`, holds the authority); what is delegated can be revoked by a holder of an ancestor (`SYS_CAP_REVOKE`), what the first program holds cannot; each process holds up to 16.
 * IPC has an asynchronous inbox with a small capacity per thread, and a synchronous call and reply in registers with timeouts.
 * The user C library has buffered `printf`, `malloc` and `operator new` (locked with a futex mutex, safe for threads), and file calls (`open`, `read`, `write`, `lseek`, `close`, `unlink`, `mkdir`, `rmdir`, `rename`) over the file server client.
@@ -275,7 +277,7 @@ What the kernel already does, and what is planned next. Planned items are listed
 
 ### Planned
 
-- Keeping the kernel small is the next goal, in this order. First, capabilities as data (below): the kernel stops knowing program names, and IPC gets a capability of its own. Then a page that lists every concept the kernel holds and says why each one cannot live outside it, the ELF loader and `spawn` moved out of the kernel into a user library, and the name lookup and the debug channel (`SYS_WRITE`, `SYS_READ`, kernel console) moved out of the core, the debug channel kept only behind a build option.
+- Keeping the kernel small is the next goal, in this order. First, capabilities as data (below): the kernel stops knowing program names, and IPC gets a capability of its own. Then a page that lists every concept the kernel holds and says why each one cannot live outside it (done: `documentation/core/kernel_concepts.md`), the ELF loader and `spawn` moved out of the kernel into a user library (done for programs started at run time; the kernel keeps a loader only for the Multiboot boot modules), and the name lookup and the debug channel (`SYS_WRITE`, `SYS_READ`, kernel console) moved out of the core, the debug channel kept only behind a build option.
 - A route to Unix style IPC, where the capability plays the part of the file descriptor. Step by step: a stable service label with an IPC capability that decides who may send, call or share memory with whom (in progress); a name service in Ring 3 that replaces the lookup of the kernel, so permission is checked when a client connects; capability transfer in messages, so a client can give a server a shared buffer or a port and the receiver gets it only when its policy allows; endpoints and handles, so messages are addressed by handle and not by process id; capabilities inherited by `fork` and kept by `exec`; and a descriptor layer in the C library, so the shell can join programs with pipes and redirection.
 - Page faults handled by a server, so memory policy can live outside the kernel. This is the largest item and needs a decision first.
 - A process model like Linux's, kept by a process manager server (`pm`) outside the kernel, as in Minix 3; the kernel keeps only the primitives it must. It covers process states (running, sleeping, stopped, zombie) shown to `ps`; `wait` (a parent collects a child's exit status, and zombies until then), `exec` (a process replaces its program and keeps its pid), signals with `kill`, process groups so Ctrl+C reaches only the foreground job, a process table for `ps`, and `nice`.

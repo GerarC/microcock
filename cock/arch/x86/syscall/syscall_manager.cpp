@@ -9,7 +9,7 @@ namespace cock::core::syscall {
 
 using arch::x86::SyscallNum;
 
-constexpr int MAX_X86_SYSCALLS = 0x190;
+constexpr int MAX_X86_SYSCALLS = 0x191;
 
 SystemCall syscall_table[MAX_X86_SYSCALLS] = {nullptr};
 
@@ -44,7 +44,12 @@ void SyscallManager::init() {
     syscall_table[SyscallNum::SYS_SHM_RELEASE] = sys_shm_release;
     syscall_table[SyscallNum::SYS_MODULE_OPEN] = sys_module_open;
     syscall_table[SyscallNum::SYS_MODULE_INDEX] = sys_module_index;
-    syscall_table[SyscallNum::SYS_SPAWN] = sys_spawn;
+    syscall_table[SyscallNum::SYS_PROC_CREATE] = sys_proc_create;
+    syscall_table[SyscallNum::SYS_PROC_MAP] = sys_proc_map;
+    syscall_table[SyscallNum::SYS_PROC_WRITE] = sys_proc_write;
+    syscall_table[SyscallNum::SYS_PROC_PROTECT] = sys_proc_protect;
+    syscall_table[SyscallNum::SYS_PROC_START] = sys_proc_start;
+    syscall_table[SyscallNum::SYS_PROC_DISCARD] = sys_proc_discard;
     syscall_table[SyscallNum::SYS_PROC_ALIVE] = sys_proc_alive;
     syscall_table[SyscallNum::SYS_IPC_TRY_RECV] = sys_ipc_try_recv;
     syscall_table[SyscallNum::SYS_IPC_RECV_TIMEOUT] = sys_ipc_recv_timeout;

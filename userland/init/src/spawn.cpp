@@ -1,6 +1,7 @@
 #include <cock/abi/fs.hpp>
 #include <cock/abi/service.hpp>
 #include <cock/user/api.hpp>
+#include <cock/user/spawn.hpp>
 #include <init/files.hpp>
 #include <init/service.hpp>
 #include <init/spawn.hpp>

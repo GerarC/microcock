@@ -31,7 +31,7 @@ void SyscallManager::init() {
 
 The shared memory calls (`SYS_SHM_*`, numbers `0x174` to `0x177`) move bulk data between processes, which a message of six arguments cannot do: a process creates an object, shares it with the pid of another process by IPC, and the other process maps it. See [memory management](memory_management.md).
 
-`SYS_MODULE_OPEN` (`0x178`) gives a process holding the `BOOT_MODULE` capability the id of a data boot module, as a read only shared memory object. `SYS_SPAWN` (`0x17A`) starts a process from an image in the memory of the caller (see [task management](task_management.md#spawn)) and `SYS_PROC_ALIVE` (`0x17B`) says whether a process id is alive. `SYS_MODULE_INDEX` (`0x179`) gives the index of a data module to a process that holds grant authority, so `init` can grant the capability for one module.
+`SYS_MODULE_OPEN` (`0x178`) gives a process holding the `BOOT_MODULE` capability the id of a data boot module, as a read only shared memory object. `SYS_PROC_CREATE` (`0x17A`), `SYS_PROC_MAP` (`0x18C`), `SYS_PROC_WRITE` (`0x18D`), `SYS_PROC_PROTECT` (`0x18E`), `SYS_PROC_START` (`0x18F`) and `SYS_PROC_DISCARD` (`0x190`) build and start a process, and the library function `cock::user::spawn` uses them to start a program from an image in the memory of the caller (see [task management](task_management.md#spawn)) and `SYS_PROC_ALIVE` (`0x17B`) says whether a process id is alive. `SYS_MODULE_INDEX` (`0x179`) gives the index of a data module to a process that holds grant authority, so `init` can grant the capability for one module.
 
 The full table with the numbers is in the [README](../README.md). The value a handler returns goes back in `EAX`; `-1` means failure. An unknown number returns `-1` as well.
 

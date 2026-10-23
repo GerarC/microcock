@@ -281,24 +281,87 @@ uintptr_t sys_module_index(uintptr_t name_ptr, uintptr_t length, uintptr_t,
 						   uintptr_t, uintptr_t, uintptr_t);
 
 /**
- * @brief Starts a new process from an ELF image held in the caller memory.
- * @param image_ptr User pointer to the executable.
- * @param image_size Image size in bytes, non zero and bounded.
+ * @brief Creates a process with an empty address space and no thread, the first
+ * step of starting a program from a loader in user space.
  * @param name_ptr User pointer to the process name.
  * @param name_length Name length, from 1 up to the name limit minus one.
  * @param flags Spawn flags. The notify on exit flag makes the kernel send the
- * parent a message when the child exits.
+ * creator a message when the process exits, once it started.
  * @param rights_ptr Zero, or a user pointer to an `abi::service::SpawnRights`: the
- * label of the new process and the IPC labels it may talk to. The kernel sets them
- * before the first thread can run. Each IPC label needs a grantable IPC
- * capability of the caller that covers it, and the derivation tree needs room for
- * one node per label.
- * @return The id of the first thread, or all ones when the caller holds no
- * grant authority, a size or buffer is invalid, no process id is free, the
- * image is not a valid ELF, the rights are invalid or memory runs out.
+ * label of the new process and the IPC labels it may talk to. They are checked
+ * here and again, and set, when the process starts. Each IPC label needs a
+ * grantable IPC capability of the caller that covers it, and the derivation tree
+ * needs room for one node per label.
+ * @param user_limit First address the process may not use: page aligned, not
+ * above the architecture limit and above the user stack.
+ * @return The handle of the pending process, or all ones when the caller holds
+ * no SPAWN capability, it already holds `MAX_PENDING_PER_PROCESS` pending
+ * processes, the system holds `MAX_PENDING_PROCESSES`, a number or buffer is
+ * invalid, no process id is free, the rights are invalid or memory runs out.
  */
-uintptr_t sys_spawn(uintptr_t image_ptr, uintptr_t image_size, uintptr_t name_ptr,
-					uintptr_t name_length, uintptr_t flags, uintptr_t rights_ptr);
+uintptr_t sys_proc_create(uintptr_t name_ptr, uintptr_t name_length, uintptr_t flags,
+						  uintptr_t rights_ptr, uintptr_t user_limit, uintptr_t);
+
+/**
+ * @brief Maps fresh zeroed writable pages into a pending process.
+ * @param handle Handle from `sys_proc_create`, owned by the caller.
+ * @param address Page aligned start, not in the first page.
+ * @param pages Page count, non zero. The range must end below the user stack of
+ * the process, be unmapped, and keep the total of the process under
+ * `MAX_PENDING_IMAGE_BYTES`.
+ * @return 0, or all ones for a handle the caller does not own, a bad range, an
+ * overlap or when memory runs out. A failure in the middle can leave pages mapped;
+ * the caller discards the process.
+ */
+uintptr_t sys_proc_map(uintptr_t handle, uintptr_t address, uintptr_t pages, uintptr_t,
+					   uintptr_t, uintptr_t);
+
+/**
+ * @brief Copies bytes from the caller into mapped, writable pages of a pending
+ * process.
+ * @param handle Handle from `sys_proc_create`, owned by the caller.
+ * @param address Destination in the pending process.
+ * @param source Source in the caller, validated as readable.
+ * @param length Byte count, non zero and at most `MAX_PENDING_IMAGE_BYTES`.
+ * @return 0, or all ones for a bad handle, a source that is not readable, a
+ * destination range that is not mapped and writable in the pending process, or an
+ * overflow.
+ */
+uintptr_t sys_proc_write(uintptr_t handle, uintptr_t address, uintptr_t source,
+						 uintptr_t length, uintptr_t, uintptr_t);
+
+/**
+ * @brief Makes mapped pages of a pending process read only, so code cannot be
+ * changed by the program afterwards.
+ * @param handle Handle from `sys_proc_create`, owned by the caller.
+ * @param address Page aligned start.
+ * @param pages Page count, non zero; every page must be mapped.
+ * @return 0, or all ones for a bad handle or range.
+ */
+uintptr_t sys_proc_protect(uintptr_t handle, uintptr_t address, uintptr_t pages,
+						   uintptr_t, uintptr_t, uintptr_t);
+
+/**
+ * @brief Starts a pending process: creates its first thread at the entry point,
+ * sets its rights and lets it run.
+ * @param handle Handle from `sys_proc_create`, owned by the caller; it stops
+ * being valid on success.
+ * @param entry Entry point, inside a mapped page below the user stack.
+ * @return The id of the first thread, which is the process id, or all ones when
+ * the handle is not the caller's, the entry is invalid, no process id is free, the
+ * rights are no longer valid or the caller has too many children with an exit
+ * notice. The process stays pending after a failure.
+ */
+uintptr_t sys_proc_start(uintptr_t handle, uintptr_t entry, uintptr_t, uintptr_t,
+						 uintptr_t, uintptr_t);
+
+/**
+ * @brief Destroys a pending process and frees its memory.
+ * @param handle Handle from `sys_proc_create`, owned by the caller.
+ * @return 0, or all ones for a handle the caller does not own.
+ */
+uintptr_t sys_proc_discard(uintptr_t handle, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
+						   uintptr_t);
 
 /**
  * @brief Tells whether the thread of a process id is alive.

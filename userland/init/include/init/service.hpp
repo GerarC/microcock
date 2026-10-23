@@ -32,7 +32,7 @@ uint32_t labelOfName(const char *name);
 /**
  * @brief The rights a program is born with: its label and the labels of its `ipc` list.
  *
- * Given to `SYS_SPAWN`, which sets them before the first thread of the program can run. A name
+ * Given to the loader (`cock::user::spawn`), which has the kernel set them before the first thread of the program can run. A name
  * that matches no entry prints `init: <program> cannot talk to <name>` and is left out.
  *
  * @param entry The manifest entry the program is started from.
