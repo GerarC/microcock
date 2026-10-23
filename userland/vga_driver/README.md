@@ -26,7 +26,7 @@ Until the grant arrives every drawing message is ignored. The screen is 80 by 25
 
 | File | Holds |
 |------|-------|
-| `src/main.cpp` | `_start` and the receive loop that dispatches the message types |
+| `src/main.cpp` | `main` and the receive loop that dispatches the message types |
 | `src/vga.cpp` | `init`, `putChar`, `write`, `clear`, `newline`, `scroll`, `vga_entry` |
 | `include/vga_driver/vga.hpp` | `cock::vga::VgaServer`, the geometry and colour constants, `VGAColor`; included as `<vga_driver/vga.hpp>` |
 | `Makefile` | `NAME = vga_driver`, `SRCS` under `src/`, a short `LIBC_SRCS` list, `CONSOLE_CLIENT = no` |

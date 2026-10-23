@@ -34,7 +34,7 @@ Message layout: `shared/include/cock/ipc/message.hpp`. Per key the driver reads 
 
 | File | Holds |
 |------|-------|
-| `src/main.cpp` | `_start`: the grant, the controller, the receive loop that decodes and sends each key |
+| `src/main.cpp` | `main`: the grant, the controller, the receive loop that decodes and sends each key |
 | `src/grant.cpp`, `include/kbd/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED` and returns the console server |
 | `src/controller.cpp`, `include/kbd/controller.hpp` | The PS/2 controller: `openController` (port `0x60` and IRQ 1), `isInterrupt`, `readScancode`, `acknowledge` |
 | `src/console_link.cpp`, `include/kbd/console_link.hpp` | `sendKey`: sends a decoded key to the console as `CONSOLE_KEY` |

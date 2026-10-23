@@ -267,7 +267,6 @@ What the kernel already does, and what is planned next. Planned items are listed
 
 ### Planned
 
-- A shared `crt0` for programs.
 - Scheduler metrics (response and turnaround time) behind a build flag that is off by default, so they cost nothing unless enabled.
 - A scheduler that charges each priority level for the time its threads actually use, so a thread cannot keep a high level by yielding before its quantum ends.
 - A test that checks no thread sleeps forever when a futex word is set and waiters are woken.

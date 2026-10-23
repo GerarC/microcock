@@ -15,7 +15,7 @@ FILE_CLIENT_RUNS=10
 DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
 EXPECTED_SCREEN_TEXT="cock> echo after clear|after clear"
-EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 48/48 checks passed|microcock v0.2.0 shell, type help|hello shell|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|sh: cat: /ext/scratch/moved.txt: not found|abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|Boot memory released|init: manifest has 22 entries|contruncated: cut|init: configured vga_driver|init: started console|console: ready|init: started kbd|init: started sh|init: started ata|init: started rtc|rtc: ready|init: started fat|init: started vfs|vfs: 4 mounts|init: fsclient exit notices 10/10|init: started probe|kbd: ready|VGA driver detected|reaped"
+EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 49/49 checks passed|microcock v0.2.0 shell, type help|hello shell|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|sh: cat: /ext/scratch/moved.txt: not found|abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|init: initrd is boot module|Boot memory released|init: manifest has 22 entries|contruncated: cut|init: configured vga_driver|init: started console|console: ready|init: started kbd|init: started sh|init: started ata|init: started rtc|rtc: ready|init: started fat|init: started vfs|vfs: 4 mounts|init: fsclient exit notices 10/10|init: started probe|kbd: ready|VGA driver detected|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"
 case "$DISK_SCHEME" in

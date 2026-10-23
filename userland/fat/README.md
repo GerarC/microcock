@@ -31,7 +31,7 @@ Block protocol it uses: `BLK_CONNECT`, `BLK_INFO`, `BLK_READ`, `BLK_WRITE` (`sha
 
 | File | Holds |
 |------|-------|
-| `src/main.cpp` | `_start`: wait for the grant, mount, run the server |
+| `src/main.cpp` | `main`: wait for the grant, mount, run the server |
 | `include/fat/grant.hpp`, `src/grant.cpp` | `waitForCapabilities()`: waits for `CAPABILITY_GRANTED`, queues other messages with `Server::defer`, returns the device |
 | `include/fat/mount.hpp`, `src/mount.cpp` | `mountVolume()`: connects to `ata` and `rtc`, checks the boot sector, decides read only |
 | `include/fat/volume.hpp`, `src/volume.cpp` | Geometry, sector buffers, `Spot`, `Cursor`, `Found`, `Node`, `Handle` |

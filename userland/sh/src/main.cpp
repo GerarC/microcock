@@ -10,7 +10,7 @@ constexpr char PROMPT[] = "cock> ";
 
 } // namespace
 
-extern "C" void _start() {
+extern "C" int main() {
 	printf("microcock v%u.%u.%u shell, type help\n", cock::sh::VERSION_MAJOR,
 		   cock::sh::VERSION_MINOR, cock::sh::VERSION_PATCH);
 

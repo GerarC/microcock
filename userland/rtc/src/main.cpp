@@ -14,7 +14,7 @@ constexpr uintptr_t EXIT_FAILED_STATUS = 1;
 
 } // namespace
 
-extern "C" void _start() {
+extern "C" int main() {
 	cock::rtc::waitForCapabilities();
 
 	if (!cock::rtc::initClock()) {

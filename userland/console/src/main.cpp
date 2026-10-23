@@ -24,7 +24,7 @@ uint32_t waitTime() {
 
 } // namespace
 
-extern "C" void _start() {
+extern "C" int main() {
 	cock::console::setDisplay(cock::console::waitForCapabilities());
 
 	if (!cock::console::openSerial()) {

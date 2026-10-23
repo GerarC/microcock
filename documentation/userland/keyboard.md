@@ -14,7 +14,7 @@ A process starts with no access to the hardware, so `kbd` depends on what the ro
 
 ## Start-up
 ```cpp
-extern "C" void _start() {
+extern "C" int main() {
 	uint32_t display = waitForCapabilities();
 
 	if (!cock::user::request_ports(PS2_DATA_PORT, PS2_PORT_COUNT) ||

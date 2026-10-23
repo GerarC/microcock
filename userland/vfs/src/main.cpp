@@ -12,7 +12,7 @@ constexpr uintptr_t EXIT_FAILED_STATUS = 1;
 
 } // namespace
 
-extern "C" void _start() {
+extern "C" int main() {
 	if (!cock::vfs::loadMounts()) {
 		printf("vfs: cannot read %s\n", cock::abi::mounts::FILE_PATH);
 		cock::user::exit_process(EXIT_FAILED_STATUS);

@@ -47,7 +47,7 @@ The kernel still checks every grant against what `init` holds, so a manifest lin
 
 | File | Holds |
 |------|-------|
-| `src/main.cpp` | `_start`: `grantInitrd`, `loadManifest`, `runEntry` for each entry, exit |
+| `src/main.cpp` | `main`: `grantInitrd`, `loadManifest`, `runEntry` for each entry, exit |
 | `include/init/boot.hpp`, `src/boot.cpp` | `grantInitrd()`: the policy in the code, the `initrd` boot module for `ramfs` |
 | `include/init/grant.hpp`, `src/grant.cpp` | `announce()` and `equip()`: grants of an entry and the `CAPABILITY_GRANTED` message |
 | `include/init/files.hpp`, `src/files.cpp` | `readInto()`: a whole file through the file client |

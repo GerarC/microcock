@@ -29,7 +29,7 @@ It speaks the same protocol on both sides (`shared/include/cock/abi/fs.hpp`): `F
 
 | File | Holds |
 |------|-------|
-| `src/main.cpp` | `_start`: loads the mount table, then the request loop |
+| `src/main.cpp` | `main`: loads the mount table, then the request loop |
 | `src/dispatch.cpp` | `handle`: refuses unknown senders and requests without a session, then calls one handler |
 | `src/mounts.cpp`, `include/vfs/mounts.hpp` | The mount table: `loadMounts`, `pickMount`, `ensureMount`, `markDown`, `failure`, `isMountPoint` |
 | `src/opens.cpp`, `include/vfs/opens.hpp` | The table of open files: `findOpen`, `freeOpen`, `closeOpen`, `closeOwnedBy` |

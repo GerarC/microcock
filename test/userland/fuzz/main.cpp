@@ -540,7 +540,7 @@ bool sanityCheck() {
 
 } // namespace
 
-extern "C" void _start() {
+extern "C" int main() {
 	selfPid = cock::user::self();
 	selfTid = cock::user::gettid();
 	collectServers();

@@ -20,7 +20,7 @@ uint8_t sector[cock::abi::block::SECTOR_BYTES];
 
 }
 
-extern "C" void _start() {
+extern "C" int main() {
 	cock::user::block::Client client;
 	bool served = client.connect() && client.deviceCount() > FIRST_PARTITION;
 

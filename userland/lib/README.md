@@ -1,6 +1,6 @@
 # cock::user library
 
-The C++ library every Ring 3 program of MicroCOCK includes. It is header only (`userland/lib/include/cock/user/`) and has no sources and no Makefile: each program compiles what it includes, with `-I` set by `userland/common.mk`. It wraps system calls, holds the clients of the servers and holds the server side of the file protocol.
+The C++ library every Ring 3 program of MicroCOCK includes. It is made of headers (`userland/lib/include/cock/user/`) and of the two sources of the program start (`userland/lib/src/`), and has no Makefile: each program compiles what it includes, and `userland/common.mk` adds the two sources to every program, with `-I` set by the same file. It wraps system calls, holds the clients of the servers and holds the server side of the file protocol.
 
 ## Where it sits
 
@@ -19,6 +19,7 @@ programs (init, sh, ata, fat, ext, vfs, ...) --> cock::user --> system call wrap
 |--------|-------|
 | `api.hpp` | System call wrappers: `ipc_send`, `ipc_recv`, `ipc_try_recv`, `ipc_recv_timeout`, `sleep_ms`, `request_ports`, `irq_bind`, `irq_ack`, `cap_grant`, `lookup`, `shm_create`, `shm_share`, `shm_map`, `shm_release`, `module_open`, `module_index`, `spawn`, `process_alive`, `gettid`, `futex_wait`, `futex_wake`, port I/O, `write_text`, `exit_process`; the stash of messages that other waits received |
 | `call.hpp` | Synchronous calls with four words in registers: `ipc_call`, `ipc_accept`, `ipc_reply`, `ipc_reply_wait`, `ipc_defer`, `ipc_reply_to`; `CallStatus` and `CallResult` |
+| `crt0.hpp`, `constructors.hpp` | The start of every program: `_start` (`src/crt0.cpp`) runs `runConstructors` (`src/constructors.cpp`, the `.init_array`), calls `main` and passes its value to `exit_process` |
 | `thread.hpp`, `mutex.hpp` | `thread_start` on a caller supplied stack, and a futex mutex for threads of one process |
 | `fs.hpp` | `fs::Client`: `connect`, `open`, `read`, `write`, `unlink`, `mkdir`, `rmdir`, `rename`, `link`, `readdir`, `stat`, `close`, `lastStatus` |
 | `file_server.hpp` | `FileServer<Backend>`: sessions, handles, windows, validation and replies for `fat` and `ext` |
@@ -38,7 +39,7 @@ A client that is also a server (`vfs`, `fat`, `ext`) sets `onForeign`, a functio
 
 ## How to use it
 
-A program has a folder in `userland/` with a `Makefile` that sets `NAME`, `SRCS` and `LIBC_SRCS` and includes `../common.mk`, an entry `_start` declared `extern "C"` that ends with `exit_process`, and one line in `initrd/manifest.conf`. Programs that use the file client list `string/memcpy.cpp` and `string/strlen.cpp` in `LIBC_SRCS`.
+A program has a folder in `userland/` with a `Makefile` that sets `NAME`, `SRCS` and `LIBC_SRCS` and includes `../common.mk`, an entry `extern "C" int main()` (the shared `crt0` is the ELF entry and calls it), and one line in `initrd/manifest.conf`. Programs that use the file client list `string/memcpy.cpp` and `string/strlen.cpp` in `LIBC_SRCS`.
 
 ```sh
 make userland/sh

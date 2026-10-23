@@ -38,7 +38,7 @@ bool VgaServer::init() {
 After that it loops on `sys_ipc_recv`. The kernel routes text data to it via IPC messages containing types like `VIDEO_WRITE_CHAR` or `VIDEO_WRITE_STR`, and so does any other program, such as the keyboard driver.
 
 ```cpp
-extern "C" void _start() {
+extern "C" int main() {
 	bool ready = false;
 
 	Message msg = {};

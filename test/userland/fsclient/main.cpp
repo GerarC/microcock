@@ -14,7 +14,7 @@ constexpr uintptr_t EXIT_REFUSED = 1;
 
 }
 
-extern "C" void _start() {
+extern "C" int main() {
 	cock::user::fs::Client client;
 	char buffer[BUFFER_BYTES];
 

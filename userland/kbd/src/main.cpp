@@ -16,7 +16,7 @@ constexpr const char FAILED_MESSAGE[] = "kbd: cannot bind the keyboard\n";
 
 } // namespace
 
-extern "C" void _start() {
+extern "C" int main() {
 	uint32_t console = cock::kbd::waitForCapabilities();
 
 	if (!cock::kbd::openController()) {

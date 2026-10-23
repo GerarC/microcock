@@ -165,7 +165,7 @@ bool keepsForeignMessages() {
 
 }
 
-extern "C" void _start() {
+extern "C" int main() {
 	bool served = worksOn(EXT_FILE, EXT_GONE);
 	if (served) puts("cfile: ext ok");
 	served = served && worksOn(FAT_FILE, FAT_GONE);

@@ -21,7 +21,7 @@ bool sendWithoutLast(uint32_t server, const char *text, size_t length) {
 
 }
 
-extern "C" void _start() {
+extern "C" int main() {
 	uint32_t server = cock::user::lookup(cock::abi::console::SERVER_NAME);
 	if (server == cock::user::NO_PROCESS) cock::user::exit_process(EXIT_FAILED);
 
