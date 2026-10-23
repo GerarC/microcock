@@ -31,8 +31,21 @@ Block protocol it uses: `BLK_CONNECT`, `BLK_INFO`, `BLK_READ`, `BLK_WRITE` (`sha
 
 | File | Holds |
 |------|-------|
-| `main.cpp` | The `Fat` backend (mount, FAT access, directory walk, names, create, write, rename, remove, FSInfo, clean flag) and `_start` |
-| `Makefile` | `NAME = fat` and the `LIBC_SRCS` list |
+| `src/main.cpp` | `_start`: wait for the grant, mount, run the server |
+| `include/fat/grant.hpp`, `src/grant.cpp` | `waitForCapabilities()`: waits for `CAPABILITY_GRANTED`, queues other messages with `Server::defer`, returns the device |
+| `include/fat/mount.hpp`, `src/mount.cpp` | `mountVolume()`: connects to `ata` and `rtc`, checks the boot sector, decides read only |
+| `include/fat/volume.hpp`, `src/volume.cpp` | Geometry, sector buffers, `Spot`, `Cursor`, `Found`, `Node`, `Handle` |
+| `include/fat/table.hpp`, `src/table.cpp` | FAT sectors, cluster links, allocate and free chains |
+| `include/fat/fsinfo.hpp`, `src/fsinfo.cpp` | FSInfo counters and hint |
+| `include/fat/state.hpp`, `src/state.cpp` | Clean shutdown bit: `isCleanVolume`, `beginUpdate`, `endUpdate` |
+| `include/fat/stamp.hpp`, `src/stamp.cpp` | File times from `rtc`, 1980 epoch without it |
+| `include/fat/directory.hpp`, `src/directory.cpp` | Walk, find, list, write and delete entries, empty check |
+| `include/fat/entries.hpp`, `src/entries.cpp` | Short names, long entries, free runs: `placeEntry` |
+| `include/fat/lookup.hpp`, `src/lookup.cpp` | Paths: `walk`, `resolve`, `parentAndName`, `isInside` |
+| `include/fat/file.hpp`, `src/file.cpp` | File data: read, write, truncate |
+| `include/fat/operations.hpp`, `src/operations.cpp` | Create, mkdir, rmdir, rename, unlink, write, truncate, each between `beginUpdate` and `endUpdate` |
+| `include/fat/server.hpp` | `Backend` adapter and `Server = FileServer<Backend>` |
+| `Makefile` | `NAME = fat`, `SRCS` and the `LIBC_SRCS` list |
 | `../lib/include/cock/user/file_server.hpp` | The server side template shared with `ext` |
 | `../lib/include/cock/user/block.hpp`, `clock.hpp` | The `ata` and `rtc` clients |
 
