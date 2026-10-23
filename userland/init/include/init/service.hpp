@@ -1,5 +1,5 @@
 /** @file
- * @brief Service labels and the IPC capabilities that `init` gives to each program.
+ * @brief Service labels, and the label each program is born with or given.
  */
 #ifndef INIT_SERVICE_HPP
 #define INIT_SERVICE_HPP
@@ -30,10 +30,11 @@ uint32_t labelOf(const cock::abi::manifest::Entry &entry);
 uint32_t labelOfName(const char *name);
 
 /**
- * @brief The rights a program is born with: its label and the labels of its `ipc` list.
+ * @brief The rights a program is born with: its label and no IPC capability.
  *
- * Given to the loader (`cock::user::spawn`), which has the kernel set them before the first thread of the program can run. A name
- * that matches no entry prints `init: <program> cannot talk to <name>` and is left out.
+ * Given to the loader (`cock::user::spawn`), which has the kernel set them before the first thread
+ * of the program can run. The right to talk to other programs comes later, when the program
+ * connects through the name server.
  *
  * @param entry The manifest entry the program is started from.
  * @return The rights to pass to `cock::user::spawn`.
@@ -41,16 +42,17 @@ uint32_t labelOfName(const char *name);
 cock::abi::service::SpawnRights rightsOf(const cock::abi::manifest::Entry &entry);
 
 /**
- * @brief Labels a boot module and gives it the IPC capabilities of its entry.
+ * @brief Labels a boot module and tells the name server which process runs it.
  *
  * Boot modules are started by the kernel, so this happens after they run: it is meant for
- * programs that only wait for messages, such as the display server. A refused label or grant
- * prints `init: cannot label <program>` or `init: <program> cannot talk to <name>`.
+ * programs that only wait for messages, such as the display server. A refused label prints
+ * `init: cannot label <program>`.
  *
  * @param entry The manifest entry of the boot module.
  * @param pid Process id of the boot module.
+ * @return True when the label was set and the name server accepted the binding.
  */
-void connectBootModule(const cock::abi::manifest::Entry &entry, uint32_t pid);
+bool labelBootModule(const cock::abi::manifest::Entry &entry, uint32_t pid);
 
 } // namespace cock::init
 

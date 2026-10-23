@@ -70,7 +70,7 @@ OBJ_CORE    = $(OBJ_CPP) $(OBJ_ASM)
 OBJ            = $(OBJ_CORE) $(CRTBEGIN_OBJ) $(CRTEND_OBJ)
 LINKER_I686 = cock/arch/x86/linker.ld
 
-USERLAND_BOOT_ORDER = init ramfs vga_driver
+USERLAND_BOOT_ORDER = init names ramfs vga_driver
 INITRD_STAGE = $(BUILD)/initrd_root
 INITRD_PROGRAMS = bin
 INITRD_DIR = initrd

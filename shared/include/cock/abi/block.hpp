@@ -16,7 +16,7 @@
 
 namespace cock::abi::block {
 
-/** Name under which the block server registers; clients find it with `SYS_PROC_LOOKUP`. */
+/** Name under which the block server registers; clients connect to it through the name server. */
 constexpr const char *SERVER_NAME = "ata";
 
 /** Size of one sector in bytes (logical sector of the ATA disk). */

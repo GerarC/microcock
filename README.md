@@ -45,6 +45,7 @@ The codebase is strictly separated to maintain the microkernel philosophy. The C
 ├── userland/               # User Space Programs (Ring 3)
 │   ├── lib/                # `cock::user` API used by the programs
 │   ├── init/               # Root server: the only process born with authority
+│   ├── names/              # Name server: checks the `ipc=` policy when a program connects to another
 │   ├── vga_driver/         # VGA Server running in userland
 │   └── kbd/                # PS/2 keyboard driver running in userland
 ├── test/                   # Every test
@@ -68,11 +69,11 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_SCHED_YIELD` (0x9E): Yield CPU to the next ready thread.
 * `SYS_IPC_SEND` (0x160): Send a message to another process.
 * `SYS_IPC_RECV` (0x161): Receive the next interrupt notification or message of the thread, blocking when there is none.
-* `SYS_CAP_GRANT` (0x170): Delegate part of a capability to another process; returns the id of the node of the derivation tree that records it.
+* `SYS_CAP_GRANT` (0x170): Delegate part of a capability to another process; returns the id of the node of the derivation tree that records it. A fifth argument lets the receiver pass the capability on (`GRANT_DELEGATE`), which is how the name server may give `IPC` capabilities.
 * `SYS_CAP_REVOKE` (0x18A): Revoke a delegated capability and everything derived from it; the caller must hold an ancestor of the node. Closes the ports, unbinds the lines and unmaps the device memory that the holders opened with it.
 * `SYS_IRQ_BIND` (0x171): Route an interrupt line to the calling process. Requires an `IRQ` capability.
 * `SYS_IRQ_ACK` (0x172): Re-enable an interrupt line after handling it.
-* `SYS_PROC_LOOKUP` (0x173): Find the process id of a boot module by name.
+* `SYS_MODULE_PROCESS` (0x173): Find the process id of the program the kernel started from a boot module, by module name; needs grant authority. Programs find a server through the name server instead.
 * `SYS_SHM_CREATE` (0x174): Create a shared memory object of a number of pages, paid by the caller.
 * `SYS_SHM_SHARE` (0x175): Let another process map an object, read only or read and write; needs an IPC capability with that process (or in the other direction).
 * `SYS_SHM_MAP` (0x176): Map a whole object into the caller, read only or read and write.
@@ -254,6 +255,7 @@ What the kernel already does, and what is planned next. Planned items are listed
 - A console server: `printf` and `read(0)` go through it, readers block through deferred replies, and the client is linked by default.
 - A minimal shell with built-in commands (version 0.2.0, see [the shell](documentation/userland/shell.md)).
 - A syscall fuzzer that runs in Ring 3 and fails on any kernel panic, in unprivileged and root modes.
+- A name server in Ring 3 (`names`, the second boot module): a program connects to a server by name, the `ipc=` policy of the manifest is checked then, and the right to talk to the server is given then. The kernel no longer looks processes up by name; it only finds the boot modules for `init`.
 
 **Hardening**
 - Authenticated reserved messages, per-process memory limits, a reaper thread, a write-protected kernel image, and the FPU disabled for programs.
@@ -277,8 +279,8 @@ What the kernel already does, and what is planned next. Planned items are listed
 
 ### Planned
 
-- Keeping the kernel small is the next goal, in this order. First, capabilities as data (below): the kernel stops knowing program names, and IPC gets a capability of its own. Then a page that lists every concept the kernel holds and says why each one cannot live outside it (done: `documentation/core/kernel_concepts.md`), the ELF loader and `spawn` moved out of the kernel into a user library (done for programs started at run time; the kernel keeps a loader only for the Multiboot boot modules), and the name lookup and the debug channel (`SYS_WRITE`, `SYS_READ`, kernel console) moved out of the core, the debug channel kept only behind a build option.
-- A route to Unix style IPC, where the capability plays the part of the file descriptor. Step by step: a stable service label with an IPC capability that decides who may send, call or share memory with whom (in progress); a name service in Ring 3 that replaces the lookup of the kernel, so permission is checked when a client connects; capability transfer in messages, so a client can give a server a shared buffer or a port and the receiver gets it only when its policy allows; endpoints and handles, so messages are addressed by handle and not by process id; capabilities inherited by `fork` and kept by `exec`; and a descriptor layer in the C library, so the shell can join programs with pipes and redirection.
+- Keeping the kernel small is the next goal, in this order. First, capabilities as data (below): the kernel stops knowing program names, and IPC gets a capability of its own. Then a page that lists every concept the kernel holds and says why each one cannot live outside it (done: `documentation/core/kernel_concepts.md`), the ELF loader and `spawn` moved out of the kernel into a user library (done for programs started at run time; the kernel keeps a loader only for the Multiboot boot modules), the name lookup moved out of the kernel into the name server (done), and the debug channel (`SYS_WRITE`, `SYS_READ`, kernel console) moved out of the core, kept only behind a build option.
+- A route to Unix style IPC, where the capability plays the part of the file descriptor. Step by step: a stable service label with an IPC capability that decides who may send, call or share memory with whom (done); a name service in Ring 3 that replaces the lookup of the kernel, so permission is checked when a client connects (done); capability transfer in messages, so a client can give a server a shared buffer or a port and the receiver gets it only when its policy allows; endpoints and handles, so messages are addressed by handle and not by process id; capabilities inherited by `fork` and kept by `exec`; and a descriptor layer in the C library, so the shell can join programs with pipes and redirection.
 - Page faults handled by a server, so memory policy can live outside the kernel. This is the largest item and needs a decision first.
 - A process model like Linux's, kept by a process manager server (`pm`) outside the kernel, as in Minix 3; the kernel keeps only the primitives it must. It covers process states (running, sleeping, stopped, zombie) shown to `ps`; `wait` (a parent collects a child's exit status, and zombies until then), `exec` (a process replaces its program and keeps its pid), signals with `kill`, process groups so Ctrl+C reaches only the foreground job, a process table for `ps`, and `nice`.
 - Fuzzing of corrupt ELF images and of the file server protocols, so a malformed file or request cannot crash a server or the kernel.
@@ -289,7 +291,6 @@ What the kernel already does, and what is planned next. Planned items are listed
 - A heap test under random allocation and release, to see whether the free space fragments.
 - An out-of-memory test: a program that uses up the physical memory must get an error, and the kernel must keep running.
 - A kernel stack overflow reported with a message instead of a silent reset.
-- A capability check on the calls to the console server (needs the IPC capability below).
 - Capabilities as data: the kernel no longer knows the name of any program (done for `init` and the VGA driver), a test checks that it boots with no user program at all (done), capabilities can be revoked (done in the kernel; `init` does not use it yet), IPC gets a capability of its own (the first step of the route above, which also decides who may write the disk), a capability may replace the grant authority needed to `spawn`, and DMA-capable ports get a policy.
 - Platform: APIC and IOAPIC, PAE with NX and memory above 4 GiB, SMP (with the TLB of every CPU updated when a page table changes), and an x86_64 port.
 

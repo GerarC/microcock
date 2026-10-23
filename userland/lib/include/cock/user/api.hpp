@@ -32,6 +32,8 @@ constexpr uint32_t NO_SHM = 0xFFFFFFFF;
 constexpr uint32_t NO_MODULE = 0xFFFFFFFF;
 /** Raw system call result that means success (`0`). */
 constexpr uintptr_t SUCCESS = 0;
+/** Value of the `flags` argument of `SYS_CAP_GRANT` for a capability the target cannot pass on. */
+constexpr uintptr_t NO_GRANT_FLAGS = 0;
 /** Raw result of the non blocking and timed receive calls when no message arrived. */
 constexpr uintptr_t NO_MESSAGE = 1;
 /** File descriptor for console output, accepted by `SYS_WRITE` together with descriptor 2. */
@@ -215,15 +217,19 @@ inline bool irq_ack(uint32_t line) {
  * @param type Kind of capability (ports, IRQ, boot module, ...).
  * @param first First port, line or module index.
  * @param count Number of items from `first`.
+ * @param delegate true to let the target pass the capability on (`abi::GRANT_DELEGATE`): it holds
+ *        the grant flag for the range, as the name server does for `IPC` capabilities. false
+ *        gives a capability the target cannot pass on.
  * @return The id of the node of the derivation tree that records the grant (greater than 0),
  *         or `abi::NO_CAPABILITY_NODE` when the type is unknown, the caller holds no grantable
  *         capability covering the range, the target does not exist or is a kernel process,
  *         the capability table of the target is full, or the derivation tree is full.
  */
 inline uint32_t cap_grant_node(uint32_t pid, abi::CapabilityType type, uintptr_t first,
-							   uintptr_t count) {
+							   uintptr_t count, bool delegate = false) {
+	uintptr_t flags = delegate ? abi::GRANT_DELEGATE : NO_GRANT_FLAGS;
 	uintptr_t result = syscall(SYS_CAP_GRANT, pid, static_cast<uintptr_t>(type), first,
-							   count, 0, 0);
+							   count, flags, 0);
 	return result == FAILURE ? abi::NO_CAPABILITY_NODE : static_cast<uint32_t>(result);
 }
 
@@ -232,8 +238,8 @@ inline uint32_t cap_grant_node(uint32_t pid, abi::CapabilityType type, uintptr_t
  * @return true when granted; false in every case where `cap_grant_node` fails.
  */
 inline bool cap_grant(uint32_t pid, abi::CapabilityType type, uintptr_t first,
-					  uintptr_t count) {
-	return cap_grant_node(pid, type, first, count) != abi::NO_CAPABILITY_NODE;
+					  uintptr_t count, bool delegate = false) {
+	return cap_grant_node(pid, type, first, count, delegate) != abi::NO_CAPABILITY_NODE;
 }
 
 /**
@@ -265,17 +271,21 @@ inline bool cap_revoke(uint32_t node) {
 }
 
 /**
- * @brief Finds a process by name (`SYS_PROC_LOOKUP`).
- * @param name NUL terminated process name; its length is measured here.
- * @return The process id, or `NO_PROCESS` when no live user process has that name or the
- *         name is empty or too long for the kernel.
+ * @brief Finds the process the kernel started from a boot module (`SYS_MODULE_PROCESS`).
+ *
+ * Only a process with grant authority may call it; `init` uses it to find the programs the kernel
+ * starts before it runs, such as the name server. Every other program finds a server through the
+ * name server (`names.hpp`).
+ * @param name NUL terminated boot module name; its length is measured here.
+ * @return The process id, or `NO_PROCESS` when no live process was started from a boot module
+ *         with that name, the name is empty or too long for the kernel, or the caller is not allowed.
  */
-inline uint32_t lookup(const char *name) {
+inline uint32_t module_process(const char *name) {
 	size_t length = 0;
 	while (name[length] != '\0')
 		length++;
 
-	uintptr_t result = syscall(SYS_PROC_LOOKUP, reinterpret_cast<uintptr_t>(name),
+	uintptr_t result = syscall(SYS_MODULE_PROCESS, reinterpret_cast<uintptr_t>(name),
 							   length, 0, 0, 0, 0);
 	return result == FAILURE ? NO_PROCESS : static_cast<uint32_t>(result);
 }

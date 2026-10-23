@@ -4,12 +4,12 @@
  *
  * The file is text, one entry per line: `name key=value ...`. Blank lines and lines that start with `#` are
  * ignored, and tokens are separated by spaces or tabs. Keys:
- * `path=<file>` (ELF in the initrd; no path means a boot data module), `peer=<name>` (process told about
- * by `CAPABILITY_GRANTED`), `repeat=<1..32>` (copies to start; 1 for boot modules), `restart=<1..16>` (times `init` starts the program
+ * `path=<file>` (ELF in the initrd; no path means a boot module that is only configured), `repeat=<1..32>` (copies to start; 1 for boot modules), `restart=<1..16>` (times `init` starts the program
  * again after it ends, within one restart window; needs a path and `repeat` of 1), `arg=<number>` (one
  * numeric argument) and `caps=<grant>,<grant>...` with grants `io:<first>[+count]`, `irq:<line>[+count]` and
  * `mem:<first>+<bytes>` plus the bare `spawn` (the right to call `SYS_PROC_CREATE`), and `ipc=<name>,<name>...` (programs this one may exchange messages with, calls
- * and shared memory with; `init` grants one IPC capability for the service label of each name).
+ * and shared memory with; the name server checks the list when the program connects to one of them and gives it
+ * an IPC capability for the service label then).
  * Numbers are decimal or `0x` hexadecimal and must fit in 32 bits. The parser has no
  * dependencies and is covered by host tests; init reads the file, the kernel never does.
  */
@@ -29,7 +29,7 @@ constexpr const char *FILE_PATH = "manifest.conf";
 constexpr size_t MAX_FILE_BYTES = 4096;
 /** Most entries in the manifest; one more is `TOO_MANY_ENTRIES`. */
 constexpr size_t MAX_ENTRIES = 32;
-/** Longest process or peer name including the terminator; longer names are rejected. */
+/** Longest process name including the terminator; longer names are rejected. */
 constexpr size_t MAX_NAME_BYTES = 32;
 /** Longest program path including the terminator. */
 constexpr size_t MAX_PATH_BYTES = 64;
@@ -62,8 +62,6 @@ struct Entry {
 	char name[MAX_NAME_BYTES];
 	/** Path of the ELF in the initrd; empty for a boot module. */
 	char path[MAX_PATH_BYTES];
-	/** Name of the peer process, or empty when there is none. */
-	char peer[MAX_NAME_BYTES];
 	/** Capabilities to grant; only the first `grantCount` are valid. */
 	Grant grants[MAX_GRANTS];
 	/** Number of valid grants, at most `MAX_GRANTS`. */
@@ -86,11 +84,6 @@ struct Entry {
 	 * @return True when the path is empty.
 	 */
 	bool isBootModule() const { return path[0] == '\0'; }
-	/**
-	 * @brief Tells whether a peer was given.
-	 * @return True when the peer name is not empty.
-	 */
-	bool hasPeer() const { return peer[0] != '\0'; }
 };
 
 /** Reason why parsing stopped; see `Manifest::errorLine` for the line. */
@@ -168,8 +161,6 @@ constexpr uint64_t ADDRESS_LIMIT = uint64_t(1) << 32;
 
 /** Key of the program path. */
 constexpr const char *KEY_PATH = "path";
-/** Key of the peer name. */
-constexpr const char *KEY_PEER = "peer";
 /** Key of the copy count. */
 constexpr const char *KEY_REPEAT = "repeat";
 /** Key of the restart limit. */
@@ -438,7 +429,6 @@ inline Error parseLine(Slice line, Entry &entry) {
 		return Error::BAD_NAME;
 
 	bool seenPath = false;
-	bool seenPeer = false;
 	bool seenRepeat = false;
 	bool seenRestart = false;
 	bool seenCaps = false;
@@ -454,10 +444,6 @@ inline Error parseLine(Slice line, Entry &entry) {
 			if (seenPath) return Error::DUPLICATE_KEY;
 			seenPath = true;
 			if (!copyText(value, entry.path, MAX_PATH_BYTES)) return Error::BAD_VALUE;
-		} else if (key.equals(KEY_PEER)) {
-			if (seenPeer) return Error::DUPLICATE_KEY;
-			seenPeer = true;
-			if (!copyText(value, entry.peer, MAX_NAME_BYTES)) return Error::BAD_VALUE;
 		} else if (key.equals(KEY_REPEAT)) {
 			if (seenRepeat) return Error::DUPLICATE_KEY;
 			seenRepeat = true;

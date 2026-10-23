@@ -36,7 +36,7 @@ The kernel does not read program files. Starting a program takes six calls that 
 
 Only the process that created the handle may use it. A pending process dies with its creator (`Process::~Process` calls `PendingProcesses::discardOwnedBy`), so a loader that crashes in the middle leaves nothing behind. A mistake in the loader can at worst give a broken program, or make a call fail; the kernel validates every range again. The new process has an **empty capability set**, except for the rights it was created with; whoever started it grants what it needs with `SYS_CAP_GRANT` and `CAPABILITY_GRANTED`. The calls fail, without panicking, when there are no free process ids or when frames run out; `SYS_PROC_START` maps the user stack and the kernel stack before it creates the thread, so running out of frames there is a failure and the process stays pending; the kernel can still panic only if the pool of thread objects cannot grow, as for any thread. `SYS_PROC_ALIVE(pid)` tells whether a process id names a living process.
 
-The ELF loader that remains in the kernel (`cock/core/loader`) serves only the Multiboot boot modules (`init`, `ramfs`, `vga_driver`), which no user loader can start because nothing runs before them.
+The ELF loader that remains in the kernel (`cock/core/loader`) serves only the Multiboot boot modules (`init`, `names`, `ramfs`, `vga_driver`), which no user loader can start because nothing runs before them.
 
 ## The MLFQ Scheduler
 The scheduler is driven by the Programmable Interval Timer (PIT), which fires `IRQ0` at a frequency of 100 Hz. Each tick calls `Scheduler::onTick`; a thread that needs to give up the CPU (it blocked, it exited, or it was hit by an exception) goes through `Scheduler::onYield`. Both end in `switchFrom`.

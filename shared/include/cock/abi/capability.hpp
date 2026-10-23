@@ -33,6 +33,9 @@ enum class CapabilityType : uint8_t {
 	SPAWN = 6,
 };
 
+/** Value of the `flags` argument of `SYS_CAP_GRANT` that passes on the right to grant the capability further; zero grants a capability the holder cannot pass on. */
+constexpr uint32_t GRANT_DELEGATE = 1;
+
 /** First (and only) value of the range of a `SPAWN` capability. */
 constexpr uint64_t SPAWN_FIRST = 0;
 

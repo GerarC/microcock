@@ -18,7 +18,7 @@ constexpr char FULL_MANIFEST[] =
 	"fsclient path=bin/fsclient.elf repeat=10\n"
 	"\n"
 	"# a comment\n"
-	"   kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 peer=vga_driver\r\n"
+	"   kbd path=bin/kbd.elf caps=io:0x60+1,irq:1\r\n"
 	"probe path=bin/probe.elf";
 constexpr size_t FULL_ENTRY_COUNT = 4;
 constexpr size_t VGA_INDEX = 0;
@@ -107,7 +107,6 @@ void checkFullManifest() {
 	const Entry &vga = manifest.entries[VGA_INDEX];
 	CHECK_TRUE(strcmp(vga.name, "vga_driver") == 0);
 	CHECK_TRUE(vga.isBootModule());
-	CHECK_FALSE(vga.hasPeer());
 	CHECK_EQ(ONE_GRANT, vga.grantCount);
 	CHECK_TRUE(vga.grants[0].type == CapabilityType::PHYSICAL_MEMORY);
 	CHECK_EQ(VIDEO_START, vga.grants[0].first);
@@ -121,8 +120,6 @@ void checkFullManifest() {
 	CHECK_EQ(NO_GRANTS, client.grantCount);
 
 	const Entry &keyboard = manifest.entries[KBD_INDEX];
-	CHECK_TRUE(keyboard.hasPeer());
-	CHECK_TRUE(strcmp(keyboard.peer, "vga_driver") == 0);
 	CHECK_EQ(KBD_GRANTS, keyboard.grantCount);
 	CHECK_TRUE(keyboard.grants[KBD_PORT_GRANT].type == CapabilityType::IO_PORTS);
 	CHECK_EQ(PS2_PORT, keyboard.grants[KBD_PORT_GRANT].first);
@@ -194,10 +191,9 @@ void checkKeyRules() {
 	CHECK_TRUE(errorOf("a flag\n") == Error::UNKNOWN_KEY);
 	CHECK_TRUE(errorOf("a mode=fast\n") == Error::UNKNOWN_KEY);
 	CHECK_TRUE(errorOf("a path=x path=y\n") == Error::DUPLICATE_KEY);
-	CHECK_TRUE(errorOf("a peer=x peer=y\n") == Error::DUPLICATE_KEY);
 	CHECK_TRUE(errorOf("a path=x repeat=2 repeat=3\n") == Error::DUPLICATE_KEY);
 	CHECK_TRUE(errorOf("a path=\n") == Error::BAD_VALUE);
-	CHECK_TRUE(errorOf("a peer=\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("a peer=b\n") == Error::UNKNOWN_KEY);
 }
 
 void checkRepeatBounds() {
@@ -245,7 +241,7 @@ void checkIpcRules() {
 
 	CHECK_TRUE(parses("a path=bin/a.elf\n", manifest));
 	CHECK_EQ(NO_NAMES, manifest.entries[0].ipcCount);
-	CHECK_TRUE(parses("a path=bin/a.elf ipc=b caps=io:1 peer=b\n", manifest));
+	CHECK_TRUE(parses("a path=bin/a.elf ipc=b caps=io:1\n", manifest));
 	CHECK_EQ(ONE_NAME, manifest.entries[0].ipcCount);
 	CHECK_TRUE(Error::BAD_VALUE == errorOf("a ipc=\n"));
 	CHECK_TRUE(Error::BAD_VALUE == errorOf("a ipc=b,\n"));

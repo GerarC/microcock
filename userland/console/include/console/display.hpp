@@ -4,19 +4,20 @@
 #ifndef CONSOLE_DISPLAY_HPP
 #define CONSOLE_DISPLAY_HPP
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 namespace cock::console {
 
 /**
- * @brief Sets the process that draws on the screen.
+ * @brief Connects to the process that draws on the screen, through the name server.
  *
- * Until it is set, every call of this module does nothing.
+ * Until a connection exists, every call of this module does nothing.
  *
- * @param pid Process id of the display server.
+ * @return true when the display server runs and the manifest lets the console talk to it.
  */
-void setDisplay(uint32_t pid);
+bool connectDisplay();
 
 /**
  * @brief Draws text on the screen, in chunks the display server accepts.

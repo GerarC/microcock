@@ -153,6 +153,7 @@ extern "C" void cock_main(const BootModule* modules, size_t mod_count) {
 
         Process *process = Process::create(new_cr3, image.user_space_limit);
         process->setName(modules[i].name);
+        process->markBootModule();
         Thread *app_thread = new Thread(*process, image.entry, ThreadPriority::NORMAL);
         if (!root_task_started) {
             grant_root_capabilities(*process, mod_count);

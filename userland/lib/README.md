@@ -17,7 +17,8 @@ programs (init, sh, ata, fat, ext, vfs, ...) --> cock::user --> system call wrap
 
 | Header | Holds |
 |--------|-------|
-| `api.hpp` | System call wrappers: `ipc_send`, `ipc_recv`, `ipc_try_recv`, `ipc_recv_timeout`, `sleep_ms`, `request_ports`, `irq_bind`, `irq_ack`, `cap_grant`, `cap_grant_node`, `cap_revoke`, `lookup`, `shm_create`, `shm_share`, `shm_map`, `shm_release`, `module_open`, `module_index`, `proc_create`, `proc_map`, `proc_write`, `proc_protect`, `proc_start`, `proc_discard`, `process_alive`, `gettid`, `futex_wait`, `futex_wake`, port I/O, `write_text`, `exit_process`; the stash of messages that other waits received |
+| `api.hpp` | System call wrappers: `ipc_send`, `ipc_recv`, `ipc_try_recv`, `ipc_recv_timeout`, `sleep_ms`, `request_ports`, `irq_bind`, `irq_ack`, `cap_grant`, `cap_grant_node`, `cap_revoke`, `module_process`, `shm_create`, `shm_share`, `shm_map`, `shm_release`, `module_open`, `module_index`, `proc_create`, `proc_map`, `proc_write`, `proc_protect`, `proc_start`, `proc_discard`, `process_alive`, `gettid`, `futex_wait`, `futex_wake`, port I/O, `write_text`, `exit_process`; the stash of messages that other waits received |
+| `names.hpp` | `names::connect(name)` and `names::server(name)`: ask the name server for the right to talk to a server and for its process id; `Connection` and the retry while `init` has not registered the caller |
 | `call.hpp` | Synchronous calls with four words in registers: `ipc_call`, `ipc_accept`, `ipc_reply`, `ipc_reply_wait`, `ipc_defer`, `ipc_reply_to`; `CallStatus` and `CallResult` |
 | `crt0.hpp`, `constructors.hpp` | The start of every program: `_start` (`src/crt0.cpp`) runs `runConstructors` (`src/constructors.cpp`, the `.init_array`), calls `main` and passes its value to `exit_process` |
 | `thread.hpp`, `mutex.hpp` | `thread_start` on a caller supplied stack, and a futex mutex for threads of one process |
@@ -53,7 +54,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler, and `USER_EXTRA_FLAGS=-fno-om
 ## Limits and known gaps
 
 - Not thread safe: `fs::Client`, `Clock` and the stash keep state per program; `malloc` of the C library is locked and safe for threads.
-- Clients look the server up by name. The kernel lets a process talk to a server only when it holds an IPC capability for the server (or the server for it); the manifest key `ipc=` gives it. Knowing the id of a server grants nothing.
+- Clients connect to a server through the name server (`names.hpp`). The kernel lets a process talk to a server only when it holds an IPC capability for the server (or the server for it); the name server gives it when the manifest key `ipc=` allows the connection. Knowing the id of a server grants nothing.
 - Wait times have a resolution of the kernel tick (10 ms for `sleep_ms`).
 - The wrappers keep the stash of 16 messages; more are dropped.
 - There is no x86_64 variant yet: the wrappers assume the `int 0x80` ABI of i386.

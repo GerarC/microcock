@@ -17,6 +17,7 @@ namespace {
 
 constexpr uintptr_t FAILED_STATUS = 1;
 constexpr uint32_t SWEEP_MS = 50;
+constexpr const char NO_DISPLAY_MESSAGE[] = "console: no display server";
 
 uint32_t waitTime() {
 	return cock::console::hasPartialText() ? SWEEP_MS : cock::user::CALL_NO_TIMEOUT;
@@ -25,7 +26,8 @@ uint32_t waitTime() {
 } // namespace
 
 extern "C" int main() {
-	cock::console::setDisplay(cock::console::waitForCapabilities());
+	cock::console::waitForCapabilities();
+	if (!cock::console::connectDisplay()) puts(NO_DISPLAY_MESSAGE);
 
 	if (!cock::console::openSerial()) {
 		puts("console: cannot open the serial port");

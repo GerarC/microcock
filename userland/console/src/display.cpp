@@ -1,6 +1,7 @@
 #include <cock/abi/console.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <cock/user/names.hpp>
 #include <console/display.hpp>
 
 using cock::ipc::Message;
@@ -31,7 +32,10 @@ void deliverToDisplay(const Message &message) {
 
 } // namespace
 
-void setDisplay(uint32_t pid) { display = pid; }
+bool connectDisplay() {
+	display = cock::user::names::server(proto::DISPLAY_NAME);
+	return display != NO_PROCESS;
+}
 
 void screenWrite(const char *text, size_t length) {
 	for (size_t offset = 0; offset < length; offset += DISPLAY_CHUNK_BYTES) {

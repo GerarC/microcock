@@ -12,7 +12,7 @@ uint32_t waitForCapabilities() {
 	Message message = {};
 	for (;;) {
 		cock::user::ipc_recv(message);
-		if (message.type == MessageType::CAPABILITY_GRANTED) return message.payload.args.arg1;
+		if (message.type == MessageType::CAPABILITY_GRANTED) return message.payload.args.arg0;
 		Server::defer(message);
 	}
 }

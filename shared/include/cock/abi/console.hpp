@@ -16,8 +16,10 @@
 
 namespace cock::abi::console {
 
-/** Name of the console server for `SYS_PROC_LOOKUP`. */
+/** Name of the console server for the name server. */
 constexpr char SERVER_NAME[] = "console";
+/** Name of the display server the console draws on, for the name server. */
+constexpr char DISPLAY_NAME[] = "vga_driver";
 /** Name of the only process allowed to send `CONSOLE_KEY` to the console server. */
 constexpr char KEYBOARD_NAME[] = "kbd";
 

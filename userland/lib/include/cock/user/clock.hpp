@@ -12,6 +12,7 @@
 #include <cock/abi/rtc.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <cock/user/names.hpp>
 #include <cock/user/reply.hpp>
 #include <stdint.h>
 
@@ -27,11 +28,12 @@ class Clock {
 	void (*onForeign)(const ipc::Message &) = nullptr;
 
 	/**
-	 * @brief Finds the RTC server by name (`SYS_PROC_LOOKUP`).
-	 * @return true when the server exists; false otherwise (call again later).
+	 * @brief Connects to the RTC server through the name server.
+	 * @return true when the server exists and the manifest lets the caller talk to it; false
+	 *         otherwise (call again later).
 	 */
 	bool init() {
-		server = lookup(abi::rtc::SERVER_NAME);
+		server = names::server(abi::rtc::SERVER_NAME);
 		lost = server == NO_PROCESS;
 		return !lost;
 	}

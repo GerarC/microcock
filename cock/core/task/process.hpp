@@ -88,6 +88,10 @@ class Process {
 	uint32_t getId() const { return id; }
 	/** @return True for the kernel process. */
 	bool isKernel() const { return kernel; }
+	/** @return True when the kernel started this process from a boot module. */
+	bool isBootModule() const { return bootModule; }
+	/** @brief Records that the kernel started this process from a boot module. */
+	void markBootModule() { bootModule = true; }
 	/** @return Physical root of the address space. */
 	memory::PhysAddr getAddressSpace() const { return addressSpace; }
 	/** @return First address user code may not touch in this process. */
@@ -106,7 +110,7 @@ class Process {
 	}
 
 	/**
-	 * @brief Sets the name used by process lookup.
+	 * @brief Sets the name of the process, used to find a boot module.
 	 * @param new_name Null terminated string, truncated to fit. A null pointer
 	 * gives an empty name.
 	 */
@@ -292,6 +296,7 @@ class Process {
 
 	uint32_t id = 0; /**< Id of the first thread. */
 	bool kernel; /**< True for the kernel process. */
+	bool bootModule = false; /**< True when the kernel started it from a boot module. */
 	memory::PhysAddr addressSpace; /**< Page directory root. */
 	memory::VirtAddr userSpaceLimit; /**< User space bound. */
 	hal::ArchProcessContext context; /**< Architecture state. */

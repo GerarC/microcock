@@ -1,5 +1,6 @@
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <cock/user/names.hpp>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -35,7 +36,7 @@ bool askOnce(uint32_t server) {
 
 uint32_t findNewServer(uint32_t previous) {
 	for (uint32_t attempt = 0; attempt < ATTEMPTS; attempt++) {
-		uint32_t server = cock::user::lookup(SERVER_NAME);
+		uint32_t server = cock::user::names::server(SERVER_NAME);
 		if (server != NO_PROCESS && server != previous && cock::user::process_alive(server))
 			return server;
 		cock::user::sleep_ms(ATTEMPT_MILLISECONDS);

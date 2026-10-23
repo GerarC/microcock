@@ -23,6 +23,7 @@ constexpr uint32_t NO_FLAGS = 0;
 constexpr uint64_t IRQ_FIRST = 1;
 constexpr uint64_t IRQ_COUNT = 2;
 constexpr uint64_t DOUBLE = 2;
+constexpr uint64_t IPC_LABELS = uint64_t(1) << 32;
 constexpr uint32_t FIRST_NODE = 11;
 constexpr uint32_t SECOND_NODE = 12;
 constexpr uint32_t UNKNOWN_NODE = 99;
@@ -91,6 +92,16 @@ void checkGrantAuthority() {
 	CHECK_FALSE(set.mayGrant(CapabilityType::IRQ, IRQ_FIRST, NOTHING));
 }
 
+void checkIpcDelegationIsNotAuthority() {
+	CapabilitySet set;
+	CHECK_TRUE(set.add(make(CapabilityType::IPC, CAPABILITY_FLAG_GRANT, NOTHING, IPC_LABELS)));
+	CHECK_TRUE(set.mayGrant(CapabilityType::IPC, IRQ_FIRST, SINGLE));
+	CHECK_FALSE(set.holdsGrantAuthority());
+
+	CHECK_TRUE(set.add(make(CapabilityType::IRQ, CAPABILITY_FLAG_GRANT, IRQ_FIRST, IRQ_COUNT)));
+	CHECK_TRUE(set.holdsGrantAuthority());
+}
+
 void checkTableIsBounded() {
 	CapabilitySet set;
 	for (size_t idx = 0; idx < CapabilitySet::MAX_CAPABILITIES; idx++)
@@ -137,6 +148,7 @@ void testCapabilitySet() {
 	checkCoverage();
 	checkRangesAreNotMerged();
 	checkGrantAuthority();
+	checkIpcDelegationIsNotAuthority();
 	checkTableIsBounded();
 	checkRemoveNode();
 	checkClear();

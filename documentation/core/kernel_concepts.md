@@ -30,13 +30,13 @@ The rule comes from Liedtke: a concept belongs in the kernel only if moving it o
 | `SYS_IPC_CALL`, `SYS_IPC_ACCEPT`, `SYS_IPC_REPLY`, `SYS_IPC_REPLY_WAIT`, `SYS_IPC_DEFER`, `SYS_IPC_REPLY_TO` | Synchronous call with a direct hand-off | The fast path of the system; the kernel writes the answer into the saved frame of the waiter | primitive |
 | `SYS_IRQ_BIND`, `SYS_IRQ_ACK` | Deliver a hardware interrupt as a message | Only the kernel takes interrupts | primitive |
 | `SYS_REQUEST_RESOURCE` | Ask for I/O ports | The port bitmap is read by the CPU | primitive |
-| `SYS_CAP_GRANT` | Pass part of a capability to another process | The kernel enforces capabilities, so it must see every transfer | primitive |
+| `SYS_CAP_GRANT` | Pass part of a capability to another process, optionally with the right to pass it on | The kernel enforces capabilities, so it must see every transfer. The right to pass on (`GRANT_DELEGATE`) lets the name server hand out `IPC` capabilities without holding root authority | primitive |
 | `SYS_SERVICE_SET`, the service label of a process, and the IPC capability checked in send, call and share | The stable identity under which the kernel decides who may talk to whom. The kernel enforces capabilities, so the label and the check cannot live in Ring 3; the policy (which program gets which label and which rights) is data in the manifest read by `init` | primitive |
 | `SYS_CAP_REVOKE` | Take a delegated capability, and what derives from it, away from its holders | Only the kernel can close ports, unbind lines and unmap device pages of another process | primitive |
 | `SYS_MODULE_OPEN` | Open a boot module as a read only shared object | The boot loader hands the modules to the kernel, and only the kernel can turn their frames into a shared object | primitive |
 | `SYS_MODULE_INDEX` | Find a boot module by name | A lookup by name; a name service | service (stage 9, with the data policy of the boot) |
 | `SYS_PROC_CREATE`, `SYS_PROC_MAP`, `SYS_PROC_WRITE`, `SYS_PROC_PROTECT`, `SYS_PROC_START`, `SYS_PROC_DISCARD` | Build a process piece by piece: an empty address space, zeroed pages, bytes copied in, pages made read only, the first thread, or the whole thing thrown away | Only the kernel can create an address space, map frames into it and create the first thread. The ELF format is not here: `cock::user::spawn` reads it (M1, done). Every range is validated by the kernel, so a broken loader can only hurt its own spawner | primitive |
-| `SYS_PROC_LOOKUP` | Find a process id by its registered name | A registry of names, which is a service | service (M2) |
+| `SYS_MODULE_PROCESS` | Find the process the kernel started from a boot module, by module name (grant authority only) | `init` needs the process id of the programs that exist before it runs, and only the kernel knows which process each boot module became. It searches no process but a boot module, so it is not a registry of names. The name service of every other program is the `names` server (E1, done) | primitive (narrow) |
 | `SYS_WRITE`, `SYS_READ` | Console output and input for descriptors 0 to 2 | A debug channel: the console server does the real work, and the kernel forwards to the display server or to its own console | debug (M2) |
 | `SYS_SCHED_METRICS` | Read the scheduler figures of the caller | Counts are taken inside the scheduler | debug (already behind `SCHED_METRICS=1`) |
 
@@ -57,8 +57,8 @@ The rule comes from Liedtke: a concept belongs in the kernel only if moving it o
 | Idle thread and reaper thread | The kernel frees its own objects | primitive |
 | Port bitmap per process, built on the first grant | The CPU reads it | primitive |
 | Pending processes (`PendingProcesses`) | A process has no id until it has a thread, so a process under construction needs a name that only its creator can use, and it must die with the creator | primitive |
-| ELF loader for boot modules (`core/loader`, ELF32 and ELF64) | Reads a file format, but only for the Multiboot modules `init`, `ramfs` and `vga_driver`, which start before any program that could load them. It is reachable from no system call | boot only (M1: the loader that served `spawn` is gone) |
-| Process names | A registry (the names `init` and `vga_driver` went on 2026-10-23: the first program module is the root task, and the screen goes to whoever maps it). The kernel must not know programs by name | service (M2 for the registry) |
+| ELF loader for boot modules (`core/loader`, ELF32 and ELF64) | Reads a file format, but only for the Multiboot modules `init`, `names`, `ramfs` and `vga_driver`, which start before any program that could load them. It is reachable from no system call | boot only (M1: the loader that served `spawn` is gone) |
+| Process names | Only the name of a boot module, which `SYS_MODULE_PROCESS` reads (the names `init` and `vga_driver` went on 2026-10-23: the first program module is the root task, and the screen goes to whoever maps it). The registry of names for programs is the `names` server (E1, done); the kernel must not know programs by name | boot only |
 | Kernel console and `Logger` output | Debug output and the early boot | debug (M2) |
 
 ## Open questions

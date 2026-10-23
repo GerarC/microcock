@@ -1,5 +1,6 @@
 #include <cock/abi/console.hpp>
 #include <cock/user/api.hpp>
+#include <cock/user/names.hpp>
 #include <console/display.hpp>
 #include <console/input.hpp>
 
@@ -38,7 +39,8 @@ void handleMessage(const Message &message) {
 	if (message.type != MessageType::CONSOLE_KEY) return;
 	if (message.sender_pid == cock::ipc::KERNEL_SENDER) return;
 
-	if (message.sender_pid != keyboard) keyboard = cock::user::lookup(proto::KEYBOARD_NAME);
+	if (message.sender_pid != keyboard)
+		keyboard = cock::user::names::server(proto::KEYBOARD_NAME);
 	if (message.sender_pid != keyboard) return;
 
 	char character = static_cast<char>(message.payload.args.arg0);

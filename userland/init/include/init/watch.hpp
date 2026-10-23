@@ -38,7 +38,7 @@ bool anyWatched();
  * @brief Starts watched programs again as they end, until none can be restarted.
  *
  * Reads the exit notices that the kernel sends and the ones kept by `awaitExit`. When a watched
- * program ends it is spawned again from the same entry and given its capabilities and peer, and
+ * program ends it is spawned again from the same entry and given its capabilities and bound to the name server again, and
  * `init: restarted <name> <n> of <limit>` is printed. Each program may be restarted `restarts`
  * times in one window of `RESTART_WINDOW_MILLISECONDS`; the counter starts again when the window
  * is over. Past the limit, or when the program cannot be spawned, `init: <name> gave up` is

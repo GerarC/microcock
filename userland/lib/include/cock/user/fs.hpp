@@ -14,6 +14,7 @@
 #include <cock/abi/fs.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <cock/user/names.hpp>
 #include <cock/user/reply.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -59,15 +60,30 @@ class Client {
 	void (*onForeign)(const Message &) = nullptr;
 
 	/**
-	 * @brief Finds a file server by name, opens a session and maps its window.
+	 * @brief Asks the name server for a file server, opens a session and maps its window.
 	 *
-	 * Sends `FS_CONNECT` and maps the shared object, writable. Blocks for the reply.
-	 * @param name Process name of the server; the default is the main file server.
-	 * @return true when connected; false when the server does not exist, refused (no
-	 *         free session slot), died, or the window could not be mapped.
+	 * Connects through the name server (`names.hpp`), so the manifest must let the caller talk
+	 * to the server. Then sends `FS_CONNECT` and maps the shared object, writable. Blocks for
+	 * the replies.
+	 * @param name Name of the server; the default is the main file server.
+	 * @return true when connected; false when the name server refused or does not know the
+	 *         server, the server refused (no free session slot), died, or the window could
+	 *         not be mapped.
 	 */
 	bool connect(const char *name = abi::fs::SERVER_NAME) {
-		server = lookup(name);
+		return connectTo(names::server(name));
+	}
+
+	/**
+	 * @brief Opens a session with a file server whose process id is known, and maps its window.
+	 *
+	 * For a caller that already holds the right to talk to the process: the root server, which
+	 * reaches every process, and callers that connected through the name server themselves.
+	 * @param pid Process id of the server.
+	 * @return The same as `connect`.
+	 */
+	bool connectTo(uint32_t pid) {
+		server = pid;
 		if (server == NO_PROCESS) return false;
 
 		Reply reply = {};

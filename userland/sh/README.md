@@ -10,7 +10,7 @@ keyboard --> kbd --> console --read(0)--> sh --FS_*--> vfs --> ramfs, fat, ext
                        +-----printf-------+
 ```
 
-- It is spawned last from the initrd (`sh path=bin/sh.elf` in `initrd/manifest.conf`), after `vfs`, `ext` and `kbd`. It has no grants, no peer and no argument, so `init` sends it nothing.
+- It is spawned last from the initrd (`sh path=bin/sh.elf` in `initrd/manifest.conf`), after `vfs`, `ext` and `kbd`. It has no grants and no argument, so `init` sends it nothing.
 - Terminal I/O uses the C library: descriptor 0 reads a line from `console` and descriptor 1 prints through it (`libc/unistd/console.cpp`). `clear` calls the console client directly (`cock::user::console::Client`).
 - Files go through `cock::user::fs::Client` to `vfs` (default server name `vfs`). Messages that arrive while it waits for a reply are stashed with `stash_message`.
 - The version comes from `VERSION_MAJOR`, `VERSION_MINOR` and `VERSION_PATCH` of the root `Makefile`, passed as `SH_VERSION_*`. At boot it prints `microcock v<major>.<minor>.<patch> shell, type help` and the prompt `cock> `.

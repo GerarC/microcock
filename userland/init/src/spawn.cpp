@@ -2,6 +2,7 @@
 #include <cock/abi/service.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/spawn.hpp>
+#include <init/directory.hpp>
 #include <init/files.hpp>
 #include <init/service.hpp>
 #include <init/spawn.hpp>
@@ -45,10 +46,12 @@ uint32_t spawnProgram(Client &client, const Entry &entry, bool notify) {
 	}
 	client.close(handle);
 
-	if (pid == NO_PROCESS)
+	if (pid == NO_PROCESS) {
 		printf("init: cannot start %s\n", entry.name);
-	else
-		printf("init: started %s\n", entry.name);
+		return pid;
+	}
+	bindService(labelOf(entry), pid);
+	printf("init: started %s\n", entry.name);
 	return pid;
 }
 

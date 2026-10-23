@@ -36,7 +36,7 @@ void SyscallManager::init() {
     syscall_table[SyscallNum::SYS_SERVICE_SET] = sys_service_set;
     syscall_table[SyscallNum::SYS_IRQ_BIND] = sys_irq_bind;
     syscall_table[SyscallNum::SYS_IRQ_ACK] = sys_irq_ack;
-    syscall_table[SyscallNum::SYS_PROC_LOOKUP] = sys_proc_lookup;
+    syscall_table[SyscallNum::SYS_MODULE_PROCESS] = sys_module_process;
 
     syscall_table[SyscallNum::SYS_SHM_CREATE] = sys_shm_create;
     syscall_table[SyscallNum::SYS_SHM_SHARE] = sys_shm_share;

@@ -21,10 +21,18 @@ constexpr uint32_t NO_SERVICE = 0;
 constexpr uint32_t ROOT_SERVICE = 1;
 /** Label that `init` gives to the `ramfs` boot module, which has no line in the manifest. */
 constexpr uint32_t RAMFS_SERVICE = 2;
+/** Label that `init` gives to the name server, the second boot module. */
+constexpr uint32_t NAMES_SERVICE = 3;
+/** Process id of `init`: the kernel starts it first, and the idle thread has id 0. */
+constexpr uint32_t ROOT_PID = 1;
+/** Process id of the name server: the kernel starts it right after `init`, so it follows the order of `USERLAND_BOOT_ORDER`. `init` checks it. */
+constexpr uint32_t NAMES_PID = 2;
 /** Label of the first program of the manifest; the program at index `n` gets `PROGRAM_SERVICE_BASE + n`. */
 constexpr uint32_t PROGRAM_SERVICE_BASE = 16;
 /** Number of labels that the root IPC capability covers, from `NO_SERVICE` on: all of them. */
 constexpr uint64_t SERVICE_LABEL_COUNT = uint64_t(1) << 32;
+/** Largest count of labels one `SYS_CAP_GRANT` can name, since its arguments have 32 bits: every label except the last. */
+constexpr uint32_t GRANTABLE_LABEL_COUNT = UINT32_MAX;
 /** Most IPC labels that one `SYS_PROC_CREATE` can give to the new process. */
 constexpr size_t MAX_SPAWN_IPC = 8;
 
