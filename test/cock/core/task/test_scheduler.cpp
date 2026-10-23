@@ -24,6 +24,9 @@ namespace {
 constexpr uintptr_t FAKE_STACK_POINTER = 0x1000;
 constexpr uint32_t BOOST_TICKS = 1000;
 constexpr uint32_t QUANTUM_TICK_LIMIT = 64;
+constexpr uint32_t LEVEL_ALLOWANCE_TICKS = 10;
+constexpr uint32_t NO_TICKS = 0;
+constexpr uint32_t CHARGED_TWICE = 2;
 constexpr size_t DRAIN_LIMIT = 64;
 constexpr uint32_t UNKNOWN_PID = 0xFFFFFFF0;
 constexpr uint32_t FIRST_ARGUMENT = 0xA1;
@@ -124,6 +127,62 @@ void checkDemotion() {
 	EXPECT_TRUE(Scheduler::getCurrentThread() == worker);
 
 	drain();
+	retire(worker);
+	TaskManager::buryDeadThreads();
+}
+
+void checkYieldingEveryTickIsDemoted() {
+	startScheduler();
+	Thread *worker = makeThread(ThreadPriority::NORMAL);
+	Scheduler::addThread(worker);
+	EXPECT_TRUE(runNext() == worker);
+
+	uint32_t rounds = 0;
+	while (worker->getPriority() == ThreadPriority::NORMAL &&
+		   rounds < QUANTUM_TICK_LIMIT) {
+		Scheduler::onTick(FAKE_STACK_POINTER);
+		EXPECT_TRUE(runNext() == worker);
+		rounds++;
+	}
+	EXPECT_TRUE(worker->getPriority() == ThreadPriority::LOW);
+	EXPECT_EQ(LEVEL_ALLOWANCE_TICKS, rounds);
+	EXPECT_EQ(NO_TICKS, worker->getLevelTicks());
+
+	drain();
+	retire(worker);
+	TaskManager::buryDeadThreads();
+}
+
+void checkBlockingBeforeTheTickKeepsLevel() {
+	startScheduler();
+	Thread *worker = makeThread(ThreadPriority::NORMAL);
+	Scheduler::addThread(worker);
+
+	for (uint32_t round = 0; round < QUANTUM_TICK_LIMIT; round++) {
+		EXPECT_TRUE(runNext() == worker);
+		worker->setState(ThreadState::BLOCKED);
+		EXPECT_TRUE(runNext() == idleThread);
+		worker->setState(ThreadState::READY);
+		Scheduler::addThread(worker);
+	}
+	EXPECT_TRUE(runNext() == worker);
+	EXPECT_TRUE(worker->getPriority() == ThreadPriority::NORMAL);
+	EXPECT_EQ(NO_TICKS, worker->getLevelTicks());
+
+	drain();
+	retire(worker);
+	TaskManager::buryDeadThreads();
+}
+
+void checkNewLevelClearsTheCount() {
+	Thread *worker = makeThread(ThreadPriority::NORMAL);
+	worker->chargeLevelTick();
+	worker->chargeLevelTick();
+	EXPECT_EQ(CHARGED_TWICE, worker->getLevelTicks());
+
+	worker->setPriority(ThreadPriority::HIGH);
+	EXPECT_EQ(NO_TICKS, worker->getLevelTicks());
+
 	retire(worker);
 	TaskManager::buryDeadThreads();
 }
@@ -342,6 +401,9 @@ void test_scheduler() {
 	checkPriorityOrder();
 	checkRoundRobin();
 	checkDemotion();
+	checkYieldingEveryTickIsDemoted();
+	checkBlockingBeforeTheTickKeepsLevel();
+	checkNewLevelClearsTheCount();
 	checkIdleIsNotDemoted();
 	checkBoost();
 	checkRequestFlags();

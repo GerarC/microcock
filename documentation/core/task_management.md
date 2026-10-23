@@ -31,7 +31,7 @@ The scheduler is driven by the Programmable Interval Timer (PIT), which fires `I
 The scheduler maintains 5 ready queues corresponding to thread priorities, ranging from `IDLE` to `CRITICAL`. The queues are intrusive: the links live inside `Thread`, so queueing a thread never allocates.
 
 * **Quantum:** a thread keeps the CPU for 10 ticks.
-* **Aging:** If a thread consumes its entire time quantum without yielding, its priority is demoted.
+* **Aging:** each timer tick that fires while a thread runs is charged to its current level (`Thread::levelTicks`). When the sum reaches the allowance (10 ticks, the size of a quantum), the thread drops one level the next time it stops, whether it was preempted, yielded or blocked. Yielding early does not reset the count, so a thread cannot keep a high level by giving up the CPU before the quantum ends. A new level, by demotion or by the boost, starts the count at zero. A thread that blocks before the next tick is not charged, so an I/O bound thread keeps its level. The charge is sampled at the tick: a thread that always stops between two ticks is not charged, which a finer clock would fix.
 * **Priority Boosting:** To prevent starvation, all queued threads are boosted to the highest priority queue every 1000 ticks.
 * **Idle thread:** it never enters the queues. It runs only when nothing else is ready.
 

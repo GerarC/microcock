@@ -47,8 +47,8 @@ class Scheduler {
 	 * @param current_stack_pointer Saved context of the interrupted thread.
 	 * @return Saved context to resume. It is the same when no switch happens or
 	 * the scheduler is not initialized.
-	 * @note Interrupt context. A thread that used its whole quantum loses one
-	 * priority level.
+	 * @note Interrupt context. Charges one tick to the running thread; a thread
+	 * whose ticks at its level reach the allowance loses one priority level.
 	 */
 	static uintptr_t onTick(uintptr_t current_stack_pointer);
 	/**
@@ -121,6 +121,9 @@ class Scheduler {
   private:
 	/** @brief Timer ticks a thread may run before being preempted. */
 	static constexpr uint32_t QUANTUM = 10;
+	/** @brief Ticks a thread may use at one level, summed over all its runs,
+	 * before it drops a level. Yielding early does not reset the count. */
+	static constexpr uint32_t LEVEL_ALLOWANCE_TICKS = QUANTUM;
 	/** @brief Ticks between priority boosts that prevent starvation. */
 	static constexpr uint32_t BOOST_TICKS = 1000;
 	static ThreadQueue readyQueues[PRIORITY_NUMBER]; /**< One queue per priority. */
@@ -148,12 +151,11 @@ class Scheduler {
 	/**
 	 * @brief Saves the current thread, picks the next one and installs it.
 	 * @param current_stack_pointer Saved context of the current thread.
-	 * @param quantum_expired True when called because the quantum ran out,
-	 * which lowers the priority of the preempted thread.
-	 * @return Saved context of the thread to resume.
+	 * @return Saved context of the thread to resume. The thread that stops
+	 * drops one level when its ticks at the level reach the allowance, whatever
+	 * the reason it stops.
 	 */
-	static uintptr_t switchFrom(uintptr_t current_stack_pointer,
-								bool quantum_expired);
+	static uintptr_t switchFrom(uintptr_t current_stack_pointer);
 };
 
 } // namespace cock::core::task
