@@ -30,11 +30,14 @@ void SyscallManager::init() {
 }
 ```
 
-The shared memory calls (`SYS_SHM_*`, numbers `0x174` to `0x177`) move bulk data between processes, which a message of six arguments cannot do: a process creates an object, shares it with the pid of another process by IPC, and the other process maps it. See [memory management](memory_management.md).
+The shared memory calls (`SYS_SHM_*`, numbers `0x260` to `0x263`) move bulk data between processes, which a message of six arguments cannot do: a process creates an object, shares it with the pid of another process by IPC, and the other process maps it. See [memory management](memory_management.md).
 
-`SYS_MODULE_OPEN` (`0x178`) gives a process holding the `BOOT_MODULE` capability the id of a data boot module, as a read only shared memory object. `SYS_PROC_CREATE` (`0x17A`), `SYS_PROC_MAP` (`0x18C`), `SYS_PROC_WRITE` (`0x18D`), `SYS_PROC_PROTECT` (`0x18E`), `SYS_PROC_START` (`0x18F`) and `SYS_PROC_DISCARD` (`0x190`) build and start a process, and the library function `cock::user::spawn` uses them to start a program from an image in the memory of the caller (see [task management](task_management.md#spawn)) and `SYS_PROC_ALIVE` (`0x17B`) says whether a process id is alive. `SYS_MODULE_INDEX` (`0x179`) gives the index of a data module to a process that holds grant authority, so `init` can grant the capability for one module.
+`SYS_MODULE_OPEN` (`0x271`) gives a process holding the `BOOT_MODULE` capability the id of a data boot module, as a read only shared memory object. `SYS_PROC_CREATE` (`0x200`), `SYS_PROC_MAP` (`0x201`), `SYS_PROC_WRITE` (`0x202`), `SYS_PROC_PROTECT` (`0x203`), `SYS_PROC_START` (`0x204`) and `SYS_PROC_DISCARD` (`0x205`) build and start a process, and the library function `cock::user::spawn` uses them to start a program from an image in the memory of the caller (see [task management](task_management.md#spawn)) and `SYS_PROC_ALIVE` (`0x206`) says whether a process id is alive. `SYS_MODULE_INDEX` (`0x272`) gives the index of a data module to a process that holds grant authority, so `init` can grant the capability for one module.
 
-The full table with the numbers is in the [README](../README.md). The value a handler returns goes back in `EAX`; `-1` means failure. An unknown number returns `-1` as well.
+The full table with the numbers is in the [README](../README.md). The value a handler returns goes back in `EAX`; `-1` means failure. An unknown number returns `-1` as well: every number without a handler, including the Linux i386 calls the kernel does not serve, goes to `sys_not_implemented`, which fails and is logged at `trace` level.
+
+### Numbering
+`cock/arch/x86/syscall/syscall_nums.hpp` lists every system call with a doc comment, in two families that never overlap. The Linux i386 numbers (0 to 439) carry the Linux name of each call; the ones the kernel serves with the same name and purpose keep the Linux number (`exit` 1, `read` 3, `write` 4, `getpid` 20, `mmap` 90, `munmap` 91, `sched_yield` 158, `gettid` 224) and all the others are listed as not implemented, reserved for a Linux personality server. The microkernel calls start at `0x200` in blocks of 16 by purpose: processes and threads (`0x200`), time and synchronization (`0x210`), asynchronous messages (`0x220`), synchronous calls (`0x230`), capabilities (`0x240`), hardware access (`0x250`), shared memory (`0x260`) and boot modules (`0x270`). `libc/include/sys/syscalls.h` carries the same numbers for the calls a program makes.
 
 ### Pointers from userland
 No handler trusts a pointer. Before reading or writing user memory, a handler asks the VMM whether the whole range is mapped, accessible from Ring 3, writable when needed, and below the user-space limit of the calling process. A kernel address, an unmapped page or a range that wraps around makes the call fail with `-1` and nothing else happens.
@@ -102,15 +105,15 @@ bool IPC::deliver(uint32_t to_pid, Message message) {
 Pending interrupt notifications come first (see below): each one is delivered as an `IRQ_NOTIFICATION` message made on the spot. Otherwise, if the inbox has a message, it is copied to the buffer of the caller. If there is neither, the handler sets the thread to `WAITING_MSG` and asks the scheduler for a restart. The thread is not scheduled again until a message arrives, so no cycles are wasted on polling, and when it wakes up it simply runs the system call again and finds the message.
 
 ### Receiving without waiting (`sys_ipc_try_recv`)
-`SYS_IPC_TRY_RECV` (`0x17C`) takes the same next item as `SYS_IPC_RECV` (a pending notification first, then the inbox) but never blocks: it returns `0` with the message copied, `1` when there is nothing, and `-1` when the pointer is not a writable user range. A program that has to notice a dead peer polls it together with `SYS_PROC_ALIVE`.
+`SYS_IPC_TRY_RECV` (`0x222`) takes the same next item as `SYS_IPC_RECV` (a pending notification first, then the inbox) but never blocks: it returns `0` with the message copied, `1` when there is nothing, and `-1` when the pointer is not a writable user range. A program that has to notice a dead peer polls it together with `SYS_PROC_ALIVE`.
 
 ### Receiving with a time limit (`sys_ipc_recv_timeout`)
-`SYS_IPC_RECV_TIMEOUT` (`0x17D`) takes `(message, milliseconds)`. It takes the next item like `SYS_IPC_RECV`; if there is none it waits at most that long. It returns `0` with the message copied, `1` when the time ran out, and `-1` for a bad pointer or a time above `0x7FFFFFFF`. A time of `0` never waits. The wait uses the same restart pattern as `SYS_IPC_RECV`: the thread is `WAITING_MSG` with a timeout armed, a message wakes it as usual, and the timer wakes it when the time is up; in both cases the call runs again, finds the message or finds the timeout flag and returns `1`. A message that arrives together with the timeout wins.
+`SYS_IPC_RECV_TIMEOUT` (`0x223`) takes `(message, milliseconds)`. It takes the next item like `SYS_IPC_RECV`; if there is none it waits at most that long. It returns `0` with the message copied, `1` when the time ran out, and `-1` for a bad pointer or a time above `0x7FFFFFFF`. A time of `0` never waits. The wait uses the same restart pattern as `SYS_IPC_RECV`: the thread is `WAITING_MSG` with a timeout armed, a message wakes it as usual, and the timer wakes it when the time is up; in both cases the call runs again, finds the message or finds the timeout flag and returns `1`. A message that arrives together with the timeout wins.
 
 ### Sleeping (`sys_sleep`)
-`SYS_SLEEP` (`0x17E`) takes `(milliseconds)` and blocks the thread (`BLOCKED`, so messages do not wake it, they wait in the inbox) for at least that long and less than one tick more. `0` yields the CPU. A time above `0x7FFFFFFF` returns `-1`.
+`SYS_SLEEP` (`0x210`) takes `(milliseconds)` and blocks the thread (`BLOCKED`, so messages do not wake it, they wait in the inbox) for at least that long and less than one tick more. `0` yields the CPU. A time above `0x7FFFFFFF` returns `-1`.
 
-Threads and futexes (`SYS_THREAD_CREATE` `0x17F`, `SYS_FUTEX_WAIT` `0x180`, `SYS_FUTEX_WAKE` `0x181`, `SYS_GETTID` `0x182`) are described in [task management](task_management.md#threads).
+Threads and futexes (`SYS_THREAD_CREATE` `0x207`, `SYS_FUTEX_WAIT` `0x211`, `SYS_FUTEX_WAKE` `0x212`, `SYS_GETTID` `0xE0`) are described in [task management](task_management.md#threads).
 
 Both calls are driven by `Timeouts` (see [task management](task_management.md#timeouts)). The clock is the 100 Hz tick, so the resolution is 10 ms and a time is rounded up to whole ticks.
 
@@ -119,14 +122,14 @@ Besides the asynchronous messages, a thread can **call** another and wait for th
 
 | Call | Number | Registers in | Registers out |
 |------|--------|--------------|---------------|
-| `SYS_IPC_CALL` | `0x183` | `EBX` target thread id, `ECX`, `EDX`, `ESI`, `EDI` the four words, `EBP` milliseconds | `EAX` status, `EBX` id of the replier, `ECX` to `EDI` the four words of the answer |
-| `SYS_IPC_ACCEPT` | `0x184` | `EBP` milliseconds | `EAX` status, `EBX` id of the caller, `ECX` to `EDI` the four words of the request |
-| `SYS_IPC_REPLY` | `0x185` | `ECX` to `EDI` the four words of the answer | `EAX` 0, or -1 when no call is being served |
-| `SYS_IPC_REPLY_WAIT` | `0x186` | `ECX` to `EDI` the answer, `EBP` milliseconds | the same as `SYS_IPC_ACCEPT`; with no call being served it only waits |
+| `SYS_IPC_CALL` | `0x230` | `EBX` target thread id, `ECX`, `EDX`, `ESI`, `EDI` the four words, `EBP` milliseconds | `EAX` status, `EBX` id of the replier, `ECX` to `EDI` the four words of the answer |
+| `SYS_IPC_ACCEPT` | `0x231` | `EBP` milliseconds | `EAX` status, `EBX` id of the caller, `ECX` to `EDI` the four words of the request |
+| `SYS_IPC_REPLY` | `0x232` | `ECX` to `EDI` the four words of the answer | `EAX` 0, or -1 when no call is being served |
+| `SYS_IPC_REPLY_WAIT` | `0x233` | `ECX` to `EDI` the answer, `EBP` milliseconds | the same as `SYS_IPC_ACCEPT`; with no call being served it only waits |
 
-| `SYS_IPC_DEFER` | `0x187` | none | `EAX` ticket of the call being served (the id of its caller), or -1 when none is being served |
-| `SYS_IPC_REPLY_TO` | `0x188` | `EBX` ticket, `ECX` to `EDI` the four words of the answer | `EAX` 0, or -1 when this thread holds no detached call with that ticket |
-| `SYS_SCHED_METRICS` | `0x189` | `EBX` address of an `abi::sched::Metrics` | `EAX` 0, or -1 for a bad buffer or a kernel built without `SCHED_METRICS=1` (see [task management](task_management.md#metrics)) |
+| `SYS_IPC_DEFER` | `0x234` | none | `EAX` ticket of the call being served (the id of its caller), or -1 when none is being served |
+| `SYS_IPC_REPLY_TO` | `0x235` | `EBX` ticket, `ECX` to `EDI` the four words of the answer | `EAX` 0, or -1 when this thread holds no detached call with that ticket |
+| `SYS_SCHED_METRICS` | `0x213` | `EBX` address of an `abi::sched::Metrics` | `EAX` 0, or -1 for a bad buffer or a kernel built without `SCHED_METRICS=1` (see [task management](task_management.md#metrics)) |
 
 `EAX` is `0` when the registers hold a call (or the answer), `1` when the time ran out, `2` when the wait ended because an asynchronous message or an interrupt notification is pending (fetch it with `SYS_IPC_TRY_RECV`), and `-1` on failure. The time is in milliseconds; `0xFFFFFFFF` means no limit and `0` never waits; anything else above `0x7FFFFFFF` is refused with `-1`.
 

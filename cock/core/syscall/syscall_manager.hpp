@@ -22,8 +22,9 @@ public:
     /**
      * @brief Looks a handler up.
      * @param code System call number, untrusted.
-     * @return The handler, or nullptr when the number is out of range or not
-     * implemented. Callers must check for null.
+     * @return The handler. Never null: a number that is out of range or has no
+     * implementation gets `sys_not_implemented`, which fails, and is logged at
+     * trace level.
      */
     static SystemCall getSyscall(size_t code);
 };

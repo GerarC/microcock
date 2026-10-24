@@ -9,11 +9,15 @@ namespace cock::core::syscall {
 
 using arch::x86::SyscallNum;
 
-constexpr int MAX_X86_SYSCALLS = 0x193;
+constexpr int MAX_X86_SYSCALLS = arch::x86::SYSCALL_TABLE_SIZE;
 
 SystemCall syscall_table[MAX_X86_SYSCALLS] = {nullptr};
 
 void SyscallManager::init() {
+    for (SystemCall &entry : syscall_table) {
+        entry = sys_not_implemented;
+    }
+
 
 	syscall_table[SyscallNum::SYS_EXIT] = sys_exit;
 
@@ -71,9 +75,9 @@ void SyscallManager::init() {
 }
 
 SystemCall SyscallManager::getSyscall(size_t code){
-    if (code >= MAX_X86_SYSCALLS || syscall_table[code] == nullptr) {
-            utils::Logger::trace("Unimplemented Syscall %d called!", code);
-            return nullptr;
+    if (code >= MAX_X86_SYSCALLS || syscall_table[code] == sys_not_implemented) {
+        utils::Logger::trace("Unimplemented Syscall %d called!", code);
+        return sys_not_implemented;
     }
     return syscall_table[code];
 }

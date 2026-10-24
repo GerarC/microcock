@@ -119,6 +119,16 @@ uintptr_t sys_mmap(uintptr_t addr, uintptr_t length, uintptr_t prot,
 uintptr_t sys_munmap(uintptr_t addr, uintptr_t length, uintptr_t, uintptr_t,
 					 uintptr_t, uintptr_t);
 
+/**
+ * @brief Handler of every system call number that has no implementation: the
+ * Linux numbers the kernel does not serve (listed in `syscall_nums.hpp`), the
+ * numbers with no name and the numbers past the table.
+ * @return All ones, the failure value of every system call. It touches nothing,
+ * so any arguments are safe; the dispatcher logs the number at trace level.
+ */
+uintptr_t sys_not_implemented(uintptr_t, uintptr_t, uintptr_t, uintptr_t,
+							  uintptr_t, uintptr_t);
+
 // ==== Inter-Process Communication ====
 /**
  * @brief Sends an asynchronous IPC message to a specified target Process ID.

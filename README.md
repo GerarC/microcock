@@ -58,44 +58,44 @@ The codebase is strictly separated to maintain the microkernel philosophy. The C
 ```
 
 ### The Syscall Interface
-Userland processes communicate with the kernel through software interrupts (`int 0x80`). The number goes in `EAX`, the arguments in `EBX`, `ECX`, `EDX`, `ESI`, `EDI` and `EBP`, and the result comes back in `EAX`. The current system call table includes:
+Userland processes communicate with the kernel through software interrupts (`int 0x80`). The number goes in `EAX`, the arguments in `EBX`, `ECX`, `EDX`, `ESI`, `EDI` and `EBP`, and the result comes back in `EAX`. Calls that match a Linux i386 call in name and purpose use its number; the microkernel calls start at `0x200`, grouped by purpose, and every other number fails (see [IPC](documentation/core/ipc.md#numbering)). The current system call table includes:
 * `SYS_EXIT` (0x01): Terminate current thread.
 * `SYS_READ` (0x03): Read from a file descriptor.
 * `SYS_WRITE` (0x04): Write to a file descriptor (routed to Serial or VGA Server). A call takes at most 128 bytes; the caller writes the rest with more calls.
-* `SYS_REQUEST_RESOURCE` (0x07): Enable I/O ports in the process permission bitmap. Requires an `IO_PORTS` capability.
-* `SYS_GETPID` (0x16): Retrieve current Process ID.
+* `SYS_GETPID` (0x14): Retrieve current Process ID.
 * `SYS_MMAP` (0x5A): Allocate dynamic memory (anonymous, or physical device memory with a `PHYSICAL_MEMORY` capability).
 * `SYS_MUNMAP` (0x5B): Free dynamically allocated memory.
 * `SYS_SCHED_YIELD` (0x9E): Yield CPU to the next ready thread.
-* `SYS_IPC_SEND` (0x160): Send a message to another process.
-* `SYS_IPC_RECV` (0x161): Receive the next interrupt notification or message of the thread, blocking when there is none.
-* `SYS_CAP_GRANT` (0x170): Delegate part of a capability to another process; returns the id of the node of the derivation tree that records it. A fifth argument lets the receiver pass the capability on (`GRANT_DELEGATE`), which is how the name server may give `IPC` capabilities.
-* `SYS_CAP_ACCEPT` (0x192): Choose which capability types a `CAPABILITY_TRANSFER` message may give the caller (a mask, one bit per type); a process accepts nothing until it calls it. `SYS_IPC_SEND` of that message type gives the receiver a copy of part of a capability of the sender, recorded in the derivation tree, and returns the node id so the sender can revoke it.
-* `SYS_CAP_REVOKE` (0x18A): Revoke a delegated capability and everything derived from it; the caller must hold an ancestor of the node. Closes the ports, unbinds the lines and unmaps the device memory that the holders opened with it.
-* `SYS_IRQ_BIND` (0x171): Route an interrupt line to the calling process. Requires an `IRQ` capability.
-* `SYS_IRQ_ACK` (0x172): Re-enable an interrupt line after handling it.
-* `SYS_MODULE_PROCESS` (0x173): Find the process id of the program the kernel started from a boot module, by module name; needs grant authority. Programs find a server through the name server instead.
-* `SYS_SHM_CREATE` (0x174): Create a shared memory object of a number of pages, paid by the caller.
-* `SYS_SHM_SHARE` (0x175): Let another process map an object, read only or read and write; needs an IPC capability with that process (or in the other direction).
-* `SYS_SHM_MAP` (0x176): Map a whole object into the caller, read only or read and write.
-* `SYS_SHM_RELEASE` (0x177): Drop the right of the caller to an object.
-* `SYS_MODULE_OPEN` (0x178): Open a data boot module by name as a read only shared memory object; needs a `BOOT_MODULE` capability.
-* `SYS_MODULE_INDEX` (0x179): Index of a data boot module by name; needs grant authority.
-* `SYS_PROC_CREATE` (0x17A): Create a process with an empty address space and no thread, and get a handle for it; needs a `SPAWN` capability. An optional argument gives the service label and IPC capabilities that the process is born with. At most 2 pending processes per caller and 8 in the system.
-* `SYS_PROC_MAP` (0x18C), `SYS_PROC_WRITE` (0x18D), `SYS_PROC_PROTECT` (0x18E): Map zeroed writable pages into a pending process, copy bytes into them, and make them read only. Only the creator may use the handle; at most 4 MiB, never the first page or the user stack.
-* `SYS_PROC_START` (0x18F): Create the first thread of a pending process at an entry point and let it run; returns the process id. `SYS_PROC_DISCARD` (0x190): destroy a pending process. A pending process dies with its creator. The ELF parsing is not in the kernel path of these calls: `cock::user::spawn` (`userland/lib/include/cock/user/spawn.hpp`) reads the image and calls them.
-* `SYS_SERVICE_SET` (0x18B): Give a running process its service label, once; needs grant authority. Used for the boot modules.
-* `SYS_PROC_ALIVE` (0x17B): Tell whether a process id is alive.
-* `SYS_THREAD_PROCESS` (0x191): Give the process a thread belongs to; a server that serves a synchronous call sees the id of the calling thread and uses this to know whose it is.
-* `SYS_IPC_TRY_RECV` (0x17C): Like `SYS_IPC_RECV` but returns 1 at once when there is nothing to receive.
-* `SYS_IPC_RECV_TIMEOUT` (0x17D): Like `SYS_IPC_RECV` but returns 1 when the given milliseconds pass with nothing to receive.
-* `SYS_SLEEP` (0x17E): Block the caller for at least the given milliseconds (10 ms resolution).
-* `SYS_THREAD_CREATE` (0x17F): Start another thread of the caller process at an entry point, on a stack the caller provides; returns the thread id.
-* `SYS_FUTEX_WAIT` (0x180): Block while a 32 bit word still holds an expected value, with an optional timeout.
-* `SYS_FUTEX_WAKE` (0x181): Wake up to a given number of threads of the caller process waiting on a word.
-* `SYS_GETTID` (0x182): Retrieve the id of the calling thread.
-* `SYS_SCHED_METRICS` (0x189): Write the response, CPU and turnaround ticks of the calling thread. Registered only in a kernel built with `SCHED_METRICS=1`; otherwise it fails like any unknown call.
-* `SYS_IPC_CALL` (0x183), `SYS_IPC_ACCEPT` (0x184), `SYS_IPC_REPLY` (0x185), `SYS_IPC_REPLY_WAIT` (0x186), `SYS_IPC_DEFER` (0x187), `SYS_IPC_REPLY_TO` (0x188): Synchronous calls with four words in registers each way, a direct switch to the server and an optional timeout. `accept` also wakes for an asynchronous message or an interrupt. `defer` detaches the call being served and returns a ticket; `reply_to` answers it later.
+* `SYS_GETTID` (0xE0): Retrieve the id of the calling thread.
+* `SYS_PROC_CREATE` (0x200): Create a process with an empty address space and no thread, and get a handle for it; needs a `SPAWN` capability. An optional argument gives the service label and IPC capabilities that the process is born with. At most 2 pending processes per caller and 8 in the system.
+* `SYS_PROC_MAP` (0x201), `SYS_PROC_WRITE` (0x202), `SYS_PROC_PROTECT` (0x203): Map zeroed writable pages into a pending process, copy bytes into them, and make them read only. Only the creator may use the handle; at most 4 MiB, never the first page or the user stack.
+* `SYS_PROC_START` (0x204): Create the first thread of a pending process at an entry point and let it run; returns the process id. `SYS_PROC_DISCARD` (0x205): destroy a pending process. A pending process dies with its creator. The ELF parsing is not in the kernel path of these calls: `cock::user::spawn` (`userland/lib/include/cock/user/spawn.hpp`) reads the image and calls them.
+* `SYS_PROC_ALIVE` (0x206): Tell whether a process id is alive.
+* `SYS_THREAD_CREATE` (0x207): Start another thread of the caller process at an entry point, on a stack the caller provides; returns the thread id.
+* `SYS_THREAD_PROCESS` (0x208): Give the process a thread belongs to; a server that serves a synchronous call sees the id of the calling thread and uses this to know whose it is.
+* `SYS_SLEEP` (0x210): Block the caller for at least the given milliseconds (10 ms resolution).
+* `SYS_FUTEX_WAIT` (0x211): Block while a 32 bit word still holds an expected value, with an optional timeout.
+* `SYS_FUTEX_WAKE` (0x212): Wake up to a given number of threads of the caller process waiting on a word.
+* `SYS_SCHED_METRICS` (0x213): Write the response, CPU and turnaround ticks of the calling thread. Registered only in a kernel built with `SCHED_METRICS=1`; otherwise it fails like any unknown call.
+* `SYS_IPC_SEND` (0x220): Send a message to another process.
+* `SYS_IPC_RECV` (0x221): Receive the next interrupt notification or message of the thread, blocking when there is none.
+* `SYS_IPC_TRY_RECV` (0x222): Like `SYS_IPC_RECV` but returns 1 at once when there is nothing to receive.
+* `SYS_IPC_RECV_TIMEOUT` (0x223): Like `SYS_IPC_RECV` but returns 1 when the given milliseconds pass with nothing to receive.
+* `SYS_IPC_CALL` (0x230), `SYS_IPC_ACCEPT` (0x231), `SYS_IPC_REPLY` (0x232), `SYS_IPC_REPLY_WAIT` (0x233), `SYS_IPC_DEFER` (0x234), `SYS_IPC_REPLY_TO` (0x235): Synchronous calls with four words in registers each way, a direct switch to the server and an optional timeout. `accept` also wakes for an asynchronous message or an interrupt. `defer` detaches the call being served and returns a ticket; `reply_to` answers it later.
+* `SYS_CAP_GRANT` (0x240): Delegate part of a capability to another process; returns the id of the node of the derivation tree that records it. A fifth argument lets the receiver pass the capability on (`GRANT_DELEGATE`), which is how the name server may give `IPC` capabilities.
+* `SYS_CAP_REVOKE` (0x241): Revoke a delegated capability and everything derived from it; the caller must hold an ancestor of the node. Closes the ports, unbinds the lines and unmaps the device memory that the holders opened with it.
+* `SYS_CAP_ACCEPT` (0x242): Choose which capability types a `CAPABILITY_TRANSFER` message may give the caller (a mask, one bit per type); a process accepts nothing until it calls it. `SYS_IPC_SEND` of that message type gives the receiver a copy of part of a capability of the sender, recorded in the derivation tree, and returns the node id so the sender can revoke it.
+* `SYS_SERVICE_SET` (0x243): Give a running process its service label, once; needs grant authority. Used for the boot modules.
+* `SYS_REQUEST_RESOURCE` (0x250): Enable I/O ports in the process permission bitmap. Requires an `IO_PORTS` capability.
+* `SYS_IRQ_BIND` (0x251): Route an interrupt line to the calling process. Requires an `IRQ` capability.
+* `SYS_IRQ_ACK` (0x252): Re-enable an interrupt line after handling it.
+* `SYS_SHM_CREATE` (0x260): Create a shared memory object of a number of pages, paid by the caller.
+* `SYS_SHM_SHARE` (0x261): Let another process map an object, read only or read and write; needs an IPC capability with that process (or in the other direction).
+* `SYS_SHM_MAP` (0x262): Map a whole object into the caller, read only or read and write.
+* `SYS_SHM_RELEASE` (0x263): Drop the right of the caller to an object.
+* `SYS_MODULE_PROCESS` (0x270): Find the process id of the program the kernel started from a boot module, by module name; needs grant authority. Programs find a server through the name server instead.
+* `SYS_MODULE_OPEN` (0x271): Open a data boot module by name as a read only shared memory object; needs a `BOOT_MODULE` capability.
+* `SYS_MODULE_INDEX` (0x272): Index of a data boot module by name; needs grant authority.
 
 ## Building and Running
 
