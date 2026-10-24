@@ -18,7 +18,7 @@ void announce(uint32_t pid, uint32_t argument) {
 void equip(const Entry &entry, uint32_t pid) {
 	for (size_t index = 0; index < entry.grantCount; index++) {
 		const cock::abi::manifest::Grant &grant = entry.grants[index];
-		cock::user::cap_grant(pid, grant.type, grant.first, grant.count);
+		cock::user::cap_grant(pid, grant.type, grant.first, grant.count, grant.delegate);
 	}
 
 	if (entry.grantCount == 0 && !entry.hasArgument) return;

@@ -101,6 +101,8 @@
     #define SYS_PROC_DISCARD     0x190
     /** Gives the process a thread belongs to. a1: thread id. Returns the process id, or all ones when the thread is unknown, dead or the kernel's. */
     #define SYS_THREAD_PROCESS   0x191
+    /** Chooses which capability types a CAPABILITY_TRANSFER message may give the caller. a1: mask with one bit per capability type (1 << type), no bit outside the valid types. Replaces the previous mask; none is accepted until the first call. Returns 0 or all ones. */
+    #define SYS_CAP_ACCEPT       0x192
 
     #ifdef __cplusplus
     extern "C" {

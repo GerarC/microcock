@@ -128,6 +128,17 @@ uintptr_t sys_munmap(uintptr_t addr, uintptr_t length, uintptr_t, uintptr_t,
  * type is reserved to the kernel (IRQ notification, process exit), a
  * capability grant message is sent by a process without grant authority, or
  * the target is unknown, dead or has a full inbox.
+ *
+ * A `CAPABILITY_TRANSFER` message also gives the receiving process a copy of
+ * part of a capability of the sender (arg0 type, arg1 first, arg2 count, arg3
+ * flags: 0 or `GRANT_DELEGATE`). The copy is made before the message is queued
+ * and undone if queuing fails. On success the call returns the node id of the
+ * copy (above 0 and below all ones) instead of 0, and the receiver finds the
+ * same id in arg4. It fails, with nothing given, when the sender and the
+ * receiver may not talk, the receiver is the sender or a kernel process, the
+ * type or flags are invalid, the receiver did not accept the type with
+ * `SYS_CAP_ACCEPT`, the sender holds no grantable capability that covers the
+ * range, or the table of the receiver or the derivation tree is full.
  */
 uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
 					   uintptr_t, uintptr_t, uintptr_t);
@@ -178,6 +189,16 @@ uintptr_t sys_cap_grant(uintptr_t target_pid, uintptr_t type, uintptr_t first,
  * `revoke_capability` for what is undone.
  */
 uintptr_t sys_cap_revoke(uintptr_t node, uintptr_t, uintptr_t, uintptr_t,
+						 uintptr_t, uintptr_t);
+
+/**
+ * @brief Chooses which capability types a message may give the calling process.
+ * @param mask One bit per capability type (`abi::capabilityBit`); replaces the
+ * previous mask. A process accepts nothing until it calls this.
+ * @return 0 on success. All ones when the mask has a bit outside
+ * `abi::ALL_CAPABILITY_TYPES`.
+ */
+uintptr_t sys_cap_accept(uintptr_t mask, uintptr_t, uintptr_t, uintptr_t,
 						 uintptr_t, uintptr_t);
 
 /**

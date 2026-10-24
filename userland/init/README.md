@@ -80,7 +80,7 @@ make run-headless
 bash scripts/qemu_userland_test.sh
 ```
 
-On a machine without the cross compiler add `HOST_TOOLCHAIN=1`. The end to end script boots with the test initrd and requires these lines on the serial log: `init: initrd is boot module`, `names: ready`, `init: manifest has 27 entries`, `init: configured vga_driver`, `init: started <name>` for each program, `init: fsclient exit notices 10/10`, `init: restarted phoenix 2 of 5` and `init: crasher gave up after 3 restarts`. The manifest parser has host tests in `test/host/test_manifest.cpp` (`bash scripts/host_test.sh`).
+On a machine without the cross compiler add `HOST_TOOLCHAIN=1`. The end to end script boots with the test initrd and requires these lines on the serial log: `init: initrd is boot module`, `names: ready`, `init: manifest has 29 entries`, `init: configured vga_driver`, `init: started <name>` for each program, `init: fsclient exit notices 10/10`, `init: restarted phoenix 2 of 5` and `init: crasher gave up after 3 restarts`. The manifest parser has host tests in `test/host/test_manifest.cpp` (`bash scripts/host_test.sh`).
 
 ## Limits and known gaps
 

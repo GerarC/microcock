@@ -133,6 +133,7 @@ constexpr Spec SPECS[] = {
 	{SYS_SCHED_METRICS, RARE, {Arg::ADDRESS_OUT}},
 	{SYS_CAP_REVOKE, COMMON, {Arg::VALUE}},
 	{SYS_SERVICE_SET, COMMON, {Arg::ID, Arg::VALUE}},
+	{SYS_CAP_ACCEPT, COMMON, {Arg::VALUE}},
 };
 
 /** Number of entries of `SPECS`. */

@@ -33,6 +33,28 @@ enum class CapabilityType : uint8_t {
 	SPAWN = 6,
 };
 
+/** First valid capability type. */
+constexpr CapabilityType FIRST_CAPABILITY_TYPE = CapabilityType::IO_PORTS;
+
+/** Highest valid capability type. */
+constexpr CapabilityType HIGHEST_CAPABILITY_TYPE = CapabilityType::SPAWN;
+
+/**
+ * Bit of a capability type in the mask of `SYS_CAP_ACCEPT`.
+ * @param type A capability type.
+ * @return One bit, at the position of the number of the type.
+ */
+constexpr uint32_t capabilityBit(CapabilityType type) {
+	return 1u << static_cast<uint32_t>(type);
+}
+
+/** Mask with the bit of every valid capability type; `SYS_CAP_ACCEPT` refuses a mask with any other bit. */
+constexpr uint32_t ALL_CAPABILITY_TYPES =
+	(capabilityBit(HIGHEST_CAPABILITY_TYPE) << 1) - capabilityBit(FIRST_CAPABILITY_TYPE);
+
+/** Mask that accepts no capability in a message, the state of every process until it calls `SYS_CAP_ACCEPT`. */
+constexpr uint32_t NO_CAPABILITY_TYPES = 0;
+
 /** Value of the `flags` argument of `SYS_CAP_GRANT` that passes on the right to grant the capability further; zero grants a capability the holder cannot pass on. */
 constexpr uint32_t GRANT_DELEGATE = 1;
 

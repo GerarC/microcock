@@ -85,6 +85,16 @@ static void grant_root_capabilities(Process &process, size_t module_count) {
 
 The tree is a plain data structure and is tested on the host (`test/host/test_capability_tree.cpp`); the death of a process is tested in the kernel suite (`test_process.cpp`).
 
+## Capabilities in messages
+A message can carry a capability, as `SCM_RIGHTS` does in Unix. The type is `CAPABILITY_TRANSFER`, sent with `SYS_IPC_SEND` (user wrapper `cap_send`). The payload names the capability: `arg0` the type, `arg1` the first value, `arg2` the count, `arg3` the flags (zero, or `GRANT_DELEGATE` to let the receiver pass the copy on); `arg4` is written by the kernel with the id of the node the receiver now holds, and `arg5` is free for the sender (a tag).
+
+* **Same rule as a grant.** The sender needs a capability of the type with `GRANT` that contains the range. `delegate_capability` (`cock/core/security/capability_transfer.hpp`) is the one place where a capability changes hands, shared by `SYS_CAP_GRANT` and the message path. The copy is a new node of the derivation tree, child of the entry of the sender, so a holder of an ancestor can revoke it, and revoking it also takes what the receiver passed on.
+* **The receiver decides.** A process accepts nothing until it calls `SYS_CAP_ACCEPT(mask)` (`cap_accept`), with one bit per type (`abi::capabilityBit`); the mask replaces the previous one and a bit outside `abi::ALL_CAPABILITY_TYPES` is refused. Without that, a process that may talk to a victim could fill its table of 16 entries and the derivation tree. `Process::acceptsCapability` is the test.
+* **The channel is checked first.** The send fails unless `mayTalk` holds between the two processes, as for any message. A process cannot send a capability to itself or to a kernel process.
+* **All or nothing.** The copy is made before the message is queued and taken back (`withdraw_capability`) if queuing fails, for example when the inbox is full. When the call fails nothing was given. When it succeeds it returns the node id (above 0) instead of zero, so the sender can pass it to `SYS_CAP_REVOKE` later; `cap_send` returns it, and `ipc_send` must not be used for this type because it reads only zero as success.
+* **What a receiver can trust.** A `CAPABILITY_TRANSFER` message in the inbox means the copy is already in the table of the receiver and `arg4` is its node. Only the kernel makes the copy; nothing else produces the message with a valid node.
+* **Not covered.** Synchronous calls (`SYS_IPC_CALL`) carry four words and no capability; the name server still passes `IPC` capabilities with `SYS_CAP_GRANT`, which needs no acceptance because it is the root's policy. Moving the name server to this path, and replacing the process id with an endpoint handle, belong to step E3.
+
 ## The IPC capability
 It decides who may exchange messages, make synchronous calls and share memory with whom. It is the first step of the route to Unix style IPC (see the roadmap): the capability plays the part of the file descriptor, and the stable name is a **service label**.
 
@@ -113,7 +123,9 @@ It decides who may exchange messages, make synchronous calls and share memory wi
 A denied call fails with `-1` and is logged at `trace` level with the process id, so a program that keeps asking cannot flood the log.
 
 ## Authority in messages
-Two message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
+Three message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
+
+* `CAPABILITY_TRANSFER` gives a capability of the sender to the receiver; see [Capabilities in messages](#capabilities-in-messages).
 
 * `IRQ_NOTIFICATION` can only come from the kernel; a program that sends one is refused.
 * `CAPABILITY_GRANTED` can only be sent by a process that holds at least one capability with the grant right over hardware or boot resources (`CapabilitySet::holdsGrantAuthority`, which ignores `IPC` entries, so the name server cannot send it). In practice that is the root server. A driver that waits for it knows it came from there and does not need to check the sender.
@@ -131,6 +143,8 @@ Two message types carry authority, and the kernel enforces it in `SYS_IPC_SEND`:
 * it asks for objects of no pages and of too many pages, for an unknown object and for a share with an unknown process, and is refused,
 * and it fills the table of shared memory objects and finds it bounded,
 * it asks the name server to connect it to the block server and the clock server, which its `ipc=` list does not name, and is refused (`DENIED`); it sees that the kernel refuses its messages to the servers it never connected to; it connects to the console, for which its list has a name, calls it and is answered; it connects forty times, more than its capability table holds, and still succeeds because the capability is given once; it is refused when it tries to register a service, since only `init` may; and it shares memory with the console after connecting.
+
+The in-kernel suite `Capability transfer` covers `delegate_capability` and `withdraw_capability` (the copy and its node, the grant flag, a giver with no grantable entry, a range outside or empty, a full table leaving nothing behind, a chain revoked from the top) and the accept mask. The test programs `capgiver` and `capreceiver` check the message from Ring 3: the receiver accepts only `IO_PORTS`; the giver (manifest `caps=io:0x2F8+8*,irq:10*`) sends two copies and is refused for an `IRQ` the receiver did not accept, a port it does not hold, an empty range, the none type, an unknown type and itself; the receiver finds both copies as sent and can open their ports, cannot stretch them over neighbouring ports, cannot pass on the copy without the delegate flag and can pass on the other; then the giver revokes the first copy and the receiver loses only that one.
 
 The in-kernel suites `Capability revocation` and `IPC access` cover revocation and the rule of `mayTalk` with real processes (same process, no capability, the capability of either side, a range that does not cover, the root, revocation cutting both directions, and a label that can be set once).
 

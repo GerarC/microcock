@@ -46,6 +46,11 @@ constexpr uint32_t SINGLE_UNIT = 1;
 constexpr size_t PORT_AND_SPAWN_GRANTS = 2;
 constexpr size_t SPAWN_GRANT_INDEX = 1;
 constexpr uint32_t PAIR_UNITS = 2;
+constexpr size_t DELEGATE_GRANTS = 3;
+constexpr size_t FIRST_GRANT = 0;
+constexpr size_t SECOND_GRANT = 1;
+constexpr size_t THIRD_GRANT = 2;
+constexpr uint32_t SERIAL_SECOND_PORT = 0x2F8;
 constexpr uint32_t HEX_FF_VALUE = 0xFF;
 constexpr size_t NAME_BUFFER_BYTES = 128;
 constexpr size_t LONG_TEXT_BYTES = 256;
@@ -187,6 +192,23 @@ void checkSpawnGrant() {
 	CHECK_TRUE(errorOf("a caps=spawns\n") == Error::BAD_VALUE);
 }
 
+void checkDelegateMark() {
+	Manifest manifest;
+	CHECK_TRUE(parses("a caps=io:0x2F8+2*,irq:5,spawn*\n", manifest));
+	CHECK_EQ(DELEGATE_GRANTS, manifest.entries[0].grantCount);
+	const cock::abi::manifest::Grant *grants = manifest.entries[0].grants;
+	CHECK_TRUE(grants[FIRST_GRANT].delegate);
+	CHECK_EQ(SERIAL_SECOND_PORT, grants[FIRST_GRANT].first);
+	CHECK_EQ(PAIR_UNITS, grants[FIRST_GRANT].count);
+	CHECK_FALSE(grants[SECOND_GRANT].delegate);
+	CHECK_TRUE(grants[THIRD_GRANT].delegate);
+	CHECK_TRUE(grants[THIRD_GRANT].type == cock::abi::CapabilityType::SPAWN);
+	CHECK_TRUE(errorOf("a caps=*\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("a caps=io:1**\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("a caps=io:*\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("a caps=*io:1\n") == Error::BAD_VALUE);
+}
+
 void checkKeyRules() {
 	CHECK_TRUE(errorOf("a flag\n") == Error::UNKNOWN_KEY);
 	CHECK_TRUE(errorOf("a mode=fast\n") == Error::UNKNOWN_KEY);
@@ -313,6 +335,7 @@ void testManifest() {
 	checkNumbers();
 	checkGrantRules();
 	checkSpawnGrant();
+	checkDelegateMark();
 	checkKeyRules();
 	checkRepeatBounds();
 	checkRestartRules();

@@ -58,7 +58,9 @@ inline uint32_t self() {
  * @return true when the message was queued; false when the target does not exist or is
  *         dead, its inbox (16 messages) is full, the pointer is bad or the message type is
  *         not allowed for this sender (`IRQ_NOTIFICATION` and `PROCESS_EXITED` never;
- *         `CAPABILITY_GRANTED` only with grant authority). Nothing is retried.
+ *         `CAPABILITY_GRANTED` only with grant authority). Nothing is retried. A
+ *         `CAPABILITY_TRANSFER` message is sent with `cap_send`, because a successful send of
+ *         one returns the node id and this wrapper reads only zero as success.
  */
 inline bool ipc_send(uint32_t pid, const ipc::Message &message) {
 	return syscall(SYS_IPC_SEND, pid, reinterpret_cast<uintptr_t>(&message), 0,
@@ -240,6 +242,50 @@ inline uint32_t cap_grant_node(uint32_t pid, abi::CapabilityType type, uintptr_t
 inline bool cap_grant(uint32_t pid, abi::CapabilityType type, uintptr_t first,
 					  uintptr_t count, bool delegate = false) {
 	return cap_grant_node(pid, type, first, count, delegate) != abi::NO_CAPABILITY_NODE;
+}
+
+/**
+ * @brief Chooses which kinds of capability a message may give the caller (`SYS_CAP_ACCEPT`).
+ *
+ * A process accepts nothing until it calls this, so a `CAPABILITY_TRANSFER` message sent to it is
+ * refused. The mask replaces the previous one; call it again with `abi::NO_CAPABILITY_TYPES` to stop
+ * accepting.
+ * @param mask Bits of `abi::capabilityBit(type)`, with no bit outside `abi::ALL_CAPABILITY_TYPES`.
+ * @return true when set; false when the mask has a bit that is not a capability type.
+ */
+inline bool cap_accept(uint32_t mask) {
+	return syscall(SYS_CAP_ACCEPT, mask, 0, 0, 0, 0, 0) == SUCCESS;
+}
+
+/**
+ * @brief Sends a capability the caller holds to another process in a message (`SYS_IPC_SEND`).
+ *
+ * The kernel derives a copy of part of a grantable capability of the caller for the receiver and
+ * records it in the derivation tree, so a holder of an ancestor can revoke it. The send fails, and
+ * nothing is given, when the caller may not talk to the receiver (the same rule as `ipc_send`), holds
+ * no grantable capability that covers the range, the receiver did not accept the type with
+ * `cap_accept`, the receiver is the caller, or a table is full.
+ * @param pid Receiver; any thread of the receiving process.
+ * @param type Kind of capability.
+ * @param first First resource of the range.
+ * @param count Number of resources.
+ * @param delegate true to let the receiver pass the copy on.
+ * @param tag Free value that arrives in the message (`arg5`).
+ * @return The id of the node of the derivation tree that records the copy (greater than 0), which
+ *         the caller can pass to `cap_revoke`; `abi::NO_CAPABILITY_NODE` when the send failed. The
+ *         receiver finds the same id in `arg4` of the message.
+ */
+inline uint32_t cap_send(uint32_t pid, abi::CapabilityType type, uint32_t first, uint32_t count,
+						 bool delegate = false, uint32_t tag = 0) {
+	ipc::Message message = {};
+	message.type = ipc::MessageType::CAPABILITY_TRANSFER;
+	message.payload.args.arg0 = static_cast<uint32_t>(type);
+	message.payload.args.arg1 = first;
+	message.payload.args.arg2 = count;
+	message.payload.args.arg3 = delegate ? abi::GRANT_DELEGATE : NO_GRANT_FLAGS;
+	message.payload.args.arg5 = tag;
+	uintptr_t result = syscall(SYS_IPC_SEND, pid, reinterpret_cast<uintptr_t>(&message), 0, 0, 0, 0);
+	return result == FAILURE ? abi::NO_CAPABILITY_NODE : static_cast<uint32_t>(result);
 }
 
 /**

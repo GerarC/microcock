@@ -7,7 +7,7 @@
  * `path=<file>` (ELF in the initrd; no path means a boot module that is only configured), `repeat=<1..32>` (copies to start; 1 for boot modules), `restart=<1..16>` (times `init` starts the program
  * again after it ends, within one restart window; needs a path and `repeat` of 1), `arg=<number>` (one
  * numeric argument) and `caps=<grant>,<grant>...` with grants `io:<first>[+count]`, `irq:<line>[+count]` and
- * `mem:<first>+<bytes>` plus the bare `spawn` (the right to call `SYS_PROC_CREATE`), and `ipc=<name>,<name>...` (programs this one may exchange messages with, calls
+ * `mem:<first>+<bytes>` plus the bare `spawn` (the right to call `SYS_PROC_CREATE`), each of them with a final `*` when the program may pass the capability on, and `ipc=<name>,<name>...` (programs this one may exchange messages with, calls
  * and shared memory with; the name server checks the list when the program connects to one of them and gives it
  * an IPC capability for the service label then).
  * Numbers are decimal or `0x` hexadecimal and must fit in 32 bits. The parser has no
@@ -54,6 +54,8 @@ struct Grant {
 	uint32_t first;
 	/** Number of ports or lines, or the size in bytes for memory. Never 0, and `first + count` never passes 2^32. */
 	uint32_t count;
+	/** True when the grant ends with `*`: the process may pass the capability on, to a program or in a capability message. */
+	bool delegate;
 };
 
 /** One parsed line of the manifest. */
@@ -124,6 +126,8 @@ constexpr char COMMENT_START = '#';
 constexpr char KEY_SEPARATOR = '=';
 /** Separates grants in a `caps` list. */
 constexpr char LIST_SEPARATOR = ',';
+/** Last character of a grant that the process may pass on. */
+constexpr char DELEGATE_MARK = '*';
 /** Separates the grant type from its range. */
 constexpr char TYPE_SEPARATOR = ':';
 /** Separates the first value of a range from its count. */
@@ -326,12 +330,17 @@ inline bool copyText(Slice text, char *destination, size_t capacity) {
 }
 
 /**
- * @brief Parses one grant such as `io:0x3F8+8`, `irq:1` or `mem:0xB8000+4000` or `spawn`.
+ * @brief Parses one grant such as `io:0x3F8+8`, `irq:1` or `mem:0xB8000+4000` or `spawn`, each with an optional final `*`.
  * @param text Grant text.
- * @param grant Receives the grant on success.
+ * @param grant Receives the grant on success; `delegate` is true when the text ends with `*`.
  * @return False for an unknown type, a bad number, a missing count for memory, a zero count or a range past 2^32.
  */
 inline bool parseGrant(Slice text, Grant &grant) {
+	grant.delegate = false;
+	if (!text.empty() && *(text.end - 1) == DELEGATE_MARK) {
+		grant.delegate = true;
+		text.end--;
+	}
 	if (text.equals(GRANT_SPAWN)) {
 		grant.type = CapabilityType::SPAWN;
 		grant.first = static_cast<uint32_t>(SPAWN_FIRST);

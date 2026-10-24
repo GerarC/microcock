@@ -64,6 +64,7 @@ enum SyscallNum : uint32_t {
     SYS_PROC_START          = 0x18F, /**< Create the first thread of a process that was created, at an entry point, and let it run; returns the process id. */
     SYS_PROC_DISCARD        = 0x190, /**< Destroy a process that was created and not started. */
     SYS_THREAD_PROCESS      = 0x191, /**< Give the process a thread belongs to, so a server that sees the id of the calling thread knows whose it is. */
+    SYS_CAP_ACCEPT          = 0x192, /**< Choose which capability types a CAPABILITY_TRANSFER message may give the calling process; none until the call is made. */
 };
 
 }

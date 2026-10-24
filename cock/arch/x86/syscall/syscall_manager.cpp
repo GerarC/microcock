@@ -9,7 +9,7 @@ namespace cock::core::syscall {
 
 using arch::x86::SyscallNum;
 
-constexpr int MAX_X86_SYSCALLS = 0x192;
+constexpr int MAX_X86_SYSCALLS = 0x193;
 
 SystemCall syscall_table[MAX_X86_SYSCALLS] = {nullptr};
 
@@ -33,6 +33,7 @@ void SyscallManager::init() {
 
     syscall_table[SyscallNum::SYS_CAP_GRANT] = sys_cap_grant;
     syscall_table[SyscallNum::SYS_CAP_REVOKE] = sys_cap_revoke;
+    syscall_table[SyscallNum::SYS_CAP_ACCEPT] = sys_cap_accept;
     syscall_table[SyscallNum::SYS_SERVICE_SET] = sys_service_set;
     syscall_table[SyscallNum::SYS_IRQ_BIND] = sys_irq_bind;
     syscall_table[SyscallNum::SYS_IRQ_ACK] = sys_irq_ack;

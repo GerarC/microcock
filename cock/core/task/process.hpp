@@ -5,6 +5,7 @@
 #ifndef CORE_PROCESS_HPP
 #define CORE_PROCESS_HPP
 
+#include <cock/abi/capability.hpp>
 #include <cock/abi/process.hpp>
 #include <cock/abi/service.hpp>
 #include <cock/core/hal/tasking.hpp>
@@ -141,6 +142,22 @@ class Process {
 	 * exited.
 	 */
 	bool threadExited();
+
+	/**
+	 * @brief Tells whether capabilities of a type may reach the process in a message.
+	 * @param type Capability type.
+	 * @return True when the bit of the type is in the mask set by acceptCapabilities.
+	 */
+	bool acceptsCapability(security::CapabilityType type) const {
+		return (acceptedCapabilityTypes & abi::capabilityBit(type)) != 0;
+	}
+
+	/**
+	 * @brief Sets which capability types may reach the process in a message.
+	 * @param mask Bits of abi::capabilityBit; the caller checked that no bit lies
+	 * outside abi::ALL_CAPABILITY_TYPES. Replaces the previous mask.
+	 */
+	void acceptCapabilities(uint32_t mask) { acceptedCapabilityTypes = mask; }
 
 	/** @return The service label of the process, NO_SERVICE until one is set. */
 	uint32_t getServiceId() const { return serviceId; }
@@ -308,6 +325,7 @@ class Process {
 	bool notifyExit = false; /**< Tell the parent on exit. */
 	uint32_t exitStatus = 0; /**< Exit status. */
 	uint32_t serviceId = abi::service::NO_SERVICE; /**< Service label, set once. */
+	uint32_t acceptedCapabilityTypes = abi::NO_CAPABILITY_TYPES; /**< Capability types a message may give the process. */
 	size_t notifiedChildren = 0; /**< Children with an exit notice that is reserved or stored. */
 	data_structure::RingBuffer<ExitNotice, abi::process::MAX_NOTIFIED_CHILDREN + 1>
 		exitNotices; /**< Exit notices of children, not yet read. */

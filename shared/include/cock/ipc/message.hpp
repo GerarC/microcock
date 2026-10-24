@@ -55,7 +55,8 @@ enum class MessageType : uint32_t {
 	RTC_REPLY = 28,                 /**< Clock server answer; arg0 request id, arg1 status, arg2 packed date, arg3 packed time. */
 	PROCESS_EXITED = 29,            /**< Kernel notice to the spawner, only when it asked at spawn: arg0 is the process id, arg1 the exit status (FAULT_STATUS when an exception ended it). */
 	CONSOLE_KEY = 30,               /**< Keyboard driver notice to the console server: arg0 is the typed character. */
-	FS_LINK = 26,                 /**< File server request: make a hard link; the existing path is at the start of the window and the new name at RENAME_NEW_OFFSET; arg0 request id, arg1 existing length, arg2 new length. */
+	CAPABILITY_TRANSFER = 31,       /**< A capability the sender holds, given to the receiver by the kernel when the message is sent; arg0 capability type, arg1 first, arg2 count, arg3 flags (0 or GRANT_DELEGATE), arg4 is overwritten with the node id the receiver now holds, arg5 is free. Refused unless the receiver accepted the type with SYS_CAP_ACCEPT. */
+	FS_LINK = 26,                /**< File server request: make a hard link; the existing path is at the start of the window and the new name at RENAME_NEW_OFFSET; arg0 request id, arg1 existing length, arg2 new length. */
 };
 
 /**

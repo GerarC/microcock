@@ -17,6 +17,7 @@ void SyscallManager::init() {
 	syscall_table[SyscallNum::SYS_IPC_SEND] = sys_ipc_send;
 	syscall_table[SyscallNum::SYS_IPC_RECV] = sys_ipc_recv;
 	syscall_table[SyscallNum::SYS_CAP_GRANT] = sys_cap_grant;
+	syscall_table[SyscallNum::SYS_CAP_ACCEPT] = sys_cap_accept;
 	syscall_table[SyscallNum::SYS_IRQ_BIND] = sys_irq_bind;
 	syscall_table[SyscallNum::SYS_IRQ_ACK] = sys_irq_ack;
 	syscall_table[SyscallNum::SYS_MODULE_PROCESS] = sys_module_process;
@@ -77,9 +78,10 @@ The kernel writes `sender_pid` and `target_pid` itself on delivery; whatever the
 | `BLK_CONNECT`, `BLK_INFO`, `BLK_READ`, `BLK_REPLY`, `BLK_WRITE` | The block server protocol (values 16 to 19 and 22); see [block storage](../userland/block_storage.md) |
 | `RTC_READ`, `RTC_REPLY` | The clock server protocol (values 27 and 28): `arg0` request id; the reply carries the status in `arg1` and the date and time packed in `arg2` and `arg3` (`shared/include/cock/abi/rtc.hpp`) |
 | `CAPABILITY_GRANTED` | The root server tells a driver that its capabilities are in place (`arg0` is the numeric argument of its manifest entry, for example the device of `fat`; zero when it has none). Only a process that holds a capability with the grant right can send it |
+| `CAPABILITY_TRANSFER` | Gives the receiver a copy of part of a capability of the sender (value 31): `arg0` type, `arg1` first, `arg2` count, `arg3` flags (0 or `GRANT_DELEGATE`), `arg4` written by the kernel with the node id of the copy, `arg5` free. Refused unless the receiver accepted the type with `SYS_CAP_ACCEPT`; see [capabilities](capabilities.md#capabilities-in-messages). A successful `SYS_IPC_SEND` of this type returns the node id instead of 0 |
 
 ### Sending (`sys_ipc_send`)
-Before delivering, the system call checks that the sender may use the message type: `IRQ_NOTIFICATION` and `PROCESS_EXITED` are refused to every program, and `CAPABILITY_GRANTED` is refused unless the sender holds grant authority. A server can therefore trust the type of a message it receives without checking who sent it. Then it checks the IPC capability (`mayTalk`): the sender and the target must be the same process, or one of them must hold an `IPC` capability that covers the service label of the other; see [capabilities](capabilities.md#the-ipc-capability). `SYS_IPC_CALL` and `SYS_SHM_SHARE` make the same check, and a refusal costs the caller nothing but a `-1`. `IPC::deliver` then validates the target, stamps the message and pushes it into the inbox of the target. If the target was blocked waiting for a message (`WAITING_MSG`), it is set to `READY` and put back in the scheduler. The call fails, and the sender is told, when the target does not exist or its inbox is full.
+Before delivering, the system call checks that the sender may use the message type: `IRQ_NOTIFICATION` and `PROCESS_EXITED` are refused to every program, and `CAPABILITY_GRANTED` is refused unless the sender holds grant authority. A server can therefore trust the type of a message it receives without checking who sent it. Then it checks the IPC capability (`mayTalk`): the sender and the target must be the same process, or one of them must hold an `IPC` capability that covers the service label of the other; see [capabilities](capabilities.md#the-ipc-capability). `SYS_IPC_CALL` and `SYS_SHM_SHARE` make the same check, and a refusal costs the caller nothing but a `-1`. A `CAPABILITY_TRANSFER` message then gets its copy made (`delegate_capability`), and the copy is taken back if the delivery fails. `IPC::deliver` then validates the target, stamps the message and pushes it into the inbox of the target. If the target was blocked waiting for a message (`WAITING_MSG`), it is set to `READY` and put back in the scheduler. The call fails, and the sender is told, when the target does not exist or its inbox is full.
 
 ```cpp
 bool IPC::deliver(uint32_t to_pid, Message message) {
