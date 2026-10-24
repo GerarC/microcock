@@ -54,13 +54,16 @@ class SyncIpc {
 	 * @param words Four payload words copied into the caller.
 	 * @param milliseconds Time limit, the no timeout value for forever, zero to
 	 * refuse to wait.
+	 * @param peer Value the server finds in its `peer` register when it accepts the
+	 * call: the badge of the handle the caller used, or the id of the caller for a
+	 * call by thread id.
 	 * @return See CallStart.
 	 * @note Syscall context. The caller is left in the waiting for reply state
 	 * and a reschedule is requested.
 	 */
 	static CallStart call(Thread &caller, uint32_t target_id,
 						  const uint32_t (&words)[abi::call::WORD_COUNT],
-						  uint32_t milliseconds);
+						  uint32_t milliseconds, uint32_t peer);
 	/**
 	 * @brief Takes the next request, or waits for one.
 	 * @param server Thread serving.

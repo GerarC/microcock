@@ -39,7 +39,7 @@ struct CallResult {
 	bool ok;
 	/** Raw status of the call. */
 	CallStatus status;
-	/** Thread id of the peer: the caller on accept, the replier on call. */
+	/** Identity of the peer. On accept: the badge of the handle when the call came through an endpoint, or the thread id of the caller when it came by thread id. On call: the thread id of the replier. */
 	uint32_t peer;
 	/** The four words of the request (accept) or of the answer (call). */
 	uint32_t words[CALL_WORDS];
@@ -99,6 +99,21 @@ inline CallResult register_call(uint32_t number, uint32_t peer, const uint32_t *
 inline CallResult ipc_call(uint32_t target, const uint32_t (&words)[CALL_WORDS],
 						   uint32_t milliseconds = CALL_NO_TIMEOUT) {
 	return register_call(SYS_IPC_CALL, target, words, milliseconds);
+}
+
+/**
+ * @brief Calls the process bound to an endpoint and waits for its answer (`SYS_EP_CALL`). Blocks.
+ *
+ * Like `ipc_call`, but the destination is a handle the caller holds, not a thread id, and holding it
+ * is the permission. The server finds the badge of the handle in the `peer` of its accept.
+ * @param handle A handle on an endpoint.
+ * @param words The four request words.
+ * @param milliseconds Longest wait; `CALL_NO_TIMEOUT` by default.
+ * @return As `ipc_call`; `FAILED` also when the handle is not held or the endpoint has no live owner.
+ */
+inline CallResult ep_call(uint32_t handle, const uint32_t (&words)[CALL_WORDS],
+						  uint32_t milliseconds = CALL_NO_TIMEOUT) {
+	return register_call(SYS_EP_CALL, handle, words, milliseconds);
 }
 
 /**

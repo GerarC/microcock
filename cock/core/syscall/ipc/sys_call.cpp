@@ -1,5 +1,6 @@
 #include <cock/abi/call.hpp>
 #include <cock/core/security/ipc_access.hpp>
+#include <cock/core/syscall/ipc/endpoint_route.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/sync_ipc.hpp>
@@ -48,6 +49,17 @@ uintptr_t acceptStatus(AcceptResult result) {
 	return FAILURE;
 }
 
+uintptr_t startCall(Thread &current, uint32_t server_id, const Words &words,
+					uintptr_t milliseconds, uint32_t peer) {
+	switch (SyncIpc::call(current, server_id, words.values,
+						  static_cast<uint32_t>(milliseconds), peer)) {
+	case CallStart::BLOCKED: return SUCCESS;
+	case CallStart::TIMED_OUT: return TIMED_OUT;
+	case CallStart::REFUSED: break;
+	}
+	return FAILURE;
+}
+
 } // namespace
 
 uintptr_t sys_ipc_call(uintptr_t target, uintptr_t word0, uintptr_t word1,
@@ -59,14 +71,20 @@ uintptr_t sys_ipc_call(uintptr_t target, uintptr_t word0, uintptr_t word1,
 	if (!server || !security::mayTalk(*current->getProcess(), *server->getProcess()))
 		return FAILURE;
 
-	Words words = pack(word0, word1, word2, word3);
-	switch (SyncIpc::call(*current, static_cast<uint32_t>(target), words.values,
-						  static_cast<uint32_t>(milliseconds))) {
-	case CallStart::BLOCKED: return SUCCESS;
-	case CallStart::TIMED_OUT: return TIMED_OUT;
-	case CallStart::REFUSED: break;
-	}
-	return FAILURE;
+	return startCall(*current, static_cast<uint32_t>(target),
+					 pack(word0, word1, word2, word3), milliseconds, current->getId());
+}
+
+uintptr_t sys_ep_call(uintptr_t handle, uintptr_t word0, uintptr_t word1,
+					  uintptr_t word2, uintptr_t word3, uintptr_t milliseconds) {
+	Thread *current = Scheduler::getCurrentThread();
+	if (!current || !timeoutOk(milliseconds)) return FAILURE;
+
+	EndpointRoute route = resolveHandle(*current, handle);
+	if (route.target == nullptr) return FAILURE;
+
+	return startCall(*current, route.target->getId(), pack(word0, word1, word2, word3),
+					 milliseconds, route.badge);
 }
 
 uintptr_t sys_ipc_accept(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t,

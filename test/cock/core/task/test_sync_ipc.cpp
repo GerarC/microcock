@@ -37,6 +37,7 @@ namespace {
 constexpr uintptr_t FAKE_STACK_POINTER = 0x1000;
 constexpr size_t DRAIN_LIMIT = 64;
 constexpr uint32_t UNKNOWN_PID = 0xFFFFFFF0;
+constexpr uint32_t BADGE = 0xB0D6E;
 constexpr size_t PEER_VALUE = 0;
 constexpr size_t FIRST_WORD_VALUE = 1;
 constexpr uint32_t FIRST_REQUEST[WORD_COUNT] = {0x11, 0x12, 0x13, 0x14};
@@ -93,7 +94,7 @@ bool hasWords(const SyscallFrame &frame, const uint32_t (&words)[WORD_COUNT]) {
 
 bool startCall(Thread &caller, uint32_t target, const uint32_t (&words)[WORD_COUNT],
 			   uint32_t milliseconds = abi::call::NO_TIMEOUT) {
-	return SyncIpc::call(caller, target, words, milliseconds) == CallStart::BLOCKED;
+	return SyncIpc::call(caller, target, words, milliseconds, caller.getId()) == CallStart::BLOCKED;
 }
 
 AcceptResult acceptNext(Thread &server, uint32_t milliseconds = abi::call::NO_TIMEOUT) {
@@ -150,6 +151,28 @@ void checkQueuedCallThenAccept() {
 	EXPECT_EQ(static_cast<uintptr_t>(server->getId()), answer.values[PEER_VALUE]);
 	EXPECT_TRUE(hasWords(answer, FIRST_REPLY));
 	EXPECT_FALSE(SyncIpc::reply(*server, FIRST_REPLY, false));
+
+	drain();
+	retire(caller);
+	retire(server);
+	TaskManager::buryDeadThreads();
+}
+
+void checkServerReadsThePeerTheCallerChose() {
+	startScheduler();
+	Thread *caller = makeThread();
+	Thread *server = makeThread();
+
+	EXPECT_TRUE(SyncIpc::call(*caller, server->getId(), FIRST_REQUEST, abi::call::NO_TIMEOUT,
+							  BADGE) == CallStart::BLOCKED);
+	EXPECT_TRUE(acceptNext(*server) == AcceptResult::SERVED);
+	SyscallFrame request = frameOf(server);
+	EXPECT_EQ(static_cast<uintptr_t>(BADGE), request.values[PEER_VALUE]);
+	EXPECT_NEQ(static_cast<uintptr_t>(caller->getId()), request.values[PEER_VALUE]);
+	EXPECT_TRUE(hasWords(request, FIRST_REQUEST));
+
+	EXPECT_TRUE(SyncIpc::reply(*server, FIRST_REPLY, false));
+	EXPECT_EQ(static_cast<uintptr_t>(server->getId()), frameOf(caller).values[PEER_VALUE]);
 
 	drain();
 	retire(caller);
@@ -244,7 +267,7 @@ void checkCallTimeoutWhileQueued() {
 	Thread *server = makeThread();
 
 	EXPECT_TRUE(SyncIpc::call(*caller, server->getId(), FIRST_REQUEST,
-							  NO_WAIT_MILLISECONDS) == CallStart::TIMED_OUT);
+							  NO_WAIT_MILLISECONDS, caller->getId()) == CallStart::TIMED_OUT);
 	EXPECT_TRUE(caller->getState() == ThreadState::READY);
 	EXPECT_FALSE(SyncIpc::hasCallers(*server));
 
@@ -480,6 +503,7 @@ void test_sync_ipc() {
 
 	checkRefusals();
 	checkQueuedCallThenAccept();
+	checkServerReadsThePeerTheCallerChose();
 	checkWaitingServerGetsHandoff();
 	checkFirstComeFirstServed();
 	checkDeathFailsCallers();

@@ -19,6 +19,15 @@ using cock::abi::NO_CAPABILITY_NODE;
  * it, to other processes. */
 constexpr uint32_t CAPABILITY_FLAG_GRANT = 1u << 0;
 
+/** @brief Capability flag, `ENDPOINT` only: the holder chooses the badge of the handles it grants. */
+constexpr uint32_t CAPABILITY_FLAG_MINT = 1u << 1;
+
+/** @brief Capability flag, `ENDPOINT` only: the holder may bind a process to the endpoint with `SYS_EP_BIND`. Never passed on. */
+constexpr uint32_t CAPABILITY_FLAG_BIND = 1u << 2;
+
+/** @brief Value of the flags a query requires when it accepts any entry. */
+constexpr uint32_t NO_REQUIRED_FLAGS = 0;
+
 /**
  * @brief One authorization: a half open range [first, first + count) of
  * resources of a given type.
@@ -33,6 +42,7 @@ struct Capability {
 	CapabilityNodeId node = NO_CAPABILITY_NODE; /**< Node of the derivation tree that records where this entry came from. */
 	uint64_t first = 0; /**< First resource of the range. */
 	uint64_t count = 0; /**< Number of resources in the range. */
+	uint32_t badge = 0; /**< `ENDPOINT` only: the value the kernel stamps on every message sent through this handle. */
 
 	/** @return First value past the range. Callers ensure it does not
 	 * overflow, which add and find check. */
@@ -79,7 +89,20 @@ class CapabilitySet {
 	 * @return True when one entry of that type contains the whole range.
 	 */
 	bool covers(CapabilityType type, uint64_t first, uint64_t count) const {
-		return find(type, first, count, false) != nullptr;
+		return find(type, first, count, NO_REQUIRED_FLAGS) != nullptr;
+	}
+
+	/**
+	 * @brief Tells whether one entry contains a range and carries a flag.
+	 * @param type Kind of resource.
+	 * @param first First resource wanted.
+	 * @param count Number of resources wanted.
+	 * @param flag One `CAPABILITY_FLAG` value.
+	 * @return True when one entry of that type contains the whole range and has the
+	 * flag.
+	 */
+	bool hasFlag(CapabilityType type, uint64_t first, uint64_t count, uint32_t flag) const {
+		return find(type, first, count, flag) != nullptr;
 	}
 
 	/**
@@ -106,21 +129,22 @@ class CapabilitySet {
 	 */
 	const Capability *grantable(CapabilityType type, uint64_t first,
 								uint64_t count) const {
-		return find(type, first, count, true);
+		return find(type, first, count, CAPABILITY_FLAG_GRANT);
 	}
 
 	/**
 	 * @brief Tells whether the holder has grant authority over hardware or boot resources.
-	 * @return True when at least one entry that is not of the `IPC` type has the
-	 * grant flag. This is the test for operations reserved to the root server,
-	 * such as labelling processes, finding boot modules and sending capability
-	 * messages. A holder that may only pass on `IPC` capabilities, as the name
-	 * server does, has no such authority.
+	 * @return True when at least one entry that is not of the `IPC` or `ENDPOINT`
+	 * type has the grant flag. This is the test for operations reserved to the root
+	 * server, such as labelling processes, finding boot modules, creating endpoints
+	 * and sending capability messages. A holder that may only pass on `IPC` and
+	 * `ENDPOINT` capabilities, as the name server does, has no such authority.
 	 */
 	bool holdsGrantAuthority() const {
 		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++) {
 			if (entries[idx].type != CapabilityType::NONE &&
 				entries[idx].type != CapabilityType::IPC &&
+				entries[idx].type != CapabilityType::ENDPOINT &&
 				(entries[idx].flags & CAPABILITY_FLAG_GRANT))
 				return true;
 		}
@@ -144,6 +168,22 @@ class CapabilitySet {
 		return false;
 	}
 
+	/**
+	 * @brief Finds the endpoint handle that a number names.
+	 * @param handle Number of the node of the derivation tree, as a program passes it.
+	 * @return The entry of type `ENDPOINT` whose node is `handle`, or null for
+	 * NO_CAPABILITY_NODE and for a number that names no endpoint capability of this
+	 * set. The pointer is valid until the table changes.
+	 */
+	const Capability *endpointHandle(uint32_t handle) const {
+		if (handle == NO_CAPABILITY_NODE) return nullptr;
+		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++) {
+			if (entries[idx].type == CapabilityType::ENDPOINT && entries[idx].node == handle)
+				return &entries[idx];
+		}
+		return nullptr;
+	}
+
 	/** @brief Removes every capability. */
 	void clear() {
 		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++)
@@ -156,12 +196,12 @@ class CapabilitySet {
 	 * @param type Kind of resource.
 	 * @param first First resource.
 	 * @param count Number of resources.
-	 * @param needs_grant True to accept only entries with the grant flag.
+	 * @param required_flags Flags the entry must carry, `NO_REQUIRED_FLAGS` for any.
 	 * @return The containing entry, or null for the none type, a zero count, a
 	 * range that wraps around or no containing entry.
 	 */
 	const Capability *find(CapabilityType type, uint64_t first, uint64_t count,
-						   bool needs_grant) const {
+						   uint32_t required_flags) const {
 		if (type == CapabilityType::NONE || count == 0 ||
 			first + count < first)
 			return nullptr;
@@ -169,7 +209,7 @@ class CapabilitySet {
 		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++) {
 			const Capability &entry = entries[idx];
 			if (entry.type != type) continue;
-			if (needs_grant && !(entry.flags & CAPABILITY_FLAG_GRANT)) continue;
+			if ((entry.flags & required_flags) != required_flags) continue;
 			if (first >= entry.first && first + count <= entry.end())
 				return &entry;
 		}

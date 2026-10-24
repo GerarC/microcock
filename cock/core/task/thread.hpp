@@ -192,6 +192,7 @@ class Thread {
 	Thread *callTarget = nullptr; /**< Server this thread has called. */
 	uint32_t callWords[abi::call::WORD_COUNT] = {}; /**< Words of the pending
 													   request of this caller. */
+	uint32_t callPeer = 0; /**< Value the server reads as `peer` when it accepts the pending request of this caller: the badge of the handle, or the id of this thread for a call by process id. */
 	bool queued = false; /**< True while on a ready queue. */
 	[[no_unique_address]] ThreadMetrics metrics; /**< Scheduler figures, empty unless built with SCHED_METRICS=1. */
 

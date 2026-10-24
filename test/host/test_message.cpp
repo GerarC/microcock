@@ -12,13 +12,14 @@ using cock::ipc::MessageType;
 
 namespace {
 
-constexpr size_t HEADER_FIELDS = 3;
+constexpr size_t HEADER_FIELDS = 4;
 constexpr size_t FIELD_SIZE = sizeof(uint32_t);
 constexpr size_t MINIMUM_SIZE =
 	HEADER_FIELDS * FIELD_SIZE + MAX_ARGUMENTS * FIELD_SIZE;
 constexpr size_t SENDER_INDEX = 0;
 constexpr size_t TARGET_INDEX = 1;
 constexpr size_t TYPE_INDEX = 2;
+constexpr size_t BADGE_INDEX = 3;
 constexpr uint32_t FIRST_ARGUMENT = 0x11;
 constexpr uint32_t LAST_ARGUMENT = 0x66;
 constexpr size_t LAST_INDEX = MAX_ARGUMENTS - 1;
@@ -34,6 +35,7 @@ void checkLayout() {
 	CHECK_EQ(SENDER_INDEX * FIELD_SIZE, offsetof(Message, sender_pid));
 	CHECK_EQ(TARGET_INDEX * FIELD_SIZE, offsetof(Message, target_pid));
 	CHECK_EQ(TYPE_INDEX * FIELD_SIZE, offsetof(Message, type));
+	CHECK_EQ(BADGE_INDEX * FIELD_SIZE, offsetof(Message, badge));
 }
 
 void checkArgumentAliasing() {

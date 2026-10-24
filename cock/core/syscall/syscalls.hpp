@@ -141,7 +141,8 @@ uintptr_t sys_not_implemented(uintptr_t, uintptr_t, uintptr_t, uintptr_t,
  *
  * A `CAPABILITY_TRANSFER` message also gives the receiving process a copy of
  * part of a capability of the sender (arg0 type, arg1 first, arg2 count, arg3
- * flags: 0 or `GRANT_DELEGATE`). The copy is made before the message is queued
+ * flags: `GRANT_DELEGATE`, `GRANT_MINT`, both or none, arg5 the badge of an
+ * `ENDPOINT` capability; for any other type arg5 is free). The copy is made before the message is queued
  * and undone if queuing fails. On success the call returns the node id of the
  * copy (above 0 and below all ones) instead of 0, and the receiver finds the
  * same id in arg4. It fails, with nothing given, when the sender and the
@@ -152,6 +153,56 @@ uintptr_t sys_not_implemented(uintptr_t, uintptr_t, uintptr_t, uintptr_t,
  */
 uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
 					   uintptr_t, uintptr_t, uintptr_t);
+
+/**
+ * @brief Sends an asynchronous message through a handle on an endpoint.
+ * @param handle Number of an `ENDPOINT` capability of the caller (the node id that
+ * a grant returned to the giver and a capability message put in arg4 for the
+ * receiver). Holding it is the whole permission: no service label is compared.
+ * @param msg_ptr User pointer to a Message, copied before use.
+ * @return As `sys_ipc_send`, and all ones when the handle names no endpoint
+ * capability of the caller, the endpoint is unbound or the process bound to it is
+ * gone. The kernel writes the badge of the handle in `Message::badge`, whatever the
+ * sender put there. A `CAPABILITY_TRANSFER` message works as in `sys_ipc_send`.
+ */
+uintptr_t sys_ep_send(uintptr_t handle, uintptr_t msg_ptr, uintptr_t,
+					  uintptr_t, uintptr_t, uintptr_t);
+
+/**
+ * @brief Calls the process bound to an endpoint, with four words in registers.
+ * @param handle Number of an `ENDPOINT` capability of the caller.
+ * @param word0 First request word.
+ * @param word1 Second request word.
+ * @param word2 Third request word.
+ * @param word3 Fourth request word.
+ * @param milliseconds Time limit as in `sys_ipc_call`.
+ * @return As `sys_ipc_call`. The server finds the badge of the handle in the `peer`
+ * register of its accept, where a call by thread id puts the id of the caller.
+ */
+uintptr_t sys_ep_call(uintptr_t handle, uintptr_t word0, uintptr_t word1,
+					  uintptr_t word2, uintptr_t word3, uintptr_t milliseconds);
+
+/**
+ * @brief Creates an endpoint and gives the caller the capability that owns it.
+ * @param handle_ptr User pointer to a 32 bit value that receives the handle of the
+ * owner capability (grant, mint and bind rights).
+ * @return The endpoint id (from 1), or all ones when the caller holds no grant
+ * authority, the pointer is invalid, the table of endpoints, the derivation tree or
+ * the table of capabilities of the caller is full; nothing is created then.
+ */
+uintptr_t sys_ep_create(uintptr_t handle_ptr, uintptr_t, uintptr_t, uintptr_t,
+						uintptr_t, uintptr_t);
+
+/**
+ * @brief Binds an endpoint to a process, which then receives what is sent to it.
+ * @param endpoint Endpoint id. The caller needs an `ENDPOINT` capability with the bind
+ * right that covers it.
+ * @param pid Id of the process, which must be alive and not a kernel process. A
+ * previous owner stops receiving.
+ * @return 0 on success, all ones otherwise.
+ */
+uintptr_t sys_ep_bind(uintptr_t endpoint, uintptr_t pid, uintptr_t, uintptr_t,
+					  uintptr_t, uintptr_t);
 
 /**
  * @brief Blocks the thread and receives the next IPC message from its inbox.
@@ -181,14 +232,21 @@ uintptr_t sys_ipc_try_recv(uintptr_t msg_ptr, uintptr_t, uintptr_t, uintptr_t,
  * @param type Capability type, between the first valid type and the highest.
  * @param first Start of the range (port, line, address or module index).
  * @param count Length of the range.
+ * @param flags Zero, or `GRANT_DELEGATE` to let the target grant the copy on, or
+ * `GRANT_MINT` (`ENDPOINT` only, and only if the caller holds the right) to let it
+ * choose badges, or both.
+ * @param badge `ENDPOINT` only: the badge of the copy. Only a caller that holds the mint
+ * right may pass a value other than zero; any other caller's copy keeps the badge of its
+ * source.
  * @return The id of the node of the derivation tree that records the grant
- * (above 0 and below all ones). All ones when the type is invalid, the caller
- * does not hold a grantable capability that covers the whole range, the target
+ * (above 0 and below all ones). All ones when the type or the flags are invalid, the
+ * caller does not hold a grantable capability that covers the whole range, a mint
+ * right or a badge is asked for by a caller that has no mint right, the target
  * is invalid, the target capability table is full or the derivation tree is
- * full. The copy never carries the grant flag.
+ * full. The copy carries the grant flag only with `GRANT_DELEGATE`.
  */
 uintptr_t sys_cap_grant(uintptr_t target_pid, uintptr_t type, uintptr_t first,
-						uintptr_t count, uintptr_t, uintptr_t);
+						uintptr_t count, uintptr_t flags, uintptr_t badge);
 
 /**
  * @brief Revokes a delegated capability and everything derived from it.

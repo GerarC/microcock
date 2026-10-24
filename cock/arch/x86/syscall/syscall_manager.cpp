@@ -39,6 +39,10 @@ void SyscallManager::init() {
     syscall_table[SyscallNum::SYS_CAP_REVOKE] = sys_cap_revoke;
     syscall_table[SyscallNum::SYS_CAP_ACCEPT] = sys_cap_accept;
     syscall_table[SyscallNum::SYS_SERVICE_SET] = sys_service_set;
+    syscall_table[SyscallNum::SYS_EP_CREATE] = sys_ep_create;
+    syscall_table[SyscallNum::SYS_EP_BIND] = sys_ep_bind;
+    syscall_table[SyscallNum::SYS_EP_SEND] = sys_ep_send;
+    syscall_table[SyscallNum::SYS_EP_CALL] = sys_ep_call;
     syscall_table[SyscallNum::SYS_IRQ_BIND] = sys_irq_bind;
     syscall_table[SyscallNum::SYS_IRQ_ACK] = sys_irq_ack;
     syscall_table[SyscallNum::SYS_MODULE_PROCESS] = sys_module_process;

@@ -4,6 +4,7 @@
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/security/capability_tree.hpp>
+#include <cock/core/task/endpoint_table.hpp>
 #include <cock/core/task/pending_process.hpp>
 #include <cock/core/task/process.hpp>
 #include <hal/address_space.hpp>
@@ -50,6 +51,7 @@ Process::~Process() {
 	if (id != NO_PROCESS_ID) {
 		hal::InterruptGuard guard;
 		security::capability_tree.releaseHolder(id);
+		endpoint_table.releaseOwner(id);
 	}
 
 	PendingProcesses::discardOwnedBy(this);

@@ -21,6 +21,7 @@ void testPrng();
 void testShell();
 void testElfImage();
 void testNames();
+void testEndpointTable();
 } // namespace host_test
 
 int main() {
@@ -43,6 +44,7 @@ int main() {
 	host_test::testShell();
 	host_test::testElfImage();
 	host_test::testNames();
+	host_test::testEndpointTable();
 
 	printf("host tests: %d checks, %d failed\n", host_test::checksRun,
 		   host_test::checksFailed);

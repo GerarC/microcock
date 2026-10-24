@@ -50,7 +50,7 @@ void SyncIpc::dispatch(Thread &server) {
 	server.serving = caller;
 	Timeouts::cancel(&server);
 
-	SyscallFrame frame = frameWith(abi::call::SUCCESS, caller->getId(), caller->callWords);
+	SyscallFrame frame = frameWith(abi::call::SUCCESS, caller->callPeer, caller->callWords);
 	hal::write_syscall_frame(frameOf(server), frame);
 }
 
@@ -66,7 +66,7 @@ void SyncIpc::finish(Thread *caller, uintptr_t result) {
 
 CallStart SyncIpc::call(Thread &caller, uint32_t target_id,
 						const uint32_t (&words)[abi::call::WORD_COUNT],
-						uint32_t milliseconds) {
+						uint32_t milliseconds, uint32_t peer) {
 	InterruptGuard guard;
 	Thread *target = TaskManager::getThreadByPID(target_id);
 	if (target == nullptr || target == &caller ||
@@ -78,6 +78,7 @@ CallStart SyncIpc::call(Thread &caller, uint32_t target_id,
 		caller.callWords[index] = words[index];
 	caller.callLink = nullptr;
 	caller.callTarget = target;
+	caller.callPeer = peer;
 	caller.setState(ThreadState::WAITING_REPLY);
 	if (!isForever(milliseconds))
 		Timeouts::arm(&caller, Timeouts::ticksFor(milliseconds));

@@ -31,13 +31,15 @@ enum class CapabilityType : uint8_t {
 	IPC = 5,
 	/** Right to create processes with `SYS_PROC_CREATE`. It is a range of one (`SPAWN_FIRST`, `SPAWN_COUNT`). */
 	SPAWN = 6,
+	/** A handle on an endpoint (see `endpoint.hpp`): the range is the endpoint id, a range of one. The number of the node of the derivation tree is the handle that `SYS_EP_SEND` and `SYS_EP_CALL` take. */
+	ENDPOINT = 7,
 };
 
 /** First valid capability type. */
 constexpr CapabilityType FIRST_CAPABILITY_TYPE = CapabilityType::IO_PORTS;
 
 /** Highest valid capability type. */
-constexpr CapabilityType HIGHEST_CAPABILITY_TYPE = CapabilityType::SPAWN;
+constexpr CapabilityType HIGHEST_CAPABILITY_TYPE = CapabilityType::ENDPOINT;
 
 /**
  * Bit of a capability type in the mask of `SYS_CAP_ACCEPT`.
@@ -57,6 +59,12 @@ constexpr uint32_t NO_CAPABILITY_TYPES = 0;
 
 /** Value of the `flags` argument of `SYS_CAP_GRANT` that passes on the right to grant the capability further; zero grants a capability the holder cannot pass on. */
 constexpr uint32_t GRANT_DELEGATE = 1;
+
+/** Flag of `SYS_CAP_GRANT` and of a capability message, valid for an `ENDPOINT` capability: the copy may choose the badge of the handles it grants in turn. It passes only when the giver holds the right itself. */
+constexpr uint32_t GRANT_MINT = 2;
+
+/** Mask of the flags that `SYS_CAP_GRANT` and a capability message accept; any other bit is refused. */
+constexpr uint32_t ALL_GRANT_FLAGS = GRANT_DELEGATE | GRANT_MINT;
 
 /** First (and only) value of the range of a `SPAWN` capability. */
 constexpr uint64_t SPAWN_FIRST = 0;

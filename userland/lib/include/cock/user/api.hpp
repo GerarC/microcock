@@ -12,6 +12,7 @@
 #define COCK_USER_API_HPP
 
 #include <cock/abi/capability.hpp>
+#include <cock/abi/endpoint.hpp>
 #include <cock/abi/process.hpp>
 #include <cock/abi/sched_metrics.hpp>
 #include <cock/abi/service.hpp>
@@ -222,16 +223,23 @@ inline bool irq_ack(uint32_t line) {
  * @param delegate true to let the target pass the capability on (`abi::GRANT_DELEGATE`): it holds
  *        the grant flag for the range, as the name server does for `IPC` capabilities. false
  *        gives a capability the target cannot pass on.
+ * @param mint `ENDPOINT` only: true to let the target choose the badge of the handles it grants
+ *        (`abi::GRANT_MINT`). The caller must hold the right itself.
+ * @param badge `ENDPOINT` only: the badge of the handle that the target gets. Only a caller that
+ *        holds the mint right may pass a value other than `abi::endpoint::NO_BADGE`.
  * @return The id of the node of the derivation tree that records the grant (greater than 0),
  *         or `abi::NO_CAPABILITY_NODE` when the type is unknown, the caller holds no grantable
  *         capability covering the range, the target does not exist or is a kernel process,
- *         the capability table of the target is full, or the derivation tree is full.
+ *         the capability table of the target is full, or the derivation tree is full. For an
+ *         `ENDPOINT` capability the node id is the handle in the table of the target.
  */
 inline uint32_t cap_grant_node(uint32_t pid, abi::CapabilityType type, uintptr_t first,
-							   uintptr_t count, bool delegate = false) {
-	uintptr_t flags = delegate ? abi::GRANT_DELEGATE : NO_GRANT_FLAGS;
+							   uintptr_t count, bool delegate = false, bool mint = false,
+							   uint32_t badge = abi::endpoint::NO_BADGE) {
+	uintptr_t flags = (delegate ? abi::GRANT_DELEGATE : NO_GRANT_FLAGS) |
+					  (mint ? abi::GRANT_MINT : NO_GRANT_FLAGS);
 	uintptr_t result = syscall(SYS_CAP_GRANT, pid, static_cast<uintptr_t>(type), first,
-							   count, flags, 0);
+							   count, flags, badge);
 	return result == FAILURE ? abi::NO_CAPABILITY_NODE : static_cast<uint32_t>(result);
 }
 
@@ -270,19 +278,23 @@ inline bool cap_accept(uint32_t mask) {
  * @param first First resource of the range.
  * @param count Number of resources.
  * @param delegate true to let the receiver pass the copy on.
- * @param tag Free value that arrives in the message (`arg5`).
+ * @param tag Free value that arrives in the message (`arg5`); for an `ENDPOINT` capability it is
+ *        the badge of the handle that the receiver gets, and only a sender with the mint right may
+ *        pass a value other than zero.
+ * @param mint `ENDPOINT` only: true to let the receiver choose badges (`abi::GRANT_MINT`).
  * @return The id of the node of the derivation tree that records the copy (greater than 0), which
  *         the caller can pass to `cap_revoke`; `abi::NO_CAPABILITY_NODE` when the send failed. The
  *         receiver finds the same id in `arg4` of the message.
  */
 inline uint32_t cap_send(uint32_t pid, abi::CapabilityType type, uint32_t first, uint32_t count,
-						 bool delegate = false, uint32_t tag = 0) {
+						 bool delegate = false, uint32_t tag = 0, bool mint = false) {
 	ipc::Message message = {};
 	message.type = ipc::MessageType::CAPABILITY_TRANSFER;
 	message.payload.args.arg0 = static_cast<uint32_t>(type);
 	message.payload.args.arg1 = first;
 	message.payload.args.arg2 = count;
-	message.payload.args.arg3 = delegate ? abi::GRANT_DELEGATE : NO_GRANT_FLAGS;
+	message.payload.args.arg3 = (delegate ? abi::GRANT_DELEGATE : NO_GRANT_FLAGS) |
+								(mint ? abi::GRANT_MINT : NO_GRANT_FLAGS);
 	message.payload.args.arg5 = tag;
 	uintptr_t result = syscall(SYS_IPC_SEND, pid, reinterpret_cast<uintptr_t>(&message), 0, 0, 0, 0);
 	return result == FAILURE ? abi::NO_CAPABILITY_NODE : static_cast<uint32_t>(result);
@@ -300,6 +312,48 @@ inline uint32_t cap_send(uint32_t pid, abi::CapabilityType type, uint32_t first,
  */
 inline bool service_set(uint32_t pid, uint32_t label) {
 	return syscall(SYS_SERVICE_SET, pid, label, 0, 0, 0, 0) == SUCCESS;
+}
+
+/**
+ * @brief Creates an endpoint (`SYS_EP_CREATE`) and takes the capability that owns it.
+ *
+ * The owner capability has the grant, mint and bind rights. It lets the caller bind the endpoint
+ * to a process with `ep_bind` and hand out handles with `cap_grant_node` or `cap_send`, choosing the
+ * badge of each. The caller needs grant authority.
+ * @param handle Receives the handle of the owner capability, which `ep_send` and `ep_call` accept.
+ * @return The endpoint id (greater than 0), or `abi::endpoint::NO_ENDPOINT` when the caller has no
+ *         grant authority or a table is full.
+ */
+inline uint32_t ep_create(uint32_t &handle) {
+	uintptr_t result = syscall(SYS_EP_CREATE, reinterpret_cast<uintptr_t>(&handle), 0, 0, 0, 0, 0);
+	return result == FAILURE ? abi::endpoint::NO_ENDPOINT : static_cast<uint32_t>(result);
+}
+
+/**
+ * @brief Binds an endpoint to the process that receives what is sent to it (`SYS_EP_BIND`).
+ *
+ * A later call replaces the owner, which is how a restarted server takes over the endpoint that its
+ * clients hold handles on.
+ * @param endpoint Endpoint id. The caller needs the bind right of its capability.
+ * @param pid Process id of a live user process.
+ * @return true when bound; false when the right is missing, the endpoint does not exist or the
+ *         process is unknown, not a user process or not alive.
+ */
+inline bool ep_bind(uint32_t endpoint, uint32_t pid) {
+	return syscall(SYS_EP_BIND, endpoint, pid, 0, 0, 0, 0) == SUCCESS;
+}
+
+/**
+ * @brief Sends an asynchronous message through a handle (`SYS_EP_SEND`).
+ *
+ * The kernel writes the badge of the handle in `Message::badge`, whatever the message holds.
+ * @param handle A handle the caller holds.
+ * @param message The message; the sender and target fields are overwritten.
+ * @return true when queued; false when the handle is not held, the endpoint is unbound or its process
+ *         is gone, the inbox is full or the type is reserved.
+ */
+inline bool ep_send(uint32_t handle, const ipc::Message &message) {
+	return syscall(SYS_EP_SEND, handle, reinterpret_cast<uintptr_t>(&message), 0, 0, 0, 0) == SUCCESS;
 }
 
 /**

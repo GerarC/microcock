@@ -2,8 +2,9 @@
  * @file message.hpp
  * @brief Asynchronous IPC message (`SYS_IPC_SEND`, `SYS_IPC_RECV`) and the catalog of message types.
  *
- * A message is a fixed 36 byte record: sender, target, type and a payload of six 32 bit words. The kernel
- * overwrites `sender_pid` with the real sender, so receivers can trust it. Request and reply protocols are
+ * A message is a fixed 40 byte record: sender, target, type, badge and a payload of six 32 bit words. The kernel
+ * overwrites `sender_pid` with the real sender and `badge` with the badge of the handle used, so receivers can
+ * trust both. Request and reply protocols are
  * described with the ABI header of each server (`fs.hpp`, `block.hpp`, `console.hpp`, `rtc.hpp`).
  */
 #ifndef SHARED_COCK_IPC_HPP
@@ -55,7 +56,7 @@ enum class MessageType : uint32_t {
 	RTC_REPLY = 28,                 /**< Clock server answer; arg0 request id, arg1 status, arg2 packed date, arg3 packed time. */
 	PROCESS_EXITED = 29,            /**< Kernel notice to the spawner, only when it asked at spawn: arg0 is the process id, arg1 the exit status (FAULT_STATUS when an exception ended it). */
 	CONSOLE_KEY = 30,               /**< Keyboard driver notice to the console server: arg0 is the typed character. */
-	CAPABILITY_TRANSFER = 31,       /**< A capability the sender holds, given to the receiver by the kernel when the message is sent; arg0 capability type, arg1 first, arg2 count, arg3 flags (0 or GRANT_DELEGATE), arg4 is overwritten with the node id the receiver now holds, arg5 is free. Refused unless the receiver accepted the type with SYS_CAP_ACCEPT. */
+	CAPABILITY_TRANSFER = 31,       /**< A capability the sender holds, given to the receiver by the kernel when the message is sent; arg0 capability type, arg1 first, arg2 count, arg3 flags (a combination of GRANT_DELEGATE and GRANT_MINT), arg4 is overwritten with the node id the receiver now holds, arg5 is the badge of an `ENDPOINT` capability (zero unless the sender holds the mint right). Refused unless the receiver accepted the type with SYS_CAP_ACCEPT. */
 	FS_LINK = 26,                /**< File server request: make a hard link; the existing path is at the start of the window and the new name at RENAME_NEW_OFFSET; arg0 request id, arg1 existing length, arg2 new length. */
 };
 
@@ -67,6 +68,7 @@ typedef struct message_t {
 	uint32_t sender_pid;            /**< Process ID of the sender. */
 	uint32_t target_pid;            /**< Process ID of the intended recipient. */
 	MessageType type;               /**< The type/command of the message. */
+	uint32_t badge;                 /**< Badge of the handle the sender used (`SYS_EP_SEND`), written by the kernel; `abi::endpoint::NO_BADGE` for a message sent by process id and for kernel notices. A sender cannot choose it. */
 
     /**
      * @brief Payload carrying the actual data of the message.

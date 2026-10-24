@@ -1,6 +1,7 @@
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/security/capability_transfer.hpp>
 #include <cock/core/security/ipc_access.hpp>
+#include <cock/core/syscall/ipc/endpoint_route.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/ipc.hpp>
 #include <cock/core/task/scheduler.hpp>
@@ -32,7 +33,6 @@ using ipc::MessageType;
 constexpr uintptr_t FAILURE = static_cast<uintptr_t>(-1);
 constexpr uintptr_t SUCCESS = 0;
 constexpr uintptr_t NO_MESSAGE = 1;
-constexpr uint32_t NO_GRANT_FLAGS = 0;
 
 static bool sender_may_use(const Thread &thread, MessageType type) {
 	if (type == MessageType::IRQ_NOTIFICATION ||
@@ -57,16 +57,31 @@ static CapabilityNodeId attach_capability(const Thread &sender, Process &receive
 	if (type < static_cast<uint32_t>(abi::FIRST_CAPABILITY_TYPE) ||
 		type > static_cast<uint32_t>(abi::HIGHEST_CAPABILITY_TYPE))
 		return NO_CAPABILITY_NODE;
-	if (flags != NO_GRANT_FLAGS && flags != abi::GRANT_DELEGATE) return NO_CAPABILITY_NODE;
+	if (flags & ~abi::ALL_GRANT_FLAGS) return NO_CAPABILITY_NODE;
 
 	CapabilityType capability_type = static_cast<CapabilityType>(type);
 	if (!receiver.acceptsCapability(capability_type)) return NO_CAPABILITY_NODE;
 
 	CapabilityNodeId node = security::delegate_capability(
 		*sender.getProcess(), receiver, capability_type, message.payload.args.arg1,
-		message.payload.args.arg2, flags == abi::GRANT_DELEGATE);
+		message.payload.args.arg2, (flags & abi::GRANT_DELEGATE) != 0,
+		(flags & abi::GRANT_MINT) != 0,
+		capability_type == CapabilityType::ENDPOINT ? message.payload.args.arg5
+													: abi::endpoint::NO_BADGE);
 	message.payload.args.arg4 = node;
 	return node;
+}
+
+static uintptr_t queue_message(Thread &current, Message &message, Thread &target) {
+	CapabilityNodeId node = NO_CAPABILITY_NODE;
+	if (message.type == MessageType::CAPABILITY_TRANSFER) {
+		node = attach_capability(current, *target.getProcess(), message);
+		if (node == NO_CAPABILITY_NODE) return FAILURE;
+	}
+
+	if (IPC::deliver(target.getId(), message)) return node == NO_CAPABILITY_NODE ? SUCCESS : node;
+	if (node != NO_CAPABILITY_NODE) security::withdraw_capability(*target.getProcess(), node);
+	return FAILURE;
 }
 
 uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
@@ -77,21 +92,27 @@ uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
 	Message message;
 	memcpy(&message, reinterpret_cast<const void *>(msg_ptr), sizeof(message));
 	if (!sender_may_use(*current, message.type)) return FAILURE;
+	message.badge = abi::endpoint::NO_BADGE;
 
 	Thread *target = TaskManager::getThreadByPID(static_cast<uint32_t>(to_pid));
 	if (!target || !security::mayTalk(*current->getProcess(), *target->getProcess()))
 		return FAILURE;
+	return queue_message(*current, message, *target);
+}
 
-	CapabilityNodeId node = NO_CAPABILITY_NODE;
-	if (message.type == MessageType::CAPABILITY_TRANSFER) {
-		node = attach_capability(*current, *target->getProcess(), message);
-		if (node == NO_CAPABILITY_NODE) return FAILURE;
-	}
+uintptr_t sys_ep_send(uintptr_t handle, uintptr_t msg_ptr, uintptr_t,
+					  uintptr_t, uintptr_t, uintptr_t) {
+	Thread *current = Scheduler::getCurrentThread();
+	if (!current || !user_message_ok(*current, msg_ptr, false)) return FAILURE;
 
-	if (IPC::deliver(static_cast<uint32_t>(to_pid), message))
-		return node == NO_CAPABILITY_NODE ? SUCCESS : node;
-	if (node != NO_CAPABILITY_NODE) security::withdraw_capability(*target->getProcess(), node);
-	return FAILURE;
+	Message message;
+	memcpy(&message, reinterpret_cast<const void *>(msg_ptr), sizeof(message));
+	if (!sender_may_use(*current, message.type)) return FAILURE;
+
+	EndpointRoute route = resolveHandle(*current, handle);
+	if (route.target == nullptr) return FAILURE;
+	message.badge = route.badge;
+	return queue_message(*current, message, *route.target);
 }
 
 static bool take_next(Thread &thread, Message &message) {

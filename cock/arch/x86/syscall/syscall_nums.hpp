@@ -483,6 +483,7 @@ enum SyscallNum : uint32_t {
     SYS_IPC_RECV                 = 0x221, /**< Block until an interrupt notification or a message in the inbox of the calling thread arrives. */
     SYS_IPC_TRY_RECV             = 0x222, /**< Non blocking IPC receive: 0 message, 1 nothing pending. */
     SYS_IPC_RECV_TIMEOUT         = 0x223, /**< IPC receive that gives up after a timeout in milliseconds: 0 message, 1 timeout. */
+    SYS_EP_SEND                  = 0x224, /**< Send an IPC message through a handle on an endpoint; the kernel stamps the badge of the handle in the message. */
 
     SYS_IPC_CALL                 = 0x230, /**< Synchronous IPC: send four words to a server thread and wait for the reply, with an optional time limit in milliseconds. */
     SYS_IPC_ACCEPT               = 0x231, /**< Server side: wait for the next synchronous request. */
@@ -490,11 +491,14 @@ enum SyscallNum : uint32_t {
     SYS_IPC_REPLY_WAIT           = 0x233, /**< Server side: answer and wait for the next request in one call. */
     SYS_IPC_DEFER                = 0x234, /**< Server side: postpone the reply of the current request. */
     SYS_IPC_REPLY_TO             = 0x235, /**< Server side: answer a request that was deferred, named by the ticket that SYS_IPC_DEFER returned. */
+    SYS_EP_CALL                  = 0x236, /**< Synchronous IPC through a handle on an endpoint; the server reads the badge of the handle as the peer of its accept. */
 
     SYS_CAP_GRANT                = 0x240, /**< Grant part of a grantable capability held by the caller to another process; returns the id of the derivation tree node, or -1. */
     SYS_CAP_REVOKE               = 0x241, /**< Revoke a node of the derivation tree and every capability derived from it; the caller must hold an ancestor of the node. */
     SYS_CAP_ACCEPT               = 0x242, /**< Choose which capability types a CAPABILITY_TRANSFER message may give the calling process; none until the call is made. */
     SYS_SERVICE_SET              = 0x243, /**< Give a process its service label, once; the caller must hold grant authority. */
+    SYS_EP_CREATE                = 0x244, /**< Create an endpoint and get the capability that owns it (grant authority only). */
+    SYS_EP_BIND                  = 0x245, /**< Bind an endpoint to the process that receives from it; needs the bind right of the endpoint. */
 
     SYS_REQUEST_RESOURCE         = 0x250, /**< Ask for I/O ports (first port and count); allowed only if the caller holds a covering IO_PORTS capability and the range avoids the PIC and timer ports. */
     SYS_IRQ_BIND                 = 0x251, /**< Bind a hardware interrupt line to the calling thread (needs an IRQ capability). */

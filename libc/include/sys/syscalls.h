@@ -68,6 +68,8 @@
     #define SYS_IPC_TRY_RECV     0x222
     /** Receives a message with a time limit. a1: message pointer, a2: milliseconds (at most 0x7FFFFFFF; 0 never waits). Returns 0 when a message was stored, 1 on timeout, all ones for a bad pointer or time. */
     #define SYS_IPC_RECV_TIMEOUT 0x223
+    /** Sends an asynchronous message through a handle on an endpoint; the kernel stamps the badge of the handle in the message. a1: handle (an ENDPOINT capability node id of the caller), a2: pointer to the 'Message'. Returns 0, or all ones when the handle is not held, the endpoint is unbound or its process is gone, the inbox is full, the pointer is bad or the type is reserved. */
+    #define SYS_EP_SEND          0x224
 
     /** Synchronous call: sends a request and blocks for the reply. a1: id of the server thread, a2 to a5: four payload words, a6: milliseconds (0xFFFFFFFF waits forever). The reply words come back in the result registers. */
     #define SYS_IPC_CALL         0x230
@@ -81,8 +83,10 @@
     #define SYS_IPC_DEFER        0x234
     /** Server side: answers a deferred request. a1: ticket returned by `SYS_IPC_DEFER`, a2 to a5: four payload words. */
     #define SYS_IPC_REPLY_TO     0x235
+    /** Synchronous call through a handle on an endpoint. a1: handle, a2 to a5: four payload words, a6: milliseconds. The server reads the badge of the handle as the peer of its accept. */
+    #define SYS_EP_CALL          0x236
 
-    /** Grants a capability to another process; the caller must hold a grantable capability that covers the range. a1: target process id, a2: capability type, a3: first port, line or module index, a4: count. Returns 0 or all ones. */
+    /** Grants a capability to another process; the caller must hold a grantable capability that covers the range. a1: target process id, a2: capability type, a3: first port, line or module index, a4: count, a5: flags (GRANT_DELEGATE and GRANT_MINT), a6: badge of an ENDPOINT capability. Returns the node id of the copy or all ones. */
     #define SYS_CAP_GRANT        0x240
     /** Revokes a node of the derivation tree and everything derived from it; the caller must hold an ancestor of the node. a1: node id returned by `SYS_CAP_GRANT`. Returns 0 or all ones. */
     #define SYS_CAP_REVOKE       0x241
@@ -90,6 +94,10 @@
     #define SYS_CAP_ACCEPT       0x242
     /** Gives a process its service label, once; needs grant authority. a1: process id, a2: label. Returns 0 or all ones. */
     #define SYS_SERVICE_SET      0x243
+    /** Creates an endpoint; needs grant authority. a1: pointer to a 32 bit value that receives the handle of the owner capability. Returns the endpoint id (from 1) or all ones. */
+    #define SYS_EP_CREATE        0x244
+    /** Binds an endpoint to the process that receives from it; needs the bind right. a1: endpoint id, a2: process id. Returns 0 or all ones. */
+    #define SYS_EP_BIND          0x245
 
     /** Requests an I/O port range (needs an `IO_PORTS` capability that covers it; the PIC and timer ports are refused). a1: first port, a2: number of consecutive ports. Returns 0 or all ones. */
     #define SYS_REQUEST_RESOURCE 0x250

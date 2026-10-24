@@ -6,6 +6,7 @@
 #ifndef CORE_SECURITY_CAPABILITY_TRANSFER_HPP
 #define CORE_SECURITY_CAPABILITY_TRANSFER_HPP
 
+#include <cock/abi/endpoint.hpp>
 #include <cock/core/security/capability.hpp>
 #include <cock/core/task/process.hpp>
 #include <stdint.h>
@@ -30,14 +31,21 @@ namespace cock::core::security {
  * @param first First resource of the range.
  * @param count Number of resources.
  * @param delegate True to let the receiver pass the copy on.
+ * @param mint `ENDPOINT` only: true to let the receiver choose the badge of the
+ * handles it grants. The giver must hold that right itself.
+ * @param badge `ENDPOINT` only: the badge of the copy, which only a giver that
+ * holds the mint right may choose. Any other giver passes `NO_BADGE` and the copy
+ * keeps the badge of its source.
  * @return The node id of the copy. NO_CAPABILITY_NODE when the giver holds no
  * grantable entry that covers the range (including the none type, a zero count
- * and a range that wraps around), the derivation tree is full or the table of the
+ * and a range that wraps around), `mint` or `badge` is used by a giver without the
+ * mint right or for another type, the derivation tree is full or the table of the
  * receiver is full; nothing changes then.
  */
 CapabilityNodeId delegate_capability(const task::Process &giver, task::Process &receiver,
 									 CapabilityType type, uint64_t first, uint64_t count,
-									 bool delegate);
+									 bool delegate, bool mint = false,
+									 uint32_t badge = abi::endpoint::NO_BADGE);
 
 /**
  * @brief Takes back a copy that `delegate_capability` made, when the step that

@@ -35,6 +35,7 @@ extern void test_capabilities();
 extern void test_revocation();
 extern void test_capability_transfer();
 extern void test_ipc_access();
+extern void test_endpoint();
 } // namespace cock::test::security
 
 namespace cock::test {
@@ -56,6 +57,7 @@ void run_all_tests() {
 	security::test_revocation();
 	security::test_capability_transfer();
 	security::test_ipc_access();
+	security::test_endpoint();
 	task::test_scheduler();
 	task::test_reaper();
 	task::test_timeouts();

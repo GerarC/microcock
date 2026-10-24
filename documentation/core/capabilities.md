@@ -21,6 +21,7 @@ struct Capability {
 | `BOOT_MODULE` | First module index and number of modules | `SYS_MODULE_OPEN` |
 | `IPC` | First service label and number of labels | `SYS_IPC_SEND`, `SYS_IPC_CALL`, `SYS_SHM_SHARE` (see below) |
 | `SPAWN` | `SPAWN_FIRST` (0) and `SPAWN_COUNT` (1): the right has no range | `SYS_PROC_CREATE` |
+| `ENDPOINT` | The endpoint id and a count of one; the node id is the handle | `SYS_EP_SEND`, `SYS_EP_CALL`, `SYS_EP_BIND` (see [endpoints](endpoints.md)) |
 
 Except for the `initrd` grant to `ramfs`, which `init` makes itself, the grants of the boot are data: they come from `manifest.conf` (see [userland](../userland/userland.md#the-manifest)).
 
@@ -28,7 +29,7 @@ The type numbers are part of the ABI and live in `shared/include/cock/abi/capabi
 
 Every capability describes a **range**. `covers(type, first, count)` is true when one entry of the table contains the whole requested range; a request that only partly fits is denied, and so is one whose end wraps around. Each process holds up to 16 capabilities.
 
-The flag `CAPABILITY_FLAG_GRANT` marks a capability that its owner may pass on.
+The flag `CAPABILITY_FLAG_GRANT` marks a capability that its owner may pass on. Two more flags exist for `ENDPOINT` only: `CAPABILITY_FLAG_MINT` (the holder chooses the badge of the copies it grants) and `CAPABILITY_FLAG_BIND` (the holder may bind the endpoint to a process, and never passes it on). `ENDPOINT` entries, like `IPC` ones, do not count for `holdsGrantAuthority`.
 
 ## Who holds what
 At boot, **only the first program module** (`init` in the shipped boot order; the kernel does not read its name) receives capabilities: all the I/O ports, all the interrupt lines, all the physical memory and every boot module, each with the right to grant. Every other process starts with an empty table. Each of these is also recorded as a root node of the derivation tree (see below).
@@ -51,10 +52,11 @@ static void grant_root_capabilities(Process &process, size_t module_count) {
 | `kbd` | `IO_PORTS`: port `0x60`; `IRQ`: line 1 |
 
 ## Delegation
-`SYS_CAP_GRANT(target, type, first, count, flags)` lets a process pass part of what it holds to another:
+`SYS_CAP_GRANT(target, type, first, count, flags, badge)` lets a process pass part of what it holds to another:
 
 * the caller must hold a capability of that type **with `GRANT`** that contains the range,
-* the delegated capability carries `GRANT` only when `flags` is `GRANT_DELEGATE` (`cock/abi/capability.hpp`); with `flags` zero it never does, so authority is not passed down a chain by accident. Any other value of `flags` is refused. `init` uses the flag once, to let the name server pass on `IPC` capabilities.
+* the delegated capability carries `GRANT` only when `flags` includes `GRANT_DELEGATE` (`cock/abi/capability.hpp`); with `flags` zero it never does, so authority is not passed down a chain by accident. A bit of `flags` other than `GRANT_DELEGATE` and `GRANT_MINT` is refused. `init` uses the flag once, to let the name server pass on `IPC` capabilities.
+* `GRANT_MINT` and `badge` exist for the `ENDPOINT` type: a copy gets the mint right only from a giver that holds it, and the badge is chosen by a giver with the mint right; any other giver passes 0 and the copy keeps its own badge. For every other type both are refused, so nothing but an endpoint handle carries a badge.
 * the target must be a user process, and the id must be the id of a process, not of any thread,
 * the call returns the id of the node of the derivation tree that records the grant (greater than 0, below `0x7FFFFFFF`), and `-1` on failure. The user wrapper `cap_grant_node` returns the id (`abi::NO_CAPABILITY_NODE` on failure); `cap_grant` returns only success or failure.
 
@@ -93,7 +95,7 @@ A message can carry a capability, as `SCM_RIGHTS` does in Unix. The type is `CAP
 * **The channel is checked first.** The send fails unless `mayTalk` holds between the two processes, as for any message. A process cannot send a capability to itself or to a kernel process.
 * **All or nothing.** The copy is made before the message is queued and taken back (`withdraw_capability`) if queuing fails, for example when the inbox is full. When the call fails nothing was given. When it succeeds it returns the node id (above 0) instead of zero, so the sender can pass it to `SYS_CAP_REVOKE` later; `cap_send` returns it, and `ipc_send` must not be used for this type because it reads only zero as success.
 * **What a receiver can trust.** A `CAPABILITY_TRANSFER` message in the inbox means the copy is already in the table of the receiver and `arg4` is its node. Only the kernel makes the copy; nothing else produces the message with a valid node.
-* **Not covered.** Synchronous calls (`SYS_IPC_CALL`) carry four words and no capability; the name server still passes `IPC` capabilities with `SYS_CAP_GRANT`, which needs no acceptance because it is the root's policy. Moving the name server to this path, and replacing the process id with an endpoint handle, belong to step E3.
+* **Not covered.** Synchronous calls (`SYS_IPC_CALL`) carry four words and no capability; the name server still passes `IPC` capabilities with `SYS_CAP_GRANT`, which needs no acceptance because it is the root's policy. An endpoint handle can be sent this way (`CAPABILITY_TRANSFER` with type `ENDPOINT`); moving the name server and the other programs from process ids to handles belongs to steps E3b and E3c.
 
 ## The IPC capability
 It decides who may exchange messages, make synchronous calls and share memory with whom. It is the first step of the route to Unix style IPC (see the roadmap): the capability plays the part of the file descriptor, and the stable name is a **service label**.
