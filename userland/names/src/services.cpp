@@ -20,6 +20,7 @@ Service *defineService(uint32_t label, const char *name) {
 		service.label = label;
 		memcpy(service.name, name, strlen(name) + 1);
 		service.pid = NOT_RUNNING;
+		service.endpoint = abi::endpoint::NO_ENDPOINT;
 		return &service;
 	}
 	return nullptr;

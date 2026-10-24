@@ -12,7 +12,8 @@ The kernel must enforce a capability, but it does not have to know which program
 2. The name server asks the kernel which process the calling thread belongs to (`SYS_THREAD_PROCESS`), so any thread of a program may connect, and finds that process among the ones `init` registered. If `init` has not registered it yet (a program that was just started can run before `init` reaches the next instruction), the answer is `UNKNOWN_CLIENT` and the client library asks again a few times.
 3. It puts the name together, adds `/run/` to a name that does not start with a slash, finds the server by that path and applies the policy: the connection is allowed when the `ipc=` list of the caller names the server, or the `ipc=` list of the server names the caller. This is the same symmetric rule the kernel applies to a message.
 4. It gives the caller an `IPC` capability for the label of the server with `SYS_CAP_GRANT`, once: the pairs already granted are kept, so asking again uses no new slot of the capability table and no new node of the derivation tree.
-5. It answers with the process id of the server. The client sends to that process id as before.
+5. When the server has an endpoint (`init` makes one per program and binds it to the running process), it also gives the caller a **handle** on it, with `SYS_CAP_GRANT` and the process id of the caller as the badge (names holds the mint right over every endpoint, delegated by `init`). The handle is kept with the grant, so asking again returns the same one, and it keeps working when the server restarts. See [endpoints](../core/endpoints.md).
+6. It answers with the process id of the server, its label and the handle (word 3 of the reply). A client that uses the handle (`ep_call`, `ep_send`) never needs the process id to send; `console` is the first service whose client does so.
 
 If the server restarts, its process id changes and its label does not. A client that holds the capability keeps it; it only needs to connect again to learn the new process id, and the name server gives no new capability.
 
@@ -26,7 +27,7 @@ A name that starts with `/` is a path; any other name is short for `/run/<name>`
 | `CONNECT` | Any registered program | Ask for the right to talk to the server with the name in the parts |
 | `DEFINE` | `init` | A program exists: label in the header, name in the parts (empty when it cannot be reached by name) |
 | `ALLOW` | `init` | The program with the label of the header may talk to the label in word 1 (one line of an `ipc=` list) |
-| `BIND` | `init` | The process id in word 1 now runs the program with the label of the header; `init` sends it after every start, including a restart |
+| `BIND` | `init` | The process id in word 1 now runs the program with the label of the header, and receives on the endpoint in word 2; `init` sends it after every start, including a restart |
 
 | Status | Meaning |
 |--------|---------|

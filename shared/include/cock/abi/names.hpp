@@ -8,7 +8,10 @@
  * of a name, the first byte in the low bits of word 1 (little endian), or the numbers an operation needs.
  * A name longer than 12 bytes travels in several calls, one part each, in order; the name server answers
  * `MORE` to every part but the last and keeps the bytes meanwhile. The reply holds the `Status` in word 0,
- * the process id of the server in word 1 and its service label in word 2.
+ * the process id of the server in word 1, its service label in word 2 and, when the server has an endpoint,
+ * the handle the caller now holds on it in word 3 (`NO_CAPABILITY_NODE` when it has none). The handle carries
+ * the process id of the caller as its badge, so the server tells its clients apart without a process id in
+ * the message.
  *
  * A name that starts with `/` is a path; any other name is short for `/run/<name>`. `CONNECT` is the only
  * operation a program uses. The other three are sent by the root server (`ROOT_PID`) while it starts the
@@ -31,7 +34,7 @@ enum class Op : uint32_t {
 	DEFINE = 2,
 	/** Root only: the service with the label of the header may talk to the service with the label in word 1. */
 	ALLOW = 3,
-	/** Root only: the process with the id in word 1 now runs the service with the label of the header. */
+	/** Root only: the process with the id in word 1 now runs the service with the label of the header, and receives on the endpoint in word 2 (`NO_ENDPOINT` when the service has none). */
 	BIND = 4,
 };
 
@@ -67,6 +70,10 @@ constexpr size_t NAME_WORDS = CALL_WORDS - FIRST_NAME_WORD;
 constexpr size_t PID_WORD = 1;
 /** Index of the service label in a reply. */
 constexpr size_t LABEL_WORD = 2;
+/** Index of the endpoint id in a `BIND` request. */
+constexpr size_t ENDPOINT_WORD = 2;
+/** Index of the handle in a reply to `CONNECT`. */
+constexpr size_t HANDLE_WORD = 3;
 /** Bytes in one word. */
 constexpr size_t WORD_BYTES = sizeof(uint32_t);
 /** Bytes of a name in one call. */

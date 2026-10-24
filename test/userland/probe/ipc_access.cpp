@@ -27,6 +27,7 @@ constexpr uint32_t FIRST_SCANNED_PID = 1;
 constexpr uint32_t LAST_SCANNED_PID = 63;
 constexpr size_t LEAST_REFUSALS = 3;
 constexpr size_t CONNECT_ROUNDS = 40;
+constexpr uint32_t NOBODY_GAVE_OFFSET = 1000;
 constexpr uint32_t FORGED_LABEL = 5;
 constexpr const char UNKNOWN_SERVER[] = "nothing";
 constexpr const char TOO_LONG_SERVER[] =
@@ -114,6 +115,30 @@ bool connectingTwiceUsesNoNewCapability() {
 		if (connection.status != Status::OK) return false;
 	}
 	return true;
+}
+
+bool connectGivesAHandleOnTheEndpoint() {
+	cock::user::names::Connection first =
+		cock::user::names::connect(cock::abi::console::SERVER_NAME);
+	cock::user::names::Connection second =
+		cock::user::names::connect(cock::abi::console::SERVER_NAME);
+	if (first.status != Status::OK || first.handle == cock::abi::NO_CAPABILITY_NODE ||
+		second.handle != first.handle)
+		return false;
+
+	const uint32_t words[CALL_WORDS] = {
+		cock::abi::console::pack(UNKNOWN_OPERATION, NO_LENGTH), 0, 0, 0};
+	cock::user::CallResult answer = cock::user::ep_call(first.handle, words);
+	bool reached = answer.ok &&
+				   (answer.words[cock::abi::console::HEADER_WORD] & cock::abi::console::BYTE_MASK) ==
+					   static_cast<uint32_t>(cock::abi::console::Status::BAD_REQUEST);
+
+	uint32_t unused = 0;
+	return reached &&
+		   cock::user::ep_call(first.handle + NOBODY_GAVE_OFFSET, words).status ==
+			   cock::user::CallStatus::FAILED &&
+		   cock::user::ep_create(unused) == cock::abi::endpoint::NO_ENDPOINT &&
+		   !cock::user::ep_bind(cock::abi::endpoint::FIRST_ENDPOINT, cock::user::self());
 }
 
 bool sharedMemoryNeedsConnect() {

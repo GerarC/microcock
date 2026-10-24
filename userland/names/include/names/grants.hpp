@@ -22,6 +22,15 @@ constexpr size_t MAX_GRANTS = 128;
 bool granted(uint32_t client, uint32_t label);
 
 /**
+ * @brief Finds the endpoint handle a client holds for a label.
+ * @param client Process id of the client.
+ * @param label Service label of the server.
+ * @return The handle `record` stored, or `NO_CAPABILITY_NODE` when the pair is unknown or the server
+ *         had no endpoint when the client connected.
+ */
+uint32_t handleOf(uint32_t client, uint32_t label);
+
+/**
  * @brief Makes room for one more grant.
  *
  * When the table is full it drops the entries of processes that ended (`process_alive`).
@@ -30,12 +39,13 @@ bool granted(uint32_t client, uint32_t label);
 bool hasRoom();
 
 /**
- * @brief Remembers that a client holds the capability for a label.
+ * @brief Remembers that a client holds the capability for a label, and the handle it was given.
  * @param client Process id of the client.
  * @param label Service label of the server.
+ * @param handle Handle on the endpoint of the server, or `NO_CAPABILITY_NODE` when it has none.
  * @pre `hasRoom()` returned true.
  */
-void record(uint32_t client, uint32_t label);
+void record(uint32_t client, uint32_t label, uint32_t handle);
 
 } // namespace cock::names
 

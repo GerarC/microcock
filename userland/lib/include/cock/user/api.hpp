@@ -248,8 +248,8 @@ inline uint32_t cap_grant_node(uint32_t pid, abi::CapabilityType type, uintptr_t
  * @return true when granted; false in every case where `cap_grant_node` fails.
  */
 inline bool cap_grant(uint32_t pid, abi::CapabilityType type, uintptr_t first,
-					  uintptr_t count, bool delegate = false) {
-	return cap_grant_node(pid, type, first, count, delegate) != abi::NO_CAPABILITY_NODE;
+					  uintptr_t count, bool delegate = false, bool mint = false) {
+	return cap_grant_node(pid, type, first, count, delegate, mint) != abi::NO_CAPABILITY_NODE;
 }
 
 /**
@@ -320,7 +320,9 @@ inline bool service_set(uint32_t pid, uint32_t label) {
  * The owner capability has the grant, mint and bind rights. It lets the caller bind the endpoint
  * to a process with `ep_bind` and hand out handles with `cap_grant_node` or `cap_send`, choosing the
  * badge of each. The caller needs grant authority.
- * @param handle Receives the handle of the owner capability, which `ep_send` and `ep_call` accept.
+ * @param handle Receives the handle of the owner capability, which `ep_send` and `ep_call` accept;
+ *        `abi::NO_CAPABILITY_NODE` when the caller already held a capability that covers the new
+ *        endpoint with the bind right (the first program holds one over all of them).
  * @return The endpoint id (greater than 0), or `abi::endpoint::NO_ENDPOINT` when the caller has no
  *         grant authority or a table is full.
  */

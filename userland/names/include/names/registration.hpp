@@ -10,7 +10,8 @@
 namespace cock::names {
 
 /**
- * @brief Serves an `ALLOW` or a `BIND` request.
+ * @brief Serves an `ALLOW` or a `BIND` request. `BIND` also records the endpoint the process receives on,
+ * from `ENDPOINT_WORD`.
  *
  * Only the root server may register: any other caller gets `NOT_ROOT` and nothing changes.
  * @param process Process id of the caller (not the thread id), from `thread_process`.

@@ -1,3 +1,4 @@
+#include <cock/abi/endpoint.hpp>
 #include <cock/abi/service.hpp>
 #include <cock/core/boot/module.hpp>
 #include <cock/core/memory/vmm.hpp>
@@ -33,7 +34,9 @@ using core::security::capability_tree;
 using core::security::Capability;
 using core::security::CapabilityType;
 using core::security::NO_CAPABILITY_NODE;
+using core::security::CAPABILITY_FLAG_BIND;
 using core::security::CAPABILITY_FLAG_GRANT;
+using core::security::CAPABILITY_FLAG_MINT;
 using core::task::Process;
 using core::task::Scheduler;
 using core::task::TaskManager;
@@ -53,10 +56,15 @@ using utils::LogLevel;
 
 uint32_t debug_output_pid = 0;
 
-static void grant_root_capability(Process &process, CapabilityType type, uint64_t count) {
+constexpr uint64_t FIRST_RESOURCE = 0;
+
+static void grant_root_capability(Process &process, CapabilityType type, uint64_t count,
+								  uint64_t first = FIRST_RESOURCE,
+								  uint32_t flags = CAPABILITY_FLAG_GRANT) {
 	Capability capability;
 	capability.type = type;
-	capability.flags = CAPABILITY_FLAG_GRANT;
+	capability.flags = flags;
+	capability.first = first;
 	capability.count = count;
 	capability.node =
 		capability_tree.createRoot(process.getId(), type, capability.first, count);
@@ -74,6 +82,9 @@ static void grant_root_capabilities(Process &process, size_t module_count) {
 	grant_root_capability(process, CapabilityType::BOOT_MODULE, module_count);
 	grant_root_capability(process, CapabilityType::IPC, abi::service::SERVICE_LABEL_COUNT);
 	grant_root_capability(process, CapabilityType::SPAWN, abi::SPAWN_COUNT);
+	grant_root_capability(process, CapabilityType::ENDPOINT, abi::endpoint::ENDPOINT_RANGE_COUNT,
+						  abi::endpoint::FIRST_ENDPOINT,
+						  CAPABILITY_FLAG_GRANT | CAPABILITY_FLAG_MINT | CAPABILITY_FLAG_BIND);
 	process.setServiceId(abi::service::ROOT_SERVICE);
 }
 

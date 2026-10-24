@@ -3,8 +3,9 @@
  * @brief Client of the console server, over synchronous IPC calls.
  *
  * Each request is one `ipc_call` of four words: a header (operation, length, flag) plus
- * packed bytes. The server is found through the name server and the call target is its
- * thread id, as the name server returns it. All calls block until the server answers.
+ * packed bytes. The server is found through the name server, which gives the caller a handle
+ * on the endpoint of the server; every call goes through that handle, and the server tells its
+ * clients apart by the badge of the handle. All calls block until the server answers.
  */
 #ifndef COCK_USER_CONSOLE_HPP
 #define COCK_USER_CONSOLE_HPP
@@ -37,7 +38,9 @@ class Client {
 	 */
 	bool connect() {
 		if (server != NO_PROCESS && process_alive(server)) return true;
-		server = names::server(abi::console::SERVER_NAME);
+		names::Connection connection = names::connect(abi::console::SERVER_NAME);
+		server = connection.pid;
+		handle = connection.handle;
 		return server != NO_PROCESS;
 	}
 
@@ -61,7 +64,7 @@ class Client {
 				abi::console::pack(static_cast<uint32_t>(abi::console::Op::WRITE), step, last);
 			abi::console::packBytes(words, text + written, step);
 
-			CallResult result = ipc_call(server, words);
+			CallResult result = request(words);
 			if (!result.ok || !accepted(result, step)) return written == 0 ? FAILED : static_cast<long>(written);
 			written += step;
 		}
@@ -77,7 +80,7 @@ class Client {
 		words[abi::console::HEADER_WORD] =
 			abi::console::pack(static_cast<uint32_t>(abi::console::Op::CLEAR), 0);
 
-		CallResult result = ipc_call(server, words);
+		CallResult result = request(words);
 		return result.ok && statusOf(result) == abi::console::Status::OK;
 	}
 
@@ -101,7 +104,7 @@ class Client {
 			words[abi::console::HEADER_WORD] =
 				abi::console::pack(static_cast<uint32_t>(abi::console::Op::READ), length);
 
-			CallResult result = ipc_call(server, words);
+			CallResult result = request(words);
 			if (!result.ok) return FAILED;
 			if (statusOf(result) == abi::console::Status::BUSY) {
 				sleep_ms(READ_POLL_MS);
@@ -120,6 +123,17 @@ class Client {
 	}
 
   private:
+	/**
+	 * @brief Sends one request, through the handle on the console endpoint when the name server gave
+	 * one and by thread id otherwise.
+	 * @param words The four request words.
+	 * @return The call result.
+	 */
+	CallResult request(const uint32_t (&words)[CALL_WORDS]) {
+		if (handle != abi::NO_CAPABILITY_NODE) return ep_call(handle, words);
+		return ipc_call(server, words);
+	}
+
 	/**
 	 * @brief Extracts the status code from the header word of an answer.
 	 * @param result Successful call result.
@@ -141,8 +155,10 @@ class Client {
 			   abi::console::lengthOf(result.words[abi::console::HEADER_WORD]) == expected;
 	}
 
-	/** Thread id of the console server, `NO_PROCESS` before `connect`. */
+	/** Process id of the console server, `NO_PROCESS` before `connect`. */
 	uint32_t server = NO_PROCESS;
+	/** Handle on the endpoint of the console server, `NO_CAPABILITY_NODE` when there is none. */
+	uint32_t handle = abi::NO_CAPABILITY_NODE;
 };
 
 } // namespace cock::user::console

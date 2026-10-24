@@ -28,7 +28,7 @@ An `ENDPOINT` capability carries these rights in its flags (`cock/core/security/
 
 A holder with no mint right can only pass its handle on with the badge it has: a client cannot invent a badge for a third party. A handle with none of these rights is plain: it sends and calls, nothing else.
 
-`SYS_EP_CREATE` needs grant authority (the root server) and gives the caller the owner capability, with all three rights. `CapabilitySet::holdsGrantAuthority` ignores `ENDPOINT` entries, as it ignores `IPC` ones, so the name server can hold grantable handles without becoming a root.
+`SYS_EP_CREATE` needs grant authority (the root server) and gives the caller the owner capability, with all three rights, unless the caller already holds a capability with the bind right over the new id: the first program holds one over every endpoint, so it needs no owner capability per endpoint and its table of 16 entries does not fill. `CapabilitySet::holdsGrantAuthority` ignores `ENDPOINT` entries, as it ignores `IPC` ones, so the name server can hold grantable handles without becoming a root.
 
 ## The calls
 
@@ -66,4 +66,4 @@ The endpoint is not tied to a process for life. `Process::~Process` unbinds the 
 * The table has 64 endpoints, never freed.
 * A process holds at most `CapabilitySet::MAX_CAPABILITIES` (16) capabilities, handles included.
 * The queue of an endpoint is the inbox and the call queue of the thread bound to it; what is queued when the owner dies is lost.
-* Programs do not use handles yet: `init` does not create endpoints and the name server still returns process ids (E3b).
+* Only the console client uses a handle so far. `init` makes one endpoint per program and binds it at every start, `names` gives a handle at connect (with the process id of the client as badge), but the other services are still reached by process id: their protocols answer with an asynchronous message addressed to the sender's process id, which a badge cannot replace without turning those protocols into synchronous calls.

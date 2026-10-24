@@ -185,7 +185,9 @@ uintptr_t sys_ep_call(uintptr_t handle, uintptr_t word0, uintptr_t word1,
 /**
  * @brief Creates an endpoint and gives the caller the capability that owns it.
  * @param handle_ptr User pointer to a 32 bit value that receives the handle of the
- * owner capability (grant, mint and bind rights).
+ * owner capability (grant, mint and bind rights), or `NO_CAPABILITY_NODE` when the caller
+ * already held a capability with the bind right that covers the new id (the root server
+ * holds one over every endpoint) and no new capability was made.
  * @return The endpoint id (from 1), or all ones when the caller holds no grant
  * authority, the pointer is invalid, the table of endpoints, the derivation tree or
  * the table of capabilities of the caller is full; nothing is created then.

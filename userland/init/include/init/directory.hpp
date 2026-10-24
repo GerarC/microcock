@@ -14,7 +14,8 @@ namespace cock::init {
  * @brief Brings the name server up.
  *
  * Finds the boot module `names` and checks that its process id is `NAMES_PID`, which every program
- * assumes. Gives it its service label and the right to pass on `IPC` capabilities, sends it
+ * assumes. Gives it its service label, the right to pass on `IPC` capabilities and the right to
+ * hand out handles on every endpoint with the badge of its choice, sends it
  * `CAPABILITY_GRANTED` and registers `ramfs`, which has no manifest entry. Prints `init: no name
  * server` when the module is missing or has another process id, and `init: cannot register <name>`
  * when the name server refuses.
@@ -39,7 +40,9 @@ bool describeSystem();
  * @brief Tells the name server which process runs a program.
  *
  * Called after every start of a program, including a restart, so a client that connects after
- * that finds the new process. Prints `init: cannot bind process <pid> to label <label>` when the
+ * that finds the new process. It also binds the endpoint of the label to the process (see
+ * `bindEndpoint`) and tells the name server which endpoint that is, so a client that connects
+ * gets a handle on it. Prints `init: cannot bind process <pid> to label <label>` when the
  * name server refuses a process that still runs; a program that already ended is not an error.
  *
  * @param label Service label of the program.

@@ -1,10 +1,12 @@
 #include <cock/abi/capability.hpp>
+#include <cock/abi/endpoint.hpp>
 #include <cock/abi/fs.hpp>
 #include <cock/abi/names.hpp>
 #include <cock/abi/service.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/call.hpp>
 #include <init/directory.hpp>
+#include <init/endpoints.hpp>
 #include <init/grant.hpp>
 #include <init/manifest.hpp>
 #include <init/service.hpp>
@@ -75,7 +77,9 @@ bool startNames() {
 
 	if (!cock::user::service_set(names, NAMES_SERVICE) ||
 		!cock::user::cap_grant(names, CapabilityType::IPC, FIRST_LABEL,
-							   cock::abi::service::GRANTABLE_LABEL_COUNT, true)) {
+							   cock::abi::service::GRANTABLE_LABEL_COUNT, true) ||
+		!cock::user::cap_grant(names, CapabilityType::ENDPOINT, cock::abi::endpoint::FIRST_ENDPOINT,
+							   cock::abi::endpoint::ENDPOINT_RANGE_COUNT, true, true)) {
 		printf("init: cannot equip the name server\n");
 		return false;
 	}
@@ -112,7 +116,8 @@ bool describeSystem() {
 }
 
 bool bindService(uint32_t label, uint32_t pid) {
-	uint32_t words[CALL_WORDS] = {cock::abi::names::pack(Op::BIND, label), pid};
+	uint32_t endpoint = bindEndpoint(label, pid);
+	uint32_t words[CALL_WORDS] = {cock::abi::names::pack(Op::BIND, label), pid, endpoint};
 	if (ask(words)) return true;
 	if (!cock::user::process_alive(pid)) return false;
 	printf("init: cannot bind process %u to label %u\n", static_cast<unsigned>(pid),

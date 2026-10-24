@@ -40,22 +40,27 @@ uintptr_t sys_ep_create(uintptr_t handle_ptr, uintptr_t, uintptr_t, uintptr_t,
 	uint32_t id = endpoint_table.create();
 	if (id == abi::endpoint::NO_ENDPOINT) return FAILURE;
 
-	CapabilityNodeId node = capability_tree.createRoot(process.getId(), CapabilityType::ENDPOINT,
-													   id, abi::endpoint::SINGLE_ENDPOINT);
-	Capability owner;
-	owner.type = CapabilityType::ENDPOINT;
-	owner.flags = security::CAPABILITY_FLAG_GRANT | security::CAPABILITY_FLAG_MINT |
-				  security::CAPABILITY_FLAG_BIND;
-	owner.first = id;
-	owner.count = abi::endpoint::SINGLE_ENDPOINT;
-	owner.node = node;
-	if (node == NO_CAPABILITY_NODE || !process.getCapabilities().add(owner)) {
-		capability_tree.detach(node);
-		endpoint_table.destroy(id);
-		return FAILURE;
+	uint32_t handle = NO_CAPABILITY_NODE;
+	if (!process.getCapabilities().hasFlag(CapabilityType::ENDPOINT, id,
+										   abi::endpoint::SINGLE_ENDPOINT,
+										   security::CAPABILITY_FLAG_BIND)) {
+		CapabilityNodeId node = capability_tree.createRoot(process.getId(), CapabilityType::ENDPOINT,
+														   id, abi::endpoint::SINGLE_ENDPOINT);
+		Capability owner;
+		owner.type = CapabilityType::ENDPOINT;
+		owner.flags = security::CAPABILITY_FLAG_GRANT | security::CAPABILITY_FLAG_MINT |
+					  security::CAPABILITY_FLAG_BIND;
+		owner.first = id;
+		owner.count = abi::endpoint::SINGLE_ENDPOINT;
+		owner.node = node;
+		if (node == NO_CAPABILITY_NODE || !process.getCapabilities().add(owner)) {
+			capability_tree.detach(node);
+			endpoint_table.destroy(id);
+			return FAILURE;
+		}
+		handle = node;
 	}
 
-	uint32_t handle = node;
 	memcpy(reinterpret_cast<void *>(handle_ptr), &handle, sizeof(handle));
 	return id;
 }

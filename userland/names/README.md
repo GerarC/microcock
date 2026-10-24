@@ -32,7 +32,7 @@ The client side is `cock::user::names::connect` (`userland/lib/include/cock/user
 | `src/policy.cpp`, `include/names/policy.hpp` | `mayConnect`: the `ipc=` rule, symmetric |
 | `src/grants.cpp`, `include/names/grants.hpp` | The pairs (client, label) already granted, so a second connect gives nothing new |
 | `src/connect.cpp`, `include/names/connect.hpp` | `connect`: client, server, policy, grant |
-| `src/registration.cpp`, `include/names/registration.hpp` | `registerService` (`ALLOW`, `BIND`) and `defineProgram` (`DEFINE`), root only |
+| `src/registration.cpp`, `include/names/registration.hpp` | `registerService` (`ALLOW`, `BIND`, which also records the endpoint) and `defineProgram` (`DEFINE`), root only |
 | `src/requests.cpp`, `include/names/requests.hpp` | `serve`: dispatch of one call |
 | `Makefile` | `NAME = names`, `SRCS`, a small `LIBC_SRCS` list, `CONSOLE_CLIENT = no` |
 

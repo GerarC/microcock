@@ -15,6 +15,7 @@
 #ifndef COCK_USER_NAMES_HPP
 #define COCK_USER_NAMES_HPP
 
+#include <cock/abi/capability.hpp>
 #include <cock/abi/names.hpp>
 #include <cock/abi/service.hpp>
 #include <cock/user/api.hpp>
@@ -37,6 +38,8 @@ struct Connection {
 	uint32_t pid;
 	/** Service label of the server, which covers every process that runs the same program. */
 	uint32_t label;
+	/** Handle the caller holds on the endpoint of the server (`ep_call`, `ep_send`), whose badge is the process id of the caller; `abi::NO_CAPABILITY_NODE` when the server has no endpoint. The same handle comes back on every connect, and it keeps working when the server restarts. */
+	uint32_t handle;
 };
 
 /**
@@ -62,6 +65,7 @@ inline bool sendParts(const char *name, size_t length, Connection &connection) {
 		if (connection.status == abi::names::Status::OK) {
 			connection.pid = result.words[abi::names::PID_WORD];
 			connection.label = result.words[abi::names::LABEL_WORD];
+			connection.handle = result.words[abi::names::HANDLE_WORD];
 		}
 		return true;
 	}
@@ -75,14 +79,15 @@ inline bool sendParts(const char *name, size_t length, Connection &connection) {
  * the call then asks again up to `UNKNOWN_CLIENT_RETRIES` times.
  * @param name NUL terminated name of the server, 1 to `abi::names::MAX_NAME_BYTES` bytes. A name that starts
  *        with `/` is a path; any other is short for `/run/<name>`.
- * @return `OK` with the process id and label; `NOT_FOUND` when no running program has the name;
+ * @return `OK` with the process id, the label and the handle; `NOT_FOUND` when no running program has the name;
  *         `DENIED` when the manifest does not let the caller talk to it; `UNKNOWN_CLIENT` when the caller is not
  *         a process `init` registered; `NO_ROOM` when the capability could not be given; `BAD_REQUEST` for an
  *         empty or too long name or when the name server could not be called. In every other case than `OK` the
  *         process id is `NO_PROCESS`.
  */
 inline Connection connect(const char *name) {
-	Connection connection = {abi::names::Status::BAD_REQUEST, NO_PROCESS, abi::service::NO_SERVICE};
+	Connection connection = {abi::names::Status::BAD_REQUEST, NO_PROCESS, abi::service::NO_SERVICE,
+							 abi::NO_CAPABILITY_NODE};
 
 	size_t length = 0;
 	while (name[length] != '\0' && length <= abi::names::MAX_NAME_BYTES)

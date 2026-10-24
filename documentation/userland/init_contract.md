@@ -4,7 +4,7 @@ The kernel has no program called `init`. It has a first program: the first Multi
 
 ## What the kernel gives the first program
 
-- **The root capabilities**, with the right to grant them: every I/O port, every interrupt line, all physical memory, all boot modules, `SPAWN` and the `IPC` capability over every service label.
+- **The root capabilities**, with the right to grant them: every I/O port, every interrupt line, all physical memory, all boot modules, `SPAWN`, the `IPC` capability over every service label and the `ENDPOINT` capability over every endpoint, with the grant, mint and bind rights.
 - **The service label `ROOT_SERVICE`**, so it may talk to every other program.
 - **The boot module list** it can ask about with `SYS_MODULE_INDEX`, and the right to open a module with `SYS_MODULE_OPEN`.
 - **Nothing else**: no argument, no environment, no file system. Every other program starts with an empty capability set.
@@ -15,7 +15,7 @@ The kernel loads every ELF module of the boot list before the scheduler runs (`n
 
 The `init` of the tree does these things; a replacement does them in its own way, or does without the ones its system does not use.
 
-1. **Bring up the name server**: find the boot module `names` with `SYS_MODULE_PROCESS` (its process id must be `NAMES_PID`, the second module), label it `NAMES_SERVICE`, give it an `IPC` capability over every label with `SYS_CAP_GRANT` and `GRANT_DELEGATE`, and send it `CAPABILITY_GRANTED`. Then describe the system to it: a `DEFINE` per program, an `ALLOW` per `ipc=` name and a `BIND` per started process (see [names](names.md)). Without it no program can connect to another.
+1. **Bring up the name server**: find the boot module `names` with `SYS_MODULE_PROCESS` (its process id must be `NAMES_PID`, the second module), label it `NAMES_SERVICE`, give it an `IPC` capability over every label and an `ENDPOINT` capability over every endpoint (with `GRANT_DELEGATE`, and `GRANT_MINT` for the endpoints, so it can choose the badge of each handle), and send it `CAPABILITY_GRANTED`. Then describe the system to it: a `DEFINE` per program, an `ALLOW` per `ipc=` name and a `BIND` per started process (see [names](names.md)). Before each `BIND`, `init` makes the endpoint of the label the first time (`SYS_EP_CREATE`) and binds it to the new process (`SYS_EP_BIND`), so a restarted server receives on the endpoint its clients already hold handles on. Without it no program can connect to another.
 2. **Give `ramfs` the `initrd`**: `SYS_MODULE_INDEX("initrd")`, `SYS_CAP_GRANT` of a `BOOT_MODULE` capability for that index, then a `CAPABILITY_GRANTED` message to `ramfs`. Without it there is no file system, and every program that needs a file waits for ever.
 3. **Label the boot modules** with `SYS_SERVICE_SET` and bind each to the name server, because they started before anyone could set the label at birth.
 4. **Start the other programs** with `cock::user::spawn` (header `cock/user/spawn.hpp`), reading each image from the `initrd` through `ramfs`. `spawn` takes the label the new program is born with, so it exists before its first instruction; the right to talk to other programs comes from the name server.

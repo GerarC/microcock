@@ -17,13 +17,14 @@ Status allow(uint32_t label, uint32_t other) {
 	return allowTalk(*from, other) ? Status::OK : Status::BAD_REQUEST;
 }
 
-Status bind(uint32_t label, uint32_t pid) {
+Status bind(uint32_t label, uint32_t pid, uint32_t endpoint) {
 	Service *service = findByLabel(label);
 	if (service == nullptr || !cock::user::process_alive(pid)) return Status::BAD_REQUEST;
 
 	const Service *running = findByPid(pid);
 	if (running != nullptr && running != service) return Status::BAD_REQUEST;
 	service->pid = pid;
+	service->endpoint = endpoint;
 	return Status::OK;
 }
 
@@ -38,7 +39,7 @@ Status registerService(uint32_t process, const uint32_t (&words)[abi::names::CAL
 	case static_cast<uint32_t>(Op::ALLOW):
 		return allow(label, words[abi::names::PID_WORD]);
 	case static_cast<uint32_t>(Op::BIND):
-		return bind(label, words[abi::names::PID_WORD]);
+		return bind(label, words[abi::names::PID_WORD], words[abi::names::ENDPOINT_WORD]);
 	default:
 		return Status::BAD_REQUEST;
 	}

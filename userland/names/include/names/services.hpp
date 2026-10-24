@@ -4,6 +4,7 @@
 #ifndef NAMES_SERVICES_HPP
 #define NAMES_SERVICES_HPP
 
+#include <cock/abi/endpoint.hpp>
 #include <cock/abi/names.hpp>
 #include <cock/abi/service.hpp>
 #include <names/paths.hpp>
@@ -29,6 +30,8 @@ struct Service {
 	char name[MAX_PATH_BYTES + 1];
 	/** Process id of the running program, or `NOT_RUNNING`. */
 	uint32_t pid;
+	/** Endpoint the running program receives on, which `connect` gives clients a handle on; `NO_ENDPOINT` when `init` bound none. */
+	uint32_t endpoint;
 	/** Labels this program may talk to (its `ipc=` list). */
 	uint32_t allowed[MAX_ALLOWED];
 	/** Number of valid entries of `allowed`. */

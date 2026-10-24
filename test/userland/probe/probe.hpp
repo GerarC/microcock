@@ -173,6 +173,8 @@ bool registrationIsRootOnly();
 bool connectingTwiceUsesNoNewCapability();
 /** Sharing a shared memory object with the console server works after `connect`. */
 bool sharedMemoryNeedsConnect();
+/** `connect` gives a handle on the console endpoint that reaches the server and stays the same on a second connect; a handle number nobody gave fails; creating or binding an endpoint without authority fails. */
+bool connectGivesAHandleOnTheEndpoint();
 
 } // namespace probe
 
