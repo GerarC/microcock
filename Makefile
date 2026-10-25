@@ -39,8 +39,8 @@ QEMU_DEBUG_EXIT = -device isa-debug-exit,iobase=0xf4,iosize=0x04
 QEMU_HEADLESS   = -display none -serial stdio -no-reboot $(QEMU_DEBUG_EXIT)
 
 VERSION_MAJOR := 0
-VERSION_MINOR := 2
-VERSION_PATCH := 18
+VERSION_MINOR := 3
+VERSION_PATCH := 0
 VERSION_STAGE := "\"Pre-alfa\""
 export VERSION_MAJOR VERSION_MINOR VERSION_PATCH
 GIT_HASH := "\"$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)\""
