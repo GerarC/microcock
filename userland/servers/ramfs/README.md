@@ -32,7 +32,7 @@ Any other type is ignored, and so is anything from `KERNEL_SENDER` or without a 
 
 ## The archive index
 
-On start the server walks the tar headers once and keeps up to 64 entries (name, data offset, size, type) for regular files and directories. It stops at the first block that is empty, has no `ustar` magic or has a bad size field, and trailing slashes are removed from directory names. The archive may not exceed the shared object limit (`cock::abi::shm::MAX_OBJECT_BYTES`).
+On start the server walks the tar headers once and keeps up to 128 entries (name, data offset, size, type) for regular files and directories. It stops at the first block that is empty, has no `ustar` magic or has a bad size field, and trailing slashes are removed from directory names. The archive may not exceed the shared object limit (`cock::abi::shm::MAX_OBJECT_BYTES`).
 
 ## Source layout
 
@@ -64,7 +64,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler. The archive is made by the `M
 ## Limits and known gaps
 
 - Read only. A writable memory file system (`tmpfs`) is noted in the roadmap; it is not here.
-- At most 64 entries and an archive below the shared object limit; names up to 100 bytes (the tar name field), no `prefix` field and no long name extensions.
+- At most 128 entries and an archive below the shared object limit; names up to 100 bytes (the tar name field), no `prefix` field and no long name extensions.
 - No symbolic links, no hard links and no file times.
 - No access control between clients until the IPC capability of stage 9.
 

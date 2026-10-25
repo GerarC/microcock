@@ -14,7 +14,7 @@ namespace cock::ramfs {
 constexpr size_t TAR_NAME_BYTES = 100;
 
 /** @brief Capacity of the index: the root and the entries of the archive. */
-constexpr size_t MAX_ENTRIES = 64;
+constexpr size_t MAX_ENTRIES = 128;
 
 /** @brief Index of the first entry that comes from the archive; entry zero is the root. */
 constexpr size_t FIRST_FILE_ENTRY = 1;

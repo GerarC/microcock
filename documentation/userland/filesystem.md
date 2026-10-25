@@ -5,7 +5,7 @@ The file system is not in the kernel. It is a set of Ring 3 servers that talk by
 ## Boot
 1. The kernel keeps `initrd` as a data module and loads `ramfs` as a boot module; every other program is a file of the archive: under `drivers/` and `servers/` the programs of `userland/drivers/` and `userland/servers/`, under `bin/` the applications and the test programs, none with an `.elf` suffix.
 2. `rs` asks `SYS_MODULE_INDEX` for the index of `initrd` (only a process with grant authority may ask), grants `ramfs` a `BOOT_MODULE` capability for that one module and sends it `CAPABILITY_GRANTED`.
-3. `ramfs` opens the module, maps it read only and walks the tar headers once into an index of up to 64 entries (name, data offset, size, type). Requests that arrive before the grant are kept (up to 16) and answered afterwards.
+3. `ramfs` opens the module, maps it read only and walks the tar headers once into an index of up to 128 entries (name, data offset, size, type). Requests that arrive before the grant are kept (up to 16) and answered afterwards.
 
 ## Protocol
 Every request carries a request id in `arg0`; the reply (`FS_REPLY`) echoes it in `arg0` and carries the status in `arg1` and up to two values in `arg2` and `arg3`. A client accepts a reply only from the server pid and with its own id. The constants are in `shared/include/cock/abi/fs.hpp`.
