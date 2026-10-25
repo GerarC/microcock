@@ -29,7 +29,8 @@ void takeMessage(const cock::ipc::Message &message);
  * `PM_SPAWNED` message of each process `init` asked for, and the `PM_FORKED` message of each copy made by `fork`
  * (kernel ids of the copy and of its parent; a copy whose parent has no row any more is dropped).
  *
- * Stops at the first one that still does not fit; its row keeps the mark and the next call tries it again.
+ * Stops at the first one that still does not fit; its row keeps the mark and the next call tries it again. When every
+ * notice went out it also frees the rows of processes that exited and were collected (`Table::sweep`).
  *
  * @return True while a notice is waiting, or a parent waits for the acknowledgement of a copy (`holdParent`), so the
  * caller wakes up again within `NOTICE_RETRY_MILLISECONDS`.

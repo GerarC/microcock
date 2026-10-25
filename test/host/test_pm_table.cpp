@@ -284,6 +284,31 @@ void checkDescendants() {
 	CHECK_TRUE(table.isDescendant(grandchild->pid, root->pid));
 }
 
+void checkSweep() {
+	Table table;
+	Row *parent = table.add(FIRST_KERNEL_ID, NO_PID, false);
+	CHECK_TRUE(parent != nullptr);
+	if (parent == nullptr) return;
+	Row *child = table.add(SECOND_KERNEL_ID, parent->pid, false);
+	Row *noticed = table.add(THIRD_KERNEL_ID, NO_PID, true);
+	CHECK_TRUE(child != nullptr && noticed != nullptr);
+	if (child == nullptr || noticed == nullptr) return;
+
+	CHECK_EQ(NO_ROWS, table.sweep());
+	table.markExited(SECOND_KERNEL_ID, SOME_STATUS);
+	table.markExited(THIRD_KERNEL_ID, SOME_STATUS);
+	CHECK_EQ(NO_ROWS, table.sweep());
+
+	table.collect(*child);
+	noticed->forwardPending = false;
+	CHECK_EQ(TWO_ROWS, table.sweep());
+	CHECK_EQ(ONE_ROW, table.count());
+	CHECK_TRUE(table.findKernel(SECOND_KERNEL_ID) == nullptr);
+	CHECK_TRUE(table.findKernel(THIRD_KERNEL_ID) == nullptr);
+	CHECK_TRUE(table.findKernel(FIRST_KERNEL_ID) == parent);
+	CHECK_TRUE(!table.hasChild(parent->pid, cock::abi::pm::ANY_CHILD));
+}
+
 void checkKillHeader() {
 	using cock::abi::pm::Op;
 	CHECK_EQ(static_cast<uint32_t>(Op::KILL), cock::abi::pm::opOf(cock::abi::pm::pack(Op::KILL)));
@@ -383,6 +408,7 @@ void testPmTable() {
 	checkDescendants();
 	checkKillHeader();
 	checkFull();
+	checkSweep();
 	checkAt();
 	checkHeaders();
 	checkClassify();

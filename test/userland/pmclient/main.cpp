@@ -28,7 +28,6 @@ constexpr uintptr_t EXIT_FAILED = 1;
 
 struct Census {
 	size_t rows = NO_ROWS;
-	size_t exited = NO_ROWS;
 	size_t other = NO_ROWS;
 	bool rootFirst = false;
 	bool selfSleeping = false;
@@ -47,7 +46,6 @@ Census count(cock::user::pm::Client &client) {
 		Listing row = client.list(index);
 		if (row.status != Status::OK) break;
 		census.rows++;
-		if (row.state == State::EXITED) census.exited++;
 		if (index == FIRST_ROW) {
 			rootPid = row.pid;
 			census.rootFirst = row.kernelId == cock::abi::service::ROOT_PID &&
@@ -91,7 +89,7 @@ extern "C" int main() {
 	cock::user::pm::Client client(pm.handle);
 	Census census = count(client);
 	bool ok = census.rows >= FIRST_PROCESSES && census.rootFirst && census.selfSleeping &&
-			  census.selfChildOfRoot && census.exited != NO_ROWS && census.other == NO_ROWS &&
+			  census.selfChildOfRoot && census.other == NO_ROWS &&
 			  refusesStrangers(client) && hasNoChildren(client);
 
 	puts(ok ? "pmclient: ok" : "pmclient: wrong table");

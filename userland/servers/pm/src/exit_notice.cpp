@@ -64,6 +64,7 @@ bool flushNotices() {
 		if (!sendExit(*row)) return true;
 		row->forwardPending = false;
 	}
+	table.sweep();
 	return anySettling();
 }
 

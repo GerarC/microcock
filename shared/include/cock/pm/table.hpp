@@ -6,8 +6,8 @@
  * The process id of the table is not the kernel one. The kernel numbers processes with a generation counter, so
  * an id is never reused soon; the table numbers them from `FIRST_FREE_PID` in the order they arrive and keeps
  * `INIT_PID` for `init`. Nothing here allocates: the rows are an array, and a row of a process that has exited
- * and was collected is reused only when no row is free; a zombie, which a parent has not collected, is never
- * reused.
+ * and was collected is freed by `sweep` once nothing is pending on it, and `add` takes the oldest such row
+ * when no row is free; a zombie, which a parent has not collected, is never reused.
  */
 #ifndef COCK_PM_TABLE_HPP
 #define COCK_PM_TABLE_HPP
@@ -259,6 +259,28 @@ public:
 			if (seen++ == index) return &row;
 		}
 		return nullptr;
+	}
+
+	/**
+	 * @brief Frees the rows of processes that exited and have nothing left to tell.
+	 *
+	 * A row is freed when it is `EXITED` (a zombie is not: its parent has not collected it) and no notice for the
+	 * root server, no `FORK` and no `WAIT` is still pending on it. A freed row no longer appears in `at`, and its
+	 * process id is not found any more.
+	 *
+	 * @return The number of rows freed.
+	 */
+	size_t sweep() {
+		size_t freed = 0;
+		for (Row &row : rows) {
+			if (row.state != abi::pm::State::EXITED || row.forwardPending || row.announcePending ||
+				row.forkPending || row.settling || row.waiting)
+				continue;
+			release(row);
+			used--;
+			freed++;
+		}
+		return freed;
 	}
 
 	/**
