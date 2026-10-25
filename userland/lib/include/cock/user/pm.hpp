@@ -67,8 +67,8 @@ public:
 		uint32_t words[abi::pm::CALL_WORDS] = {abi::pm::pack(abi::pm::Op::ALLOCATE),
 											   static_cast<uint32_t>(abi::pm::IMAGE_OFFSET + imageBytes)};
 		CallResult result = ep_call(handle, words);
-		if (!result.ok || abi::pm::statusOf(result.words[abi::pm::HEADER_WORD]) != abi::pm::Status::OK)
-			return nullptr;
+		status = result.ok ? abi::pm::statusOf(result.words[abi::pm::HEADER_WORD]) : abi::pm::Status::BAD_REQUEST;
+		if (status != abi::pm::Status::OK) return nullptr;
 
 		object = result.words[abi::pm::FIRST_WORD];
 		mapped = pageRound(abi::pm::IMAGE_OFFSET + imageBytes);
@@ -109,10 +109,16 @@ public:
 		uint32_t words[abi::pm::CALL_WORDS] = {abi::pm::pack(abi::pm::Op::SPAWN), object};
 		CallResult result = ep_call(handle, words);
 		release();
-		if (!result.ok || abi::pm::statusOf(result.words[abi::pm::HEADER_WORD]) != abi::pm::Status::OK)
-			return NO_PROCESS;
+		status = result.ok ? abi::pm::statusOf(result.words[abi::pm::HEADER_WORD]) : abi::pm::Status::BAD_REQUEST;
+		if (status != abi::pm::Status::OK) return NO_PROCESS;
 		return result.words[abi::pm::FIRST_WORD];
 	}
+
+	/**
+	 * @brief Status that `pm` gave in the last `begin` or `finish`.
+	 * @return The status, or `BAD_REQUEST` when the call itself failed or nothing was called yet.
+	 */
+	abi::pm::Status lastStatus() const { return status; }
 
 	/**
 	 * @brief Gives back an object that `begin` took and `finish` did not use.
@@ -182,6 +188,7 @@ private:
 	}
 
 	uint32_t handle;
+	abi::pm::Status status = abi::pm::Status::BAD_REQUEST;
 	uint32_t object = NO_SHM;
 	void *base = nullptr;
 	size_t mapped = 0;

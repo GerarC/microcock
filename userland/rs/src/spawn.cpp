@@ -44,12 +44,21 @@ uint32_t createThroughPm(Client &client, uint32_t handle, const FileInfo &info, 
 						 bool notify) {
 	cock::abi::service::SpawnRights rights = cock::rs::rightsOf(entry);
 	uint8_t *image = cock::rs::pmClient().begin(info.size);
-	if (image == nullptr) return NO_PROCESS;
+	if (image == nullptr) {
+		printf("rs: pm gave no room for %s, status %u\n", entry.name,
+			   static_cast<unsigned>(cock::rs::pmClient().lastStatus()));
+		return NO_PROCESS;
+	}
 	if (!cock::rs::readInto(client, handle, image, info.size)) {
+		printf("rs: cannot read %s, %u bytes\n", entry.name, static_cast<unsigned>(info.size));
 		cock::rs::pmClient().release();
 		return NO_PROCESS;
 	}
-	return cock::rs::pmClient().finish(entry.name, rights, cock::rs::flagsOf(entry, notify), info.size);
+	uint32_t pid = cock::rs::pmClient().finish(entry.name, rights, cock::rs::flagsOf(entry, notify), info.size);
+	if (pid == NO_PROCESS)
+		printf("rs: pm refused %s, status %u\n", entry.name,
+			   static_cast<unsigned>(cock::rs::pmClient().lastStatus()));
+	return pid;
 }
 
 } // namespace
