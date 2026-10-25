@@ -37,7 +37,7 @@ extern "C" int main() {
 		}
 
 		uint32_t reply[cock::user::CALL_WORDS] = {};
-		cock::names::serve(result.peer, result.words, reply);
-		result = cock::user::ipc_reply_wait(reply);
+		bool answered = cock::names::serve(result.peer, result.words, reply);
+		result = answered ? cock::user::ipc_reply_wait(reply) : cock::user::ipc_accept();
 	}
 }

@@ -34,6 +34,7 @@ The client side is `cock::user::names::connect` (`userland/lib/include/cock/user
 | `src/connect.cpp`, `include/names/connect.hpp` | `connect`: client, server, policy, grant |
 | `src/registration.cpp`, `include/names/registration.hpp` | `registerService` (`ALLOW`, `BIND`, which also records the endpoint) and `defineProgram` (`DEFINE`), root only |
 | `src/requests.cpp`, `include/names/requests.hpp` | `serve`: dispatch of one call |
+| `src/parked.cpp`, `include/names/parked.hpp` | `park`, `answerParked`: keeps the connect call of a program `init` has not registered yet and answers it on `BIND` |
 | `Makefile` | `NAME = names`, `SRCS`, a small `LIBC_SRCS` list, `CONSOLE_CLIENT = no` |
 
 ## Build, run, test

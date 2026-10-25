@@ -25,10 +25,12 @@
 
 namespace cock::user::names {
 
-/** Times `connect` asks again when the name server does not know the caller yet. */
-constexpr uint32_t UNKNOWN_CLIENT_RETRIES = 5;
-/** Pause between those attempts, in milliseconds (rounded up to a clock tick by the kernel). */
-constexpr uint32_t UNKNOWN_CLIENT_PAUSE_MS = 1;
+/**
+ * Longest wait, in milliseconds, for the answer of the name server. `init` registers a program after it
+ * starts running, so the name server keeps the call of an unregistered program until `init` registers it
+ * (`names/parked.hpp`); this limit only ends the wait of a program that `init` never registers.
+ */
+constexpr uint32_t CONNECT_WAIT_MS = 2000;
 
 /** Answer of the name server to a connect request. */
 struct Connection {
@@ -57,7 +59,11 @@ inline bool sendParts(const char *name, size_t length, Connection &connection) {
 							 part + 1 == parts)};
 		abi::names::packPart(name, length, part, words);
 
-		CallResult result = ipc_call(abi::service::NAMES_PID, words);
+		CallResult result = ipc_call(abi::service::NAMES_PID, words, CONNECT_WAIT_MS);
+		if (result.status == CallStatus::TIMED_OUT) {
+			connection.status = abi::names::Status::UNKNOWN_CLIENT;
+			return true;
+		}
 		if (!result.ok) return false;
 
 		connection.status = static_cast<abi::names::Status>(result.words[abi::names::HEADER_WORD]);
@@ -76,7 +82,7 @@ inline bool sendParts(const char *name, size_t length, Connection &connection) {
  * @brief Asks the name server for the right to talk to a server.
  *
  * Blocks until the name server answers. Right after a program starts, `init` may not have registered it yet;
- * the call then asks again up to `UNKNOWN_CLIENT_RETRIES` times.
+ * the name server then holds the call until it does, for at most `CONNECT_WAIT_MS`, and answers `UNKNOWN_CLIENT` if the time runs out.
  * @param name NUL terminated name of the server, 1 to `abi::names::MAX_NAME_BYTES` bytes. A name that starts
  *        with `/` is a path; any other is short for `/run/<name>`.
  * @return `OK` with the process id, the label and the handle; `NOT_FOUND` when no running program has the name;
@@ -94,14 +100,7 @@ inline Connection connect(const char *name) {
 		length++;
 	if (length == 0 || length > abi::names::MAX_NAME_BYTES) return connection;
 
-	for (uint32_t attempt = 0; attempt <= UNKNOWN_CLIENT_RETRIES; attempt++) {
-		if (!sendParts(name, length, connection)) {
-			connection.status = abi::names::Status::BAD_REQUEST;
-			return connection;
-		}
-		if (connection.status != abi::names::Status::UNKNOWN_CLIENT) return connection;
-		sleep_ms(UNKNOWN_CLIENT_PAUSE_MS);
-	}
+	if (!sendParts(name, length, connection)) connection.status = abi::names::Status::BAD_REQUEST;
 	return connection;
 }
 

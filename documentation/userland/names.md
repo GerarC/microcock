@@ -34,7 +34,7 @@ A name that starts with `/` is a path; any other name is short for `/run/<name>`
 | `OK` | Done |
 | `NOT_FOUND` | No program has that name, or it is not running |
 | `DENIED` | The policy does not let the caller talk to it |
-| `UNKNOWN_CLIENT` | The caller is not a process `init` registered |
+| `UNKNOWN_CLIENT` | The caller is not a process `init` registered. A program that has just started is not refused: the server keeps its call until `init` registers it (`names/parked.hpp`, up to 8 calls, answered when the `BIND` arrives) and the client library waits at most `CONNECT_WAIT_MS`, so the refusal comes only from a program `init` never registers |
 | `NO_ROOM` | The capability could not be given: the table of the caller or the derivation tree is full |
 | `BAD_REQUEST` | Unknown operation, empty or too long name, parts out of order, a label out of range, a duplicate, or a full table |
 | `NOT_ROOT` | A registration came from a process other than `init` |
