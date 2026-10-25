@@ -28,17 +28,30 @@ Type on the keyboard of the QEMU window. Without a disk only `/` exists (the `in
 | `sleep seconds` | Waits, up to 3600 seconds |
 | `clear` | Clears the screen (the `CLEAR` operation of the console protocol) |
 
-The shell has a current directory, like any process (`libc/unistd/cwd.cpp`; it starts in `/`). A path that does not start with `/` is taken from it, and `.` and `..` are understood (`..` of `/` is `/`). Every command resolves its paths with `cock/path/resolve.hpp` (`sh/paths.hpp`) before the file server sees them, so the servers get absolute paths only. A failure prints `sh: command: path: reason`, with the reason taken from the file server status (`not found`, `read only`, `already exists`, `not empty`, `different volumes`, and so on). An unknown command prints `sh: name: command not found`.
+The shell has a current directory, like any process (`libc/unistd/cwd.cpp`; it starts in `/`). A path that does not start with `/` is taken from it, and `.` and `..` are understood (`..` of `/` is `/`). Every command resolves its paths with `cock/path/resolve.hpp` (`sh/paths.hpp`) before the file server sees them, so the servers get absolute paths only. A failure prints `sh: command: path: reason`, with the reason taken from the file server status (`not found`, `read only`, `already exists`, `not empty`, `different volumes`, and so on). 
+
+## Running programs
+A word that is not a built-in names a program. A name with no `/` is looked for in `/bin` (the `bin` directory of the `initrd`); a name with a `/` is a path, taken from the current directory when it is relative (`./exitwith`). The shell asks `pm` for a copy of itself (`fork`), the copy replaces its image with the file (`cock::user::exec`, with the words of the line as `argc` and `argv`, and the descriptors and the working directory of the shell), and the shell collects the status of the copy with `wait` and keeps it (`lastStatus`, ready for the variable `$?` of a later stage). The program writes on the same console, because the copy inherited the handle of `console` and its descriptors. The code is in `sh/program_commands.hpp` and the connection to `pm`, shared with `ps`, in `sh/manager.hpp`.
+
+| Status | Meaning |
+|--------|---------|
+| 0 | The program ended well; nothing is printed |
+| 127 | There is no such file; the copy prints `sh: name: command not found` |
+| 126 | The file exists but is not a loadable program (a directory, an empty file, not an image); the copy prints `sh: name: cannot execute` |
+| 125 | The program could not be started: `pm` does not answer or refused the copy; the shell prints `sh: name: cannot start the program` |
+| other | The status of the program; the shell prints `sh: name: exit status N` |
+
+While the program runs the shell waits in `wait`, so it reads no line.
 
 ## How a line is read
 The console server edits the line (echo and Backspace) and delivers it whole, with its newline, when Enter is pressed. `sh` calls `read(0)` in a loop, 12 bytes at a time, until it sees the newline. The call blocks in the kernel until a line is ready (see [console](console.md#what-the-server-does)). A line holds at most 127 characters and 8 words (`cock/shell/words.hpp`, tested on the host in `test/host/test_shell.cpp`).
 
 ## Limits
-* No `spawn`: the shell cannot run other programs yet. That needs a capability to call `spawn` (stage 9) or a request to `rs`.
+* The commands of the table above are still built into the shell; they become programs of `/bin` one at a time (stage W). There is no `PATH`, no variable `$?` yet, and a program cannot be run in the background.
 * No quoting, pipes, redirection, history, tab completion or Ctrl+C.
 * Links are not looked at when `..` is resolved: `cd link/..` goes to the parent of the link's name, not of its target.
 * `/` is the `initrd` and is read only, so `write`, `mkdir`, `rm` and `mv` only work under `/fat` and `/ext` and need a disk. A writable `/tmp` in memory is noted in the roadmap (`tmpfs`).
 * `cat` writes the bytes as they are, so a binary file prints garbage on the screen.
 
 ## Testing
-`scripts/qemu_userland_test.sh` types fifteen commands through the QEMU monitor: `echo`, `version`, `ps`, `ls /`, `cat /mounts.conf`, `ls /ext`, `write` to `/ext/scratch/sh.txt`, `cat`, `mv`, `cat`, `rm`, a `cat` that fails, `sleep 1`, `clear` and a last `echo`. It requires the output of each on the serial log (the file written appears twice, and the failure message once), the last prompt and output on the screen after `clear`, and the usual `e2fsck` of the ext2 volume at the end.
+`scripts/qemu_userland_test.sh` types its commands through the QEMU monitor: `echo`, `version`, `ps`, `ls /`, `cat /mounts.conf`, `ls /ext`, `write` to `/ext/scratch/sh.txt`, `cat`, `mv`, `cat`, `rm`, a `cat` that fails, `cd` and `pwd`, four runs of the test program `exitwith` (`test/userland/exitwith`, which prints its arguments and ends with the number it is given: `exitwith 7`, `/bin/exitwith 0`, `./exitwith 5` from `/bin`) and `nosuchprogram`, `sleep 1`, `clear` and a last `echo`. It requires the output of each on the serial log (the file written appears twice, and the failure message once), the last prompt and output on the screen after `clear`, and the usual `e2fsck` of the ext2 volume at the end.

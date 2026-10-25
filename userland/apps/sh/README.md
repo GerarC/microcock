@@ -36,7 +36,7 @@ The shell serves nothing. It uses the console protocol (`shared/include/cock/abi
 | `sleep seconds` | Wait, up to 3600 seconds |
 | `clear` | Clear the screen |
 
-A path may be relative to the current directory, with `.` and `..`. An unknown command prints `sh: <name>: command not found`; more than 8 words print `sh: too many words`.
+A path may be relative to the current directory, with `.` and `..`. A word that is not a built-in names a program: without a `/` it is `/bin/<name>`, with one it is a path. The shell makes a copy of itself with `fork`, the copy does `exec` and the shell does `wait`. An unknown program prints `sh: <name>: command not found` (status 127), a file that is not a program `sh: <name>: cannot execute` (126), and a status other than 0 prints `sh: <name>: exit status <n>`. More than 8 words print `sh: too many words`.
 
 ## Source layout
 
@@ -49,7 +49,9 @@ A path may be relative to the current directory, with `.` and `..`. An unknown c
 | `src/paths.cpp`, `include/sh/paths.hpp` | `resolvePath`: a word of a command against the current directory, for the file commands |
 | `src/builtins.cpp`, `include/sh/builtins.hpp` | `version`, `echo`, `sleep` and `clear` (the console client lives here) |
 | `src/file_commands.cpp`, `include/sh/file_commands.hpp` | `ls`, `cat`, `write`, `mkdir`, `rmdir`, `rm`, `mv`, the file client and `statusText` |
-| `src/process_commands.cpp`, `include/sh/process_commands.hpp` | `ps` and the client of `pm` |
+| `src/process_commands.cpp`, `include/sh/process_commands.hpp` | `ps` |
+| `src/manager.cpp`, `include/sh/manager.hpp` | The connection to `pm`, shared by `ps` and the program runner |
+| `src/program_commands.cpp`, `include/sh/program_commands.hpp` | `runProgram` (`fork`, `exec`, `wait`), the status codes and `lastStatus` |
 | `include/sh/arguments.hpp` | Positions of the words of a line and the sizes shared by the modules |
 | `include/sh/version.hpp` | The version printed by the shell, from the `SH_VERSION_*` flags |
 | `Makefile` | `NAME = sh`, the `SRCS` under `src/`, the `LIBC_SRCS` list and the version flags |
@@ -70,7 +72,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler. Type in the QEMU window; with
 
 ## Limits and known gaps
 
-- It cannot run programs: there is no `spawn` for it until a capability or a request to `rs` exists (stage 9).
+- The commands of the table are still built in; they become programs of `/bin` one at a time. No `PATH` and no `$?` yet.
 - No quoting, pipes, redirection, history, tab completion or Ctrl+C.
 - `..` is resolved on the text of the path, so a link in the path is not followed first.
 - A line holds at most 127 characters; `write` and `echo` text is at most 255 characters.

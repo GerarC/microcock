@@ -1,6 +1,6 @@
 #include <cock/abi/pm.hpp>
-#include <cock/user/names.hpp>
 #include <cock/user/pm.hpp>
+#include <sh/manager.hpp>
 #include <sh/process_commands.hpp>
 #include <stdint.h>
 #include <stdio.h>
@@ -12,7 +12,6 @@ namespace cock::sh {
 
 namespace {
 
-constexpr char SERVER_NAME[] = "pm";
 constexpr uint32_t FIRST_ROW = 0;
 constexpr char STATE_RUNNING = 'R';
 constexpr char STATE_SLEEPING = 'S';
@@ -21,18 +20,6 @@ constexpr char STATE_ZOMBIE = 'Z';
 constexpr char STATE_EXITED = 'X';
 constexpr char STATE_UNINTERRUPTIBLE = 'D';
 constexpr char STATE_UNKNOWN = '?';
-
-cock::user::pm::Client client;
-bool connected = false;
-
-bool connect() {
-	if (connected) return true;
-	cock::user::names::Connection connection = cock::user::names::connect(SERVER_NAME);
-	if (connection.status != cock::abi::names::Status::OK) return false;
-	client.connect(connection.handle);
-	connected = true;
-	return true;
-}
 
 char stateLetter(State state) {
 	switch (state) {
@@ -57,17 +44,18 @@ char stateLetter(State state) {
 } // namespace
 
 void processListCommand(const cock::shell::Words &) {
-	if (!connect()) {
+	cock::user::pm::Client *client = processManager();
+	if (client == nullptr) {
 		printf("sh: ps: pm does not answer\n");
 		return;
 	}
 
 	printf("PID PPID STAT\n");
 	for (uint32_t index = FIRST_ROW;; index++) {
-		cock::user::pm::Listing row = client.list(index);
+		cock::user::pm::Listing row = client->list(index);
 		if (row.status == Status::NOT_FOUND) return;
 		if (row.status != Status::OK) {
-			connected = false;
+			forgetProcessManager();
 			printf("sh: ps: pm does not answer\n");
 			return;
 		}

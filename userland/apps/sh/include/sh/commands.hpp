@@ -15,10 +15,12 @@ namespace cock::sh {
 void usage(const char *command, const char *arguments);
 
 /**
- * @brief Splits a line into words and runs the built-in command that the first word names.
+ * @brief Splits a line into words and runs the built-in command that the first word names, or else the program of that
+ * name (`runProgram`).
  *
  * An empty line does nothing. A line with more words than a command line holds prints
- * `sh: too many words`; an unknown name prints `sh: <name>: command not found`.
+ * `sh: too many words`; a program that ends with a status other than 0 and the three the shell reports itself prints
+ * `sh: <name>: exit status <n>`.
  *
  * @param line Line of input, terminated by zero. The split writes terminators into it.
  */

@@ -5,6 +5,7 @@
 #include <sh/directory_commands.hpp>
 #include <sh/file_commands.hpp>
 #include <sh/process_commands.hpp>
+#include <sh/program_commands.hpp>
 #include <stddef.h>
 #include <stdio.h>
 
@@ -77,7 +78,10 @@ void run(char *line) {
 			return;
 		}
 	}
-	printf("sh: %s: command not found\n", words.items[FIRST_WORD]);
+	int status = runProgram(words);
+	if (status != STATUS_OK && status != STATUS_NOT_FOUND && status != STATUS_NOT_EXECUTABLE &&
+		status != STATUS_NOT_STARTED)
+		printf("sh: %s: exit status %d\n", words.items[FIRST_WORD], status);
 }
 
 } // namespace cock::sh
