@@ -17,16 +17,16 @@ void releaseDeadSessions() {
 			cock::user::releaseSession(session, cock::abi::block::WINDOW_BYTES);
 }
 
-void connect(uint32_t pid, uint32_t id) {
-	Session *session = cock::user::findSession(sessions, MAX_CLIENTS, pid);
-	if (session != nullptr) return reply(pid, id, Status::OK, session->windowId, deviceCount);
+void connect(uint32_t token, uint32_t client, uint32_t id) {
+	Session *session = cock::user::findSession(sessions, MAX_CLIENTS, client);
+	if (session != nullptr) return reply(token, id, Status::OK, session->windowId, deviceCount);
 
 	releaseDeadSessions();
 	session = cock::user::freeSession(sessions, MAX_CLIENTS);
 	if (session == nullptr ||
-		!cock::user::openSession(*session, pid, cock::abi::block::WINDOW_PAGES))
-		return reply(pid, id, Status::NO_SPACE);
-	reply(pid, id, Status::OK, session->windowId, deviceCount);
+		!cock::user::openSession(*session, client, cock::abi::block::WINDOW_PAGES))
+		return reply(token, id, Status::NO_SPACE);
+	reply(token, id, Status::OK, session->windowId, deviceCount);
 }
 
 } // namespace cock::ata

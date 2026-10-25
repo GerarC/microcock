@@ -13,9 +13,9 @@ namespace cock::ata {
 constexpr uint32_t NO_VALUE = 0;
 
 /**
- * @brief Sends `BLK_REPLY` to a client.
+ * @brief Sends `BLK_REPLY` to the client that asked, through the reply token of its request.
  *
- * @param pid Process id of the client.
+ * @param token `Message::reply` of the request.
  * @param id Request id, copied from the request.
  * @param status Result of the request.
  * @param first First value, in the third argument of the message.
@@ -23,7 +23,7 @@ constexpr uint32_t NO_VALUE = 0;
  * @param third Third value, in the fifth argument of the message.
  * @note The send result is not checked: a client that died does not need an answer.
  */
-void reply(uint32_t pid, uint32_t id, cock::abi::block::Status status,
+void reply(uint32_t token, uint32_t id, cock::abi::block::Status status,
 		   uint32_t first = NO_VALUE, uint32_t second = NO_VALUE, uint32_t third = NO_VALUE);
 
 } // namespace cock::ata

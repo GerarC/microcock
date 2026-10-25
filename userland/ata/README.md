@@ -27,7 +27,7 @@ Device `DISK_DEVICE` is the whole disk; partitions follow in table order (`MAX_P
 
 Sectors are relative to the device, so a file system sees its partition from sector 0. The server checks the device index, a count of 0 or above `MAX_SECTORS_PER_READ` (one window), and that `sector + count` fits without wrapping before it touches the disk. `BLK_WRITE` on the whole disk answers `READ_ONLY`, so partition tables and the boot sector cannot be reached.
 
-On `BLK_CONNECT` the server creates a one page shared memory object, shares it with the client and replies with its id. It keeps up to 8 sessions keyed by the kernel stamped `sender_pid` and frees those of dead clients when the table is full. The client library is `userland/lib/include/cock/user/block.hpp` (`cock::user::block::Client`).
+On `BLK_CONNECT` the server creates a one page shared memory object, shares it with the client and replies with its id. It keeps up to 8 sessions keyed by the badge of the message (the process id of the client, by the convention of `names`; the window is shared by process id) and frees those of dead clients when the table is full. The client library is `userland/lib/include/cock/user/block.hpp` (`cock::user::block::Client`).
 
 ## Driver behaviour
 
@@ -43,7 +43,7 @@ On `BLK_CONNECT` the server creates a one page shared memory object, shares it w
 |------|-------|
 | `src/main.cpp` | `main`: `waitForCapabilities`, opens the drive, scans the partitions, drains the kept messages, then the request loop |
 | `src/grant.cpp`, `include/ata/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED`, keeping every other message |
-| `src/dispatch.cpp` | `handle`: refuses unknown senders and requests without a session, then calls one handler |
+| `src/dispatch.cpp` | `handle`: ignores messages with no reply token and refuses requests without a session, then calls one handler |
 | `src/devices.cpp`, `include/ata/devices.hpp` | The drive, the table of devices and `scanPartitions` (MBR and GPT) |
 | `src/sessions.cpp`, `include/ata/sessions.hpp` | The sessions of the clients: `connect`, `releaseDeadSessions` |
 | `src/requests.cpp`, `include/ata/requests.hpp` | `answerInfo`, `answerRead`, `answerWrite` |

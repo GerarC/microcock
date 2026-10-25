@@ -15,8 +15,9 @@ namespace cock::ata {
 /**
  * @brief Handles one message: `BLK_CONNECT`, or a request from a connected client.
  *
- * Messages from the kernel and message types that are not block requests are ignored. A
- * request from a process without a session gets `NOT_CONNECTED`.
+ * A message with no reply token (the kernel's notices, and anything sent by process id) and
+ * message types that are not block requests are ignored. The client is the badge of the message.
+ * A request from a client without a session gets `NOT_CONNECTED`.
  *
  * @param message Message received, never trusted.
  */

@@ -25,7 +25,7 @@ After the capability grant the driver reads sector 0 and builds a table of devic
 The parsers are in `shared/include/cock/abi/partition.hpp`, which has no dependency on the driver and is covered by the host tests (`test/host/test_partition.cpp`): a good table of each kind, entries outside the disk, extended partitions, a corrupted header, a corrupted entry array and an entry array placed past the end of the disk.
 
 ## Protocol
-Requests and replies are IPC messages. Every request carries a request id in `arg0`; the reply (`BLK_REPLY`) echoes it in `arg0` and carries the status in `arg1` and up to three values in `arg2` to `arg4`. A client accepts a reply only from the server pid and with its own id. The constants are in `shared/include/cock/abi/block.hpp`.
+Requests and replies are IPC messages. A client sends each request through its handle on the `ata` endpoint, asking for a reply token, and the server answers with `ep_reply` on that token; the server tells clients apart by the badge, which `names` makes the client process id. Every request carries a request id in `arg0`; the reply (`BLK_REPLY`) echoes it in `arg0` and carries the status in `arg1` and up to three values in `arg2` to `arg4`. A client accepts a reply only from the server pid and with its own id. A message with no reply token is ignored. The constants are in `shared/include/cock/abi/block.hpp`.
 
 | Message | Arguments | Reply values |
 |---------|-----------|--------------|

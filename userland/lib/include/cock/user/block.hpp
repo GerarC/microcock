@@ -2,10 +2,11 @@
  * @file block.hpp
  * @brief Client of the block storage server (the ATA driver) in Ring 3.
  *
- * Requests travel as asynchronous messages (`BLK_*` types) and bulk data travels through
- * a shared memory window that the server creates on `BLK_CONNECT`. Every request carries
- * an id and the matching `BLK_REPLY` echoes it. All calls block until the reply arrives
- * or the server dies.
+ * Requests travel as asynchronous messages (`BLK_*` types) sent through the handle the name
+ * server gave, asking for a reply token; the server answers through that token. Bulk data travels
+ * through a shared memory window that the server creates on `BLK_CONNECT`, shared by process id.
+ * Every request carries an id and the matching `BLK_REPLY` echoes it. All calls block until the
+ * reply arrives or the server dies.
  */
 #ifndef COCK_USER_BLOCK_HPP
 #define COCK_USER_BLOCK_HPP
@@ -75,8 +76,10 @@ class Client {
 	 */
 	bool connect() {
 		lost = false;
-		server = names::server(abi::block::SERVER_NAME);
-		if (server == NO_PROCESS) {
+		names::Connection connection = names::connect(abi::block::SERVER_NAME);
+		server = connection.pid;
+		handle = connection.handle;
+		if (server == NO_PROCESS || handle == abi::NO_CAPABILITY_NODE) {
 			lost = true;
 			return false;
 		}
@@ -197,7 +200,7 @@ class Client {
 		request.payload.args.arg1 = first;
 		request.payload.args.arg2 = second;
 		request.payload.args.arg3 = third;
-		if (!ipc_send(server, request)) {
+		if (!ep_send(handle, request, true)) {
 			lost = !process_alive(server);
 			return false;
 		}
@@ -223,8 +226,10 @@ class Client {
 		return true;
 	}
 
-	/** Process id of the block server, `NO_PROCESS` before `connect`. */
+	/** Process id of the block server, `NO_PROCESS` before `connect`; used to see whether it is alive. */
 	uint32_t server = NO_PROCESS;
+	/** Handle on the endpoint of the block server, `NO_CAPABILITY_NODE` before `connect`. */
+	uint32_t handle = abi::NO_CAPABILITY_NODE;
 	/** Mapping of the shared data window, null before `connect`. */
 	uint8_t *view = nullptr;
 	/** Device count reported on `connect`. */

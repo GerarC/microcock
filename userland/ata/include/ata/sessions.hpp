@@ -38,11 +38,14 @@ void releaseDeadSessions();
  * The reply carries the window id and the number of devices. When no session is free, the
  * sessions of dead clients are released first.
  *
- * @param pid Process id of the client.
+ * @param token Reply token of the request.
+ * @param client Badge of the message, which `names` makes the process id of the client: the
+ * session is kept under it and the window is shared with that process, because shared memory is
+ * still shared by process id.
  * @param id Request id to echo in the reply.
  * @note Replies `NO_SPACE` when no session can be opened.
  */
-void connect(uint32_t pid, uint32_t id);
+void connect(uint32_t token, uint32_t client, uint32_t id);
 
 } // namespace cock::ata
 
