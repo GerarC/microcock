@@ -517,6 +517,30 @@ uintptr_t sys_proc_alive(uintptr_t pid, uintptr_t, uintptr_t, uintptr_t, uintptr
 uintptr_t sys_proc_state(uintptr_t pid, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
 						 uintptr_t);
 
+/**
+ * @brief Replaces the program image of a process with a pending one, keeping its process id.
+ *
+ * The caller must hold a `SPAWN` capability and own the pending process, which must have been created
+ * with no rights and no exit notice (the new image keeps the capabilities of the old one; it gets none
+ * from the handle). The target must be the main thread of a user process other than the caller's,
+ * waiting for the reply of a call that the caller serves (accepted, or detached with `ipc_defer`):
+ * that is the consent of the target, and it is not running, so its address space is not in use.
+ * Everything that can fail is done before the old image is touched: the entry point must be mapped
+ * and the stack of the new image is mapped. Then the other threads of the target end, the call of
+ * the target is closed with no reply, the old image is destroyed, the shared memory and pending
+ * processes of the target are dropped, and the main thread starts again at the entry point with an
+ * empty stack. Capabilities, endpoints, service label, parent and id stay.
+ *
+ * @param handle Handle from `SYS_PROC_CREATE`.
+ * @param entry_point First address to run, inside a mapped page of the pending process.
+ * @param pid Process id of the target.
+ * @param initial The one number the new image receives in `EAX` at its entry (its initial value, as for a
+ * process that `SYS_PROC_START` creates).
+ * @return 0 and the handle stops being valid, or all ones with the old image untouched.
+ */
+uintptr_t sys_proc_exec(uintptr_t handle, uintptr_t entry_point, uintptr_t pid, uintptr_t initial,
+						uintptr_t, uintptr_t);
+
 /** @brief Largest finite timeout in milliseconds accepted by the timed calls. */
 constexpr uintptr_t MAX_TIMEOUT_MILLISECONDS = 0x7FFFFFFF;
 

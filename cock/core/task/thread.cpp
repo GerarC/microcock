@@ -7,6 +7,7 @@
 #include <cock/core/task/reply_table.hpp>
 #include <cock/core/task/sched_metrics.hpp>
 #include <cock/core/task/scheduler.hpp>
+#include <cock/core/task/sync_ipc.hpp>
 #include <cock/core/task/futex.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
@@ -153,6 +154,29 @@ Thread::~Thread() {
 		if (was_last && !process->isKernel()) delete process;
 		this->process = nullptr;
 	}
+}
+
+void Thread::restartAt(VirtAddr entry_point, VirtAddr user_stack_base) {
+	InterruptGuard guard;
+
+	SyncIpc::withdraw(*this);
+	SyncIpc::abandon(*this);
+	Futex::remove(this);
+	Timeouts::cancel(this);
+	Message dropped;
+	while (inbox.pop(dropped)) {
+	}
+	pendingNotifications = 0;
+	futexWoken = false;
+	callTarget = nullptr;
+	callLink = nullptr;
+	callEndpoint = abi::endpoint::NO_ENDPOINT;
+	userStackBase = user_stack_base;
+	stackPointer = hal::prepare_user_thread_stack(stackBase, THREAD_STACK_SIZE,
+												  user_stack_base.as<void>(), USER_STACK_SIZE,
+												  entry_point.as<void>(), nullptr);
+	setPriority(ThreadPriority::NORMAL);
+	setState(ThreadState::READY);
 }
 
 void Thread::yield() { Scheduler::yield(); }

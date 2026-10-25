@@ -139,6 +139,17 @@ class SyncIpc {
 	 */
 	static void abandon(Thread &dying);
 	/**
+	 * @brief Takes a thread that waits for the reply of a call out of every list that points to it.
+	 *
+	 * The thread is removed from the queue of its endpoint, or from the lists of its server (the one
+	 * being served, the callers and the deferred ones), and its call fields are cleared. It is not
+	 * woken and gets no result: the caller decides whether it dies or starts again. A thread that
+	 * waits for no reply is left as it is.
+	 *
+	 * @param caller Thread to take out; it is not the running thread.
+	 */
+	static void withdraw(Thread &caller);
+	/**
 	 * @brief Wakes a server sleeping in accept because a message or a
 	 * notification arrived.
 	 * @param server Thread in the waiting for call state. It resumes with the

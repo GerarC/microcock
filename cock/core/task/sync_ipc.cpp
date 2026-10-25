@@ -313,6 +313,23 @@ void SyncIpc::expire(Thread &thread) {
 	finish(&thread, abi::call::TIMED_OUT);
 }
 
+void SyncIpc::withdraw(Thread &caller) {
+	InterruptGuard guard;
+	if (caller.getState() != ThreadState::WAITING_REPLY) return;
+
+	leaveEndpoint(caller);
+	Thread *target = caller.callTarget;
+	if (target != nullptr) {
+		if (target->serving == &caller) {
+			target->serving = nullptr;
+		} else if (!unlink(target->callers, caller)) {
+			unlink(target->deferred, caller);
+		}
+	}
+	caller.callLink = nullptr;
+	caller.callTarget = nullptr;
+}
+
 void SyncIpc::abandon(Thread &dying) {
 	InterruptGuard guard;
 	leaveEndpoint(dying);

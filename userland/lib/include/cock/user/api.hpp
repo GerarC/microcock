@@ -621,6 +621,22 @@ inline uint32_t proc_start(uint32_t handle, uintptr_t entry) {
 }
 
 /**
+ * @brief Replaces the program image of a process with a pending one (`SYS_PROC_EXEC`).
+ *
+ * Only a process that holds a `SPAWN` capability may call it; the process manager is the one that does. The
+ * target must be waiting for the reply of a call the caller is serving, and its other threads end. The new
+ * image keeps the id, the capabilities and the endpoints of the old one and receives `initial` at its entry.
+ * @param handle Handle from `proc_create`, made with no rights and no exit notice; it stops being valid on success.
+ * @param entry Entry point, inside a mapped page.
+ * @param pid Process id of the target.
+ * @param initial The one number the new image receives in `EAX`.
+ * @return true when the image was replaced; false when the caller may not, the handle or the entry is bad, or the target is not waiting for a reply the caller serves. The old image is untouched after a failure.
+ */
+inline bool proc_exec(uint32_t handle, uintptr_t entry, uint32_t pid, uintptr_t initial) {
+	return syscall(SYS_PROC_EXEC, handle, entry, pid, initial, 0, 0) == SUCCESS;
+}
+
+/**
  * @brief Destroys a pending process and frees its memory (`SYS_PROC_DISCARD`).
  * @param handle Handle from `proc_create`.
  * @return true when destroyed; false when the handle is not the caller's.

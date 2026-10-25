@@ -20,6 +20,9 @@ constexpr size_t NO_ROWS = 0;
 constexpr size_t SOME_IMAGE_BYTES = 0x1000;
 constexpr uint32_t SOME_PROCESS = 1;
 constexpr uint32_t SOME_CHILD = 2;
+constexpr char SOME_NAME[] = "stranger";
+constexpr uint32_t NO_FLAGS = 0;
+constexpr uint32_t NO_KERNEL_PROCESS = cock::user::NO_PROCESS;
 constexpr uintptr_t EXIT_PASSED = 0;
 constexpr uintptr_t EXIT_FAILED = 1;
 
@@ -63,8 +66,11 @@ bool refusesStrangers(cock::user::pm::Client &client) {
 	uint32_t pid = cock::abi::pm::NO_PID;
 	bool registered = client.registerProcess(SOME_PROCESS, cock::abi::pm::NO_PARENT, cock::abi::pm::NO_PID, pid);
 	bool room = client.begin(SOME_IMAGE_BYTES) != nullptr;
+	cock::abi::service::SpawnRights rights = {};
+	uint32_t spawned = room ? client.finish(SOME_NAME, rights, NO_FLAGS, SOME_IMAGE_BYTES) : NO_KERNEL_PROCESS;
+	bool denied = client.lastStatus() == Status::DENIED;
 	client.release();
-	return !registered && !room;
+	return !registered && room && spawned == NO_KERNEL_PROCESS && denied;
 }
 
 bool hasNoChildren(cock::user::pm::Client &client) {

@@ -91,6 +91,9 @@ When an entry has grants or an argument, `rs` sends the process `CAPABILITY_GRAN
 | `cap_grant_node(pid, type, first, count)`, `cap_revoke(node)` | `SYS_CAP_GRANT` returning the derivation node, and `SYS_CAP_REVOKE` |
 | `process_alive(pid)` | `SYS_PROC_ALIVE` |
 | `process_state_mask(pid)` | `SYS_PROC_STATE` |
+| `proc_exec(handle, entry, pid, initial)` | `SYS_PROC_EXEC`; only `pm` holds the capability |
+| `exec(process, files, path, argv, argc)` (`exec.hpp`) | Replaces the image of the program with a file: reads it through the file server into an object of `pm` and sends `EXEC`; returns only when it failed (`ExecFailure`) |
+| `argumentCount()`, `argument(index)` (`crt0.hpp`) | The arguments of a program that `exec` started, from the page at `abi::exec::ARGS_ADDRESS`; none for a program that `spawn` started |
 | `ipc_try_recv(message)` | `SYS_IPC_TRY_RECV`; `Received::MESSAGE`, `EMPTY` or `FAILED` |
 | `ipc_recv_timeout(message, milliseconds)` | `SYS_IPC_RECV_TIMEOUT`; the same results, `EMPTY` when the time ran out; like `ipc_try_recv` it reads only the kernel inbox |
 | `sleep_ms(milliseconds)` | `SYS_SLEEP`; true when it slept (resolution 10 ms) |

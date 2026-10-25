@@ -27,6 +27,7 @@
 #define COCK_ABI_PM_HPP
 
 #include <cock/abi/call.hpp>
+#include <cock/abi/exec.hpp>
 #include <cock/abi/manifest.hpp>
 #include <cock/abi/service.hpp>
 #include <cock/abi/shm.hpp>
@@ -37,7 +38,7 @@ namespace cock::abi::pm {
 
 /** Operation in the low byte of word 0 of a request. */
 enum class Op : uint32_t {
-	/** Ask `pm` for a shared object of `bytes` bytes (word 1), shared with the caller for writing; the reply carries its id in word 1. A caller has one at a time. */
+	/** Ask `pm` for a shared object of `bytes` bytes (word 1), shared with the caller for writing; the reply carries its id in word 1. A caller has one at a time. Any process with a row in the table may ask, for `EXEC`; only the root server and `init` may then use it for `SPAWN`. */
 	ALLOCATE = 1,
 	/** Create a process from the object of word 1, whose first page holds a `SpawnRequest`. The reply carries the kernel process id in word 1 and the process id of the table in word 2. */
 	SPAWN = 2,
@@ -49,6 +50,8 @@ enum class Op : uint32_t {
 	PERMIT = 5,
 	/** Collect the status of a child: word 1 is its process id of the table or `ANY_CHILD`. A child that exited and was not collected answers at once; otherwise the call waits, with the caller blocked, until a matching child exits. The reply carries the process id of the child in word 1 and its exit status in word 2. `NOT_FOUND` means the caller has no such child, collected or not. The root server has none to collect: `pm` collects its children itself. */
 	WAIT = 6,
+	/** Replace the program image of the caller with the one in the object of word 1, whose first page holds an `ExecRequest`; the caller got the object with `ALLOCATE`. On success the call never returns: the caller starts again in the new image, with the same process id, parent, capabilities and endpoints, and its other threads end. On failure the reply carries the status and the old image runs on. */
+	EXEC = 7,
 };
 
 /** Status in the low byte of word 0 of a reply. */
@@ -135,6 +138,8 @@ constexpr size_t MAX_PERMITTED_LABELS = manifest::MAX_ENTRIES;
 constexpr size_t IMAGE_OFFSET = shm::PAGE_BYTES;
 /** Largest image `SPAWN` accepts in bytes, the rest of a largest object. */
 constexpr size_t MAX_IMAGE_BYTES = shm::MAX_OBJECT_BYTES - IMAGE_OFFSET;
+/** Largest image `EXEC` accepts: the same, as long as it ends below the argument page. */
+constexpr size_t MAX_EXEC_IMAGE_BYTES = MAX_IMAGE_BYTES;
 
 /** First page of the object a caller writes before it sends `SPAWN`. */
 struct SpawnRequest {
@@ -149,6 +154,18 @@ struct SpawnRequest {
 };
 
 static_assert(sizeof(SpawnRequest) <= IMAGE_OFFSET, "the request must fit in the first page");
+
+/** First page of the object a caller writes before it sends `EXEC`. */
+struct ExecRequest {
+	/** Name of the new image, ending with a zero byte within `NAME_BYTES`. */
+	char name[NAME_BYTES];
+	/** Size of the image in bytes, from 1 to `MAX_EXEC_IMAGE_BYTES` and within the object. */
+	uint32_t imageBytes;
+	/** The arguments and the initial handle the new image receives; `pm` checks the whole block. */
+	exec::ArgsBlock args;
+};
+
+static_assert(sizeof(ExecRequest) <= IMAGE_OFFSET, "the request must fit in the first page");
 
 /**
  * @brief Builds the header word of a request.

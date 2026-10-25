@@ -1,7 +1,9 @@
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/hal/tasking.hpp>
+#include <cock/core/task/futex.hpp>
 #include <cock/core/task/sched_metrics.hpp>
 #include <cock/core/task/scheduler.hpp>
+#include <cock/core/task/sync_ipc.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
 #include <cock/core/task/timeouts.hpp>
@@ -89,6 +91,24 @@ void Scheduler::terminateCurrentThread() {
 	currentThread->setState(ThreadState::DEAD);
 	TaskManager::notifyThreadDeath(currentThread);
 	requestReschedule();
+}
+
+void Scheduler::terminateThread(Thread *thread) {
+	InterruptGuard guard;
+
+	if (!thread || thread == currentThread || thread == idleThread ||
+		thread->getState() == ThreadState::DEAD)
+		return;
+
+	SyncIpc::withdraw(*thread);
+	Futex::remove(thread);
+	Timeouts::cancel(thread);
+	if (thread->queued) {
+		readyQueues[static_cast<uint8_t>(thread->getPriority())].remove(thread);
+		thread->queued = false;
+	}
+	thread->setState(ThreadState::DEAD);
+	TaskManager::notifyThreadDeath(thread);
 }
 
 void Scheduler::requestReschedule() { rescheduleRequested = true; }

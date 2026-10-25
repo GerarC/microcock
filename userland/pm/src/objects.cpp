@@ -8,9 +8,7 @@ namespace {
 
 constexpr size_t NO_BYTES = 0;
 
-cock::pm::Object objects[cock::pm::MAX_OBJECTS] = {
-	{cock::pm::NO_OBJECT, cock::pm::NO_OBJECT, NO_BYTES}, {cock::pm::NO_OBJECT, cock::pm::NO_OBJECT, NO_BYTES},
-	{cock::pm::NO_OBJECT, cock::pm::NO_OBJECT, NO_BYTES}, {cock::pm::NO_OBJECT, cock::pm::NO_OBJECT, NO_BYTES}};
+cock::pm::Object objects[cock::pm::MAX_OBJECTS];
 
 cock::pm::Object *slotOf(uint32_t caller) {
 	for (cock::pm::Object &object : objects)
@@ -21,6 +19,11 @@ cock::pm::Object *slotOf(uint32_t caller) {
 cock::pm::Object *freeSlot() {
 	for (cock::pm::Object &object : objects)
 		if (object.id == cock::pm::NO_OBJECT) return &object;
+	for (cock::pm::Object &object : objects) {
+		if (cock::user::process_alive(object.caller)) continue;
+		cock::pm::dropObject(object.caller);
+		return &object;
+	}
 	return nullptr;
 }
 
@@ -57,7 +60,7 @@ void dropObject(uint32_t caller) {
 	Object *slot = slotOf(caller);
 	if (slot == nullptr) return;
 	cock::user::shm_release(slot->id);
-	*slot = Object{NO_OBJECT, NO_OBJECT, NO_BYTES};
+	*slot = Object{};
 }
 
 } // namespace cock::pm

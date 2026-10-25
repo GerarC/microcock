@@ -65,6 +65,17 @@ class Scheduler {
 	 * terminate. Does nothing without a live current thread.
 	 */
 	static void terminateCurrentThread();
+	/**
+	 * @brief Ends a thread that is not running, as `exec` needs for the other threads of a process.
+	 *
+	 * The thread leaves the ready queue, the futex list, the timer list and the lists of its server,
+	 * is marked dead and goes to the task manager like any thread that exits. The calls it served
+	 * fail, as for a thread that exits by itself.
+	 *
+	 * @param thread A user thread other than the running one and the idle thread; a thread that is
+	 * already dead is left alone.
+	 */
+	static void terminateThread(Thread *thread);
 
 	/** @brief Asks for a thread switch when the current system call returns. */
 	static void requestReschedule();

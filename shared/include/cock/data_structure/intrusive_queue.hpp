@@ -54,6 +54,25 @@ template <typename T, T *T::*Next> class IntrusiveQueue {
 		item->*Next = nullptr;
 		return item;
 	}
+
+	/**
+	 * @brief Takes one element out of the queue wherever it is.
+	 * @param item Object to remove; it may be absent.
+	 * @return True when it was in the queue; its link is cleared. False leaves the queue as it was.
+	 */
+	bool remove(T *item) {
+		T *previous = nullptr;
+		for (T *current = head; current != nullptr; previous = current, current = current->*Next) {
+			if (current != item) continue;
+			T *next = current->*Next;
+			if (previous) previous->*Next = next;
+			else head = next;
+			if (tail == current) tail = previous;
+			current->*Next = nullptr;
+			return true;
+		}
+		return false;
+	}
 };
 
 } // namespace cock::data_structure

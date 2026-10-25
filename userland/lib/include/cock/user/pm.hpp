@@ -13,8 +13,10 @@
 
 #include <cock/abi/pm.hpp>
 #include <cock/abi/shm.hpp>
+#include <cock/exec/args.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/call.hpp>
+#include <cock/user/crt0.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -128,7 +130,44 @@ public:
 	}
 
 	/**
-	 * @brief Status that `pm` gave in the last `begin` or `finish`.
+	 * @brief Writes the request into the object and asks `pm` to replace the image of the caller with it.
+	 *
+	 * The image must already be in the area `begin` returned. On success the call does not return: the
+	 * calling process starts again in the new image, with the same process id, capabilities and endpoints,
+	 * its other threads gone, the given arguments and the initial handle it had. It returns only when `pm`
+	 * refused; the old image goes on. The object is given back whatever the result.
+	 *
+	 * @param name Name of the new image, at most `abi::pm::NAME_BYTES` - 1 characters.
+	 * @param argv The arguments, `argc` strings; the first is the name the program sees.
+	 * @param argc Number of arguments, at most `abi::exec::MAX_ARGS`, and their strings must fit `abi::exec::MAX_ARG_BYTES`.
+	 * @param imageBytes The size given to `begin`.
+	 * @return The status `pm` gave (`BAD_REQUEST` also when `begin` was not called, the name is too long or
+	 * the arguments do not fit, or the call failed).
+	 */
+	abi::pm::Status finishExec(const char *name, const char *const *argv, uint32_t argc, size_t imageBytes) {
+		if (base == nullptr || strlen(name) >= abi::pm::NAME_BYTES) {
+			release();
+			return status = abi::pm::Status::BAD_REQUEST;
+		}
+
+		abi::pm::ExecRequest *request = static_cast<abi::pm::ExecRequest *>(base);
+		memset(request, 0, sizeof(*request));
+		memcpy(request->name, name, strlen(name));
+		request->imageBytes = static_cast<uint32_t>(imageBytes);
+		if (!::cock::exec::build(request->args, initialHandle(), argv, argc)) {
+			release();
+			return status = abi::pm::Status::BAD_REQUEST;
+		}
+
+		uint32_t words[abi::pm::CALL_WORDS] = {abi::pm::pack(abi::pm::Op::EXEC), object};
+		CallResult result = ep_call(handle, words);
+		release();
+		return status = result.ok ? abi::pm::statusOf(result.words[abi::pm::HEADER_WORD])
+								  : abi::pm::Status::BAD_REQUEST;
+	}
+
+	/**
+	 * @brief Status that `pm` gave in the last `begin`, `finish` or `finishExec`.
 	 * @return The status, or `BAD_REQUEST` when the call itself failed or nothing was called yet.
 	 */
 	abi::pm::Status lastStatus() const { return status; }

@@ -22,7 +22,8 @@ Synchronous calls of four words through a handle on the endpoint of `pm`; the ba
 
 | Operation | Who | What |
 |-----------|-----|------|
-| `ALLOCATE bytes` | `rs`, `init` | `pm` makes a shared object of that size, shares it with the caller for writing and returns its id. One object per caller |
+| `ALLOCATE bytes` | any process in the table | `pm` makes a shared object of that size, shares it with the caller for writing and returns its id. One object per caller; a slot of a caller that died is taken back when no other is free |
+| `EXEC object` | any process in the table | Replaces the image of the caller with the one in the object (an `ExecRequest` and the image); on success the call never returns. See the documentation page |
 | `SPAWN object` | `rs`, `init` | The first page of the object holds a `SpawnRequest` (name, rights, flags, image size) and the image starts at `IMAGE_OFFSET`. `pm` copies the request, checks it and creates the process; the reply carries the kernel process id and the id in the table |
 | `REGISTER kernel parent wanted` | `rs` | Adds a process that already runs (the boot modules, `pm` itself) |
 | `PERMIT label` | `rs` | `init` may create processes with that label |
@@ -41,7 +42,7 @@ The id in the table is not the kernel one. The table numbers processes from 2 in
 
 - 128 rows. A row of a process that exited and was collected stays and is reused only when no row is free; a zombie, which its parent did not collect, and a row whose notice to `rs` is still pending are not reused.
 - A process that exits while its parent lives (and is not `rs`) is a zombie until the parent calls `WAIT`. When a process exits, its children pass to `rs`, which collects them; the children of `rs` are collected by `pm` at once.
-- No `exec`, no signals, no `fork` yet.
+- No signals, no `fork` yet.
 - A notice that `rs` has no room for is tried again every 50 ms; the inbox of `rs` holds what the kernel allows.
 - The boot modules are registered but never marked as exited: their parent is the kernel, which sends no notice.
 - `pm` trusts `rs` completely, and trusts the label it is given: it can give a process any program label, so a flaw in `pm` is a flaw in the name server policy. That is the price of keeping it away from hardware.
@@ -56,6 +57,7 @@ The id in the table is not the kernel one. The table numbers processes from 2 in
 | `src/objects.cpp`, `include/pm/objects.hpp` | The shared objects `pm` makes for callers |
 | `src/spawn.cpp`, `include/pm/spawn.hpp` | `spawnFromObject`: checks the request and creates the process with `cock::user::spawn` |
 | `src/requests.cpp`, `include/pm/requests.hpp` | `serve`: one call, who may make it |
+| `src/exec.cpp`, `include/pm/exec.hpp` | `execFromObject`: checks an `ExecRequest`, builds the new image as a pending process with the argument page, and asks the kernel to swap it in |
 | `src/wait.cpp`, `include/pm/wait.hpp` | `waitForChild` (collects a zombie or detaches the call) and `answerWaiter` (answers it when the child exits) |
 | `src/exit_notice.cpp`, `include/pm/exit_notice.hpp` | `takeMessage` (`PROCESS_EXITED`) and `flushNotices` (`PM_EXITED`, `PM_SPAWNED`) |
 | `Makefile` | `NAME = pm`, `CONSOLE_CLIENT = no` (it prints before `console` exists), a minimal `LIBC_SRCS` |

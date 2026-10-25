@@ -129,6 +129,17 @@ uint32_t TaskManager::findBootModuleId(const char *name) {
 	return NO_PROCESS;
 }
 
+void TaskManager::terminateSiblings(Thread &keep) {
+	InterruptGuard guard;
+
+	Process *process = keep.getProcess();
+	for (size_t slot = 0; slot < MAX_PROCESSES; slot++) {
+		Thread *thread = registry[slot];
+		if (!thread || thread == &keep || thread->getProcess() != process) continue;
+		Scheduler::terminateThread(thread);
+	}
+}
+
 void TaskManager::setReaper(Thread *thread) { reaper = thread; }
 
 bool TaskManager::graveyardEmpty() { return graveyard.isEmpty(); }

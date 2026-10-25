@@ -52,6 +52,8 @@
     #define SYS_THREAD_PROCESS   0x208
     /** Tells in which states the live threads of a process are. a1: process id. Returns a mask (1 ready, 2 running, 4 blocked, 8 waiting for a message, 16 waiting in accept, 32 waiting for a reply), or all ones when the id is not a process id, is the kernel's or has no live thread. */
     #define SYS_PROC_STATE       0x209
+    /** Replaces the program image of a process that waits for the reply of a call the caller is serving, with the pending process the caller built; the process keeps its id, capabilities and endpoints, and its other threads end. a1: handle, a2: entry point (inside a mapped page), a3: id of the process to replace, a4: the one number the new image receives in EAX at its entry. Returns 0 and invalidates the handle, or all ones (the old image is untouched). The caller needs a SPAWN capability. */
+    #define SYS_PROC_EXEC        0x20A
 
     /** Sleeps; messages that arrive meanwhile do not wake the thread. a1: milliseconds (at most 0x7FFFFFFF; 0 only yields). Returns 0, or all ones when the time is too large. */
     #define SYS_SLEEP            0x210

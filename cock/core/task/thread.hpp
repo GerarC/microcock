@@ -383,6 +383,19 @@ class Thread {
 	}
 
 	/**
+	 * @brief Makes a thread that is not running start again at a new entry point, on a new user stack.
+	 *
+	 * Used by `exec` for the main thread. The thread leaves the lists of the call it waited for, the
+	 * calls it served fail, futex and timer entries go, the inbox and the pending notifications are
+	 * dropped, and its saved context is rebuilt so that it runs from `entry_point` with an empty
+	 * stack. Its id and its priority stay. The state becomes `READY`; the caller queues it.
+	 *
+	 * @param entry_point User address where it starts.
+	 * @param user_stack_base Lowest address of its new user stack, already mapped in the address space it runs in.
+	 */
+	void restartAt(memory::VirtAddr entry_point, memory::VirtAddr user_stack_base);
+
+	/**
 	 * @brief Pushes an incoming IPC message into the thread's inbox.
 	 * @param msg Message to copy in.
 	 * @return False when the inbox is full and the message was dropped.

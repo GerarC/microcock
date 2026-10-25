@@ -74,6 +74,37 @@ Process *Process::create(PhysAddr address_space, VirtAddr user_space_limit) {
 	return new Process(address_space, user_space_limit, false);
 }
 
+void Process::swapImage(Process &other) {
+	PhysAddr space = addressSpace;
+	addressSpace = other.addressSpace;
+	other.addressSpace = space;
+
+	VirtAddr limit = userSpaceLimit;
+	userSpaceLimit = other.userSpaceLimit;
+	other.userSpaceLimit = limit;
+
+	for (size_t idx = 0; idx < MAX_MAPPING_REGIONS; idx++) {
+		MemoryRegion region = regions[idx];
+		regions[idx] = other.regions[idx];
+		other.regions[idx] = region;
+	}
+
+	size_t count = regionCount;
+	regionCount = other.regionCount;
+	other.regionCount = count;
+
+	size_t pages = ownedPages;
+	ownedPages = other.ownedPages;
+	other.ownedPages = pages;
+
+	char swapped[MAX_NAME_LENGTH];
+	for (size_t idx = 0; idx < MAX_NAME_LENGTH; idx++) {
+		swapped[idx] = name[idx];
+		name[idx] = other.name[idx];
+		other.name[idx] = swapped[idx];
+	}
+}
+
 void Process::setName(const char *new_name) {
 	size_t length = 0;
 	while (new_name != nullptr && new_name[length] != '\0' &&

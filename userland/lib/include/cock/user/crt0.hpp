@@ -25,7 +25,9 @@ extern "C" [[noreturn]] void _start();
 /**
  * @brief What `_start` calls with the value it found in `EAX`: stores it for `cock::user::initialHandle`,
  * runs the static constructors, calls `main` and ends the process. Never returns.
- * @param handle The initial handle, zero when the process was started with none.
+ * @param handle The initial handle, zero when the process was started with none. A process that `exec`
+ * started gets `abi::exec::ARGS_ADDRESS` instead, which no handle can equal: the argument page there holds
+ * the initial handle of the replaced program and the arguments, and `startProgram` takes both from it.
  */
 extern "C" [[noreturn]] void startProgram(uint32_t handle);
 
@@ -41,6 +43,21 @@ namespace cock::user {
  * such as the boot modules.
  */
 uint32_t initialHandle();
+
+/**
+ * @brief Number of arguments the program was started with.
+ * @return The count, including the name the program was started with as the first one; zero for a program
+ * that a spawn started, which gets none.
+ */
+uint32_t argumentCount();
+
+/**
+ * @brief One argument of a program that `exec` started.
+ * @param index Position, from 0; the first is the name the program was started with.
+ * @return The string, which lives as long as the process, or null when the index is past the last argument or
+ * the program was not started by `exec`.
+ */
+const char *argument(uint32_t index);
 
 } // namespace cock::user
 

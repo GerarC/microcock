@@ -1,5 +1,6 @@
 #include <cock/pm/classify.hpp>
 #include <cock/user/api.hpp>
+#include <pm/exec.hpp>
 #include <pm/objects.hpp>
 #include <pm/requests.hpp>
 #include <pm/spawn.hpp>
@@ -14,6 +15,8 @@ namespace {
 constexpr uint32_t NO_VALUE = 0;
 
 Status allocate(const uint32_t (&words)[CALL_WORDS], uint32_t caller, uint32_t (&reply)[CALL_WORDS]) {
+	if (cock::pm::callerOf(caller) == Caller::OTHER && cock::pm::table.findKernel(caller) == nullptr)
+		return Status::DENIED;
 	uint32_t id = NO_VALUE;
 	Status status = cock::pm::allocateObject(caller, words[FIRST_WORD], id);
 	reply[FIRST_WORD] = id;
@@ -27,6 +30,10 @@ Status spawnProcess(const uint32_t (&words)[CALL_WORDS], uint32_t caller, uint32
 	reply[FIRST_WORD] = kernelId;
 	reply[SECOND_WORD] = pid;
 	return status;
+}
+
+Status execProcess(const uint32_t (&words)[CALL_WORDS], uint32_t caller, bool &replaced) {
+	return cock::pm::execFromObject(caller, words[FIRST_WORD], replaced);
 }
 
 Status registerProcess(const uint32_t (&words)[CALL_WORDS], uint32_t (&reply)[CALL_WORDS]) {
@@ -72,8 +79,9 @@ bool allowed(Op op, Caller who) {
 	switch (op) {
 	case Op::LIST:
 	case Op::WAIT:
-		return true;
 	case Op::ALLOCATE:
+	case Op::EXEC:
+		return true;
 	case Op::SPAWN:
 		return who == Caller::ROOT || who == Caller::INIT;
 	case Op::REGISTER:
@@ -84,7 +92,7 @@ bool allowed(Op op, Caller who) {
 }
 
 bool knownOp(uint32_t op) {
-	return op >= static_cast<uint32_t>(Op::ALLOCATE) && op <= static_cast<uint32_t>(Op::WAIT);
+	return op >= static_cast<uint32_t>(Op::ALLOCATE) && op <= static_cast<uint32_t>(Op::EXEC);
 }
 
 } // namespace
@@ -97,6 +105,7 @@ bool serve(uint32_t caller, const uint32_t (&words)[CALL_WORDS], uint32_t (&repl
 	Status status = Status::BAD_REQUEST;
 	State state = State::FREE;
 	bool detached = false;
+	bool replaced = false;
 	uint32_t number = opOf(words[HEADER_WORD]);
 	if (knownOp(number)) {
 		Op op = static_cast<Op>(number);
@@ -122,10 +131,13 @@ bool serve(uint32_t caller, const uint32_t (&words)[CALL_WORDS], uint32_t (&repl
 			case Op::WAIT:
 				status = waitForChild(caller, words[FIRST_WORD], reply, detached);
 				break;
+			case Op::EXEC:
+				status = execProcess(words, caller, replaced);
+				break;
 			}
 		}
 	}
-	if (detached) return false;
+	if (detached || replaced) return false;
 	reply[HEADER_WORD] = packReply(status, state);
 	return true;
 }

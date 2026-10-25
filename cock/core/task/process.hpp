@@ -119,6 +119,19 @@ class Process {
 	/** @return The null terminated name. */
 	const char *getName() const { return name; }
 
+	/**
+	 * @brief Exchanges the program image of this process with that of another, as `exec` does.
+	 *
+	 * The address space, its user limit, the region table, the page quota and the name pass to the
+	 * other process and the other way round. Nothing else moves: id, parent, capabilities,
+	 * service label, threads and exit notices stay. Deleting the other process afterwards destroys
+	 * the old image.
+	 *
+	 * @param other A user process without threads, such as a pending one; neither process is the kernel's.
+	 * @note Neither address space may be the active one.
+	 */
+	void swapImage(Process &other);
+
 	/** @return Number of threads attached and not yet reaped. */
 	size_t getThreadCount() const { return threadCount; }
 	/**

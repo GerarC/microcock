@@ -110,6 +110,12 @@ class TaskManager {
 	 */
 	static uint32_t findBootModuleId(const char *name);
 	/**
+	 * @brief Ends every other thread of the process of a thread, as `exec` does.
+	 * @param keep The thread that stays, a user thread that is not running.
+	 * @note Each one goes through `Scheduler::terminateThread`. Dead threads that were not reaped are skipped.
+	 */
+	static void terminateSiblings(Thread &keep);
+	/**
 	 * @brief Sets the thread that reaps the dead.
 	 * @param thread Reaper thread, woken when a thread dies while it sleeps.
 	 */

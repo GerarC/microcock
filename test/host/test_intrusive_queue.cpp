@@ -70,6 +70,36 @@ void checkReuse() {
 	CHECK_TRUE(queue.isEmpty());
 }
 
+void checkRemove() {
+	Queue queue;
+	Item first;
+	Item second;
+	Item third;
+	Item absent;
+	queue.push(&first);
+	queue.push(&second);
+	queue.push(&third);
+
+	CHECK_FALSE(queue.remove(&absent));
+	CHECK_TRUE(queue.remove(&second));
+	CHECK_TRUE(second.link == nullptr);
+	CHECK_FALSE(queue.remove(&second));
+	CHECK_TRUE(queue.remove(&third));
+
+	Item fourth;
+	queue.push(&fourth);
+	CHECK_TRUE(queue.pop() == &first);
+	CHECK_TRUE(queue.pop() == &fourth);
+	CHECK_TRUE(queue.isEmpty());
+
+	queue.push(&first);
+	CHECK_TRUE(queue.remove(&first));
+	CHECK_TRUE(queue.isEmpty());
+	queue.push(&second);
+	CHECK_TRUE(queue.pop() == &second);
+	CHECK_TRUE(queue.pop() == nullptr);
+}
+
 } // namespace
 
 void testIntrusiveQueue() {
@@ -77,6 +107,7 @@ void testIntrusiveQueue() {
 	checkFifoOrder();
 	checkPopClearsLink();
 	checkReuse();
+	checkRemove();
 }
 
 } // namespace host_test

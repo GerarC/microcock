@@ -31,7 +31,8 @@ Synchronous calls of four words, `shared/include/cock/abi/pm.hpp`, through a han
 
 | Operation | Served for | Meaning |
 |-----------|------------|---------|
-| `ALLOCATE bytes` | `rs`, `init` | `pm` makes a shared object of that size, shares it with the caller for writing and returns its id; one per caller |
+| `ALLOCATE bytes` | any process in the table | `pm` makes a shared object of that size, shares it with the caller for writing and returns its id; one per caller. Only `rs` and `init` can use it for `SPAWN`; any process can use it for `EXEC` |
+| `EXEC object` | any process in the table | The first page of the object holds an `ExecRequest` (name, image size, arguments and the initial handle) and the image starts at `IMAGE_OFFSET`. `pm` checks it, builds the new image, writes the argument page and asks the kernel to swap it in (`SYS_PROC_EXEC`). On success the call never returns |
 | `SPAWN object` | `rs`, `init` | The first page holds a `SpawnRequest` (name, `SpawnRights`, flags, image size), the image starts at `IMAGE_OFFSET`; `pm` copies the request, checks it and creates the process |
 | `REGISTER kernel parent wanted` | `rs` | Records a process that already runs |
 | `PERMIT label` | `rs` | `init` may create processes with that label |
@@ -67,7 +68,7 @@ The id in the table is not the kernel one. It counts from 2 in the order process
 
 ## Limits
 
-- No `exec`, signals or `fork` yet. A parent that never calls `WAIT` leaves zombies that fill the table (as in Linux) until it exits; `WAIT` has no non-blocking flag and no timeout.
+- No signals or `fork` yet. Any process can fill the 8 object slots of `pm` with `ALLOCATE` and starve `spawn` until a permission model exists (E5). A parent that never calls `WAIT` leaves zombies that fill the table (as in Linux) until it exits; `WAIT` has no non-blocking flag and no timeout.
 - If `pm` dies the table and the notices of its children are lost, because their parent disappears. `rs` could start another one but not rebuild the table. Minix has the same limit.
 - The boot modules are in the table but are never marked as exited: the kernel sends no notice for them.
 - A process may have at most `MAX_NOTIFIED_CHILDREN` (64) children with a pending exit notice, and `pm` has 128 rows.

@@ -10,19 +10,21 @@
 
 namespace cock::pm {
 
-/** Most callers that hold an object at once; each caller holds one. */
-constexpr size_t MAX_OBJECTS = 4;
+/** Most callers that hold an object at once; each caller holds one. A slot of a caller that no longer lives is taken back when no other is free. */
+constexpr size_t MAX_OBJECTS = 8;
 /** Object id of a free slot. */
 constexpr uint32_t NO_OBJECT = 0xFFFFFFFF;
+/** Size of a free slot. */
+constexpr size_t NO_OBJECT_BYTES = 0;
 
-/** An object that `pm` made and shared with one caller. */
+/** An object that `pm` made and shared with one caller. A new slot is free. */
 struct Object {
-	/** Kernel process id of the caller, the badge of its handle; `NO_OBJECT` marks a free slot in `id`. */
-	uint32_t caller;
-	/** Id of the shared object, or `NO_OBJECT`. */
-	uint32_t id;
+	/** Kernel process id of the caller, the badge of its handle. */
+	uint32_t caller = NO_OBJECT;
+	/** Id of the shared object, or `NO_OBJECT` for a free slot. */
+	uint32_t id = NO_OBJECT;
 	/** Size in bytes, a whole number of pages; `pm` reads nothing past it. */
-	size_t bytes;
+	size_t bytes = NO_OBJECT_BYTES;
 };
 
 /**
