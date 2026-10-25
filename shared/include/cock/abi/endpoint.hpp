@@ -23,7 +23,25 @@ constexpr uint32_t NO_ENDPOINT = 0;
 constexpr uint32_t NO_BADGE = 0;
 
 /** Number of endpoints the kernel can hold. The first one has the id `FIRST_ENDPOINT`. */
-constexpr size_t MAX_ENDPOINTS = 64;
+constexpr size_t MAX_ENDPOINTS = 256;
+
+/** Value of `Message::reply` of a message that carries no reply token: every message sent by process id and every message sent without `SEND_EXPECT_REPLY`. */
+constexpr uint32_t NO_REPLY = 0;
+
+/** Value of the flags of `SYS_EP_SEND` that asks for nothing extra. */
+constexpr uint32_t NO_SEND_FLAGS = 0;
+
+/** Flag of `SYS_EP_SEND`: the receiver may answer with `SYS_EP_REPLY`; the kernel opens a reply token and puts it in `Message::reply`. */
+constexpr uint32_t SEND_EXPECT_REPLY = 1;
+
+/** Mask of the flags `SYS_EP_SEND` accepts; any other bit is refused. */
+constexpr uint32_t ALL_SEND_FLAGS = SEND_EXPECT_REPLY;
+
+/** Number of reply tokens the kernel can hold open at once, in all the system. */
+constexpr size_t MAX_REPLIES = 256;
+
+/** Most reply tokens one process can have open as the one that asked, so a server that never answers cannot use up the table. */
+constexpr size_t MAX_REPLIES_PER_REQUESTER = 16;
 
 /** Id of the first endpoint created; ids follow in order, and a range of the capability that names every endpoint is `FIRST_ENDPOINT` with `MAX_ENDPOINTS` entries. */
 constexpr uint32_t FIRST_ENDPOINT = 1;

@@ -483,7 +483,9 @@ enum SyscallNum : uint32_t {
     SYS_IPC_RECV                 = 0x221, /**< Block until an interrupt notification or a message in the inbox of the calling thread arrives. */
     SYS_IPC_TRY_RECV             = 0x222, /**< Non blocking IPC receive: 0 message, 1 nothing pending. */
     SYS_IPC_RECV_TIMEOUT         = 0x223, /**< IPC receive that gives up after a timeout in milliseconds: 0 message, 1 timeout. */
-    SYS_EP_SEND                  = 0x224, /**< Send an IPC message through a handle on an endpoint; the kernel stamps the badge of the handle in the message. */
+    SYS_EP_SEND                  = 0x224, /**< Send an IPC message through a handle on an endpoint; the kernel stamps the badge of the handle in the message, and opens a reply token when asked. */
+    SYS_EP_REPLY                 = 0x225, /**< Answer a message that carried a reply token: the answer goes to the thread that asked, and the token is spent. */
+    SYS_EP_FORWARD               = 0x226, /**< Pass a message that carried a reply token to another endpoint, with the token, so the new receiver answers the thread that asked. */
 
     SYS_IPC_CALL                 = 0x230, /**< Synchronous IPC: send four words to a server thread and wait for the reply, with an optional time limit in milliseconds. */
     SYS_IPC_ACCEPT               = 0x231, /**< Server side: wait for the next synchronous request. */

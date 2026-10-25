@@ -42,6 +42,8 @@ void SyscallManager::init() {
     syscall_table[SyscallNum::SYS_EP_CREATE] = sys_ep_create;
     syscall_table[SyscallNum::SYS_EP_BIND] = sys_ep_bind;
     syscall_table[SyscallNum::SYS_EP_SEND] = sys_ep_send;
+    syscall_table[SyscallNum::SYS_EP_REPLY] = sys_ep_reply;
+    syscall_table[SyscallNum::SYS_EP_FORWARD] = sys_ep_forward;
     syscall_table[SyscallNum::SYS_EP_CALL] = sys_ep_call;
     syscall_table[SyscallNum::SYS_IRQ_BIND] = sys_irq_bind;
     syscall_table[SyscallNum::SYS_IRQ_ACK] = sys_irq_ack;

@@ -160,13 +160,43 @@ uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
  * a grant returned to the giver and a capability message put in arg4 for the
  * receiver). Holding it is the whole permission: no service label is compared.
  * @param msg_ptr User pointer to a Message, copied before use.
+ * @param flags Zero, or `SEND_EXPECT_REPLY` to open a reply token that the receiver finds in
+ * `Message::reply` and can use once with `SYS_EP_REPLY` or `SYS_EP_FORWARD`. Any other bit is refused.
  * @return As `sys_ipc_send`, and all ones when the handle names no endpoint
- * capability of the caller, the endpoint is unbound or the process bound to it is
- * gone. The kernel writes the badge of the handle in `Message::badge`, whatever the
+ * capability of the caller, the endpoint is unbound, the process bound to it is
+ * gone, or a token was asked for and the table is full or the caller has too many open. The kernel writes the badge of the handle in `Message::badge`, whatever the
  * sender put there. A `CAPABILITY_TRANSFER` message works as in `sys_ipc_send`.
  */
-uintptr_t sys_ep_send(uintptr_t handle, uintptr_t msg_ptr, uintptr_t,
+uintptr_t sys_ep_send(uintptr_t handle, uintptr_t msg_ptr, uintptr_t flags,
 					  uintptr_t, uintptr_t, uintptr_t);
+
+/**
+ * @brief Answers a message that carried a reply token.
+ * @param token The token, from `Message::reply`. The caller's process must hold it.
+ * @param msg_ptr User pointer to a Message, copied before use. Reserved types and
+ * `CAPABILITY_TRANSFER` are refused. The kernel clears `badge` and `reply` and stamps the
+ * sender with the id of the calling thread.
+ * @return 0 when the answer was queued for the thread that asked and the token was spent.
+ * All ones when the pointer or the type is bad or the caller does not hold the token; when
+ * the thread that asked is gone the token is closed, and when its inbox is full it stays
+ * open so the caller can try again.
+ */
+uintptr_t sys_ep_reply(uintptr_t token, uintptr_t msg_ptr, uintptr_t,
+					   uintptr_t, uintptr_t, uintptr_t);
+
+/**
+ * @brief Passes a message and its reply token to another endpoint.
+ * @param token The token. The caller's process must hold it.
+ * @param handle A handle of the caller on the endpoint that should answer.
+ * @param msg_ptr User pointer to a Message, copied before use; same rules as `sys_ep_reply`.
+ * The kernel writes the badge of the handle and the token in the message.
+ * @return 0 when queued: the process bound to the endpoint now holds the token, and its
+ * answer reaches the thread that asked. All ones when the caller does not hold the token,
+ * the handle leads nowhere or the message is refused or does not fit; the caller keeps the
+ * token then.
+ */
+uintptr_t sys_ep_forward(uintptr_t token, uintptr_t handle, uintptr_t msg_ptr,
+						 uintptr_t, uintptr_t, uintptr_t);
 
 /**
  * @brief Calls the process bound to an endpoint, with four words in registers.

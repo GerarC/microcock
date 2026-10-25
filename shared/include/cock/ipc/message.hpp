@@ -2,9 +2,9 @@
  * @file message.hpp
  * @brief Asynchronous IPC message (`SYS_IPC_SEND`, `SYS_IPC_RECV`) and the catalog of message types.
  *
- * A message is a fixed 40 byte record: sender, target, type, badge and a payload of six 32 bit words. The kernel
- * overwrites `sender_pid` with the real sender and `badge` with the badge of the handle used, so receivers can
- * trust both. Request and reply protocols are
+ * A message is a fixed 44 byte record: sender, target, type, reply token, badge and a payload of six 32 bit words.
+ * The kernel overwrites `sender_pid` with the real sender, `badge` with the badge of the handle used and `reply`
+ * with a token it opened (or none), so receivers can trust all three. Request and reply protocols are
  * described with the ABI header of each server (`fs.hpp`, `block.hpp`, `console.hpp`, `rtc.hpp`).
  */
 #ifndef SHARED_COCK_IPC_HPP
@@ -68,6 +68,7 @@ typedef struct message_t {
 	uint32_t sender_pid;            /**< Process ID of the sender. */
 	uint32_t target_pid;            /**< Process ID of the intended recipient. */
 	MessageType type;               /**< The type/command of the message. */
+	uint32_t reply;                 /**< Reply token (`SYS_EP_REPLY`, `SYS_EP_FORWARD`) when the sender asked for an answer (`SEND_EXPECT_REPLY`), written by the kernel; `abi::endpoint::NO_REPLY` otherwise. Only the process the message was delivered to can use it, and only once. */
 	uint32_t badge;                 /**< Badge of the handle the sender used (`SYS_EP_SEND`), written by the kernel; `abi::endpoint::NO_BADGE` for a message sent by process id and for kernel notices. A sender cannot choose it. */
 
     /**

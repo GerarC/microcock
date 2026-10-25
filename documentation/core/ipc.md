@@ -57,6 +57,7 @@ typedef struct message_t {
 	uint32_t sender_pid;
 	uint32_t target_pid;
 	MessageType type;
+	uint32_t reply;
 	uint32_t badge;
 	union {
 		uint32_t argv[MAX_ARGUMENTS];
@@ -67,7 +68,7 @@ typedef struct message_t {
 } Message;
 ```
 
-The kernel writes `sender_pid`, `target_pid` and `badge` itself on delivery; whatever the sender put there is replaced. The sender of a message produced by the kernel is `KERNEL_SENDER` (`0`, defined in `shared/include/cock/ipc/message.hpp`). The badge is the one stored in the handle the sender used (`SYS_EP_SEND`, see [endpoints](endpoints.md)), and `NO_BADGE` (0) for a message sent by process id and for kernel notices. The message types are:
+The kernel writes `sender_pid`, `target_pid`, `badge` and `reply` itself on delivery; whatever the sender put there is replaced. `reply` is the token a receiver uses to answer (`SYS_EP_REPLY`, `SYS_EP_FORWARD`), and is `NO_REPLY` unless the sender asked for one with `SYS_EP_SEND`. The sender of a message produced by the kernel is `KERNEL_SENDER` (`0`, defined in `shared/include/cock/ipc/message.hpp`). The badge is the one stored in the handle the sender used (`SYS_EP_SEND`, see [endpoints](endpoints.md)), and `NO_BADGE` (0) for a message sent by process id and for kernel notices. The message types are:
 
 | Type | Meaning |
 |------|---------|

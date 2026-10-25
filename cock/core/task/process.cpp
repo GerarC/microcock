@@ -7,6 +7,7 @@
 #include <cock/core/task/endpoint_table.hpp>
 #include <cock/core/task/pending_process.hpp>
 #include <cock/core/task/process.hpp>
+#include <cock/core/task/reply_table.hpp>
 #include <hal/address_space.hpp>
 #include <hal/page.hpp>
 
@@ -52,6 +53,7 @@ Process::~Process() {
 		hal::InterruptGuard guard;
 		security::capability_tree.releaseHolder(id);
 		endpoint_table.releaseOwner(id);
+		reply_table.releaseProcess(id);
 	}
 
 	PendingProcesses::discardOwnedBy(this);

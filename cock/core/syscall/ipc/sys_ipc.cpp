@@ -4,6 +4,7 @@
 #include <cock/core/syscall/ipc/endpoint_route.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/ipc.hpp>
+#include <cock/core/task/reply_table.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
@@ -21,6 +22,7 @@ using core::security::CapabilityType;
 using core::security::NO_CAPABILITY_NODE;
 using core::task::IPC;
 using core::task::Process;
+using core::task::reply_table;
 using core::task::Scheduler;
 using core::task::TaskManager;
 using core::task::Thread;
@@ -93,6 +95,7 @@ uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
 	memcpy(&message, reinterpret_cast<const void *>(msg_ptr), sizeof(message));
 	if (!sender_may_use(*current, message.type)) return FAILURE;
 	message.badge = abi::endpoint::NO_BADGE;
+	message.reply = abi::endpoint::NO_REPLY;
 
 	Thread *target = TaskManager::getThreadByPID(static_cast<uint32_t>(to_pid));
 	if (!target || !security::mayTalk(*current->getProcess(), *target->getProcess()))
@@ -100,10 +103,11 @@ uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
 	return queue_message(*current, message, *target);
 }
 
-uintptr_t sys_ep_send(uintptr_t handle, uintptr_t msg_ptr, uintptr_t,
+uintptr_t sys_ep_send(uintptr_t handle, uintptr_t msg_ptr, uintptr_t flags,
 					  uintptr_t, uintptr_t, uintptr_t) {
 	Thread *current = Scheduler::getCurrentThread();
 	if (!current || !user_message_ok(*current, msg_ptr, false)) return FAILURE;
+	if (flags & ~static_cast<uintptr_t>(abi::endpoint::ALL_SEND_FLAGS)) return FAILURE;
 
 	Message message;
 	memcpy(&message, reinterpret_cast<const void *>(msg_ptr), sizeof(message));
@@ -112,7 +116,72 @@ uintptr_t sys_ep_send(uintptr_t handle, uintptr_t msg_ptr, uintptr_t,
 	EndpointRoute route = resolveHandle(*current, handle);
 	if (route.target == nullptr) return FAILURE;
 	message.badge = route.badge;
-	return queue_message(*current, message, *route.target);
+	message.reply = abi::endpoint::NO_REPLY;
+
+	uint32_t token = abi::endpoint::NO_REPLY;
+	if (flags & abi::endpoint::SEND_EXPECT_REPLY) {
+		token = reply_table.open(route.target->getProcess()->getId(), current->getId(),
+								 current->getProcess()->getId());
+		if (token == abi::endpoint::NO_REPLY) return FAILURE;
+		message.reply = token;
+	}
+
+	uintptr_t result = queue_message(*current, message, *route.target);
+	if (result == FAILURE && token != abi::endpoint::NO_REPLY) reply_table.close(token);
+	return result;
+}
+
+uintptr_t sys_ep_reply(uintptr_t token, uintptr_t msg_ptr, uintptr_t,
+					   uintptr_t, uintptr_t, uintptr_t) {
+	Thread *current = Scheduler::getCurrentThread();
+	if (!current || !user_message_ok(*current, msg_ptr, false)) return FAILURE;
+	if (token > UINT32_MAX ||
+		!reply_table.holds(static_cast<uint32_t>(token), current->getProcess()->getId()))
+		return FAILURE;
+
+	Message message;
+	memcpy(&message, reinterpret_cast<const void *>(msg_ptr), sizeof(message));
+	if (!sender_may_use(*current, message.type) ||
+		message.type == MessageType::CAPABILITY_TRANSFER)
+		return FAILURE;
+	message.badge = abi::endpoint::NO_BADGE;
+	message.reply = abi::endpoint::NO_REPLY;
+
+	uint32_t asked = reply_table.requesterOf(static_cast<uint32_t>(token));
+	Thread *requester = TaskManager::getThreadByPID(asked);
+	if (requester == nullptr || requester->getState() == ThreadState::DEAD) {
+		reply_table.close(static_cast<uint32_t>(token));
+		return FAILURE;
+	}
+	if (!IPC::deliver(asked, message)) return FAILURE;
+	reply_table.close(static_cast<uint32_t>(token));
+	return SUCCESS;
+}
+
+uintptr_t sys_ep_forward(uintptr_t token, uintptr_t handle, uintptr_t msg_ptr,
+						 uintptr_t, uintptr_t, uintptr_t) {
+	Thread *current = Scheduler::getCurrentThread();
+	if (!current || !user_message_ok(*current, msg_ptr, false)) return FAILURE;
+	uint32_t holder = current->getProcess()->getId();
+	if (token > UINT32_MAX || !reply_table.holds(static_cast<uint32_t>(token), holder))
+		return FAILURE;
+
+	Message message;
+	memcpy(&message, reinterpret_cast<const void *>(msg_ptr), sizeof(message));
+	if (!sender_may_use(*current, message.type) ||
+		message.type == MessageType::CAPABILITY_TRANSFER)
+		return FAILURE;
+
+	EndpointRoute route = resolveHandle(*current, handle);
+	if (route.target == nullptr) return FAILURE;
+	message.badge = route.badge;
+	message.reply = static_cast<uint32_t>(token);
+
+	uint32_t next = route.target->getProcess()->getId();
+	if (!reply_table.pass(message.reply, holder, next)) return FAILURE;
+	if (IPC::deliver(route.target->getId(), message)) return SUCCESS;
+	reply_table.pass(message.reply, next, holder);
+	return FAILURE;
 }
 
 static bool take_next(Thread &thread, Message &message) {

@@ -350,12 +350,48 @@ inline bool ep_bind(uint32_t endpoint, uint32_t pid) {
  *
  * The kernel writes the badge of the handle in `Message::badge`, whatever the message holds.
  * @param handle A handle the caller holds.
- * @param message The message; the sender and target fields are overwritten.
+ * @param message The message; the sender, target, badge and reply fields are overwritten.
+ * @param expectReply true to let the receiver answer: the kernel opens a reply token and puts it in
+ *        `Message::reply` of the message the receiver gets. The answer comes back as a message in the
+ *        inbox of the calling thread (`ep_reply`), whenever the receiver makes it.
  * @return true when queued; false when the handle is not held, the endpoint is unbound or its process
- *         is gone, the inbox is full or the type is reserved.
+ *         is gone, the inbox is full, the type is reserved, or a token was asked for and the table is
+ *         full or the caller already has `abi::endpoint::MAX_REPLIES_PER_REQUESTER` open.
  */
-inline bool ep_send(uint32_t handle, const ipc::Message &message) {
-	return syscall(SYS_EP_SEND, handle, reinterpret_cast<uintptr_t>(&message), 0, 0, 0, 0) == SUCCESS;
+inline bool ep_send(uint32_t handle, const ipc::Message &message, bool expectReply = false) {
+	uintptr_t flags = expectReply ? abi::endpoint::SEND_EXPECT_REPLY : abi::endpoint::NO_SEND_FLAGS;
+	return syscall(SYS_EP_SEND, handle, reinterpret_cast<uintptr_t>(&message), flags, 0, 0, 0) == SUCCESS;
+}
+
+/**
+ * @brief Answers a message that carried a reply token (`SYS_EP_REPLY`).
+ *
+ * The answer arrives in the inbox of the thread that asked, with the id of the calling thread as
+ * sender and `abi::endpoint::NO_REPLY` and `NO_BADGE` in the token and badge fields. The token is
+ * spent: a second answer fails.
+ * @param token `Message::reply` of the request. The calling process must hold it.
+ * @param message The answer; a reserved type or a capability message is refused.
+ * @return true when queued; false when the process does not hold the token (it was used, forwarded
+ *         away, never given or dropped), the thread that asked is gone, or its inbox is full (the
+ *         token stays open in that case, so the call can be repeated).
+ */
+inline bool ep_reply(uint32_t token, const ipc::Message &message) {
+	return syscall(SYS_EP_REPLY, token, reinterpret_cast<uintptr_t>(&message), 0, 0, 0, 0) == SUCCESS;
+}
+
+/**
+ * @brief Passes a request and its reply token to another endpoint (`SYS_EP_FORWARD`).
+ *
+ * The process bound to the endpoint receives `message` with the badge of the handle and the same
+ * token, and answers the thread that asked directly. The forwarder no longer holds the token.
+ * @param token `Message::reply` of the request. The calling process must hold it.
+ * @param handle A handle the caller holds on the endpoint that should answer.
+ * @param message The request to pass on; reserved types and capability messages are refused.
+ * @return true when queued; false when the process does not hold the token, the handle leads nowhere
+ *         or the inbox of the receiver is full; the caller keeps the token then.
+ */
+inline bool ep_forward(uint32_t token, uint32_t handle, const ipc::Message &message) {
+	return syscall(SYS_EP_FORWARD, token, handle, reinterpret_cast<uintptr_t>(&message), 0, 0, 0) == SUCCESS;
 }
 
 /**

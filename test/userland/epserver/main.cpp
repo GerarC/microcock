@@ -7,6 +7,9 @@
 #include <stdio.h>
 #include <unistd.h>
 
+using cock::abi::endpoint::MAX_REPLIES_PER_REQUESTER;
+using cock::abi::endpoint::NO_BADGE;
+using cock::abi::endpoint::NO_REPLY;
 using cock::ipc::Message;
 using cock::ipc::MessageType;
 using cock::user::CallResult;
@@ -17,21 +20,70 @@ namespace {
 
 constexpr uint32_t NO_ENDPOINT_WORD = 0;
 constexpr uint32_t NO_WORD = 0;
+constexpr uint32_t NO_HANDLE = 0;
 
 struct Seen {
 	bool throughHandle = false;
 	bool byProcessId = false;
 	bool wrongBadge = false;
+	uint32_t forwardHandle = NO_HANDLE;
+	bool requested = false;
+	bool forwarded = false;
+	bool answered = false;
+	bool spentTokenRefused = false;
+	bool problem = false;
+	uint32_t unanswered = 0;
 };
+
+Message pingWith(uint32_t tag, uint32_t value) {
+	Message message = {};
+	message.type = MessageType::SYS_PING;
+	message.payload.args.arg0 = tag;
+	message.payload.args.arg1 = value;
+	return message;
+}
+
+void takeRequest(Seen &seen, const Message &message) {
+	seen.requested = true;
+	if (message.reply == NO_REPLY || message.badge != HANDLE_BADGE ||
+		seen.forwardHandle == NO_HANDLE) {
+		seen.problem = true;
+		return;
+	}
+	seen.forwarded = cock::user::ep_forward(message.reply, seen.forwardHandle,
+											pingWith(TAG_FORWARDED, message.payload.args.arg1));
+	if (!seen.forwarded) seen.problem = true;
+}
+
+void answerForwarded(Seen &seen, const Message &message) {
+	if (message.reply == NO_REPLY || message.badge != FORWARD_BADGE) {
+		seen.problem = true;
+		return;
+	}
+	Message answer = pingWith(TAG_ANSWER, message.payload.args.arg1 + ANSWER_INCREMENT);
+	seen.answered = cock::user::ep_reply(message.reply, answer);
+	seen.spentTokenRefused = !cock::user::ep_reply(message.reply, answer) &&
+							 !cock::user::ep_forward(message.reply, seen.forwardHandle, answer);
+	if (!seen.answered || !seen.spentTokenRefused) seen.problem = true;
+}
 
 void record(Seen &seen, const Message &message) {
 	if (message.type != MessageType::SYS_PING) return;
-	if (message.payload.args.arg0 == TAG_THROUGH_HANDLE) {
+	uint32_t tag = message.payload.args.arg0;
+	if (tag == TAG_THROUGH_HANDLE) {
 		seen.throughHandle = true;
-		seen.wrongBadge = seen.wrongBadge || message.badge != HANDLE_BADGE;
-	} else if (message.payload.args.arg0 == TAG_BY_PROCESS_ID) {
+		seen.wrongBadge = seen.wrongBadge || message.badge != HANDLE_BADGE ||
+						  message.reply != NO_REPLY;
+	} else if (tag == TAG_BY_PROCESS_ID) {
 		seen.byProcessId = true;
-		seen.wrongBadge = seen.wrongBadge || message.badge != cock::abi::endpoint::NO_BADGE;
+		seen.wrongBadge = seen.wrongBadge || message.badge != NO_BADGE || message.reply != NO_REPLY;
+	} else if (tag == TAG_REQUEST) {
+		takeRequest(seen, message);
+	} else if (tag == TAG_FORWARDED) {
+		answerForwarded(seen, message);
+	} else if (tag == TAG_UNANSWERED) {
+		seen.unanswered++;
+		if (message.reply == NO_REPLY) seen.problem = true;
 	}
 }
 
@@ -62,6 +114,11 @@ bool echoesWithTheBadge(const CallResult &request) {
 		   request.words[2] == SECOND_PAYLOAD && request.words[3] == THIRD_PAYLOAD;
 }
 
+bool repliesWereHandledAsExpected(const Seen &seen) {
+	return seen.requested && seen.forwarded && seen.answered && seen.spentTokenRefused &&
+		   !seen.problem && seen.unanswered == MAX_REPLIES_PER_REQUESTER;
+}
+
 } // namespace
 
 extern "C" int main() {
@@ -85,9 +142,13 @@ extern "C" int main() {
 			if (!echoesWithTheBadge(request)) verdict = ANSWER_WRONG;
 		} else if (stage == STAGE_CHECK) {
 			if (!nothingCanBeDoneWithoutAHandle(request.words[1])) verdict = ANSWER_WRONG;
+		} else if (stage == STAGE_SET_FORWARD) {
+			seen.forwardHandle = request.words[1];
 		} else if (stage == STAGE_FINISH) {
 			drain(seen);
-			if (!seen.throughHandle || !seen.byProcessId || seen.wrongBadge) verdict = ANSWER_WRONG;
+			if (!seen.throughHandle || !seen.byProcessId || seen.wrongBadge ||
+				!repliesWereHandledAsExpected(seen))
+				verdict = ANSWER_WRONG;
 		} else {
 			verdict = ANSWER_WRONG;
 		}

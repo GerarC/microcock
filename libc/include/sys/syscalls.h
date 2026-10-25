@@ -68,8 +68,12 @@
     #define SYS_IPC_TRY_RECV     0x222
     /** Receives a message with a time limit. a1: message pointer, a2: milliseconds (at most 0x7FFFFFFF; 0 never waits). Returns 0 when a message was stored, 1 on timeout, all ones for a bad pointer or time. */
     #define SYS_IPC_RECV_TIMEOUT 0x223
-    /** Sends an asynchronous message through a handle on an endpoint; the kernel stamps the badge of the handle in the message. a1: handle (an ENDPOINT capability node id of the caller), a2: pointer to the 'Message'. Returns 0, or all ones when the handle is not held, the endpoint is unbound or its process is gone, the inbox is full, the pointer is bad or the type is reserved. */
+    /** Sends an asynchronous message through a handle on an endpoint; the kernel stamps the badge of the handle in the message. a1: handle (an ENDPOINT capability node id of the caller), a2: pointer to the 'Message', a3: flags (`SEND_EXPECT_REPLY` opens a reply token that the receiver finds in `Message::reply`). Returns 0, or all ones when the handle is not held, the table of tokens is full, the endpoint is unbound or its process is gone, the inbox is full, the pointer is bad or the type is reserved. */
     #define SYS_EP_SEND          0x224
+    /** Answers a message that carried a reply token. a1: the token (`Message::reply`), a2: pointer to the 'Message'. The answer goes to the thread that asked, with the id of the caller as sender; the token is spent. Returns 0, or all ones when the caller does not hold the token, the requester is gone or its inbox is full (the token stays open then), the pointer is bad or the type is reserved or a capability message. */
+    #define SYS_EP_REPLY         0x225
+    /** Passes a message that carried a reply token to another endpoint. a1: the token, a2: handle of the caller on the endpoint, a3: pointer to the 'Message'. The token goes with the message and the new receiver holds it. Returns 0, or all ones when the caller does not hold the token, the handle leads nowhere, its inbox is full (the caller keeps the token), the pointer is bad or the type is reserved or a capability message. */
+    #define SYS_EP_FORWARD       0x226
 
     /** Synchronous call: sends a request and blocks for the reply. a1: id of the server thread, a2 to a5: four payload words, a6: milliseconds (0xFFFFFFFF waits forever). The reply words come back in the result registers. */
     #define SYS_IPC_CALL         0x230

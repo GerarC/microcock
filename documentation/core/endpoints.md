@@ -1,6 +1,6 @@
 # Endpoints and handles
 
-An endpoint is a numbered mailbox in the kernel. A program sends to an endpoint through a **handle** it holds, not to a process id. This is step E3 of the path to Unix style IPC; the pieces described here are the kernel side (E3a). The programs still address each other by process id: they move to handles in E3b, and the process id leaves the interface in E3c.
+An endpoint is a numbered mailbox in the kernel. A program sends to an endpoint through a **handle** it holds, not to a process id. This is step E3 of the path to Unix style IPC: E3a is the endpoint, the handle and the badge, E3b1 the work of `init` and `names`, and E3b2 the reply tokens. Most programs still address each other by process id: the servers move to handles and tokens next, and the process id leaves the interface in E3c.
 
 ## Why
 
@@ -36,17 +36,45 @@ A holder with no mint right can only pass its handle on with the badge it has: a
 |------|--------|------|
 | `SYS_EP_CREATE` | `0x244` | Creates an endpoint and returns its id; writes the handle of the owner capability where `EBX` points |
 | `SYS_EP_BIND` | `0x245` | Binds endpoint `EBX` to process `ECX`; the previous owner stops receiving |
-| `SYS_EP_SEND` | `0x224` | Like `SYS_IPC_SEND`, with a handle in `EBX`; the kernel writes the badge in `Message::badge` |
+| `SYS_EP_SEND` | `0x224` | Like `SYS_IPC_SEND`, with a handle in `EBX`; the kernel writes the badge in `Message::badge`. `EDX` holds the flags: `SEND_EXPECT_REPLY` opens a reply token |
+| `SYS_EP_REPLY` | `0x225` | Answers the message that carried the token in `EBX`; the message is at `ECX` |
+| `SYS_EP_FORWARD` | `0x226` | Passes the message at `EDX`, with the token in `EBX`, to the endpoint of the handle in `ECX` |
 | `SYS_EP_CALL` | `0x236` | Like `SYS_IPC_CALL`, with a handle in `EBX`; the server reads the badge as the `peer` of its accept |
 | `SYS_CAP_GRANT` | `0x240` | With the type `ENDPOINT`: `EDX` is the endpoint id, `EDI` the flags (`GRANT_DELEGATE`, `GRANT_MINT`), `EBP` the badge |
 
-User wrappers: `ep_create`, `ep_bind`, `ep_send` (`cock/user/api.hpp`), `ep_call` (`cock/user/call.hpp`), and `cap_grant_node` and `cap_send` with their `mint` and `badge` (or `tag`) arguments.
+User wrappers: `ep_create`, `ep_bind`, `ep_send`, `ep_reply`, `ep_forward` (`cock/user/api.hpp`), `ep_call` (`cock/user/call.hpp`), and `cap_grant_node` and `cap_send` with their `mint` and `badge` (or `tag`) arguments.
 
 ## What a message carries
 
 * A message sent through a handle has `badge` set to the badge of the handle, whatever the sender wrote. A message sent by process id, and the notices the kernel makes (interrupts, exits), have `NO_BADGE` (0).
 * A synchronous call through a handle puts the badge in the `peer` register of the server's accept. A call by thread id puts the id of the caller, as before. A server that serves both has to tell them apart by what it expects; once every program uses handles (E3c) the id is gone.
 * The kernel still writes `sender_pid`. It stays until E3c.
+
+## Answering without a process id: reply tokens
+
+A badge says who sent a message but is not an address, so a server cannot answer "to badge 7". The answer to an asynchronous request goes through a **reply token**, the idea of the `rcvid` of QNX and of the send-once right of Mach.
+
+1. The sender asks for it: `SYS_EP_SEND` with the flag `SEND_EXPECT_REPLY`. The kernel opens a token in `ReplyTable` (`cock/core/task/reply_table.hpp`) and writes it in `Message::reply` of the message the receiver gets. Without the flag, and for every message sent by process id, `reply` is `NO_REPLY` (0); whatever the sender wrote there is replaced.
+2. The receiver answers with `SYS_EP_REPLY(token, message)`. The answer is queued for the thread that asked, with the id of the replying thread as `sender_pid`, and the token is spent.
+3. Or it passes the request on with `SYS_EP_FORWARD(token, handle, message)`: the process bound to the endpoint of the handle receives the message with the same token, and with the badge of the handle, and holds it from then on. It answers the thread that asked directly. `vfs` does not have to wait for `fat` and relay the answer.
+
+The token is a number with a generation: `(generation << 8) | slot`. A token that was spent, dropped or never given does not work, even if its slot was reused. Only the **holder**, the process the message was delivered to, can use it, and only once; the table lives in the kernel, so a token takes no entry of the capability table of the server (which has 16).
+
+What the kernel checks and does:
+
+* `SYS_EP_REPLY` and `SYS_EP_FORWARD` fail for a process that does not hold the token. Reserved message types and `CAPABILITY_TRANSFER` are refused in both.
+* If the thread that asked is gone, `SYS_EP_REPLY` closes the token and fails. If its inbox is full it fails and the token stays open, so the server can try again. A forward that cannot be queued leaves the token with the forwarder.
+* `Process::~Process` drops every token the process holds or asked for.
+* A process can have `MAX_REPLIES_PER_REQUESTER` (16) tokens open as the one that asked, in a table of `MAX_REPLIES` (256), so a server that never answers cannot use up the table. The seventeenth `SEND_EXPECT_REPLY` fails.
+
+## What this does not solve
+
+* **A server cannot tell whether a client is alive.** A badge is a number, and `names` makes it the process id of the client so a server can ask `process_alive`, as `console` does to free the text of a writer that died. That works only while the badge is the process id, and a reused id could be taken for the old client. A notice from the kernel when a client dies is the answer, and it is not made.
+* **A client waits forever when the holder dies.** The kernel drops the tokens of a process that ends and tells nobody: the thread that asked gets no answer and no failure. It needs a time limit of its own, or a notice that the kernel does not send yet.
+* **A token has no time limit.** A server that keeps a token and never answers holds one of the 16 of the requester until one of the two ends.
+* **The answer does not come from the process asked.** After a forward, `sender_pid` of the answer is the thread that replied, not the server the client sent to. A client that checks `sender_pid == server` (the libraries of `fs`, `block` and `rtc` do) must match the request id or the token instead.
+* **Shared memory is still shared by process id** (`SYS_SHM_SHARE`), and so are `spawn` and the exit notices. They are not messages, and the badge does not replace them.
+* **Two entries of the capability table for each connection** while the `IPC` capability by label and the handle both exist; it goes away with step E3c.
 
 ## Routing
 
@@ -59,11 +87,13 @@ The endpoint is not tied to a process for life. `Process::~Process` unbinds the 
 * In-kernel suite `Endpoints` (`test/cock/core/security/test_endpoint.cpp`): the table, who may choose a badge, the bind right that never passes on, the handle lookup, `resolveHandle` for an unbound endpoint, a restarted server and a revoked handle; and `checkServerReadsThePeerTheCallerChose` in the synchronous call suite.
 * Host tests (`test/host/test_endpoint_table.cpp`): the table, the handle lookup, the flag queries and the grant authority rule.
 * Ring 3 (`epgiver` and `epserver`, see `test/userland/README.md`): the badge reaches the server in a call and in a message, a forged badge is replaced, a process with no handle cannot send or call with any of 256 guessed handles, create an endpoint or bind one, a revoked handle fails, and binding the endpoint to another process moves it.
+* Host tests (`test/host/test_reply_table.cpp`): open and close, forged and stale tokens, the pass of the holder, the quota, the full table and the tokens dropped when a process ends.
+* Ring 3, `epgiver` and `epserver` again: a request with `SEND_EXPECT_REPLY` reaches the server with a token, the server forwards it through a second handle (the forwarded message carries the badge of that handle and the same token), the final receiver answers and the giver gets the answer with the replier as sender; the token is then spent, so a second reply and a forward fail; 1024 token values nobody gave fail; the seventeenth open token of the giver is refused. Mutants that skip the holder check or keep the token after the answer fail the test.
 * The syscall fuzzer has an entry for each call.
 
 ## Limits
 
-* The table has 64 endpoints, never freed.
+* The table has 256 endpoints, never freed.
 * A process holds at most `CapabilitySet::MAX_CAPABILITIES` (16) capabilities, handles included.
 * The queue of an endpoint is the inbox and the call queue of the thread bound to it; what is queued when the owner dies is lost.
-* Only the console client uses a handle so far. `init` makes one endpoint per program and binds it at every start, `names` gives a handle at connect (with the process id of the client as badge), but the other services are still reached by process id: their protocols answer with an asynchronous message addressed to the sender's process id, which a badge cannot replace without turning those protocols into synchronous calls.
+* Only the console client uses a handle so far. `init` makes one endpoint per program and binds it at every start, `names` gives a handle at connect (with the process id of the client as badge), but the other services are still reached by process id: their protocols still answer with an asynchronous message addressed to the process id of the sender. The reply tokens above replace that address; moving each server to them is the next step.

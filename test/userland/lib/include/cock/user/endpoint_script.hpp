@@ -45,6 +45,39 @@ constexpr uint32_t TAG_BY_PROCESS_ID = 0xB2;
 /** Value of `arg0` of the message sent through the owner handle after the endpoint was bound to the giver. */
 constexpr uint32_t TAG_AFTER_REBIND = 0xC3;
 
+/** Stage of the call that gives the server a handle to forward through; word 1 is the handle in the table of the server. */
+constexpr uint32_t STAGE_SET_FORWARD = 4;
+
+/** Badge of the handle the giver gives the server to forward through; the forwarded message must carry it. */
+constexpr uint32_t FORWARD_BADGE = 0x61;
+
+/** Value of `arg0` of the request that asks for an answer; `arg1` is `REQUEST_VALUE`. */
+constexpr uint32_t TAG_REQUEST = 0xD4;
+
+/** Value of `arg0` of the request after the server forwarded it to itself through the second handle. */
+constexpr uint32_t TAG_FORWARDED = 0xF6;
+
+/** Value of `arg0` of the answer; `arg1` is `REQUEST_VALUE + ANSWER_INCREMENT`. */
+constexpr uint32_t TAG_ANSWER = 0xE5;
+
+/** Value of `arg0` of the requests that the server never answers. */
+constexpr uint32_t TAG_UNANSWERED = 0x17;
+
+/** Payload of the request. */
+constexpr uint32_t REQUEST_VALUE = 0x4242;
+
+/** What the server adds to the payload of the request to make the answer. */
+constexpr uint32_t ANSWER_INCREMENT = 1;
+
+/** Time the giver waits for the answer, in milliseconds. */
+constexpr uint32_t ANSWER_WAIT_MILLISECONDS = 2000;
+
+/** First number the giver tries as a reply token: the first generation of the first slot. */
+constexpr uint32_t FIRST_TOKEN_GUESS = 256;
+
+/** Number of token values the giver tries; every one must fail. */
+constexpr uint32_t TOKEN_GUESS_COUNT = 1024;
+
 /** Number of handle values the server tries one by one; every one must fail. */
 constexpr uint32_t GUESS_COUNT = 256;
 
