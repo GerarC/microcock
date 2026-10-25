@@ -37,10 +37,11 @@ Status execProcess(const uint32_t (&words)[CALL_WORDS], uint32_t caller, bool &r
 	return cock::pm::execFromObject(caller, words[FIRST_WORD], replaced);
 }
 
-Status forkCaller(uint32_t caller, uint32_t (&reply)[CALL_WORDS]) {
+Status forkCaller(uint32_t caller, uint32_t (&reply)[CALL_WORDS], bool &detached) {
 	uint32_t pid = NO_PID;
 	Status status = cock::pm::forkProcess(caller, pid);
 	reply[FIRST_WORD] = pid;
+	detached = status == Status::OK && cock::pm::holdParent(caller, pid);
 	return status;
 }
 
@@ -144,7 +145,7 @@ bool serve(uint32_t caller, const uint32_t (&words)[CALL_WORDS], uint32_t (&repl
 				status = execProcess(words, caller, replaced);
 				break;
 			case Op::FORK:
-				status = forkCaller(caller, reply);
+				status = forkCaller(caller, reply, detached);
 				break;
 			}
 		}

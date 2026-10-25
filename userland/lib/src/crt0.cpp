@@ -4,6 +4,8 @@
 #include <cock/user/constructors.hpp>
 #include <cock/user/crt0.hpp>
 
+extern "C" void __descriptors_import(const cock::abi::exec::ArgsBlock *block) __attribute__((weak));
+
 namespace {
 
 uint32_t initialHandleValue = 0;
@@ -18,6 +20,7 @@ bool takeArguments(uint32_t value) {
 
 	arguments = block;
 	initialHandleValue = block->initialHandle;
+	if (__descriptors_import != nullptr) __descriptors_import(block);
 	return true;
 }
 

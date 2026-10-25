@@ -267,6 +267,18 @@ void checkParentRules() {
 	CHECK_TRUE(errorOf("shell path=x restart=2 parent=init\n") == Error::BAD_VALUE);
 }
 
+void checkNotifyRules() {
+	Manifest manifest;
+	CHECK_TRUE(parses("pipe path=bin/pipe.elf notify=fork\n", manifest));
+	CHECK_TRUE(manifest.entries[0].notifiedOfForks);
+	CHECK_TRUE(parses("pipe path=bin/pipe.elf\n", manifest));
+	CHECK_FALSE(manifest.entries[0].notifiedOfForks);
+	CHECK_TRUE(errorOf("pipe path=x notify=exit\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("pipe path=x notify=\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("pipe path=x notify=fork notify=fork\n") == Error::DUPLICATE_KEY);
+	CHECK_TRUE(errorOf("module notify=fork\n") == Error::BAD_VALUE);
+}
+
 void checkIpcRules() {
 	Manifest manifest;
 	CHECK_TRUE(parses("sh path=bin/sh.elf ipc=console,vfs\n", manifest));
@@ -354,6 +366,7 @@ void testManifest() {
 	checkRepeatBounds();
 	checkRestartRules();
 	checkParentRules();
+	checkNotifyRules();
 	checkIpcRules();
 	checkNames();
 	checkErrorLines();

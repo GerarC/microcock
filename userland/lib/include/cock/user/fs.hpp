@@ -65,15 +65,19 @@ class Client {
 	 *
 	 * Connects through the name server (`names.hpp`), so the manifest must let the caller talk
 	 * to the server. Then sends `FS_CONNECT` and maps the shared object, writable. Blocks for
-	 * the replies.
+	 * the replies. Called again, it unmaps and releases the window it had: a copy made by `fork`
+	 * calls it to use the window of its own session instead of the one it inherited from its
+	 * parent (the server keeps the files the copy inherited).
 	 * @param name Name of the server; the default is the main file server.
+	 * @param keepFiles True for a program that replaced its image with `exec`: the server keeps the files the
+	 *        process had open (`abi::fs::CONNECT_KEEP_FILES`), which it would close for a client that connects again.
 	 * @return true when connected; false when the name server refused or does not know the
 	 *         server, the server refused (no free session slot), died, or the window could
 	 *         not be mapped.
 	 */
-	bool connect(const char *name = abi::fs::SERVER_NAME) {
+	bool connect(const char *name = abi::fs::SERVER_NAME, bool keepFiles = false) {
 		names::Connection connection = names::connect(name);
-		return connectTo(connection.pid, connection.handle);
+		return connectTo(connection.pid, connection.handle, keepFiles);
 	}
 
 	/**
@@ -84,19 +88,26 @@ class Client {
 	 * handle itself.
 	 * @param pid Process id of the server; used to see whether it is alive.
 	 * @param endpoint Handle on the endpoint of the server.
+	 * @param keepFiles As for `connect`.
 	 * @return The same as `connect`.
 	 */
-	bool connectTo(uint32_t pid, uint32_t endpoint) {
+	bool connectTo(uint32_t pid, uint32_t endpoint, bool keepFiles = false) {
 		server = pid;
 		route = endpoint;
 		if (server == NO_PROCESS || route == abi::NO_CAPABILITY_NODE) return false;
 
 		Reply reply = {};
-		if (!call(MessageType::FS_CONNECT, 0, 0, 0, reply) ||
+		if (!call(MessageType::FS_CONNECT, keepFiles ? abi::fs::CONNECT_KEEP_FILES : NO_ARGUMENT, 0, 0, reply) ||
 			reply.status != Status::OK)
 			return false;
 
-		view = static_cast<uint8_t *>(shm_map(reply.first, true));
+		if (view != nullptr) {
+			syscall(SYS_MUNMAP, reinterpret_cast<uintptr_t>(view), abi::fs::WINDOW_BYTES, NO_ARGUMENT,
+					NO_ARGUMENT, NO_ARGUMENT, NO_ARGUMENT);
+			shm_release(window);
+		}
+		window = reply.first;
+		view = static_cast<uint8_t *>(shm_map(window, true));
 		return view != nullptr;
 	}
 
@@ -404,6 +415,10 @@ class Client {
 	uint32_t route = abi::NO_CAPABILITY_NODE;
 	/** Mapping of the shared window, null before `connect`. */
 	uint8_t *view = nullptr;
+	/** Id of the shared object mapped at `view`, valid while `view` is not null. */
+	uint32_t window = NO_SHM;
+	/** Value of a system call argument the call does not use. */
+	static constexpr uintptr_t NO_ARGUMENT = 0;
 	/** Id of the next request. */
 	uint32_t nextId = 1;
 	/** Status of the last call. */

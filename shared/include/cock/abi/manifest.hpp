@@ -9,8 +9,10 @@
  * numeric argument) and `caps=<grant>,<grant>...` with grants `io:<first>[+count]`, `irq:<line>[+count]` and
  * `mem:<first>+<bytes>` plus the bare `spawn` (the right to call `SYS_PROC_CREATE`), each of them with a final `*` when the program may pass the capability on, and `ipc=<name>,<name>...` (programs this one may exchange messages with, calls
  * and shared memory with; the name server checks the list when the program connects to one of them and gives it
- * a handle on the endpoint of that program then) and `parent=init` (`init`, not `rs`, starts the program, through
- * `pm`; it needs a path, one copy and no `restart=`).
+ * a handle on the endpoint of that program then), `parent=init` (`init`, not `rs`, starts the program, through
+ * `pm`; it needs a path, one copy and no `restart=`) and `notify=fork` (the program keeps state for each process,
+ * such as open files or the ends of pipes, so `rs` sends it a `PM_FORKED` message for each copy `fork` makes, and
+ * the program gives the copy what its parent had; it needs a path).
  * Numbers are decimal or `0x` hexadecimal and must fit in 32 bits. The parser has no
  * dependencies and is covered by host tests; rs reads the file, the kernel never does.
  */
@@ -83,6 +85,8 @@ struct Entry {
 	bool startedByInit;
 	/** True when the line had `arg=`. */
 	bool hasArgument;
+	/** True when the line had `notify=fork`: `rs` tells the program about every copy made by `fork`. */
+	bool notifiedOfForks;
 
 	/**
 	 * @brief Tells whether the entry names a data module instead of a program.
@@ -182,6 +186,10 @@ constexpr const char *KEY_IPC = "ipc";
 constexpr const char *KEY_PARENT = "parent";
 /** The only value of `parent`: the program is started by `init` and not by `rs`. */
 constexpr const char *PARENT_INIT = "init";
+/** Key of the notices the program wants. */
+constexpr const char *KEY_NOTIFY = "notify";
+/** The only value of `notify`: the program is told about every copy made by `fork`. */
+constexpr const char *NOTIFY_FORK = "fork";
 /** Grant type for `IO_PORTS`. */
 constexpr const char *TYPE_IO = "io";
 /** Grant type for `IRQ`. */
@@ -451,6 +459,7 @@ inline Error parseLine(Slice line, Entry &entry) {
 	bool seenArgument = false;
 	bool seenIpc = false;
 	bool seenParent = false;
+	bool seenNotify = false;
 
 	for (Slice token = nextToken(rest); !token.empty(); token = nextToken(rest)) {
 		Slice key;
@@ -488,6 +497,11 @@ inline Error parseLine(Slice line, Entry &entry) {
 			seenParent = true;
 			if (!value.equals(PARENT_INIT)) return Error::BAD_VALUE;
 			entry.startedByInit = true;
+		} else if (key.equals(KEY_NOTIFY)) {
+			if (seenNotify) return Error::DUPLICATE_KEY;
+			seenNotify = true;
+			if (!value.equals(NOTIFY_FORK)) return Error::BAD_VALUE;
+			entry.notifiedOfForks = true;
 		} else if (key.equals(KEY_CAPS)) {
 			if (seenCaps) return Error::DUPLICATE_KEY;
 			seenCaps = true;
@@ -499,6 +513,7 @@ inline Error parseLine(Slice line, Entry &entry) {
 	}
 
 	if (entry.isBootModule() && entry.repeat != DEFAULT_REPEAT) return Error::BAD_VALUE;
+	if (entry.notifiedOfForks && entry.isBootModule()) return Error::BAD_VALUE;
 	if (entry.startedByInit && (entry.isBootModule() || entry.repeat != DEFAULT_REPEAT || entry.restarts != NO_RESTARTS))
 		return Error::BAD_VALUE;
 	if (entry.restarts != NO_RESTARTS && (entry.isBootModule() || entry.repeat != DEFAULT_REPEAT))

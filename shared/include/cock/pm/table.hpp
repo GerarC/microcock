@@ -25,6 +25,8 @@ constexpr size_t MAX_PROCESSES = 128;
 constexpr uint32_t NO_KERNEL_ID = 0xFFFFFFFF;
 /** Value of `Row::waitTicket` and `Row::waitTarget` while the process is not waiting. */
 constexpr uint32_t NO_WAIT = 0;
+/** Value of `Row::settleAge` before the wait for the root server has timed out once. */
+constexpr uint32_t NO_AGE = 0;
 
 /** One process. */
 struct Row {
@@ -54,6 +56,14 @@ struct Row {
 	uint32_t waitTarget;
 	/** True when the root server was not yet told that the process is a copy made by `fork`. */
 	bool forkPending;
+	/** True while the process waits in a `FORK` call that `pm` detached until the root server says the programs that keep state copied it. */
+	bool settling;
+	/** Ticket of the detached `FORK`; valid while `settling`. */
+	uint32_t settleTicket;
+	/** Process id of the table of the copy the process waits for; valid while `settling`. */
+	uint32_t settleChild;
+	/** Number of times the wait for the root server timed out; valid while `settling`. */
+	uint32_t settleAge;
 };
 
 /** The rows and the counter of process ids. */
@@ -114,7 +124,11 @@ public:
 					   false,
 					   NO_WAIT,
 					   NO_WAIT,
-					   false};
+					   false,
+					   false,
+					   NO_WAIT,
+					   abi::pm::NO_PID,
+					   NO_AGE};
 		return row;
 	}
 
@@ -260,12 +274,53 @@ public:
 		return nullptr;
 	}
 
+	/**
+	 * @brief Finds the row of a process that waits for a copy to be settled.
+	 * @param child Process id of the table of the copy.
+	 * @return The row of its parent, or null when no process waits for that copy.
+	 */
+	Row *findSettling(uint32_t child) {
+		for (Row &row : rows)
+			if (row.state != abi::pm::State::FREE && row.settling && row.settleChild == child) return &row;
+		return nullptr;
+	}
+
+	/**
+	 * @brief Finds any process that waits for a copy to be settled.
+	 * @return The row, or null when none waits.
+	 */
+	Row *anySettling() {
+		for (Row &row : rows)
+			if (row.state != abi::pm::State::FREE && row.settling) return &row;
+		return nullptr;
+	}
+
+	/**
+	 * @brief Counts one more timeout of the wait for the root server in every process that waits for a copy.
+	 */
+	void ageSettling() {
+		for (Row &row : rows)
+			if (row.state != abi::pm::State::FREE && row.settling) row.settleAge++;
+	}
+
+	/**
+	 * @brief Finds a process whose wait for a copy timed out `limit` times.
+	 * @param limit Number of timeouts after which the wait ends.
+	 * @return The row, or null when none reached the limit.
+	 */
+	Row *expiredSettling(uint32_t limit) {
+		for (Row &row : rows)
+			if (row.state != abi::pm::State::FREE && row.settling && row.settleAge >= limit) return &row;
+		return nullptr;
+	}
+
 private:
 	static void release(Row &row) {
 		row = Row{NO_KERNEL_ID, abi::pm::NO_PID, abi::pm::NO_PID, abi::pm::State::FREE,
 				  0,            false,           false,           abi::service::NO_SERVICE,
 				  false,        false,           NO_WAIT,         NO_WAIT,
-				  false};
+				  false,        false,           NO_WAIT,         abi::pm::NO_PID,
+				  NO_AGE};
 	}
 
 	static bool matches(const Row &row, uint32_t target) {

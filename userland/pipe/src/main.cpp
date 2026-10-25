@@ -24,9 +24,12 @@ extern "C" int main() {
 
 	CallResult result = cock::user::ipc_accept(waitTime());
 	for (;;) {
+		cock::pipe::takeMessages();
 		if (result.status == CallStatus::MESSAGE_PENDING) {
-			cock::pipe::discardMessages();
-		} else if (!result.ok) {
+			result = cock::user::ipc_accept(waitTime());
+			continue;
+		}
+		if (!result.ok) {
 			if (result.status == CallStatus::TIMED_OUT) cock::pipe::sweepDead();
 		} else {
 			uint32_t reply[cock::pipe::CALL_WORDS] = {};

@@ -5,6 +5,9 @@
 
 extern "C" ssize_t __console_read(int fd, void *buf, size_t count);
 extern "C" ssize_t __console_write(int fd, const void *buf, size_t count);
+extern "C" const cock::libc::Operations *__file_operations() __attribute__((weak));
+extern "C" const cock::libc::Operations *__pipe_operations() __attribute__((weak));
+extern "C" void __file_inherited() __attribute__((weak));
 
 namespace cock::libc {
 
@@ -14,6 +17,7 @@ constexpr uintptr_t UNUSED_ARGUMENT = 0;
 constexpr uint32_t START_OFFSET = 0;
 constexpr uint32_t ONE_REFERENCE = 1;
 constexpr int NO_DESCRIPTOR = -1;
+constexpr uint32_t NO_FLAGS = 0;
 
 struct Slot {
 	bool used;
@@ -45,7 +49,26 @@ int consoleClose(Description &) {
 	return CLOSED;
 }
 
-constexpr Operations CONSOLE_OPERATIONS = {consoleRead, consoleWrite, consoleSeek, consoleClose};
+constexpr Operations CONSOLE_OPERATIONS = {cock::abi::exec::KIND_CONSOLE, consoleRead, consoleWrite,
+										   consoleSeek, consoleClose};
+
+const Operations *operationsOf(uint32_t kind) {
+	switch (kind) {
+	case cock::abi::exec::KIND_CONSOLE:
+		return &CONSOLE_OPERATIONS;
+	case cock::abi::exec::KIND_FILE:
+		return __file_operations != nullptr ? __file_operations() : nullptr;
+	case cock::abi::exec::KIND_PIPE:
+		return __pipe_operations != nullptr ? __pipe_operations() : nullptr;
+	}
+	return nullptr;
+}
+
+uint32_t flagsOf(const Description &description) {
+	return (description.readable ? cock::abi::exec::FLAG_READABLE : NO_FLAGS) |
+		   (description.writable ? cock::abi::exec::FLAG_WRITABLE : NO_FLAGS) |
+		   (description.append ? cock::abi::exec::FLAG_APPEND : NO_FLAGS);
+}
 
 Description descriptions[MAX_DESCRIPTORS] = {
 	{&CONSOLE_OPERATIONS, ONE_REFERENCE, NO_HANDLE, START_OFFSET, true, false, false},
@@ -119,6 +142,9 @@ using namespace cock::libc;
 namespace {
 
 constexpr ssize_t NO_BYTES = 0;
+constexpr uint32_t NO_DESCRIPTORS = 0;
+constexpr uint32_t DESCRIPTORS_HANDED_ON = 1;
+constexpr uint32_t NO_REFERENCES = 0;
 
 }
 
@@ -171,6 +197,59 @@ int dup2(int fd, int target) {
 	slots[target] = {true, slots[fd].description};
 	description->references++;
 	return target;
+}
+
+void __descriptors_export(cock::abi::exec::ArgsBlock *block) {
+	block->hasDescriptors = DESCRIPTORS_HANDED_ON;
+	for (size_t index = 0; index < cock::abi::exec::DESCRIPTOR_COUNT; index++) {
+		block->descriptions[index] = {};
+		block->slots[index] = cock::abi::exec::NO_DESCRIPTION;
+	}
+
+	for (size_t index = 0; index < cock::abi::exec::DESCRIPTOR_COUNT; index++) {
+		const Description &description = descriptions[index];
+		if (description.operations == nullptr) continue;
+		block->descriptions[index] = {description.operations->kind, description.handle, description.offset,
+									  flagsOf(description)};
+	}
+	for (size_t descriptor = 0; descriptor < cock::abi::exec::DESCRIPTOR_COUNT; descriptor++)
+		if (slots[descriptor].used) block->slots[descriptor] = slots[descriptor].description;
+}
+
+void __descriptors_import(const cock::abi::exec::ArgsBlock *block) {
+	if (block->hasDescriptors == NO_DESCRIPTORS) return;
+
+	for (size_t index = 0; index < cock::abi::exec::DESCRIPTOR_COUNT; index++) {
+		descriptions[index] = {};
+		slots[index] = {};
+	}
+
+	bool hasFiles = false;
+	for (size_t index = 0; index < cock::abi::exec::DESCRIPTOR_COUNT; index++) {
+		const cock::abi::exec::DescriptorRecord &record = block->descriptions[index];
+		const Operations *operations = operationsOf(record.kind);
+		if (operations == nullptr) continue;
+
+		descriptions[index] = {operations,
+							   NO_REFERENCES,
+							   record.handle,
+							   record.offset,
+							   (record.flags & cock::abi::exec::FLAG_READABLE) != 0,
+							   (record.flags & cock::abi::exec::FLAG_WRITABLE) != 0,
+							   (record.flags & cock::abi::exec::FLAG_APPEND) != 0};
+		hasFiles = hasFiles || record.kind == cock::abi::exec::KIND_FILE;
+	}
+
+	for (size_t descriptor = 0; descriptor < cock::abi::exec::DESCRIPTOR_COUNT; descriptor++) {
+		uint8_t index = block->slots[descriptor];
+		if (index == cock::abi::exec::NO_DESCRIPTION || descriptions[index].operations == nullptr) continue;
+		slots[descriptor] = {true, index};
+		descriptions[index].references++;
+	}
+	for (Description &description : descriptions)
+		if (description.references == NO_REFERENCES) description = {};
+
+	if (hasFiles && __file_inherited != nullptr) __file_inherited();
 }
 
 }

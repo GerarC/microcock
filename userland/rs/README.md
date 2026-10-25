@@ -23,6 +23,8 @@ The root server of MicroCOCK, the `rs` (reincarnation server) of Minix 3. It is 
 | `pm` to `rs` | `PM_EXITED` (`arg0` kernel process id, `arg1` status) | For the entries with `repeat=` and `restart=`, which `rs` spawns with the notice requested; the badge is the process id of `pm` |
 | `pm` to `rs` | `PM_SPAWNED` (`arg0` kernel process id, `arg1` label) | A process that `init` asked for exists: `rs` registers it with the name server and equips it |
 | `pm` to `rs` | `PM_FORKED` (`arg0` kernel process id of the copy, `arg1` that of its parent) | A process made a copy of itself: `rs` tells the name server (`Op::FORKED`), which gives the copy the rights of its parent and nothing else. `rs` does not look at the policy; the name server knows the parent |
+| `rs` to the programs with `notify=fork` | `PM_FORKED`, the same message (`arg0` the copy, `arg1` its parent) | Sent through the handle `rs` makes for the program, so the badge is the process id of `rs`. The program copies the state of the parent for the copy. Sent before the name server is told |
+| `rs` to `pm` | `PM_FORK_SETTLED` (`arg0` kernel process id of the copy) | Sent last, so `pm` answers the parent of the copy: what the parent does next cannot change what the copy inherited |
 
 Every program `rs` spawns also starts with an **initial handle** on the endpoint of the name server (`SpawnRights::initialEndpoint`, built in `rightsOf`), badged with its process id, so it can `connect` from its first instruction; no message is involved.
 
@@ -37,6 +39,7 @@ The manifest grammar (`shared/include/cock/abi/manifest.hpp`) has these keys aft
 | `repeat=` | Run the program that many times in a row, 1 to 32 |
 | `restart=` | Start the program again when it ends, at most that many times in one window, 1 to 16; needs `path=` and no `repeat=` |
 | `parent=` | `init` is the only value: `init`, not `rs`, starts the program, through `pm`; needs `path=`, one copy and no `restart=`. `rs` still defines it in the name server and tells `pm` that `init` may create it |
+| `notify=` | `fork` is the only value: `rs` sends the program a `PM_FORKED` message for every copy made by `fork`, so it can give the copy the state of the parent; needs `path=` |
 
 ## Restarting servers
 
@@ -70,6 +73,7 @@ The kernel still checks every grant against what `rs` holds, so a manifest line 
 |------|-------|
 | `src/main.cpp` | `main`: `startNames`, `grantInitrd`, `loadManifest`, `describeSystem`, `runEntry` for each entry, exit |
 | `include/rs/directory.hpp`, `src/directory.cpp` | `startNames()`, `describeSystem()`, `bindService()`: what `rs` tells the name server |
+| `include/rs/forks.hpp`, `src/forks.cpp` | `forwardFork()` and `acknowledgeFork()`: `PM_FORKED` to the programs with `notify=fork`, and `PM_FORK_SETTLED` to `pm` |
 | `include/rs/endpoints.hpp`, `src/endpoints.cpp` | `endpointOf()`, `bindEndpoint()`, `handleOf()` and `sendTo()`: the endpoint of each label and the handles `rs` makes for itself |
 | `include/rs/boot.hpp`, `src/boot.cpp` | `grantInitrd()`: the policy in the code, the label of `ramfs` and the `initrd` boot module for it; returns its process id |
 | `include/rs/service.hpp`, `src/service.cpp` | `labelOf()`, `labelOfName()`, `rightsOf()` and `labelBootModule()`: the service label of each entry |
@@ -92,11 +96,11 @@ make run-headless
 bash scripts/qemu_userland_test.sh
 ```
 
-On a machine without the cross compiler add `HOST_TOOLCHAIN=1`. The end to end script boots with the test initrd and requires these lines on the serial log: `rs: initrd is boot module`, `names: ready`, `rs: manifest has 38 entries`, `rs: started pm`, `pm: ready`, `rs: configured vga_driver`, `rs: started <name>` for each program, `rs: started init`, `init: ready`, `rs: started sh for init`, `init: started sh`, `rs: fsclient exit notices 10/10`, `pmclient: ok`, `rs: restarted phoenix 2 of 5` and `rs: crasher gave up after 3 restarts`. The manifest parser has host tests in `test/host/test_manifest.cpp` (`bash scripts/host_test.sh`).
+On a machine without the cross compiler add `HOST_TOOLCHAIN=1`. The end to end script boots with the test initrd and requires these lines on the serial log: `rs: initrd is boot module`, `names: ready`, `rs: manifest has 39 entries`, `rs: started pm`, `pm: ready`, `rs: configured vga_driver`, `rs: started <name>` for each program, `rs: started init`, `init: ready`, `rs: started sh for init`, `init: started sh`, `rs: fsclient exit notices 10/10`, `pmclient: ok`, `rs: restarted phoenix 2 of 5` and `rs: crasher gave up after 3 restarts`. The manifest parser has host tests in `test/host/test_manifest.cpp` (`bash scripts/host_test.sh`).
 
 ## Limits and known gaps
 
-- A program image is at most `abi::pm::MAX_IMAGE_BYTES` (1 MiB less a page) and must fit the quota of `pm`; the manifest is at most 4096 bytes and 40 entries.
+- A program image is at most `abi::pm::MAX_IMAGE_BYTES` (2 MiB less a page) and must fit the quota of `pm`; the manifest is at most 4096 bytes and 40 entries.
 - The capability policy is a text file read from the initrd: the right to talk to a program is given by the name server when a program connects, and there is no DMA policy yet (stage 9 of the roadmap). The kernel can revoke a grant (`SYS_CAP_REVOKE`), but `rs` does not use it.
 - Entries run in file order and a `repeat=` entry blocks the rest until its runs end.
 - `console`, `ata`, `rtc`, `fat`, `vfs`, `kbd` and `ext` have `restart=3` in `initrd/manifest.conf`. `ramfs` has none (`rs` itself reads files through it and gives it the `initrd`), `vga_driver` is a boot module, and `sh` is not a server. Restarting `vga_driver` or `ramfs` is not done.

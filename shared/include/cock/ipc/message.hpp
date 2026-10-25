@@ -33,7 +33,7 @@ enum class MessageType : uint32_t {
 	SYS_REGISTER_MAILBOX = 6,       /**< System request to register a shared memory mailbox. */
 	IRQ_NOTIFICATION = 7,           /**< Kernel notice that a bound hardware interrupt fired; arg0 is the line. */
 	CAPABILITY_GRANTED = 8,         /**< Root server notice that the capabilities were granted; arg0 is a peer process id. */
-	FS_CONNECT = 9,                 /**< File server request: open a session and get a window; arg0 is the request id. */
+	FS_CONNECT = 9,                 /**< File server request: open a session and get a window; arg0 is the request id, arg1 is `CONNECT_KEEP_FILES` or zero. */
 	FS_OPEN = 10,                   /**< File server request: open the path in the window; arg0 request id, arg1 path length, arg2 flags. */
 	FS_READ = 11,                   /**< File server request: read into the window; arg0 request id, arg1 handle, arg2 offset, arg3 length. */
 	FS_STAT = 12,                   /**< File server request: size and type of a handle; arg0 request id, arg1 handle. */
@@ -57,7 +57,8 @@ enum class MessageType : uint32_t {
 	CAPABILITY_TRANSFER = 31,       /**< A capability the sender holds, given to the receiver by the kernel when the message is sent; arg0 capability type, arg1 first, arg2 count, arg3 flags (a combination of GRANT_DELEGATE and GRANT_MINT), arg4 is overwritten with the node id the receiver now holds, arg5 is the badge of an `ENDPOINT` capability (zero unless the sender holds the mint right). Refused unless the receiver accepted the type with SYS_CAP_ACCEPT. */
 	PM_EXITED = 32,                 /**< Process manager notice to the root server for a process that asked for it with `FORWARD_EXIT`: arg0 is the kernel process id, arg1 the exit status as in `PROCESS_EXITED`. The kernel stamps the badge of the handle, which is the process id of `pm`; the root server ignores any other. */
 	PM_SPAWNED = 33,                /**< Process manager notice to the root server for a process that `init` asked for: arg0 is the kernel process id, arg1 the service label it was created with. The badge is the process id of `pm`; the root server ignores any other. */
-	PM_FORKED = 34,                 /**< Process manager notice to the root server for a process created by `fork`: arg0 is the kernel process id of the copy, arg1 the kernel process id of the process it copies. The root server tells the name server, so the copy has the rights of its parent. The badge is the process id of `pm`; the root server ignores any other. */
+	PM_FORKED = 34,                 /**< Process manager notice to the root server for a process created by `fork`: arg0 is the kernel process id of the copy, arg1 the kernel process id of the process it copies. The root server tells the name server, so the copy has the rights of its parent, and sends the same message to every program with `notify=fork` in the manifest, which gives the copy the files, pipe ends and other state of the parent. The badge is the process id of `pm` (or of the root server, for the forwarded copy); the receiver ignores any other. */
+	PM_FORK_SETTLED = 35,           /**< Root server notice to the process manager that every program that keeps state for each process (`notify=fork` in the manifest) was sent the `PM_FORKED` of a copy and the name server knows the copy: arg0 is the kernel process id of the copy. `pm` then answers the parent of the copy, which was held until now so that it cannot change what the copy inherits. The badge is the process id of the root server; `pm` ignores any other. */
 	FS_LINK = 26,                /**< File server request: make a hard link; the existing path is at the start of the window and the new name at RENAME_NEW_OFFSET; arg0 request id, arg1 existing length, arg2 new length. */
 };
 

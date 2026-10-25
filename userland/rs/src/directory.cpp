@@ -7,6 +7,7 @@
 #include <cock/user/call.hpp>
 #include <rs/directory.hpp>
 #include <rs/endpoints.hpp>
+#include <rs/forks.hpp>
 #include <rs/grant.hpp>
 #include <rs/manifest.hpp>
 #include <rs/service.hpp>
@@ -131,12 +132,16 @@ bool bindService(uint32_t label, uint32_t pid) {
 }
 
 bool registerFork(uint32_t child, uint32_t parent) {
+	forwardFork(child, parent);
+
 	uint32_t words[CALL_WORDS] = {cock::abi::names::pack(Op::FORKED), child, parent};
-	if (ask(words)) return true;
-	if (!cock::user::process_alive(child)) return false;
-	printf("rs: cannot register copy %u of %u\n", static_cast<unsigned>(child),
-		   static_cast<unsigned>(parent));
-	return false;
+	bool registered = ask(words);
+	if (!registered && cock::user::process_alive(child))
+		printf("rs: cannot register copy %u of %u\n", static_cast<unsigned>(child),
+			   static_cast<unsigned>(parent));
+
+	acknowledgeFork(child);
+	return registered;
 }
 
 } // namespace cock::rs

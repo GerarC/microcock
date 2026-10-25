@@ -23,5 +23,11 @@ Descriptors 0, 1 and 2 are born as console descriptions (0 readable, 1 and 2 wri
 * `pipe` asks the pipe server for a pipe and gives the lowest two free descriptors to a read description and a write description; a pipe description closes its end at the server when the last descriptor goes. When the server stops answering, every pipe description is dropped like the file ones.
 * A program that opts out of the console client (`CONSOLE_CLIENT = no`) has no table: `read` and `write` call `SYS_READ` and `SYS_WRITE` with the number they were given.
 
+## Fork and exec
+A `fork` copies the table with the address space, and the servers that keep state for each process (`vfs` for files, `pipe` for pipe ends) are told of the copy and give it twins of what the parent holds, under the same numbers, so every inherited descriptor works in the child. The copy shares nothing with the parent in the library: the offset of a file is a copy, so after the fork the two offsets move apart (an offset shared across processes would have to live at the server). The first file call of the child connects to `vfs` again to use the window of its own session (`file.cpp` notices that its process id changed), and the pipe client needs nothing.
+
+An `exec` keeps the process id, so the servers keep their rows. The program that replaces its image writes its table into the argument block (`abi::exec::ArgsBlock`: every description with its kind, handle, offset and mode, and which descriptors share which), `pm` writes the block in the new image, and the start code of the new program rebuilds the table before the constructors run (`__descriptors_export` and `__descriptors_import` in `descriptor.cpp`; a program that did not link the table ignores the block). A description of a kind the new program did not link is dropped. The new image connects to `vfs` with `CONNECT_KEEP_FILES`, so its files stay open.
+
 ## Limits
-32 descriptors per process; a `fork` copies the table with the address space, but the handles at the servers belong to the parent until the servers copy them (step E5c of the roadmap).
+
+32 descriptors per process, and as many ends and files as the servers hold (64 pipe ends, 16 open files). A thread of the parent other than the one that forks is not stopped: what it opens or closes during the fork is not covered.

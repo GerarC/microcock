@@ -1,5 +1,7 @@
+#include <cock/abi/service.hpp>
 #include <cock/user/api.hpp>
 #include <pm/exit_notice.hpp>
+#include <pm/fork.hpp>
 #include <pm/state.hpp>
 #include <pm/wait.hpp>
 
@@ -37,6 +39,10 @@ bool sendForked(const cock::pm::Row &row, uint32_t parentKernelId) {
 namespace cock::pm {
 
 void takeMessage(const Message &message) {
+	if (message.type == MessageType::PM_FORK_SETTLED) {
+		if (message.badge == cock::abi::service::ROOT_PID) settleFork(message.payload.args.arg0);
+		return;
+	}
 	if (message.type != MessageType::PROCESS_EXITED) return;
 	Row *row = table.markExited(message.payload.args.arg0, message.payload.args.arg1);
 	if (row == nullptr) return;
@@ -58,7 +64,7 @@ bool flushNotices() {
 		if (!sendExit(*row)) return true;
 		row->forwardPending = false;
 	}
-	return false;
+	return anySettling();
 }
 
 } // namespace cock::pm

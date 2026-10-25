@@ -8,7 +8,7 @@ The pipe server. It holds the pipes of all processes: a ring of bytes for each p
 program --pipe(), read, write (libc)--> cock::user::pipe::Client --ep_call--> pipe
 ```
 
-- No capability: `pipe` touches no port or device. The manifest line is `pipe path=bin/pipe.elf restart=3 ipc=console` (it prints through `console`). A program that uses pipes lists `pipe` in its `ipc=`.
+- No capability: `pipe` touches no port or device. The manifest line is `pipe path=bin/pipe.elf restart=3 notify=fork ipc=console` (it prints through `console`, and `notify=fork` makes `rs` tell it about every copy made by `fork`). A program that uses pipes lists `pipe` in its `ipc=`.
 - `rs` starts it through `pm`; it prints `pipe: ready` and serves calls on its endpoint. The caller is identified by the badge of its handle, which is the process id.
 
 ## Source layout
@@ -40,5 +40,5 @@ Use `HOST_TOOLCHAIN=1` without the cross compiler. The end to end script runs `p
 ## Limits and known gaps
 
 - 16 pipes of 512 bytes, 64 ends, 16 waiting callers; 12 bytes per call.
-- A forked child does not own the ends of its parent yet (E5c).
+- A forked child owns twins of the ends of its parent (`notify=fork`); a thread of the parent other than the one that forked can still change the ends meanwhile.
 - Ends of a process that died are closed within about 50 ms, not at once.

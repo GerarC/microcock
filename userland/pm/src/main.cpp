@@ -2,6 +2,7 @@
 #include <cock/user/api.hpp>
 #include <cock/user/call.hpp>
 #include <pm/exit_notice.hpp>
+#include <pm/fork.hpp>
 #include <pm/grant.hpp>
 #include <pm/requests.hpp>
 #include <pm/state.hpp>
@@ -44,6 +45,7 @@ extern "C" int main() {
 							  : cock::user::ipc_accept(waitLimit(pending));
 			continue;
 		}
+		if (result.status == CallStatus::TIMED_OUT) cock::pm::ageSettling();
 		pending = cock::pm::flushNotices();
 		result = cock::user::ipc_accept(waitLimit(pending));
 	}

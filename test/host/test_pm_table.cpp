@@ -33,6 +33,7 @@ constexpr size_t FIRST_INDEX = 0;
 constexpr uint32_t HEADER_STATE_SHIFT = cock::abi::pm::BYTE_BITS;
 constexpr uint32_t NO_BITS = 0;
 constexpr uint32_t UNKNOWN_BIT = 0x80;
+constexpr uint32_t AGE_LIMIT = 3;
 
 void checkAdd() {
 	Table table;
@@ -115,6 +116,33 @@ void checkForkNotice() {
 	CHECK_TRUE(table.pendingFork() == copy);
 	copy->forkPending = false;
 	CHECK_TRUE(table.pendingFork() == nullptr);
+}
+
+void checkSettling() {
+	Table table;
+	Row *parent = table.add(FIRST_KERNEL_ID, NO_PID, false);
+	Row *copy = table.add(SECOND_KERNEL_ID, parent == nullptr ? NO_PID : parent->pid, false);
+	CHECK_TRUE(parent != nullptr && copy != nullptr);
+	if (parent == nullptr || copy == nullptr) return;
+	CHECK_FALSE(parent->settling);
+	CHECK_TRUE(table.anySettling() == nullptr);
+	CHECK_TRUE(table.findSettling(copy->pid) == nullptr);
+
+	parent->settling = true;
+	parent->settleChild = copy->pid;
+	parent->settleAge = cock::pm::NO_AGE;
+	CHECK_TRUE(table.anySettling() == parent);
+	CHECK_TRUE(table.findSettling(copy->pid) == parent);
+	CHECK_TRUE(table.findSettling(parent->pid) == nullptr);
+
+	CHECK_TRUE(table.expiredSettling(AGE_LIMIT) == nullptr);
+	for (uint32_t round = 0; round < AGE_LIMIT; round++) table.ageSettling();
+	CHECK_EQ(AGE_LIMIT, parent->settleAge);
+	CHECK_TRUE(table.expiredSettling(AGE_LIMIT) == parent);
+
+	parent->settling = false;
+	CHECK_TRUE(table.anySettling() == nullptr);
+	CHECK_TRUE(table.expiredSettling(AGE_LIMIT) == nullptr);
 }
 
 void checkExit() {
@@ -305,6 +333,7 @@ void testPmTable() {
 	checkInitPid();
 	checkAnnounce();
 	checkForkNotice();
+	checkSettling();
 	checkExit();
 	checkZombies();
 	checkAdoption();

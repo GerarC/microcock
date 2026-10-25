@@ -13,6 +13,8 @@ using cock::abi::exec::MAX_ARGS;
 
 constexpr uint32_t SOME_HANDLE = 5;
 constexpr uint32_t NO_ARGS = 0;
+constexpr uint32_t ONE_ARG = 1;
+constexpr uint32_t HAS_DESCRIPTORS = 1;
 constexpr uint32_t TWO_ARGS = 2;
 constexpr uint32_t FIRST_INDEX = 0;
 constexpr uint32_t SECOND_INDEX = 1;
@@ -36,6 +38,33 @@ void checkBuildAndRead() {
 	CHECK_TRUE(cock::exec::build(none, cock::abi::exec::NO_INITIAL_HANDLE, argv, NO_ARGS));
 	CHECK_TRUE(cock::exec::valid(none));
 	CHECK_TRUE(cock::exec::argument(none, FIRST_INDEX) == nullptr);
+}
+
+void checkDescriptors() {
+	const char *argv[] = {FIRST_ARG};
+	ArgsBlock block;
+	CHECK_TRUE(cock::exec::build(block, SOME_HANDLE, argv, ONE_ARG));
+	CHECK_EQ(NO_ARGS, block.hasDescriptors);
+
+	block.hasDescriptors = HAS_DESCRIPTORS;
+	for (uint8_t &slot : block.slots) slot = cock::abi::exec::NO_DESCRIPTION;
+	block.slots[FIRST_INDEX] = static_cast<uint8_t>(FIRST_INDEX);
+	block.descriptions[FIRST_INDEX].kind = cock::abi::exec::KIND_PIPE;
+	block.descriptions[FIRST_INDEX].flags = cock::abi::exec::FLAG_READABLE | cock::abi::exec::FLAG_APPEND;
+	CHECK_TRUE(cock::exec::valid(block));
+
+	block.descriptions[SECOND_INDEX].kind = cock::abi::exec::LAST_KIND + BAD_OFFSET_ADD;
+	CHECK_FALSE(cock::exec::valid(block));
+	block.descriptions[SECOND_INDEX].kind = cock::abi::exec::KIND_NONE;
+	block.descriptions[SECOND_INDEX].flags = cock::abi::exec::KNOWN_FLAGS + BAD_OFFSET_ADD;
+	CHECK_FALSE(cock::exec::valid(block));
+	block.descriptions[SECOND_INDEX].flags = 0;
+	CHECK_TRUE(cock::exec::valid(block));
+
+	block.slots[SECOND_INDEX] = static_cast<uint8_t>(cock::abi::exec::DESCRIPTOR_COUNT);
+	CHECK_FALSE(cock::exec::valid(block));
+	block.hasDescriptors = 0;
+	CHECK_TRUE(cock::exec::valid(block));
 }
 
 void checkLimits() {
@@ -89,6 +118,7 @@ void checkValid() {
 
 void testExecArgs() {
 	checkBuildAndRead();
+	checkDescriptors();
 	checkLimits();
 	checkValid();
 }

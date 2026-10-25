@@ -35,7 +35,7 @@ Other statuses: `BAD_REQUEST` (unknown operation, length 0 or above 12), `BAD_HA
 `pipe(fds)` connects to the server on first use, makes a pipe and gives the lowest two free descriptors to a read description and a write description. `read` returns what one call brings (up to 12 bytes; a short read is allowed), `write` repeats until everything is written, `lseek` fails with `ESPIPE`. Errors: `EPIPE` for `BROKEN`, `ENFILE` for `NO_ROOM`, `EBADF` for `BAD_HANDLE`, `ENOTCONN` when the server cannot be reached (and then every pipe description is dropped, as for files).
 
 ## Limits and what is not done
-* A child made by `fork` has the numbers of its parent's ends but the server does not know it yet: the copy of the ends is step E5c of the roadmap, and until then a pipe is used inside one process (between its threads) or by `dup`.
+* A child made by `fork` gets twins of the ends of its parent under the same numbers (`notify=fork`: `rs` sends the server `PM_FORKED`, and the server drains its inbox before it serves the next call, so the copy is made before the parent or the child asks anything). A reader sees the end of the data only when every twin of every write end is closed, and a process that ends without closing is cleaned by the sweep within about 50 ms. `exec` keeps the process id, so the ends stay and the library hands the table on to the new image ([descriptors](../libs/descriptors.md)).
 * No signal: a write to a broken pipe fails with `EPIPE` and does not kill the writer (signals are stage L3).
 * No named pipes, no non-blocking mode, no `select`, and no atomic writes: two writers can interleave chunks of 12 bytes.
 * If `pipe` restarts, its ends are lost; the client sees `NOT_CONNECTED`.

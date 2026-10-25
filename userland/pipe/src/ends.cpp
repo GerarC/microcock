@@ -63,6 +63,18 @@ bool createEnds(uint32_t owner, uint32_t &readHandle, uint32_t &writeHandle) {
 	return true;
 }
 
+void copyEnds(uint32_t parent, uint32_t child) {
+	for (const End &original : ends) {
+		if (!original.used || original.owner != parent) continue;
+		if (findEnd(child, original.handle) != nullptr) continue;
+
+		End *twin = freeEnd();
+		if (twin == nullptr && releaseDeadOwners()) twin = freeEnd();
+		if (twin == nullptr) return;
+		fill(*twin, child, original.handle, *original.pipe, original.writer);
+	}
+}
+
 void closeEnd(End &end) {
 	Pipe &pipe = *end.pipe;
 	if (end.writer) pipe.writers -= ONE_END;

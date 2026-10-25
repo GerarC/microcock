@@ -39,8 +39,9 @@ void openFile(Session &session, const Message &message) {
 	if (backend == cock::abi::fs::NO_HANDLE) return reply(token, id, failure(index));
 
 	bool root = strcmp(full, cock::abi::mounts::ROOT_PREFIX) == 0;
-	*slot = {true, session.pid, index, backend, root, false, START_OFFSET};
-	reply(token, id, Status::OK, static_cast<uint32_t>(slot - opens) + 1);
+	uint32_t handle = newHandle(session.pid);
+	*slot = {true, session.pid, handle, index, backend, root, false, START_OFFSET};
+	reply(token, id, Status::OK, handle);
 }
 
 void readFile(Session &session, const Message &message) {
@@ -88,10 +89,8 @@ void closeFile(Session &session, const Message &message) {
 	if (open == nullptr) return reply(token, id, Status::BAD_HANDLE);
 
 	size_t index = open->mount;
-	bool closed = mounts[index].client.close(open->backend);
-	Status status = closed ? Status::OK : failure(index);
-	memset(open, 0, sizeof(*open));
-	reply(token, id, status);
+	bool closed = releaseOpen(*open);
+	reply(token, id, closed ? Status::OK : failure(index));
 }
 
 } // namespace cock::vfs

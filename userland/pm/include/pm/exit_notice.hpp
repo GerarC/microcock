@@ -16,7 +16,8 @@ constexpr uint32_t NOTICE_RETRY_MILLISECONDS = 50;
  *
  * A `PROCESS_EXITED` notice marks the row of the process as exited and, when the process asked for it with
  * `FORWARD_EXIT`, sends the root server a `PM_EXITED` message with the same two numbers. A notice for a process
- * that is not in the table is ignored. When the parent of the process waits for it (`WAIT`), its detached call is
+ * that is not in the table is ignored. A `PM_FORK_SETTLED` message from the root server (the badge is checked)
+ * answers the parent of the copy (`settleFork`). When the parent of the process waits for it (`WAIT`), its detached call is
  * answered and the status is collected. Any other message is dropped.
  *
  * @param message A message from `ipc_try_recv`.
@@ -30,7 +31,8 @@ void takeMessage(const cock::ipc::Message &message);
  *
  * Stops at the first one that still does not fit; its row keeps the mark and the next call tries it again.
  *
- * @return True while a notice is waiting, so the caller wakes up again within `NOTICE_RETRY_MILLISECONDS`.
+ * @return True while a notice is waiting, or a parent waits for the acknowledgement of a copy (`holdParent`), so the
+ * caller wakes up again within `NOTICE_RETRY_MILLISECONDS`.
  */
 bool flushNotices();
 

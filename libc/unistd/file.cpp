@@ -25,6 +25,8 @@ constexpr int64_t MIN_OFFSET = 0;
 
 cock::user::fs::Client client;
 bool connected = false;
+bool keepFilesOnConnect = false;
+uint32_t owner = cock::user::NO_PROCESS;
 
 int errorFor(cock::abi::fs::Status status) {
 	using cock::abi::fs::Status;
@@ -72,14 +74,20 @@ int failFromServer() {
 }
 
 bool ensureConnected() {
-	if (!connected) {
-		client.onForeign = cock::user::stash_message;
-		connected = client.connect();
-	}
+	uint32_t self = cock::user::self();
+	bool copied = connected && owner != self;
+	if (connected && !copied) return true;
+
+	client.onForeign = cock::user::stash_message;
+	connected = client.connect(cock::abi::fs::SERVER_NAME, keepFilesOnConnect);
+	keepFilesOnConnect = false;
+	owner = self;
+	if (!connected && copied) dropDescriptions(fileOperations());
 	return connected;
 }
 
 ssize_t fileRead(Description &file, void *buf, size_t count) {
+	if (!ensureConnected()) return failWith(ENOTCONN);
 	long got = client.read(file.handle, file.offset, buf, count);
 	if (got < 0) return failFromServer();
 	file.offset += static_cast<uint32_t>(got);
@@ -87,6 +95,7 @@ ssize_t fileRead(Description &file, void *buf, size_t count) {
 }
 
 ssize_t fileWrite(Description &file, const void *buf, size_t count) {
+	if (!ensureConnected()) return failWith(ENOTCONN);
 	if (file.append) {
 		cock::user::fs::FileInfo info = {};
 		if (!client.stat(file.handle, info)) return failFromServer();
@@ -110,6 +119,7 @@ off_t fileSeek(Description &file, off_t offset, int whence) {
 	if (whence == SEEK_CUR) {
 		base = file.offset;
 	} else if (whence == SEEK_END) {
+		if (!ensureConnected()) return failWith(ENOTCONN);
 		cock::user::fs::FileInfo info = {};
 		if (!client.stat(file.handle, info)) return failFromServer();
 		base = info.size;
@@ -124,10 +134,11 @@ off_t fileSeek(Description &file, off_t offset, int whence) {
 }
 
 int fileClose(Description &file) {
+	if (!ensureConnected()) return ENOTCONN;
 	return client.close(file.handle) ? CLOSED : errorFor(client.lastStatus());
 }
 
-constexpr Operations FILE_OPERATIONS = {fileRead, fileWrite, fileSeek, fileClose};
+constexpr Operations FILE_OPERATIONS = {cock::abi::exec::KIND_FILE, fileRead, fileWrite, fileSeek, fileClose};
 
 const Operations &fileOperations() {
 	return FILE_OPERATIONS;
@@ -136,6 +147,14 @@ const Operations &fileOperations() {
 }
 
 extern "C" {
+
+const Operations *__file_operations() {
+	return &FILE_OPERATIONS;
+}
+
+void __file_inherited() {
+	keepFilesOnConnect = true;
+}
 
 int open(const char *path, int flags, ...) {
 	int access = flags & O_ACCMODE;

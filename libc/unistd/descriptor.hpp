@@ -12,6 +12,7 @@
 #ifndef LIBC_UNISTD_DESCRIPTOR_HPP
 #define LIBC_UNISTD_DESCRIPTOR_HPP
 
+#include <cock/abi/exec.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -35,6 +36,9 @@ constexpr int CLOSED = 0;
 /** Return value of the descriptor calls that fail. */
 constexpr int FAILURE = -1;
 
+static_assert(MAX_DESCRIPTORS == cock::abi::exec::DESCRIPTOR_COUNT,
+			  "the table the libc keeps and the one an exec hands on must have the same size");
+
 struct Description;
 
 /**
@@ -43,6 +47,8 @@ struct Description;
  * checked the access mode, the buffer and the count for `read` and `write`.
  */
 struct Operations {
+	/** What the kind is, one of the `KIND_` values of `abi/exec.hpp`: how the table is handed on through `exec`. */
+	uint32_t kind;
 	/** Reads up to `count` bytes (more than zero) into `buffer`; returns the bytes read, 0 at the end. */
 	ssize_t (*read)(Description &description, void *buffer, size_t count);
 	/** Writes up to `count` bytes (more than zero) from `buffer`; returns the bytes written. */
@@ -106,5 +112,50 @@ Description *describe(int descriptor);
 void dropDescriptions(const Operations &operations);
 
 } // namespace cock::libc
+
+extern "C" {
+
+/**
+ * @brief The operations of file descriptions, defined by `file.cpp`.
+ * @return The table; a program that did not link `file.cpp` has no such function, and the table of descriptors
+ * treats the kind as unknown.
+ */
+const cock::libc::Operations *__file_operations();
+
+/**
+ * @brief The operations of pipe ends, defined by `pipe.cpp`.
+ * @return The table; absent in a program that did not link `pipe.cpp`.
+ */
+const cock::libc::Operations *__pipe_operations();
+
+/**
+ * @brief Tells `file.cpp` that the descriptors it holds came from an `exec`, so its first connection to `vfs` keeps
+ * the files the process has open there instead of closing them as a new connection would.
+ */
+void __file_inherited();
+
+/**
+ * @brief Writes the table of descriptors into the argument block of an `exec`.
+ *
+ * Called by the process manager client when a program replaces its image, so the new image has the same
+ * descriptors: every description with its kind, handle, offset and mode, and which descriptors share which.
+ * The servers keep what the handles name, because the process keeps its process id.
+ *
+ * @param block The block `cock::exec::build` filled; its descriptor fields are set.
+ */
+void __descriptors_export(cock::abi::exec::ArgsBlock *block);
+
+/**
+ * @brief Replaces the table with the one an `exec` handed on.
+ *
+ * Called by the start code of a program started by `exec`, before the constructors run. A block that hands on no
+ * descriptors leaves the table as it is born (the console on 0 to 2). A description of a kind this program did not
+ * link is dropped, and so are the descriptors that named it.
+ *
+ * @param block A block that passed `cock::exec::valid`.
+ */
+void __descriptors_import(const cock::abi::exec::ArgsBlock *block);
+
+}
 
 #endif // !LIBC_UNISTD_DESCRIPTOR_HPP

@@ -55,7 +55,9 @@ bool bindService(uint32_t label, uint32_t pid);
  * @brief Tells the name server that a process is a copy made by `fork` of another one.
  *
  * The copy then connects to what its parent may connect to and to nothing more (`Op::FORKED`). A request of the
- * copy that the name server kept waiting is answered. Prints `rs: cannot register copy <pid> of <pid>` when the
+ * copy that the name server kept waiting is answered. Before it asks the name server it sends `PM_FORKED` to the
+ * programs that keep state for each process (`forwardFork`), and after it answers `pm` (`acknowledgeFork`), so the
+ * parent of the copy continues only when they have copied. Prints `rs: cannot register copy <pid> of <pid>` when the
  * name server refuses a copy that still runs, for example because nothing known runs the parent.
  *
  * @param child Kernel process id of the copy.

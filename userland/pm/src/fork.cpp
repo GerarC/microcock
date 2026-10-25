@@ -1,4 +1,5 @@
 #include <cock/user/api.hpp>
+#include <cock/user/call.hpp>
 #include <pm/fork.hpp>
 #include <pm/state.hpp>
 
@@ -23,6 +24,51 @@ Status forkProcess(uint32_t caller, uint32_t &pid) {
 	row->forkPending = true;
 	pid = row->pid;
 	return Status::OK;
+}
+
+bool holdParent(uint32_t caller, uint32_t child) {
+	Row *parent = table.findKernel(caller);
+	if (parent == nullptr) return false;
+
+	uint32_t ticket = cock::user::ipc_defer();
+	if (ticket == cock::user::NO_TICKET) return false;
+
+	parent->settling = true;
+	parent->settleTicket = ticket;
+	parent->settleChild = child;
+	parent->settleAge = NO_AGE;
+	return true;
+}
+
+namespace {
+
+void answerParent(Row &parent) {
+	uint32_t reply[CALL_WORDS] = {};
+	reply[HEADER_WORD] = packReply(Status::OK);
+	reply[FIRST_WORD] = parent.settleChild;
+	parent.settling = false;
+	cock::user::ipc_reply_to(parent.settleTicket, reply);
+}
+
+} // namespace
+
+void settleFork(uint32_t childKernelId) {
+	Row *child = table.findKernel(childKernelId);
+	if (child == nullptr) return;
+
+	Row *parent = table.findSettling(child->pid);
+	if (parent != nullptr) answerParent(*parent);
+}
+
+void ageSettling() {
+	table.ageSettling();
+	for (Row *row = table.expiredSettling(MAX_SETTLE_TIMEOUTS); row != nullptr;
+		 row = table.expiredSettling(MAX_SETTLE_TIMEOUTS))
+		answerParent(*row);
+}
+
+bool anySettling() {
+	return table.anySettling() != nullptr;
 }
 
 } // namespace cock::pm

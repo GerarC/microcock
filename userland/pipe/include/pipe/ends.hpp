@@ -45,6 +45,19 @@ bool createEnds(uint32_t owner, uint32_t &readHandle, uint32_t &writeHandle);
 void closeEnd(End &end);
 
 /**
+ * @brief Gives a copy made by `fork` the ends its parent holds, under the same numbers.
+ *
+ * Each end of the parent gets a twin held by the copy, on the same pipe, so a reader of the pipe sees the end of the
+ * data only when both have closed theirs. Ends of dead processes are closed first when the table is full; when it
+ * is still full the copy gets the ends that fit, and a call of the copy on another one is answered `BAD_HANDLE`.
+ * Nothing is done for a copy that already holds an end.
+ *
+ * @param parent Process id of the process that was copied.
+ * @param child Process id of the copy.
+ */
+void copyEnds(uint32_t parent, uint32_t child);
+
+/**
  * @brief Closes every end of a process that no longer lives (`SYS_PROC_ALIVE`).
  * @return true when at least one end was closed.
  */

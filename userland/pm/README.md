@@ -44,7 +44,7 @@ The id in the table is not the kernel one. The table numbers processes from 2 in
 - 128 rows. A row of a process that exited and was collected stays and is reused only when no row is free; a zombie, which its parent did not collect, and a row whose notice to `rs` is still pending are not reused.
 - A process that exits while its parent lives (and is not `rs`) is a zombie until the parent calls `WAIT`. When a process exits, its children pass to `rs`, which collects them; the children of `rs` are collected by `pm` at once.
 - No signals yet.
-- A forked child is a child of `pm` in the kernel and runs no service. It reaches the name server through `rs`: `pm` sends `PM_FORKED` and the child gets the rights of its parent, nothing more.
+- A forked child is a child of `pm` in the kernel and runs no service. It reaches the name server through `rs`: `pm` sends `PM_FORKED` and the child gets the rights of its parent, nothing more. `rs` also forwards it to the programs that keep state for each process (`notify=fork`), and `pm` holds the reply to the parent until `rs` answers `PM_FORK_SETTLED` (or 40 waits of 50 ms pass), so the copy inherits the descriptors the parent had at the fork.
 - A notice that `rs` has no room for is tried again every 50 ms; the inbox of `rs` holds what the kernel allows.
 - The boot modules are registered but never marked as exited: their parent is the kernel, which sends no notice.
 - `pm` trusts `rs` completely, and trusts the label it is given: it can give a process any program label, so a flaw in `pm` is a flaw in the name server policy. That is the price of keeping it away from hardware.
@@ -60,9 +60,9 @@ The id in the table is not the kernel one. The table numbers processes from 2 in
 | `src/spawn.cpp`, `include/pm/spawn.hpp` | `spawnFromObject`: checks the request and creates the process with `cock::user::spawn` |
 | `src/requests.cpp`, `include/pm/requests.hpp` | `serve`: one call, who may make it |
 | `src/exec.cpp`, `include/pm/exec.hpp` | `execFromObject`: checks an `ExecRequest`, builds the new image as a pending process with the argument page, and asks the kernel to swap it in |
-| `src/fork.cpp`, `include/pm/fork.hpp` | `forkProcess`: asks the kernel for a copy of the caller and adds its row; the reply the copy finds is built here |
+| `src/fork.cpp`, `include/pm/fork.hpp` | `forkProcess`: asks the kernel for a copy of the caller and adds its row; the reply the copy finds is built here. `holdParent`, `settleFork` and `ageSettling`: the reply to the parent is detached until `rs` says the copy is settled |
 | `src/wait.cpp`, `include/pm/wait.hpp` | `waitForChild` (collects a zombie or detaches the call) and `answerWaiter` (answers it when the child exits) |
-| `src/exit_notice.cpp`, `include/pm/exit_notice.hpp` | `takeMessage` (`PROCESS_EXITED`) and `flushNotices` (`PM_EXITED`, `PM_SPAWNED`, `PM_FORKED`) |
+| `src/exit_notice.cpp`, `include/pm/exit_notice.hpp` | `takeMessage` (`PROCESS_EXITED`, and `PM_FORK_SETTLED` from `rs`) and `flushNotices` (`PM_EXITED`, `PM_SPAWNED`, `PM_FORKED`) |
 | `Makefile` | `NAME = pm`, `CONSOLE_CLIENT = no` (it prints before `console` exists), a minimal `LIBC_SRCS` |
 
 The table itself is in `shared/include/cock/pm/table.hpp` (host tests in `test/host/test_pm_table.cpp`) and the client in `userland/lib/include/cock/user/pm.hpp`. The test programs `pmclient` (the table and the refusals) and `forkprobe` (a fork, a fork inside the child, each side with its own values, and `wait` for both) check it.

@@ -17,10 +17,20 @@
 #include <cock/user/api.hpp>
 #include <cock/user/call.hpp>
 #include <cock/user/crt0.hpp>
+#include <cock/user/names.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 #include <sys/mman.h>
+
+/**
+ * @brief Writes the descriptors of the calling program into the argument block of an `exec`.
+ *
+ * Defined by the table of descriptors of the C library (`libc/unistd/descriptor.cpp`) and absent in a program that
+ * did not link it; `finishExec` calls it only when it exists.
+ * @param block The block `cock::exec::build` filled.
+ */
+extern "C" void __descriptors_export(cock::abi::exec::ArgsBlock *block) __attribute__((weak));
 
 namespace cock::user::pm {
 
@@ -169,6 +179,7 @@ public:
 			release();
 			return status = abi::pm::Status::BAD_REQUEST;
 		}
+		if (__descriptors_export != nullptr) __descriptors_export(&request->args);
 
 		uint32_t words[abi::pm::CALL_WORDS] = {abi::pm::pack(abi::pm::Op::EXEC), object};
 		CallResult result = ep_call(handle, words);
@@ -182,11 +193,18 @@ public:
 	 *
 	 * The copy shares the memory of the caller copy on write: each side sees its own values after a
 	 * write. It has the `IPC` and endpoint capabilities of the caller, with the same handle numbers, and no
-	 * other; a server tells the copy from the caller by the id the badge of the handle carries, so what it
-	 * keeps per caller, such as a file session, is not shared: the copy opens its own. The name server treats
-	 * the copy as its parent (`PM_FORKED`), so `names::connect` works in the copy for what the parent may
-	 * reach and fails with `DENIED` for the rest. Only the calling thread exists in the copy. The caller
-	 * collects its status with `wait`.
+	 * other; a server tells the copy from the caller by the id the badge of the handle carries. A server that
+	 * keeps state for each process (the files of `vfs`, the ends of `pipe`) is told of the copy (`PM_FORKED`,
+	 * through the root server) and gives it what the caller had, under the same numbers, so the descriptors the
+	 * copy inherited work. The name server treats the copy as its parent, so `names::connect` works in the copy
+	 * for what the parent may reach and fails with `DENIED` for the rest. Only the calling thread exists in the
+	 * copy. The caller collects its status with `wait`.
+	 *
+	 * The caller does not return until those servers have copied, so nothing it does afterwards can change what
+	 * the copy inherited. The copy, which runs at once, first waits for the name server to know it (a connect to
+	 * `abi::pm::FORK_SETTLE_NAME`, which the name server keeps waiting for a program it does not know yet and
+	 * answers `NOT_FOUND`), which the root server arranges to happen after it told those servers. Threads of the
+	 * caller other than the one that called are not stopped: what they do meanwhile is not covered.
 	 *
 	 * @return In the parent `OK` and the id in the table of the child; in the child `OK` and
 	 * `abi::pm::NO_PID` (`isChild`). On failure only the parent returns, with `NOT_FOUND` (no row), `NO_ROOM`
@@ -199,7 +217,10 @@ public:
 		if (!result.ok) return forked;
 
 		forked.status = abi::pm::statusOf(result.words[abi::pm::HEADER_WORD]);
-		if (forked.status == abi::pm::Status::OK) forked.pid = result.words[abi::pm::FIRST_WORD];
+		if (forked.status != abi::pm::Status::OK) return forked;
+
+		forked.pid = result.words[abi::pm::FIRST_WORD];
+		if (forked.pid == abi::pm::NO_PID) names::connect(abi::pm::FORK_SETTLE_NAME);
 		return forked;
 	}
 

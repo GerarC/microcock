@@ -48,6 +48,8 @@ constexpr uint32_t OPEN_CREATE = 2;
 constexpr uint32_t OPEN_TRUNCATE = 4;
 /** Set of all defined open flags; a bit outside it is `UNSUPPORTED`. */
 constexpr uint32_t OPEN_FLAGS_MASK = OPEN_WRITE | OPEN_CREATE | OPEN_TRUNCATE;
+/** Value of the second argument of `FS_CONNECT` that keeps the files the client already has open at the server: a program that replaced its image with `exec` keeps its process id, so its session and its files are still there. Any other value closes them, as a client that connects again expects. */
+constexpr uint32_t CONNECT_KEEP_FILES = 1;
 /** Handle value that never names a file; returned by clients on failure. */
 constexpr uint32_t NO_HANDLE = 0;
 /** Window id returned by `FS_CONNECT` when the window could not be created. */

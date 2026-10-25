@@ -55,12 +55,22 @@ inline bool build(abi::exec::ArgsBlock &block, uint32_t initialHandle, const cha
  * @brief Tells whether a block is well formed, as `pm` must know before it hands it to a new program.
  * @param block A block received from a caller, not trusted.
  * @return True when the magic is right, the count and the byte count are within their limits, every
- * argument starts inside the used bytes, and the used bytes end with a zero, so every argument ends.
+ * argument starts inside the used bytes, and the used bytes end with a zero, so every argument ends. When the
+ * block hands on descriptors, every description has a kind and flags that are defined and every slot names a
+ * description of the table or none.
  */
 inline bool valid(const abi::exec::ArgsBlock &block) {
 	if (block.magic != abi::exec::ARGS_MAGIC || block.count > abi::exec::MAX_ARGS ||
 		block.bytes > abi::exec::MAX_ARG_BYTES)
 		return false;
+
+	if (block.hasDescriptors != 0) {
+		for (const abi::exec::DescriptorRecord &record : block.descriptions)
+			if (record.kind > abi::exec::LAST_KIND || (record.flags & ~abi::exec::KNOWN_FLAGS) != 0) return false;
+		for (uint8_t slot : block.slots)
+			if (slot != abi::exec::NO_DESCRIPTION && slot >= abi::exec::DESCRIPTOR_COUNT) return false;
+	}
+
 	if (block.count == 0) return block.bytes == 0;
 	if (block.bytes == 0 || block.strings[block.bytes - 1] != '\0') return false;
 	for (uint32_t arg = 0; arg < block.count; arg++)

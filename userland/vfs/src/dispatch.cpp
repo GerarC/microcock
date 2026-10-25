@@ -1,4 +1,5 @@
 #include <cock/abi/endpoint.hpp>
+#include <cock/abi/service.hpp>
 #include <cock/user/session.hpp>
 #include <vfs/clients.hpp>
 #include <vfs/reply.hpp>
@@ -11,6 +12,11 @@ using cock::ipc::MessageType;
 namespace cock::vfs {
 
 void handle(const Message &message) {
+	if (message.type == MessageType::PM_FORKED) {
+		if (message.badge == cock::abi::service::ROOT_PID)
+			inheritSession(message.payload.args.arg1, message.payload.args.arg0);
+		return;
+	}
 	if (message.reply == cock::abi::endpoint::NO_REPLY) return;
 	uint32_t client = message.badge;
 	uint32_t token = message.reply;
@@ -18,7 +24,7 @@ void handle(const Message &message) {
 
 	switch (message.type) {
 	case MessageType::FS_CONNECT:
-		return connect(token, client, id);
+		return connect(token, client, id, message.payload.args.arg1 == cock::abi::fs::CONNECT_KEEP_FILES);
 	case MessageType::FS_OPEN:
 	case MessageType::FS_READ:
 	case MessageType::FS_WRITE:

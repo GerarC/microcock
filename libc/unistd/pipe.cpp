@@ -21,6 +21,7 @@ constexpr int READ_END_INDEX = 0;
 constexpr int WRITE_END_INDEX = 1;
 
 cock::user::pipe::Client client;
+bool connected = false;
 
 int errorFor(cock::abi::pipe::Status status) {
 	using cock::abi::pipe::Status;
@@ -47,16 +48,26 @@ const Operations &pipeOperations();
 
 int failFromServer() {
 	cock::abi::pipe::Status status = client.lastStatus();
-	if (status == cock::abi::pipe::Status::NOT_CONNECTED) dropDescriptions(pipeOperations());
+	if (status == cock::abi::pipe::Status::NOT_CONNECTED) {
+		connected = false;
+		dropDescriptions(pipeOperations());
+	}
 	return failWith(errorFor(status));
 }
 
+bool ensureConnected() {
+	if (!connected) connected = client.connect();
+	return connected;
+}
+
 ssize_t pipeRead(Description &end, void *buf, size_t count) {
+	if (!ensureConnected()) return failWith(ENOTCONN);
 	long got = client.read(end.handle, static_cast<uint8_t *>(buf), count);
 	return got < 0 ? failFromServer() : static_cast<ssize_t>(got);
 }
 
 ssize_t pipeWrite(Description &end, const void *buf, size_t count) {
+	if (!ensureConnected()) return failWith(ENOTCONN);
 	long put = client.write(end.handle, static_cast<const uint8_t *>(buf), count);
 	return put < 0 ? failFromServer() : static_cast<ssize_t>(put);
 }
@@ -66,10 +77,11 @@ off_t pipeSeek(Description &, off_t, int) {
 }
 
 int pipeClose(Description &end) {
+	if (!ensureConnected()) return ENOTCONN;
 	return client.close(end.handle) ? CLOSED : errorFor(client.lastStatus());
 }
 
-constexpr Operations PIPE_OPERATIONS = {pipeRead, pipeWrite, pipeSeek, pipeClose};
+constexpr Operations PIPE_OPERATIONS = {cock::abi::exec::KIND_PIPE, pipeRead, pipeWrite, pipeSeek, pipeClose};
 
 const Operations &pipeOperations() {
 	return PIPE_OPERATIONS;
@@ -77,9 +89,14 @@ const Operations &pipeOperations() {
 
 }
 
+extern "C" const Operations *__pipe_operations() {
+	return &PIPE_OPERATIONS;
+}
+
 extern "C" int pipe(int fds[2]) {
 	if (fds == nullptr) return failWith(EFAULT);
-	if (!client.connect()) return failWith(ENOTCONN);
+	connected = client.connect();
+	if (!connected) return failWith(ENOTCONN);
 
 	uint32_t readEnd = cock::abi::pipe::NO_END;
 	uint32_t writeEnd = cock::abi::pipe::NO_END;
