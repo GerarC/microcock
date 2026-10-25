@@ -44,7 +44,7 @@ static void grant_root_capabilities(Process &process, size_t module_count) {
 }
 ```
 
-`rs` (`userland/rs/src/main.cpp`) finds the boot modules with `SYS_MODULE_PROCESS` and gives each exactly what it needs, then tells it that it may start:
+`rs` (`userland/servers/rs/src/main.cpp`) finds the boot modules with `SYS_MODULE_PROCESS` and gives each exactly what it needs, then tells it that it may start:
 
 | Process | Granted |
 |---------|---------|
@@ -106,7 +106,7 @@ It gives a program a **service label**, the stable name under which the name ser
 * **Where it is enforced:** `SYS_SHM_SHARE`. `SYS_IPC_SEND` and `SYS_IPC_CALL` accept only a thread of the caller's own process; `SYS_EP_SEND` and `SYS_EP_CALL` need a handle. A refusal returns `-1` and logs at `trace` only. The kernel's own sends (the forwarding of `SYS_WRITE` to the display server, interrupt notices and exit notices) are not user sends and are not checked.
 * **Given at spawn: the label and one handle.** `SYS_PROC_CREATE` takes an optional `SpawnRights` (the label, a list of labels the program may talk to, which `rs` leaves empty, and one initial handle). The kernel sets them before the first thread of the new process can run. Giving a label afterwards leaves a window in which the program already runs and is refused by its own servers; this was seen: `vfs` failed to read `mounts.conf` before `rs` had finished. The initial handle is an `ENDPOINT` capability derived from the creator (which needs the grant and mint rights over that endpoint), badged with the process id of the new process, whose number the first thread finds in `EAX`; `rs` makes it a handle on the name server (see [endpoints](endpoints.md)).
 * **Given at connect: the right to talk.** A program has no handle on a server when it starts. It gets one for each server when it asks the name server to connect it (`documentation/userland/names.md`): the name server checks the `ipc=` policy of the manifest and passes on a handle with `SYS_CAP_GRANT`, badged with the process id of the client. The name server holds an `ENDPOINT` capability over every endpoint with the mint right, delegated by `rs`; that gives it no other power, because `holdsGrantAuthority` does not count `ENDPOINT` entries. Since the right to share memory is symmetric, a server that was never asked to connect still gets the windows of its clients.
-* **Policy as data.** The manifest key `ipc=<name>,<name>` lists the programs one may connect to (`userland/rs/README.md`). `rs` resolves each name to a label and sends the policy to the name server, so the order in which programs start does not matter and a restarted server needs no new grant for its clients: the endpoint stays and the client keeps its handle.
+* **Policy as data.** The manifest key `ipc=<name>,<name>` lists the programs one may connect to (`userland/servers/rs/README.md`). `rs` resolves each name to a label and sends the policy to the name server, so the order in which programs start does not matter and a restarted server needs no new grant for its clients: the endpoint stays and the client keeps its handle.
 * **Cost.** `mayShare` scans the 16 entry table twice at most per share, and a send or a call through a handle scans it once to find the handle. `SYS_IPC_SEND` and `SYS_IPC_CALL` now compare two process pointers.
 
 ## The spawn capability

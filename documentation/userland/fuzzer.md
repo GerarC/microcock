@@ -21,7 +21,7 @@ A server that died during the run is printed as `fuzz: server NAME died` and is 
 | Mode | How it boots | What it reaches |
 |------|--------------|-----------------|
 | `user` | `rs` starts `fuzz` from the manifest, next to the real servers, with no capabilities | The unprivileged surface: arguments, messages to `vfs`, `fat`, `ext`, `ata`, `console`, `rtc` and `vga_driver`; hostile requests to the file servers and corrupt images for `exec` (see "Structured phases"); privileged calls are negative tests |
-| `root` | `fuzz.elf` takes the place of `rs` as the first module, so it gets every capability; only `ramfs` and `vga_driver` run beside it | `cap_grant`, `irq_bind`, `request_resource`, `module_open`, `module_index`, `spawn` with garbage images and with corrupt ELF images (see "Structured phases"), and `MAP_PHYS` |
+| `root` | `fuzz` takes the place of `rs` as the first module, so it gets every capability; only `ramfs` and `vga_driver` run beside it | `cap_grant`, `irq_bind`, `request_resource`, `module_open`, `module_index`, `spawn` with garbage images and with corrupt ELF images (see "Structured phases"), and `MAP_PHYS` |
 
 `make iso TEST_INITRD=1 FUZZ=user|root` selects the mode: for `user` the initrd rule adds the manifest line (with `ipc=` for the servers it attacks, except `kbd`, so refusals are exercised too), for `root` the ISO rule copies `fuzz.elf` as `rs`. Without `FUZZ`, `fuzz` is built and packed but never started.
 

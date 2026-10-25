@@ -7,7 +7,7 @@ BINARY="$OUTPUT_DIR/host_test"
 
 mkdir -p "$OUTPUT_DIR"
 "$CXX_BIN" -std=c++20 -Wall -Wextra -O1 \
-	-I. -Ishared/include -Iuserland/names/include \
-	test/host/*.cpp userland/names/src/services.cpp userland/names/src/policy.cpp userland/names/src/paths.cpp userland/names/src/assembly.cpp userland/names/src/forked.cpp test/userland/fuzz/elf_mutator.cpp \
+	-I. -Ishared/include -Iuserland/servers/names/include \
+	test/host/*.cpp userland/servers/names/src/services.cpp userland/servers/names/src/policy.cpp userland/servers/names/src/paths.cpp userland/servers/names/src/assembly.cpp userland/servers/names/src/forked.cpp test/userland/fuzz/elf_mutator.cpp \
 	-o "$BINARY"
 "$BINARY"

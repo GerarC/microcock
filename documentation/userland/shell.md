@@ -1,6 +1,6 @@
 # The shell
 
-`sh` (`userland/sh`) is the first program a person talks to. It prints a prompt, reads a line from the [console server](console.md), splits it into words and runs a built-in command. It is an ordinary Ring 3 program: it has no capabilities, it reaches files through the `vfs` client (`cock/user/fs.hpp`) and the screen and keyboard through the C library.
+`sh` (`userland/apps/sh`) is the first program a person talks to. It prints a prompt, reads a line from the [console server](console.md), splits it into words and runs a built-in command. It is an ordinary Ring 3 program: it has no capabilities, it reaches files through the `vfs` client (`cock/user/fs.hpp`) and the screen and keyboard through the C library.
 
 ## Starting it
 `initrd/manifest.conf` starts `sh` last, after `vfs`, `ext` and `kbd`. At boot the screen shows the version and the prompt:

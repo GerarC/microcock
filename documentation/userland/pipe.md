@@ -6,7 +6,7 @@ A pipe connects a writer and a reader with a queue of bytes: what one process wr
 |------|-------|
 | Protocol | `shared/include/cock/abi/pipe.hpp` |
 | Client | `userland/lib/include/cock/user/pipe.hpp` |
-| Server | `userland/pipe` (see its [README](../../userland/pipe/README.md)) |
+| Server | `userland/servers/pipe` (see its [README](../../userland/servers/pipe/README.md)) |
 | `pipe()` for programs | `libc/unistd/pipe.cpp`, over the table of [descriptors](../libs/descriptors.md) |
 | Test | `test/userland/pipeclient` (`pipeclient: ok`) |
 

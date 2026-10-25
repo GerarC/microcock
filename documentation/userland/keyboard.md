@@ -1,6 +1,6 @@
 # Keyboard Driver
 
-The PS/2 keyboard driver runs in Ring 3 as the program `kbd` (`userland/kbd`). The kernel has no keyboard code: it only routes the interrupt to the driver, and the driver does the rest. It is the reference for how a hardware driver is written in MicroCOCK.
+The PS/2 keyboard driver runs in Ring 3 as the program `kbd` (`userland/drivers/kbd`). The kernel has no keyboard code: it only routes the interrupt to the driver, and the driver does the rest. It is the reference for how a hardware driver is written in MicroCOCK.
 
 ## What it needs
 A process starts with no access to the hardware, so `kbd` depends on what the root server gives it (see [capabilities](../core/capabilities.md)):
@@ -53,7 +53,7 @@ A key press travels like this:
 The line stays masked while the driver works, so a burst of keys never piles up interrupts in the kernel. The thread is blocked in `ipc_recv` between keys and uses no CPU. Because the notification does not use the inbox, another program that fills the inbox of `kbd` with messages cannot make it miss a key. If the driver dies, the kernel masks and releases the line.
 
 ## The decoder
-`userland/kbd/include/kbd/keymap.hpp` turns scan codes into characters. It is a small state machine with no I/O, so it can be tested on its own.
+`userland/drivers/kbd/include/kbd/keymap.hpp` turns scan codes into characters. It is a small state machine with no I/O, so it can be tested on its own.
 
 * **Scan code set 1**, which is what the controller produces by default.
 * The high bit marks a key **release**; releases produce no character.

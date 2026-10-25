@@ -61,4 +61,4 @@ The name server is reachable by every program that `rs` started, through its ini
 ## Tests
 `test/host/test_names.cpp` covers the wire format, the table and the policy. `probe` checks from Ring 3 that a connection the manifest does not allow is refused, that a path and a name of several parts work, that a second thread can connect, that the kernel refuses a call or a message to another process by its id, that connecting gives a handle to call through and the right to share memory, that asking forty times does not run out of slots, and that a registration from a program is refused. The end to end run and both fuzzers (the fuzzers connect through it to find their targets) exercise it in every boot.
 
-See also [names README](../../userland/names/README.md), [rs](../../userland/rs/README.md) and [capabilities](../core/capabilities.md).
+See also [names README](../../userland/servers/names/README.md), [rs](../../userland/servers/rs/README.md) and [capabilities](../core/capabilities.md).

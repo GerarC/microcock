@@ -73,6 +73,8 @@ LINKER_I686 = cock/arch/x86/linker.ld
 USERLAND_BOOT_ORDER = rs names ramfs vga_driver
 INITRD_STAGE = $(BUILD)/initrd_root
 INITRD_PROGRAMS = bin
+INITRD_DRIVERS = drivers
+INITRD_SERVERS = servers
 INITRD_DIR = initrd
 INITRD_FILES := $(shell find $(INITRD_DIR) -type f)
 INITRD_ENTRIES := $(notdir $(wildcard $(INITRD_DIR)/*))
@@ -80,13 +82,15 @@ INITRD_IMAGE = $(BUILD)/initrd.tar
 INITRD_MODULE = initrd
 TEST_INITRD_DIR = test/initrd
 ifdef TEST_INITRD
-USERLAND_MAKEFILES := $(wildcard userland/*/Makefile test/userland/*/Makefile)
+USERLAND_MAKEFILES := $(wildcard userland/*/*/Makefile test/userland/*/Makefile)
 INITRD_FILES += $(shell find $(TEST_INITRD_DIR) -type f)
 else
-USERLAND_MAKEFILES := $(wildcard userland/*/Makefile)
+USERLAND_MAKEFILES := $(wildcard userland/*/*/Makefile)
 endif
 USERLAND_PROJECTS  := $(patsubst %/Makefile,%,$(USERLAND_MAKEFILES))
 USERLAND_PROGRAMS  := $(notdir $(USERLAND_PROJECTS))
+DRIVER_PROGRAMS    := $(notdir $(patsubst %/Makefile,%,$(wildcard userland/drivers/*/Makefile)))
+SERVER_PROGRAMS    := $(notdir $(patsubst %/Makefile,%,$(wildcard userland/servers/*/Makefile)))
 
 all: $(BUILD)/$(PROJECT).bin
 
@@ -131,7 +135,7 @@ $(BUILD)/$(PROJECT).bin: $(OBJ)
 $(INITRD_IMAGE): $(INITRD_FILES) userland | $(BUILD)
 	@echo "[TAR] $@"
 	@rm -rf $(INITRD_STAGE)
-	@mkdir -p $(INITRD_STAGE)/$(INITRD_PROGRAMS)
+	@mkdir -p $(INITRD_STAGE)/$(INITRD_PROGRAMS) $(INITRD_STAGE)/$(INITRD_DRIVERS) $(INITRD_STAGE)/$(INITRD_SERVERS)
 	@cp -r $(INITRD_DIR)/. $(INITRD_STAGE)/
 	@if [ -n "$(TEST_INITRD)" ]; then \
 		cp -r $(TEST_INITRD_DIR)/. $(INITRD_STAGE)/; \
@@ -140,12 +144,15 @@ $(INITRD_IMAGE): $(INITRD_FILES) userland | $(BUILD)
 		done; \
 	fi
 	@if [ "$(FUZZ)" = user ]; then \
-		echo "fuzz path=bin/fuzz.elf ipc=vga_driver,console,ata,rtc,fat,vfs,ext,ramfs,pm" >> $(INITRD_STAGE)/manifest.conf; \
+		echo "fuzz path=bin/fuzz ipc=vga_driver,console,ata,rtc,fat,vfs,ext,ramfs,pm" >> $(INITRD_STAGE)/manifest.conf; \
 	fi
 	@for name in $(USERLAND_PROGRAMS); do \
 		case " $(USERLAND_BOOT_ORDER) " in \
 			*" $$name "*) ;; \
-			*) cp $(BUILD)/userland/$$name.elf $(INITRD_STAGE)/$(INITRD_PROGRAMS)/ ;; \
+			*) destination=$(INITRD_PROGRAMS); \
+				case " $(DRIVER_PROGRAMS) " in *" $$name "*) destination=$(INITRD_DRIVERS) ;; esac; \
+				case " $(SERVER_PROGRAMS) " in *" $$name "*) destination=$(INITRD_SERVERS) ;; esac; \
+				cp $(BUILD)/userland/$$name.elf $(INITRD_STAGE)/$$destination/$$name ;; \
 		esac; \
 	done
 	@cd $(INITRD_STAGE) && tar --format=ustar --owner=root --group=root --numeric-owner -cf $(abspath $@) *

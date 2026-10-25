@@ -44,7 +44,7 @@ A client that is also a server (`vfs`, `fat`, `ext`) sets `onForeign`, a functio
 A program has a folder in `userland/` with a `Makefile` that sets `NAME`, `SRCS` and `LIBC_SRCS` and includes `../common.mk`, an entry `extern "C" int main()` (the shared `crt0` is the ELF entry and calls it), and one line in `initrd/manifest.conf`. Programs that use the file client list `string/memcpy.cpp` and `string/strlen.cpp` in `LIBC_SRCS`.
 
 ```sh
-make userland/sh
+make userland/apps/sh
 make userland
 make iso
 ```

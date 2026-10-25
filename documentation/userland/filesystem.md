@@ -3,7 +3,7 @@
 The file system is not in the kernel. It is a set of Ring 3 servers that talk by IPC and shared memory, all with the same protocol: `ramfs` serves the files of the `initrd` (a ustar archive loaded as a data boot module, see [memory management](../core/memory_management.md)), `fat` serves a FAT32 volume of the disk (see [FAT32](fat32.md)), `ext` serves an ext2 volume (see [ext2](ext2.md)), and `vfs` is the one name clients use: it forwards each request to the server that owns the path. `ramfs` is read only; `fat` and `ext` can also create, write and delete files.
 
 ## Boot
-1. The kernel keeps `initrd` as a data module and loads `ramfs` as a boot module; every other program is a file of the archive under `bin/`.
+1. The kernel keeps `initrd` as a data module and loads `ramfs` as a boot module; every other program is a file of the archive: under `drivers/` and `servers/` the programs of `userland/drivers/` and `userland/servers/`, under `bin/` the applications and the test programs, none with an `.elf` suffix.
 2. `rs` asks `SYS_MODULE_INDEX` for the index of `initrd` (only a process with grant authority may ask), grants `ramfs` a `BOOT_MODULE` capability for that one module and sends it `CAPABILITY_GRANTED`.
 3. `ramfs` opens the module, maps it read only and walks the tar headers once into an index of up to 64 entries (name, data offset, size, type). Requests that arrive before the grant are kept (up to 16) and answered afterwards.
 

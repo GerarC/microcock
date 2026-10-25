@@ -40,14 +40,20 @@ The codebase strictly separates the architecture-dependent code, the kernel core
 │   ├── common.mk                   # Shared build rules
 │   ├── linker.ld                   # Link address of every program
 │   ├── lib/include/cock/user/      # `cock::user` API
-│   ├── rs/                         # Root server (reincarnation server): grants, starts servers through `pm`, restarts them
-│   ├── pm/                         # Process manager: creates processes, parent in the kernel, table
-│   ├── init/                       # First process (id 1) without authority: starts the shell
-│   ├── names/                      # Name server (connect by name, `ipc=` policy)
-│   ├── console/                    # Console server (input line, serial and screen output)
-│   ├── kbd/                        # Keyboard driver
-│   ├── sh/                         # The shell
-│   └── vga_driver/                 # Display server
+│   ├── drivers/                    # Programs that hold hardware capabilities (installed under `/drivers`)
+│   │   ├── ata/                    # Block driver
+│   │   ├── console/                # Console server (input line, serial and screen output)
+│   │   ├── kbd/                    # Keyboard driver
+│   │   ├── rtc/                    # Clock driver
+│   │   └── vga_driver/             # Display server
+│   ├── servers/                    # Servers that hold policy and no hardware (installed under `/servers`)
+│   │   ├── rs/                     # Root server (reincarnation server): grants, starts servers through `pm`, restarts them
+│   │   ├── pm/                     # Process manager: creates processes, parent in the kernel, table
+│   │   ├── init/                   # First process (id 1) without authority: starts the shell
+│   │   ├── names/                  # Name server (connect by name, `ipc=` policy)
+│   │   ├── vfs/, ramfs/, fat/, ext/, pipe/
+│   └── apps/                       # Programs a person may run (installed under `/bin`)
+│       └── sh/                     # The shell
 ├── test/                           # Every test
 │   ├── cock/                       # In-kernel test suites
 │   ├── host/                       # Tests of shared/ and CapabilitySet, run on the host

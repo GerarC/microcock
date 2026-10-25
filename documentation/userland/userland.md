@@ -44,21 +44,21 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 The processes see each other through the name server: a program calls `cock::user::names::connect("kbd")` and gets the process id of the server and, if the manifest allows it, the right to talk to it. The kernel finds a process by name only for `rs`, and only among the boot modules (`SYS_MODULE_PROCESS`). See [names](names.md).
 
 ## How the system starts the userland
-1. The Makefile builds every `userland/*/Makefile` into `build/userland/<name>.elf`. With `TEST_INITRD=1` it also builds `test/userland/*/Makefile`.
-2. It packs the files of the `initrd/` folder and, under `bin/`, every program of those folders that is not a boot module into `build/initrd.tar` (ustar). With `TEST_INITRD=1` the files of `test/initrd/` are added, and the `manifest.conf` and `mounts.conf` of the two folders are joined (system lines first), so a normal `make iso` boots the system with no test program and `make iso TEST_INITRD=1` boots the same system plus the tests. It writes a `grub.cfg` with one `module` line for each program of `USERLAND_BOOT_ORDER` (`rs`, `names`, `ramfs`, `vga_driver`), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](../core/memory_management.md)), so it never becomes a process.
+1. The Makefile builds every `userland/*/*/Makefile` into `build/userland/<name>.elf`. With `TEST_INITRD=1` it also builds `test/userland/*/Makefile`.
+2. It packs the files of the `initrd/` folder and every program of those folders that is not a boot module (under `drivers/` and `servers/` those of `userland/drivers/` and `userland/servers/`, under `bin/` the applications and the test programs, each without the `.elf` suffix) into `build/initrd.tar` (ustar). With `TEST_INITRD=1` the files of `test/initrd/` are added, and the `manifest.conf` and `mounts.conf` of the two folders are joined (system lines first), so a normal `make iso` boots the system with no test program and `make iso TEST_INITRD=1` boots the same system plus the tests. It writes a `grub.cfg` with one `module` line for each program of `USERLAND_BOOT_ORDER` (`rs`, `names`, `ramfs`, `vga_driver`), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](../core/memory_management.md)), so it never becomes a process.
 3. The kernel loads each module as a process (`rs`, `names`, `ramfs`, `vga_driver`) and gives the root capabilities to the first one, `rs`. `rs` creates the process manager `pm` itself and every other program through it; `init` starts the programs marked `parent=init` (see [pm](pm.md)).
 4. `rs` labels `names` and gives it the right to pass on `IPC` capabilities, registers `ramfs`, grants `ramfs` the `initrd` and sends it `CAPABILITY_GRANTED`; this is the only policy written in its code. It then reads `manifest.conf` through `ramfs`, parses it, sends the programs and the `ipc=` policy to the name server, and runs each line in order (see below). A spawned process is born with no capabilities, so the grants of its line are what it gets. `vga_driver` maps the screen, and `kbd` enables the port and binds the interrupt.
 5. A key press travels: keyboard controller, IRQ 1, kernel (`IRQ_NOTIFICATION`), `kbd` reads the scan code and acknowledges the line, `kbd` sends `CONSOLE_KEY` to `console`, `console` edits the line and sends the echo to `vga_driver`, which draws it.
 
-A driver that needs a new capability needs a new `cap_grant` in `userland/rs/src/main.cpp`; see [capabilities](../core/capabilities.md). The display server is described in [VGA](vga.md) and the keyboard driver in [keyboard](keyboard.md).
+A driver that needs a new capability needs a new `cap_grant` in `userland/servers/rs/src/main.cpp`; see [capabilities](../core/capabilities.md). The display server is described in [VGA](vga.md) and the keyboard driver in [keyboard](keyboard.md).
 
 ## The manifest
 `manifest.conf` in the initrd says which programs run and what authority each one gets. It is plain text, one entry per line; empty lines and lines that start with `#` are ignored. The parser is `shared/include/cock/abi/manifest.hpp`, which the host tests cover.
 
 ```
 vga_driver caps=mem:0xA0000+0x20000
-fsclient path=bin/fsclient.elf repeat=10
-kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 ipc=console
+fsclient path=bin/fsclient repeat=10
+kbd path=drivers/kbd caps=io:0x60+1,irq:1 ipc=console
 ```
 
 | Part | Meaning |
@@ -69,7 +69,7 @@ kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 ipc=console
 | `arg=` | A number (decimal or `0x`) that travels in the first argument of the `CAPABILITY_GRANTED` message, for a server that needs one value (the device of `fat`). It makes `rs` send the message even when the line has no grants |
 | `ipc=` | Comma separated names of the programs this one may talk to: send messages, make synchronous calls and share memory. Up to 8 names, no repeats. It is the policy the name server checks when the program connects to one of them (`names::connect`): the caller gets an `IPC` capability for the service label of the server then, not at start. The policy is symmetric: it allows the connection when either program lists the other. The label of an entry is `PROGRAM_SERVICE_BASE` plus its position in the manifest (and `ramfs`, which has no entry, has `RAMFS_SERVICE`), so it is the same after a restart. The right works in both directions: when `sh` may talk to `console`, `console` may answer `sh` |
 | `repeat=` | Run the program that many times (1 to 32), one after the other, waiting for each to exit. Only for entries with `path=` |
-| `restart=` | After the manifest is done, `rs` starts the program again each time it ends, at most that many times (1 to 16) in a window of 60 seconds of its own waiting time; past the limit it gives up. Only for entries with `path=` and no `repeat=`. See `userland/rs/README.md` |
+| `restart=` | After the manifest is done, `rs` starts the program again each time it ends, at most that many times (1 to 16) in a window of 60 seconds of its own waiting time; past the limit it gives up. Only for entries with `path=` and no `repeat=`. See `userland/servers/rs/README.md` |
 | `parent=` | Only `init`: `init`, not `rs`, starts the program, through `pm`. Needs `path=`, one copy and no `restart=`. See [pm](pm.md) |
 | `owner=` | The name of the program that owns this one. With `mode=` it decides who may connect to this program through the name server, besides the `ipc=` lists. See [names](names.md) |
 | `mode=` | Two characters, `x` to allow and `-` to refuse: the first for the owner, the second for every other program (`x-` only the owner, `-x` everybody but the owner, `xx` the default). A refused `connect` answers `DENIED`. See [names](names.md) |

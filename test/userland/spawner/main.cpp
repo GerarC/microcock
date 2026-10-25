@@ -12,7 +12,7 @@
 
 namespace {
 
-constexpr char PROGRAM_PATH[] = "/bin/hello.elf";
+constexpr char PROGRAM_PATH[] = "/bin/hello";
 constexpr char CHILD_NAME[] = "spawned";
 constexpr size_t IMAGE_BYTES = 0x8000;
 constexpr uint32_t FORGED_LABEL = 7;

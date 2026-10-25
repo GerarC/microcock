@@ -6,7 +6,7 @@ The disk driver is not in the kernel. `ata` is a Ring 3 server that reads sector
 `ata` talks to the primary channel, master drive: command ports `0x1F0` to `0x1F7` and control port `0x3F6`. It needs two `IO_PORTS` capabilities, and nothing else: the manifest line is
 
 ```
-ata path=bin/ata.elf caps=io:0x1F0+8,io:0x3F6+1
+ata path=drivers/ata caps=io:0x1F0+8,io:0x3F6+1
 ```
 
 - **Programmed I/O only.** The data comes through the data port with `rep insw`. There is no bus-master DMA, so the driver cannot make the controller write into memory it does not own, and the capability model stays sound. A DMA-capable driver would hold as much authority as the root server and needs the DMA policy of the capability stage first.

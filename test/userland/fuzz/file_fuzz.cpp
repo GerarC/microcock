@@ -40,7 +40,7 @@ constexpr const char *PATHS[] = {
 	"/bin",
 	"/bin/",
 	"/hello.txt",
-	"/bin/hello.elf",
+	"/bin/hello",
 	"/etc",
 	"/a",
 	"/fat",

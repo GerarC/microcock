@@ -14,9 +14,9 @@
 namespace {
 
 constexpr char PM_NAME[] = "pm";
-constexpr char MISSING_PATH[] = "/bin/missing.elf";
+constexpr char MISSING_PATH[] = "/bin/missing";
 constexpr char NOT_AN_IMAGE_PATH[] = "/hello.txt";
-constexpr char CHILD_PATH[] = "/bin/execchild.elf";
+constexpr char CHILD_PATH[] = "/bin/execchild";
 constexpr char CHILD_NAME[] = "execchild";
 constexpr char FIRST_ARGUMENT[] = "alpha";
 constexpr char SECOND_ARGUMENT[] = "beta";

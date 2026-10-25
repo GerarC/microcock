@@ -6,7 +6,7 @@ Programs that exist only to test the system from Ring 3. The normal initrd never
 
 - `test/initrd/manifest.conf` is appended to `initrd/manifest.conf` (system lines first) and `test/initrd/mounts.conf` to `initrd/mounts.conf`. `rs` therefore starts the tests after the system servers, in file order. None of them gets a capability.
 - The test initrd also holds the fixtures `hello.txt` and `docs/note.txt`, and the mount `/mute mute`.
-- `ext4probe` is not a program of this folder: it is `ext.elf` started a second time with `arg=4`, the ext4 volume of the test disk, which `ext` must refuse.
+- `ext4probe` is not a program of this folder: it is `ext` started a second time with `arg=4`, the ext4 volume of the test disk, which `ext` must refuse.
 - `fuzz` is started by the manifest only with `FUZZ=user`, or replaces `rs` with `FUZZ=root`.
 
 ## Programs

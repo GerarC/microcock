@@ -5,12 +5,12 @@
 ## Pieces
 | Piece | File |
 |-------|------|
-| Server | `userland/console/src/` and `userland/console/include/console/` |
+| Server | `userland/drivers/console/src/` and `userland/drivers/console/include/console/` |
 | Protocol and packing | `shared/include/cock/abi/console.hpp` |
 | Line editor (no I/O, tested on the host) | `shared/include/cock/abi/console_line.hpp`, `test/host/test_console.cpp` |
 | Client | `userland/lib/include/cock/user/console.hpp` |
 | C library hooks | `libc/unistd/console.cpp` (`__console_write`, `__console_read`), called by the console description of `libc/unistd/descriptor.cpp` |
-| First client | `userland/sh` (the shell) |
+| First client | `userland/apps/sh` (the shell) |
 
 ## Protocol
 Requests are synchronous calls (see [ipc](../core/ipc.md)) with four words. Word 0 holds the operation in its low byte, a length in the next byte and a `LAST` flag in bit 16; words 1 to 3 hold up to 12 bytes of data, the first byte in the low bits of word 1. The reply has the same layout with the status in place of the operation and a count in place of the length.

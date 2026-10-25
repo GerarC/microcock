@@ -22,7 +22,7 @@ namespace {
 
 constexpr char PM_NAME[] = "pm";
 constexpr char HELLO_PATH[] = "/hello.txt";
-constexpr char CHILD_PATH[] = "/bin/descchild.elf";
+constexpr char CHILD_PATH[] = "/bin/descchild";
 constexpr char CHILD_NAME[] = "descchild";
 constexpr char CHILD_TEXT[] = "from child";
 constexpr char REDIRECTED_TEXT[] = "redirected child";

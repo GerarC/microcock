@@ -168,7 +168,7 @@ Notifications of different lines are delivered lowest line first.
 
 If the owner no longer exists when its line fires, the kernel releases the line instead of leaving it masked and owned.
 
-The timer line and the PIC cascade line are reserved and cannot be bound. When the owner dies, the kernel masks and releases its lines. The keyboard driver in `userland/kbd` is the reference.
+The timer line and the PIC cascade line are reserved and cannot be bound. When the owner dies, the kernel masks and releases its lines. The keyboard driver in `userland/drivers/kbd` is the reference.
 
 ## Output from programs
 `SYS_WRITE` is the debug and fallback output channel: programs that link `libc/unistd/console.cpp` send descriptors 1 and 2 to the console server instead (see [console](../userland/console.md)) and fall back to this call when the server is not there. The kernel writes the bytes to the serial port with interrupts disabled, so a call is limited to 128 bytes to keep that time short. It returns how many bytes it took, and `cock::user::write_text` calls again until everything is written. When the display server is alive the text also goes to it, in messages of 20 bytes.

@@ -37,4 +37,4 @@ Any 32 bit ELF executable of the machine of the kernel (fixed addresses, no relo
 - It cannot be an ELF of another architecture, a position independent executable or a program that needs a dynamic linker.
 - It cannot use the Linux system call interface: the system calls are the ones of [ipc.md](../core/ipc.md) and the README. Running software written for Linux needs a compatibility layer in Ring 3 that does not exist.
 
-See also [rs](../../userland/rs/README.md), [capabilities](../core/capabilities.md) and [task management](../core/task_management.md#spawn).
+See also [rs](../../userland/servers/rs/README.md), [capabilities](../core/capabilities.md) and [task management](../core/task_management.md#spawn).
