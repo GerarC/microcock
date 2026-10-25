@@ -48,15 +48,19 @@ uintptr_t acceptStatus(AcceptResult result) {
 	return FAILURE;
 }
 
-uintptr_t startCall(Thread &current, uint32_t server_id, const Words &words,
-					uintptr_t milliseconds, uint32_t peer) {
-	switch (SyncIpc::call(current, server_id, words.values,
-						  static_cast<uint32_t>(milliseconds), peer)) {
+uintptr_t callStatus(CallStart start) {
+	switch (start) {
 	case CallStart::BLOCKED: return SUCCESS;
 	case CallStart::TIMED_OUT: return TIMED_OUT;
 	case CallStart::REFUSED: break;
 	}
 	return FAILURE;
+}
+
+uintptr_t startCall(Thread &current, uint32_t server_id, const Words &words,
+					uintptr_t milliseconds, uint32_t peer) {
+	return callStatus(SyncIpc::call(current, server_id, words.values,
+									static_cast<uint32_t>(milliseconds), peer));
 }
 
 } // namespace
@@ -79,10 +83,12 @@ uintptr_t sys_ep_call(uintptr_t handle, uintptr_t word0, uintptr_t word1,
 	if (!current || !timeoutOk(milliseconds)) return FAILURE;
 
 	EndpointRoute route = resolveHandle(*current, handle);
-	if (route.target == nullptr) return FAILURE;
+	if (route.endpoint == abi::endpoint::NO_ENDPOINT) return FAILURE;
 
-	return startCall(*current, route.target->getId(), pack(word0, word1, word2, word3),
-					 milliseconds, route.badge);
+	Words words = pack(word0, word1, word2, word3);
+	return callStatus(SyncIpc::callThroughEndpoint(*current, route.endpoint, words.values,
+												   static_cast<uint32_t>(milliseconds),
+												   route.badge));
 }
 
 uintptr_t sys_ipc_accept(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t,

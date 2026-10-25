@@ -142,6 +142,33 @@ bool bindingToAnotherProcessMovesTheEndpoint(uint32_t ownerHandle, uint32_t endp
 		   message.payload.args.arg0 == TAG_AFTER_REBIND && message.badge == NO_BADGE;
 }
 
+bool messagesWaitForTheOwner() {
+	uint32_t ownerHandle = NO_CAPABILITY_NODE;
+	uint32_t endpoint = cock::user::ep_create(ownerHandle);
+	if (endpoint == NO_ENDPOINT || ownerHandle == NO_CAPABILITY_NODE) return false;
+
+	const uint32_t words[cock::user::CALL_WORDS] = {NO_WORD, NO_WORD, NO_WORD, NO_WORD};
+	if (cock::user::ep_call(ownerHandle, words, FAILING_CALL_MILLISECONDS).status != CallStatus::TIMED_OUT)
+		return false;
+
+	for (size_t sent = 0; sent < cock::abi::endpoint::MAX_QUEUED_PER_ENDPOINT; sent++) {
+		if (!cock::user::ep_send(ownerHandle, pingWith(TAG_QUEUED, FORGED_BADGE, FIRST_PAYLOAD))) return false;
+	}
+	if (cock::user::ep_send(ownerHandle, pingWith(TAG_QUEUED, FORGED_BADGE, FIRST_PAYLOAD))) return false;
+	if (!cock::user::ep_bind(endpoint, cock::user::self())) return false;
+
+	size_t received = 0;
+	Message message = {};
+	while (cock::user::ipc_try_recv(message) == cock::user::Received::MESSAGE) {
+		if (message.type != MessageType::SYS_PING || message.payload.args.arg0 != TAG_QUEUED ||
+			message.badge != NO_BADGE)
+			return false;
+		received++;
+	}
+	return received == cock::abi::endpoint::MAX_QUEUED_PER_ENDPOINT &&
+		   cock::user::ep_send(ownerHandle, pingWith(TAG_QUEUED, FORGED_BADGE, FIRST_PAYLOAD));
+}
+
 } // namespace
 
 extern "C" int main() {
@@ -190,6 +217,9 @@ extern "C" int main() {
 
 	passed = passed && bindingToAnotherProcessMovesTheEndpoint(ownerHandle, endpoint);
 	if (passed) puts("epgiver: binding again moved the endpoint");
+
+	passed = passed && messagesWaitForTheOwner();
+	if (passed) puts("epgiver: messages sent before the bind waited for the owner, and a call to nobody timed out");
 
 	puts(passed ? "epgiver: ok" : "epgiver: failed");
 	_exit(passed ? EXIT_PASSED : EXIT_FAILED);

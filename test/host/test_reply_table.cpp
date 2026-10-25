@@ -80,6 +80,42 @@ void checkPassMovesTheHolder() {
 	CHECK_EQ(CLIENT_THREAD, table.requesterOf(token));
 }
 
+void checkQueuedTokenIsClaimedByTheReceiver() {
+	ReplyTable table;
+	uint32_t token = table.openQueued(CLIENT_THREAD, CLIENT);
+	CHECK_TRUE(token != NO_REPLY);
+	CHECK_EQ(NO_REPLY, table.openQueued(NO_ID, CLIENT));
+	CHECK_EQ(NO_REPLY, table.openQueued(CLIENT_THREAD, NO_ID));
+	CHECK_FALSE(table.holds(token, SERVER));
+	CHECK_FALSE(table.park(token, SERVER));
+	CHECK_FALSE(table.claim(token, NO_ID));
+
+	CHECK_TRUE(table.claim(token, SERVER));
+	CHECK_TRUE(table.holds(token, SERVER));
+	CHECK_FALSE(table.claim(token, OTHER_SERVER));
+	CHECK_EQ(CLIENT_THREAD, table.requesterOf(token));
+
+	CHECK_FALSE(table.park(token, OTHER_SERVER));
+	CHECK_FALSE(table.park(token, NO_ID));
+	CHECK_TRUE(table.park(token, SERVER));
+	CHECK_FALSE(table.holds(token, SERVER));
+	CHECK_TRUE(table.claim(token, OTHER_SERVER));
+	CHECK_TRUE(table.holds(token, OTHER_SERVER));
+
+	CHECK_TRUE(table.close(token));
+	CHECK_FALSE(table.claim(token, SERVER));
+	CHECK_FALSE(table.park(token, OTHER_SERVER));
+}
+
+void checkQueuedTokenFollowsTheRequesterAndNotAHolder() {
+	ReplyTable table;
+	uint32_t token = table.openQueued(CLIENT_THREAD, CLIENT);
+	table.releaseProcess(SERVER);
+	CHECK_EQ(CLIENT_THREAD, table.requesterOf(token));
+	table.releaseProcess(CLIENT);
+	CHECK_EQ(NO_ID, table.requesterOf(token));
+}
+
 void checkOneRequesterCannotUseUpTheTable() {
 	ReplyTable table;
 	for (size_t index = 0; index < MAX_REPLIES_PER_REQUESTER; index++)
@@ -133,6 +169,8 @@ void testReplyTable() {
 	checkZeroIdsAndForgedTokens();
 	checkStaleTokenNeverWorksAgain();
 	checkPassMovesTheHolder();
+	checkQueuedTokenIsClaimedByTheReceiver();
+	checkQueuedTokenFollowsTheRequesterAndNotAHolder();
 	checkOneRequesterCannotUseUpTheTable();
 	checkTableFills();
 	checkEndingProcessDropsItsTokens();

@@ -14,7 +14,8 @@ namespace cock::core::syscall {
 
 /** @brief Where a handle leads. */
 struct EndpointRoute {
-	task::Thread *target = nullptr; /**< Main thread of the process bound to the endpoint; null when the route failed. */
+	uint32_t endpoint = abi::endpoint::NO_ENDPOINT; /**< Endpoint the handle names; `NO_ENDPOINT` when the handle is not valid. */
+	task::Thread *target = nullptr; /**< Main thread of the process bound to the endpoint; null when the endpoint is unbound or its owner is gone, and when the handle is not valid. */
 	uint32_t badge = abi::endpoint::NO_BADGE; /**< Badge of the handle. */
 };
 
@@ -28,9 +29,10 @@ struct EndpointRoute {
  *
  * @param caller Thread that uses the handle.
  * @param handle The number a program passed, as a system call argument.
- * @return The route. `target` is null when the number is not 32 bits wide, names no
- * endpoint capability of the caller, the endpoint is unbound, or the process bound to it
- * has no live main thread.
+ * @return The route. `endpoint` is `NO_ENDPOINT` when the number is not 32 bits wide, names no
+ * endpoint capability of the caller or names an endpoint that does not exist. `target` is
+ * null when the endpoint is unbound or the process bound to it has no live main thread: what
+ * is sent then waits in the queue of the endpoint for the next process bound to it.
  */
 inline EndpointRoute resolveHandle(const task::Thread &caller, uintptr_t handle) {
 	EndpointRoute route;
@@ -38,16 +40,20 @@ inline EndpointRoute resolveHandle(const task::Thread &caller, uintptr_t handle)
 
 	const security::Capability *held =
 		caller.getProcess()->getCapabilities().endpointHandle(static_cast<uint32_t>(handle));
-	if (held == nullptr) return route;
+	if (held == nullptr || held->first > UINT32_MAX ||
+		!task::endpoint_table.exists(static_cast<uint32_t>(held->first)))
+		return route;
 
-	uint32_t owner = task::endpoint_table.ownerOf(static_cast<uint32_t>(held->first));
+	route.endpoint = static_cast<uint32_t>(held->first);
+	route.badge = held->badge;
+
+	uint32_t owner = task::endpoint_table.ownerOf(route.endpoint);
 	task::Thread *target = task::TaskManager::getThreadByPID(owner);
 	if (owner == 0 || target == nullptr || !target->isMainThread() ||
 		target->getState() == task::ThreadState::DEAD)
 		return route;
 
 	route.target = target;
-	route.badge = held->badge;
 	return route;
 }
 

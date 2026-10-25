@@ -10,6 +10,8 @@
 
 namespace cock::core::task {
 
+class Thread;
+
 using ipc::Message;
 
 /**
@@ -45,6 +47,24 @@ class IPC {
 	 */
 	static bool deliver(uint32_t to_pid, Message message);
 	/**
+	 * @brief Queues a message on an endpoint, whether or not a process is bound to it.
+	 *
+	 * The message waits in the queue of the endpoint and is taken by the main thread of whichever
+	 * process is bound when it receives. When one is bound and waiting for a message, it is woken.
+	 *
+	 * @param endpoint Endpoint id.
+	 * @param message Message to queue. `badge` and `reply` are the caller's to set; `target_pid`
+	 * is written when the message is taken.
+	 * @return True when queued. False when the endpoint does not exist or its queue is full.
+	 */
+	static bool post(uint32_t endpoint, Message message);
+	/**
+	 * @brief Lets a process that was just bound to an endpoint find what waits there.
+	 * @param owner Main thread of the process that was bound. A server waiting for a call takes
+	 * the first queued caller; one waiting for anything is woken when a message is queued.
+	 */
+	static void announce(Thread &owner);
+	/**
 	 * @brief Raises an interrupt notification on a thread.
 	 * @param to_pid Thread id of the target.
 	 * @param line Interrupt line recorded in the notification.
@@ -79,6 +99,13 @@ class IPC {
 	 * is no current thread. Does not return until a message was copied.
 	 */
 	static void receive(Message *message);
+
+  private:
+	/**
+	 * @brief Makes a thread that waits for a message or a call ready.
+	 * @param target Thread to wake; nothing happens when it waits for something else.
+	 */
+	static void wake(Thread &target);
 };
 
 } // namespace cock::core::task

@@ -4,6 +4,8 @@
 #include <cock/core/security/capability_tree.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/endpoint_table.hpp>
+#include <cock/core/task/ipc.hpp>
+#include <cock/core/task/reply_table.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
@@ -77,9 +79,12 @@ uintptr_t sys_ep_bind(uintptr_t endpoint, uintptr_t pid, uintptr_t, uintptr_t,
 	Thread *target = TaskManager::getThreadByPID(static_cast<uint32_t>(pid));
 	if (!target || target->getProcess()->isKernel() || !target->isMainThread()) return FAILURE;
 
-	return endpoint_table.bind(static_cast<uint32_t>(endpoint), target->getProcess()->getId())
-			   ? SUCCESS
-			   : FAILURE;
+	if (!endpoint_table.bind(static_cast<uint32_t>(endpoint), target->getProcess()->getId(),
+							 core::task::closeTokenOfMessage))
+		return FAILURE;
+
+	core::task::IPC::announce(*target);
+	return SUCCESS;
 }
 
 } // namespace cock::core::syscall

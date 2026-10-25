@@ -6,6 +6,7 @@
 #define CORE_THREAD_HPP
 
 #include <cock/abi/call.hpp>
+#include <cock/abi/endpoint.hpp>
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/task/process.hpp>
@@ -189,7 +190,8 @@ class Thread {
 	Thread *callers = nullptr; /**< Callers waiting for this server. */
 	Thread *serving = nullptr; /**< Caller whose request is being served. */
 	Thread *deferred = nullptr; /**< Callers detached to be answered later. */
-	Thread *callTarget = nullptr; /**< Server this thread has called. */
+	Thread *callTarget = nullptr; /**< Server this thread has called; null while the call waits in the queue of an endpoint. */
+	uint32_t callEndpoint = abi::endpoint::NO_ENDPOINT; /**< Endpoint whose queue holds the call of this thread, or `NO_ENDPOINT` when the call is not queued on one. */
 	uint32_t callWords[abi::call::WORD_COUNT] = {}; /**< Words of the pending
 													   request of this caller. */
 	uint32_t callPeer = 0; /**< Value the server reads as `peer` when it accepts the pending request of this caller: the badge of the handle, or the id of this thread for a call by process id. */
@@ -387,13 +389,18 @@ class Thread {
 	 */
 	bool receiveMessage(const Message &msg) { return inbox.push(msg); }
 	/**
-	 * @brief Pops the oldest message of the inbox.
+	 * @brief Pops the oldest message of the inbox or, for the main thread of a user process, of the
+	 * queue of an endpoint bound to its process.
+	 *
+	 * The inbox goes first. A message taken from an endpoint queue gets this thread as `target_pid`,
+	 * and the reply token it carries, if any, passes to the process of this thread.
+	 *
 	 * @param out Receives the message.
-	 * @return False when the inbox is empty.
+	 * @return False when the inbox and the endpoint queues are empty.
 	 */
-	bool getNextMessage(Message &out) { return inbox.pop(out); }
-	/** @return True when the inbox holds at least one message. */
-	bool hasMessages() const { return !inbox.isEmpty(); }
+	bool getNextMessage(Message &out);
+	/** @return True when the inbox holds a message or, for the main thread of a user process, an endpoint bound to its process has one queued. */
+	bool hasMessages() const;
 
 	/**
 	 * @brief Marks an interrupt line as raised for this thread.

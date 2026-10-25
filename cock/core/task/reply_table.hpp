@@ -6,6 +6,7 @@
 #define CORE_TASK_REPLY_TABLE_HPP
 
 #include <cock/abi/endpoint.hpp>
+#include <cock/ipc/message.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -40,26 +41,48 @@ class ReplyTable {
 	 * has `MAX_REPLIES_PER_REQUESTER` open or an id is zero.
 	 */
 	uint32_t open(uint32_t holder, uint32_t requester_thread, uint32_t requester_process) {
-		if (holder == NO_ID || requester_thread == NO_ID || requester_process == NO_ID)
-			return abi::endpoint::NO_REPLY;
+		if (holder == NO_ID) return abi::endpoint::NO_REPLY;
+		return openFor(holder, requester_thread, requester_process);
+	}
 
-		size_t asked = 0;
-		Slot *free = nullptr;
-		for (Slot &slot : slots) {
-			if (!slot.used) {
-				if (free == nullptr) free = &slot;
-			} else if (slot.requesterProcess == requester_process) {
-				asked++;
-			}
-		}
-		if (free == nullptr || asked >= abi::endpoint::MAX_REPLIES_PER_REQUESTER)
-			return abi::endpoint::NO_REPLY;
+	/**
+	 * @brief Opens a token for a message that waits in the queue of an endpoint, so nobody holds it yet.
+	 *
+	 * The process that takes the message from the queue becomes the holder (`claim`). Until then
+	 * only the process that asked can lose it, by ending.
+	 *
+	 * @param requester_thread Id of the thread that asked, which receives the answer; not zero.
+	 * @param requester_process Id of the process of that thread; not zero.
+	 * @return The token, or `NO_REPLY` under the same conditions as `open`.
+	 */
+	uint32_t openQueued(uint32_t requester_thread, uint32_t requester_process) {
+		return openFor(NO_ID, requester_thread, requester_process);
+	}
 
-		free->used = true;
-		free->holder = holder;
-		free->requesterThread = requester_thread;
-		free->requesterProcess = requester_process;
-		return tokenOf(*free);
+	/**
+	 * @brief Takes a token back from its holder because the message that carries it goes into a queue.
+	 * @param token Token number.
+	 * @param from Id of the current holder.
+	 * @return True when `from` held the token and nobody holds it now.
+	 */
+	bool park(uint32_t token, uint32_t from) {
+		Slot *slot = locate(token);
+		if (slot == nullptr || from == NO_ID || slot->holder != from) return false;
+		slot->holder = NO_ID;
+		return true;
+	}
+
+	/**
+	 * @brief Gives a token that nobody holds to the process that took its message from a queue.
+	 * @param token Token number.
+	 * @param holder Id of the process; not zero.
+	 * @return True when the token was open and held by nobody.
+	 */
+	bool claim(uint32_t token, uint32_t holder) {
+		Slot *slot = locate(token);
+		if (slot == nullptr || holder == NO_ID || slot->holder != NO_ID) return false;
+		slot->holder = holder;
+		return true;
 	}
 
 	/**
@@ -158,6 +181,36 @@ class ReplyTable {
 	};
 
 	/**
+	 * @brief Opens a token, whoever holds it.
+	 * @param holder Id of the holder, or zero for a token that waits in a queue.
+	 * @param requester_thread Id of the thread that asked; not zero.
+	 * @param requester_process Id of the process of that thread; not zero.
+	 * @return The token, or `NO_REPLY` when the table is full, the requester has
+	 * `MAX_REPLIES_PER_REQUESTER` open or an id is zero.
+	 */
+	uint32_t openFor(uint32_t holder, uint32_t requester_thread, uint32_t requester_process) {
+		if (requester_thread == NO_ID || requester_process == NO_ID) return abi::endpoint::NO_REPLY;
+
+		size_t asked = 0;
+		Slot *free = nullptr;
+		for (Slot &slot : slots) {
+			if (!slot.used) {
+				if (free == nullptr) free = &slot;
+			} else if (slot.requesterProcess == requester_process) {
+				asked++;
+			}
+		}
+		if (free == nullptr || asked >= abi::endpoint::MAX_REPLIES_PER_REQUESTER)
+			return abi::endpoint::NO_REPLY;
+
+		free->used = true;
+		free->holder = holder;
+		free->requesterThread = requester_thread;
+		free->requesterProcess = requester_process;
+		return tokenOf(*free);
+	}
+
+	/**
 	 * @brief Builds the number of the token of a slot.
 	 * @param slot A slot of the table.
 	 * @return Its generation and index.
@@ -195,6 +248,14 @@ class ReplyTable {
 
 /** @brief The one table of the system. */
 inline constinit ReplyTable reply_table;
+
+/**
+ * @brief Closes the reply token of a queued message that the kernel throws away.
+ * @param message The message; nothing happens when it carries no token.
+ */
+inline void closeTokenOfMessage(const ipc::Message &message) {
+	if (message.reply != abi::endpoint::NO_REPLY) reply_table.close(message.reply);
+}
 
 } // namespace cock::core::task
 

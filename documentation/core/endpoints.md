@@ -1,6 +1,6 @@
 # Endpoints and handles
 
-An endpoint is a numbered mailbox in the kernel. A program sends to an endpoint through a **handle** it holds, not to a process id. This is step E3 of the path to Unix style IPC: E3a is the endpoint, the handle and the badge, E3b1 the work of `init` and `names`, E3b2 the reply tokens, and E3c the end of the process id as an address: no message, call or capability message reaches another process by its id, and `sender_pid` is gone from the message. The threads of one process still reach each other by thread id (`SYS_IPC_SEND`, `SYS_IPC_CALL`), because a thread is not a security boundary and has no endpoint.
+An endpoint is a numbered mailbox in the kernel. A program sends to an endpoint through a **handle** it holds, not to a process id. This is step E3 of the path to Unix style IPC: E3a is the endpoint, the handle and the badge, E3b1 the work of `init` and `names`, E3b2 the reply tokens, E3c the end of the process id as an address: no message, call or capability message reaches another process by its id, and `sender_pid` is gone from the message, and E3d the queue that belongs to the endpoint instead of the thread. The threads of one process still reach each other by thread id (`SYS_IPC_SEND`, `SYS_IPC_CALL`), because a thread is not a security boundary and has no endpoint.
 
 ## Why
 
@@ -77,6 +77,8 @@ What the kernel checks and does:
 
 * **A server cannot tell whether a client is alive.** A badge is a number, and `names` makes it the process id of the client so a server can ask `process_alive`, as `console` does to free the text of a writer that died. That works only while the badge is the process id, and a reused id could be taken for the old client. A notice from the kernel when a client dies is the answer, and it is not made.
 * **A client waits forever when the holder dies.** The kernel drops the tokens of a process that ends and tells nobody: the thread that asked gets no answer and no failure. It needs a time limit of its own, or a notice that the kernel does not send yet.
+* **A call to a dead server no longer fails at once.** A call through a handle to an endpoint with no owner waits for the next one, so a client that gave no time limit waits as long as nobody is bound. The libraries give a limit where they can; a program that must not wait passes one to `ep_call`.
+* **A restarted server also finds old requests.** Messages and calls that were queued before the server died are served after the restart, however old they are, and the client may have given up (a call that timed out leaves the list; an asynchronous request does not, and its token keeps working until the requester ends).
 * **A token has no time limit.** A server that keeps a token and never answers holds one of the 16 of the requester until one of the two ends.
 * **The answer does not say who gave it.** After a forward the answer comes from the process that replied, not from the server the client sent to, and it carries no badge. The libraries of `fs`, `block` and `rtc` accept a message of the right type, with `badge == NO_BADGE` (so it came through `SYS_EP_REPLY` and not through a handle) and the request id they sent.
 * **Shared memory is still shared by process id** (`SYS_SHM_SHARE`), and so are `spawn` and the exit notices. They are not messages, and the badge does not replace them. The right to share is now a handle: `mayShare` (`cock/core/security/ipc_access.hpp`) holds when the two processes are the same, or when one holds a handle on an endpoint the other receives on.
@@ -84,9 +86,27 @@ What the kernel checks and does:
 
 ## Routing
 
-`resolveHandle` (`cock/core/syscall/ipc/endpoint_route.hpp`) is the whole lookup: the number must be a node of an `ENDPOINT` capability **of the caller**, the endpoint must be bound, and the process bound to it must have a live first thread. The message then goes to that thread, the same inbox and the same call queue as a send by process id. No service label is compared: holding the handle is the permission, so a number taken from another process, a revoked handle or a stale one leads nowhere, and costs the caller a `-1`.
+`resolveHandle` (`cock/core/syscall/ipc/endpoint_route.hpp`) is the whole lookup: the number must be a node of an `ENDPOINT` capability **of the caller** that names an endpoint that exists. No service label is compared: holding the handle is the permission, so a number taken from another process, a revoked handle or a stale one leads nowhere, and costs the caller a `-1`. The route also names the first thread of the process bound to the endpoint when there is a live one; with none, the endpoint is unbound and what is sent to it waits.
 
-The endpoint is not tied to a process for life. `Process::~Process` unbinds the endpoints of the process that ends, and `SYS_EP_BIND` gives the endpoint to its replacement. The handles the clients hold keep working and keep their badges, so a restarted server needs no new grant. What does not survive is what was already queued for the dead process: its inbox and its call queue go with it, and the callers of a queued synchronous call get a failure, as for any dead server. A queue that belongs to the endpoint is not part of this step.
+## The queue belongs to the endpoint
+
+An endpoint is not tied to a process for life, and neither is what is sent to it. `Process::~Process` unbinds the endpoints of the process that ends, and `SYS_EP_BIND` gives the endpoint to its replacement. The handles the clients hold keep working and keep their badges, and the replacement finds what was sent while the endpoint had no owner, so a restarted server needs no new grant and loses nothing it had not taken yet.
+
+| What | Where it waits | Who takes it |
+|------|----------------|--------------|
+| A message sent with `SYS_EP_SEND` or `SYS_EP_FORWARD` | The queue of the endpoint in `EndpointTable`: up to `MAX_QUEUED_PER_ENDPOINT` (16) messages each, drawn from a shared pool of `QUEUED_MESSAGE_POOL` (256) cells | `SYS_IPC_RECV` and its variants, on the first thread of the process bound to the endpoint, after the messages of its own inbox |
+| A call made with `SYS_EP_CALL` | The list of callers of the endpoint in `SyncIpc`, linked through the caller threads, so it takes no memory | `SYS_IPC_ACCEPT` on the first thread of the process bound to the endpoint, after the callers that name that thread |
+| Replies, notices of the kernel, messages and calls between the threads of one process | The inbox and the call list of the thread | The thread |
+
+What the kernel does with it:
+
+* A send to a full queue, or when the shared pool is empty, fails like a send to a full inbox. A send to an unbound endpoint succeeds.
+* A call to an unbound endpoint blocks. It ends with the answer of whoever is bound later, with a timeout when the caller gave one (`TIMED_OUT`, and the call leaves the list), or with `FAILURE` when the thread that was serving it dies. A call with no time limit waits as long as nobody is bound.
+* The call that a server had already accepted, or deferred, belongs to that server thread: it fails when the thread dies, as before. Only calls that nobody had taken stay.
+* The token of a request with `SEND_EXPECT_REPLY` has no holder while the message waits (`ReplyTable::openQueued`). The process that takes the message becomes the holder (`ReplyTable::claim`); `SYS_EP_FORWARD` parks the token (`park`) when it queues the message. A token of a message that waits is dropped when its requester ends, as every token.
+* A message that carries a capability (`CAPABILITY_TRANSFER`) is refused when no process is bound, because the kernel gives the capability to the receiver at send time. If the owner changes or ends before it takes the message, the message is thrown away and its token closed, since the capability went to the old owner; every other queued message stays.
+* `SYS_EP_BIND` wakes the new owner: a server waiting in `SYS_IPC_ACCEPT` takes the first queued caller, and one waiting for a message is woken when there is one.
+* A queue is read only by the first thread of the process bound to the endpoint. The other threads of a server never see it, as they never saw a message sent through a handle.
 
 ## Checked by
 
@@ -97,11 +117,15 @@ The endpoint is not tied to a process for life. `Process::~Process` unbinds the 
 * Ring 3, `epgiver` and `epserver` again: a request with `SEND_EXPECT_REPLY` reaches the server with a token, the server forwards it through a second handle (the forwarded message carries the badge of that handle and the same token), the final receiver answers and the giver gets the answer with the replier as sender; the token is then spent, so a second reply and a forward fail; 1024 token values nobody gave fail; the seventeenth open token of the giver is refused. Mutants that skip the holder check or keep the token after the answer fail the test.
 * In-kernel suite `IPC access` (`test/cock/core/security/test_ipc_access.cpp`): `mayShare` through a handle of either side, an unbound endpoint, a third process, revocation cutting both directions, and the initial handle of `SpawnRights` (badge equal to the new process id, refusal without the mint right, for an endpoint the creator does not hold, and for unknown flags).
 * Ring 3, `epgiver` again: sending or calling a process of another program by its id fails, and the probe checks the same after `connect`.
+* In-kernel suite `Endpoints`, queue part: a handle on an unbound endpoint names its endpoint; messages posted before and after the owner died reach the next owner in order with the token claimed and the thread id written; a full queue refuses and only the owner drains it; a message that carries a capability is thrown away when the owner changes and its token is closed; a call queued with no owner survives the death of a first owner, is served by the second (peer, words, serving slot), times out and leaves the list, and is refused for an endpoint that does not exist.
+* Host tests (`test/host/test_endpoint_table.cpp`, `test_reply_table.cpp`): order and limit of a queue, the shared pool and the reuse of cells, `take` by owner, the capability messages dropped by `bind` and `releaseOwner` with the callback, `openQueued`, `park` and `claim`.
+* Ring 3, `epgiver` again: sixteen sends to an endpoint with no owner succeed and the seventeenth fails; a call to it times out; after the bind the owner receives the sixteen messages with badge zero.
 * The syscall fuzzer has an entry for each call and, with the `HANDLE` argument kind, uses the handles that the name server gave it.
 
 ## Limits
 
 * The table has 256 endpoints, never freed.
 * A process holds at most `CapabilitySet::MAX_CAPABILITIES` (16) capabilities, handles included.
-* The queue of an endpoint is the inbox and the call queue of the thread bound to it; what is queued when the owner dies is lost.
+* The queue of an endpoint holds 16 messages, and all the queues together 256, which is about 11 KiB of the kernel image. One client that fills a queue starves the other clients of the same endpoint, and sixteen full queues use up the pool for every endpoint.
+* The list of callers of an endpoint has no limit of its own: each caller is a thread, and a thread waits in one call at a time.
 * The console, the clock, the block driver and the file servers (`ramfs`, `vfs`, FAT32, ext2) answer through reply tokens and key their clients by the badge. `init`, which is not started by anyone, makes a handle for itself on `ramfs` and on `names` with its own process id as badge. `kbd` sends keys and the console draws through handles with no reply token. Nothing is reached by process id across processes any more: the test programs (`phoenix`, `capgiver`, the probe, the fuzzer) use handles too, and `syncbench` and the thread tests of the probe use thread ids inside their own process.

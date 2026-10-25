@@ -1,5 +1,6 @@
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/hal/tasking.hpp>
+#include <cock/core/task/endpoint_table.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/sync_ipc.hpp>
 #include <cock/core/task/task_manager.hpp>
@@ -29,7 +30,63 @@ bool isForever(uint32_t milliseconds) {
 	return milliseconds == abi::call::NO_TIMEOUT;
 }
 
+Thread *endpointCallers[abi::endpoint::MAX_ENDPOINTS] = {};
+size_t queuedCallers = 0;
+
+Thread *&queueOf(uint32_t endpoint) {
+	return endpointCallers[endpoint - abi::endpoint::FIRST_ENDPOINT];
+}
+
 } // namespace
+
+bool SyncIpc::hasCallers(const Thread &server) {
+	if (server.callers != nullptr) return true;
+	if (queuedCallers == 0 || !server.isMainThread() || server.getProcess()->isKernel())
+		return false;
+
+	uint32_t owner = server.getProcess()->getId();
+	for (size_t index = 0; index < abi::endpoint::MAX_ENDPOINTS; index++) {
+		uint32_t endpoint = abi::endpoint::FIRST_ENDPOINT + static_cast<uint32_t>(index);
+		if (endpointCallers[index] != nullptr && endpoint_table.ownerOf(endpoint) == owner)
+			return true;
+	}
+	return false;
+}
+
+Thread *SyncIpc::takeCaller(Thread &server) {
+	Thread *caller = server.callers;
+	if (caller != nullptr) {
+		server.callers = caller->callLink;
+		caller->callLink = nullptr;
+		return caller;
+	}
+	if (queuedCallers == 0 || !server.isMainThread() || server.getProcess()->isKernel())
+		return nullptr;
+
+	uint32_t owner = server.getProcess()->getId();
+	for (size_t index = 0; index < abi::endpoint::MAX_ENDPOINTS; index++) {
+		uint32_t endpoint = abi::endpoint::FIRST_ENDPOINT + static_cast<uint32_t>(index);
+		Thread *&head = endpointCallers[index];
+		if (head == nullptr || endpoint_table.ownerOf(endpoint) != owner) continue;
+
+		caller = head;
+		head = caller->callLink;
+		caller->callLink = nullptr;
+		caller->callEndpoint = abi::endpoint::NO_ENDPOINT;
+		queuedCallers--;
+		return caller;
+	}
+	return nullptr;
+}
+
+bool SyncIpc::leaveEndpoint(Thread &caller) {
+	if (caller.callEndpoint == abi::endpoint::NO_ENDPOINT) return false;
+
+	bool removed = unlink(queueOf(caller.callEndpoint), caller);
+	caller.callEndpoint = abi::endpoint::NO_ENDPOINT;
+	if (removed) queuedCallers--;
+	return removed;
+}
 
 uintptr_t SyncIpc::frameOf(Thread &thread) {
 	if (&thread == Scheduler::getCurrentThread()) return Scheduler::getSyscallFrame();
@@ -44,9 +101,8 @@ void SyncIpc::writeResult(Thread &thread, uintptr_t result) {
 }
 
 void SyncIpc::dispatch(Thread &server) {
-	Thread *caller = server.callers;
-	server.callers = caller->callLink;
-	caller->callLink = nullptr;
+	Thread *caller = takeCaller(server);
+	caller->callTarget = &server;
 	server.serving = caller;
 	Timeouts::cancel(&server);
 
@@ -59,6 +115,7 @@ void SyncIpc::finish(Thread *caller, uintptr_t result) {
 	SyscallFrame frame = frameWith(result, 0, none);
 	hal::write_syscall_frame(caller->getStackPointer(), frame);
 	caller->callTarget = nullptr;
+	caller->callEndpoint = abi::endpoint::NO_ENDPOINT;
 	Timeouts::cancel(caller);
 	caller->setState(ThreadState::READY);
 	Scheduler::addThread(caller);
@@ -78,6 +135,7 @@ CallStart SyncIpc::call(Thread &caller, uint32_t target_id,
 		caller.callWords[index] = words[index];
 	caller.callLink = nullptr;
 	caller.callTarget = target;
+	caller.callEndpoint = abi::endpoint::NO_ENDPOINT;
 	caller.callPeer = peer;
 	caller.setState(ThreadState::WAITING_REPLY);
 	if (!isForever(milliseconds))
@@ -97,11 +155,52 @@ CallStart SyncIpc::call(Thread &caller, uint32_t target_id,
 	return CallStart::BLOCKED;
 }
 
+CallStart SyncIpc::callThroughEndpoint(Thread &caller, uint32_t endpoint,
+									   const uint32_t (&words)[abi::call::WORD_COUNT],
+									   uint32_t milliseconds, uint32_t peer) {
+	InterruptGuard guard;
+	if (!endpoint_table.exists(endpoint)) return CallStart::REFUSED;
+	Thread *owner = TaskManager::getThreadByPID(endpoint_table.ownerOf(endpoint));
+	if (owner == &caller) return CallStart::REFUSED;
+	if (milliseconds == 0) return CallStart::TIMED_OUT;
+
+	for (size_t index = 0; index < abi::call::WORD_COUNT; index++)
+		caller.callWords[index] = words[index];
+	caller.callLink = nullptr;
+	caller.callTarget = nullptr;
+	caller.callEndpoint = endpoint;
+	caller.callPeer = peer;
+	caller.setState(ThreadState::WAITING_REPLY);
+	if (!isForever(milliseconds))
+		Timeouts::arm(&caller, Timeouts::ticksFor(milliseconds));
+
+	Thread **link = &queueOf(endpoint);
+	while (*link != nullptr)
+		link = &(*link)->callLink;
+	*link = &caller;
+	queuedCallers++;
+
+	if (owner != nullptr && owner->getState() == ThreadState::WAITING_CALL) {
+		dispatch(*owner);
+		owner->setState(ThreadState::READY);
+		Scheduler::requestHandoff(owner);
+	}
+	Scheduler::requestReschedule();
+	return CallStart::BLOCKED;
+}
+
+void SyncIpc::resume(Thread &server) {
+	InterruptGuard guard;
+	dispatch(server);
+	server.setState(ThreadState::READY);
+	Scheduler::addThread(&server);
+}
+
 AcceptResult SyncIpc::accept(Thread &server, uint32_t milliseconds) {
 	InterruptGuard guard;
 	if (server.serving != nullptr) return AcceptResult::REFUSED;
 
-	if (server.callers != nullptr) {
+	if (hasCallers(server)) {
 		dispatch(server);
 		return AcceptResult::SERVED;
 	}
@@ -196,6 +295,12 @@ void SyncIpc::expire(Thread &thread) {
 	}
 	if (thread.getState() != ThreadState::WAITING_REPLY) return;
 
+	if (thread.callEndpoint != abi::endpoint::NO_ENDPOINT) {
+		leaveEndpoint(thread);
+		finish(&thread, abi::call::TIMED_OUT);
+		return;
+	}
+
 	Thread *target = thread.callTarget;
 	if (target != nullptr) {
 		if (target->serving == &thread) {
@@ -210,6 +315,7 @@ void SyncIpc::expire(Thread &thread) {
 
 void SyncIpc::abandon(Thread &dying) {
 	InterruptGuard guard;
+	leaveEndpoint(dying);
 	while (dying.callers != nullptr) {
 		Thread *caller = dying.callers;
 		dying.callers = caller->callLink;

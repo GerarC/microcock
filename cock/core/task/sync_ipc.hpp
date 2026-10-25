@@ -65,6 +65,26 @@ class SyncIpc {
 						  const uint32_t (&words)[abi::call::WORD_COUNT],
 						  uint32_t milliseconds, uint32_t peer);
 	/**
+	 * @brief Starts a call to an endpoint.
+	 *
+	 * The call waits in the queue of the endpoint, not on a thread, so it survives the death of the
+	 * server: whichever process is bound next accepts it. If the main thread of the bound process
+	 * is waiting in accept it is served at once and receives a scheduler handoff.
+	 *
+	 * @param caller Thread making the call.
+	 * @param endpoint Endpoint id.
+	 * @param words Four payload words copied into the caller.
+	 * @param milliseconds Time limit, the no timeout value for forever, zero to refuse to wait.
+	 * @param peer Badge of the handle the caller used; the server finds it in its `peer` register.
+	 * @return See CallStart. `REFUSED` when the endpoint does not exist or is bound to the process
+	 * of the caller.
+	 * @note Syscall context. The caller is left in the waiting for reply state and a reschedule is
+	 * requested. With no timeout, a caller waits as long as no process is bound.
+	 */
+	static CallStart callThroughEndpoint(Thread &caller, uint32_t endpoint,
+										 const uint32_t (&words)[abi::call::WORD_COUNT],
+										 uint32_t milliseconds, uint32_t peer);
+	/**
 	 * @brief Takes the next request, or waits for one.
 	 * @param server Thread serving.
 	 * @param milliseconds Time limit, the no timeout value for forever, zero to
@@ -100,11 +120,18 @@ class SyncIpc {
 	static bool replyTo(Thread &server, uint32_t ticket,
 						const uint32_t (&words)[abi::call::WORD_COUNT]);
 	/**
-	 * @brief Tells whether requests are queued on a server.
+	 * @brief Tells whether requests are queued for a server.
 	 * @param server Thread to test.
-	 * @return True when at least one caller waits.
+	 * @return True when at least one caller waits on the thread or, for the main thread of a user
+	 * process, on an endpoint bound to its process.
 	 */
-	static bool hasCallers(const Thread &server) { return server.callers != nullptr; }
+	static bool hasCallers(const Thread &server);
+	/**
+	 * @brief Serves the first queued caller of a server that sleeps in accept.
+	 * @param server Thread in the waiting for call state with a queued caller. It is made ready
+	 * with the request in its registers.
+	 */
+	static void resume(Thread &server);
 	/**
 	 * @brief Fails every call tied to a thread that is dying.
 	 * @param dying Thread being killed. Callers queued, deferred or being
@@ -135,6 +162,19 @@ class SyncIpc {
 	 * pointer.
 	 */
 	static uintptr_t frameOf(Thread &thread);
+	/**
+	 * @brief Removes the first queued caller of a server from its queue: the callers of the thread
+	 * first, then those of the endpoints bound to its process.
+	 * @param server Server.
+	 * @return The caller, or null when none waits.
+	 */
+	static Thread *takeCaller(Thread &server);
+	/**
+	 * @brief Takes a caller out of the queue of the endpoint it waits in.
+	 * @param caller Thread whose `callEndpoint` is set. It is left with no endpoint.
+	 * @return True when it was in the queue.
+	 */
+	static bool leaveEndpoint(Thread &caller);
 	/**
 	 * @brief Moves the first queued caller of a server into the serving slot
 	 * and writes caller id and words into the server registers.

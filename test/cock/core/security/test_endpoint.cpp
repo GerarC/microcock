@@ -5,11 +5,18 @@
 #include <cock/core/security/capability_transfer.hpp>
 #include <cock/core/security/capability_tree.hpp>
 #include <cock/core/security/revocation.hpp>
+#include <cock/abi/call.hpp>
 #include <cock/core/syscall/ipc/endpoint_route.hpp>
 #include <cock/core/task/endpoint_table.hpp>
+#include <cock/core/task/ipc.hpp>
 #include <cock/core/task/process.hpp>
+#include <cock/core/task/reply_table.hpp>
+#include <cock/core/task/scheduler.hpp>
+#include <cock/core/task/sync_ipc.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
+#include <cock/core/task/timeouts.hpp>
+#include <cock/ipc/message.hpp>
 #include <hal/address_space.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -30,14 +37,25 @@ using core::security::CAPABILITY_FLAG_MINT;
 using core::security::delegate_capability;
 using core::security::NO_CAPABILITY_NODE;
 using core::security::revoke_capability;
+using core::hal::SyscallFrame;
 using core::syscall::EndpointRoute;
 using core::syscall::resolveHandle;
+using core::task::AcceptResult;
+using core::task::CallStart;
 using core::task::endpoint_table;
 using core::task::EndpointTable;
+using core::task::IPC;
 using core::task::Process;
+using core::task::reply_table;
+using core::task::Scheduler;
+using core::task::SyncIpc;
 using core::task::TaskManager;
+using core::task::Timeouts;
+using ipc::Message;
+using ipc::MessageType;
 using core::task::Thread;
 using core::task::ThreadPriority;
+using core::task::ThreadResult;
 using core::task::ThreadState;
 using abi::endpoint::FIRST_ENDPOINT;
 using abi::endpoint::NO_BADGE;
@@ -60,6 +78,25 @@ constexpr uint32_t NO_FLAGS = 0;
 constexpr uint32_t FIRST_OWNER = 5;
 constexpr uint32_t SECOND_OWNER = 6;
 constexpr uint32_t THIRD_OWNER = 9;
+constexpr uint32_t FIRST_VALUE = 0x61;
+constexpr uint32_t SECOND_VALUE = 0x62;
+constexpr size_t QUEUED_AFTER_TWO_POSTS = 2;
+constexpr size_t NO_MESSAGES = 0;
+constexpr uintptr_t FAKE_STACK_POINTER = 0x1000;
+constexpr size_t DRAIN_LIMIT = 64;
+
+Thread *idleThread = nullptr;
+constexpr size_t ONE_MESSAGE = 1;
+constexpr uint32_t NO_REQUESTER = 0;
+constexpr size_t PEER_VALUE = 0;
+constexpr size_t FIRST_WORD_VALUE = 1;
+constexpr uint32_t SHORT_WAIT_MILLISECONDS = 50;
+constexpr uint32_t NO_WAIT_MILLISECONDS = 0;
+constexpr uint64_t SETTLE_TICKS = 100;
+constexpr uint32_t FIRST_REQUEST[abi::call::WORD_COUNT] = {0x11, 0x12, 0x13, 0x14};
+constexpr uint32_t SECOND_REQUEST[abi::call::WORD_COUNT] = {0x21, 0x22, 0x23, 0x24};
+constexpr uint32_t FIRST_REPLY[abi::call::WORD_COUNT] = {0xA1, 0xA2, 0xA3, 0xA4};
+constexpr uint32_t SECOND_REPLY[abi::call::WORD_COUNT] = {0xB1, 0xB2, 0xB3, 0xB4};
 
 struct Party {
 	Process *process = nullptr;
@@ -333,6 +370,246 @@ void checkRevokedHandleLeadsNowhere() {
 	retire(server);
 }
 
+ThreadResult idleEntry() { return ThreadResult::success(); }
+
+void retire(Thread *thread) {
+	thread->setState(ThreadState::DEAD);
+	TaskManager::notifyThreadDeath(thread);
+}
+
+void startScheduler() {
+	Scheduler::init();
+	Scheduler::setIdleThread(idleThread);
+}
+
+void drain() {
+	for (size_t round = 0; round < DRAIN_LIMIT; round++) {
+		Thread *current = Scheduler::getCurrentThread();
+		if (current == idleThread) return;
+		if (current != nullptr) current->setState(ThreadState::BLOCKED);
+		Scheduler::onYield(FAKE_STACK_POINTER);
+	}
+}
+
+Message makeMessage(MessageType type, uint32_t value) {
+	Message message = {};
+	message.type = type;
+	message.badge = CLIENT_BADGE;
+	message.payload.args.arg0 = value;
+	return message;
+}
+
+void checkResolveNamesAnUnboundEndpoint() {
+	Party minter = makeParty();
+	Party client = makeParty();
+	uint32_t endpoint = createFor(minter, CAPABILITY_FLAG_GRANT | CAPABILITY_FLAG_MINT);
+	CapabilityNodeId node = delegate_capability(*minter.process, *client.process, CapabilityType::ENDPOINT,
+												endpoint, SINGLE_ENDPOINT, false, false, CLIENT_BADGE);
+
+	EndpointRoute route = resolveHandle(*client.thread, node);
+	EXPECT_EQ(route.endpoint, endpoint);
+	EXPECT_EQ(route.badge, CLIENT_BADGE);
+	EXPECT_TRUE(route.target == nullptr);
+
+	EXPECT_EQ(resolveHandle(*client.thread, UNKNOWN_HANDLE).endpoint, NO_ENDPOINT);
+	EXPECT_TRUE(revoke_capability(*minter.process, node));
+	EXPECT_EQ(resolveHandle(*client.thread, node).endpoint, NO_ENDPOINT);
+
+	retire(client);
+	retire(minter);
+}
+
+void checkMessagesWaitForTheNextOwner() {
+	Party first = makeParty();
+	Party second = makeParty();
+	Party sender = makeParty();
+	uint32_t endpoint = createFor(sender, CAPABILITY_FLAG_GRANT | CAPABILITY_FLAG_MINT);
+	uint32_t token = reply_table.openQueued(sender.thread->getId(), sender.id());
+	Message request = makeMessage(MessageType::SYS_PING, FIRST_VALUE);
+	request.reply = token;
+
+	EXPECT_TRUE(endpoint_table.bind(endpoint, first.id()));
+	EXPECT_TRUE(IPC::post(endpoint, request));
+	EXPECT_TRUE(first.thread->hasMessages());
+	EXPECT_FALSE(second.thread->hasMessages());
+	retire(first);
+
+	EXPECT_TRUE(IPC::post(endpoint, makeMessage(MessageType::SYS_PONG, SECOND_VALUE)));
+	EXPECT_EQ(endpoint_table.queuedCount(endpoint), QUEUED_AFTER_TWO_POSTS);
+	EXPECT_FALSE(reply_table.holds(token, second.id()));
+
+	EXPECT_TRUE(endpoint_table.bind(endpoint, second.id()));
+	EXPECT_TRUE(second.thread->hasMessages());
+	Message taken = {};
+	EXPECT_TRUE(second.thread->getNextMessage(taken));
+	EXPECT_EQ(taken.payload.args.arg0, FIRST_VALUE);
+	EXPECT_EQ(taken.badge, CLIENT_BADGE);
+	EXPECT_EQ(taken.target_pid, second.thread->getId());
+	EXPECT_EQ(taken.reply, token);
+	EXPECT_TRUE(reply_table.holds(token, second.id()));
+	EXPECT_TRUE(second.thread->getNextMessage(taken));
+	EXPECT_EQ(taken.payload.args.arg0, SECOND_VALUE);
+	EXPECT_FALSE(second.thread->getNextMessage(taken));
+	EXPECT_FALSE(second.thread->hasMessages());
+
+	reply_table.close(token);
+	retire(second);
+	retire(sender);
+}
+
+void checkAFullQueueRefusesAndOnlyTheOwnerDrainsIt() {
+	Party owner = makeParty();
+	Party other = makeParty();
+	uint32_t endpoint = createFor(owner, CAPABILITY_FLAG_GRANT | CAPABILITY_FLAG_MINT);
+	EXPECT_TRUE(endpoint_table.bind(endpoint, owner.id()));
+
+	for (size_t index = 0; index < abi::endpoint::MAX_QUEUED_PER_ENDPOINT; index++)
+		EXPECT_TRUE(IPC::post(endpoint, makeMessage(MessageType::SYS_PING, FIRST_VALUE)));
+	EXPECT_FALSE(IPC::post(endpoint, makeMessage(MessageType::SYS_PING, FIRST_VALUE)));
+
+	Message taken = {};
+	EXPECT_FALSE(other.thread->hasMessages());
+	EXPECT_FALSE(other.thread->getNextMessage(taken));
+	for (size_t index = 0; index < abi::endpoint::MAX_QUEUED_PER_ENDPOINT; index++)
+		EXPECT_TRUE(owner.thread->getNextMessage(taken));
+	EXPECT_FALSE(owner.thread->getNextMessage(taken));
+	EXPECT_EQ(endpoint_table.queuedMessages(), NO_MESSAGES);
+	EXPECT_TRUE(IPC::post(endpoint, makeMessage(MessageType::SYS_PING, FIRST_VALUE)));
+	EXPECT_TRUE(owner.thread->getNextMessage(taken));
+
+	retire(other);
+	retire(owner);
+}
+
+void checkCapabilityMessagesDoNotPassToANewOwner() {
+	Party first = makeParty();
+	Party second = makeParty();
+	Party sender = makeParty();
+	uint32_t endpoint = createFor(sender, CAPABILITY_FLAG_GRANT | CAPABILITY_FLAG_MINT);
+	uint32_t token = reply_table.openQueued(sender.thread->getId(), sender.id());
+	Message transfer = makeMessage(MessageType::CAPABILITY_TRANSFER, FIRST_VALUE);
+	transfer.reply = token;
+
+	EXPECT_TRUE(endpoint_table.bind(endpoint, first.id()));
+	EXPECT_TRUE(IPC::post(endpoint, transfer));
+	EXPECT_TRUE(IPC::post(endpoint, makeMessage(MessageType::SYS_PING, SECOND_VALUE)));
+	EXPECT_TRUE(endpoint_table.bind(endpoint, second.id(), core::task::closeTokenOfMessage));
+
+	EXPECT_EQ(endpoint_table.queuedCount(endpoint), ONE_MESSAGE);
+	EXPECT_EQ(reply_table.requesterOf(token), NO_REQUESTER);
+	Message taken = {};
+	EXPECT_TRUE(second.thread->getNextMessage(taken));
+	EXPECT_EQ(taken.payload.args.arg0, SECOND_VALUE);
+	EXPECT_FALSE(second.thread->getNextMessage(taken));
+
+	retire(second);
+	retire(first);
+	retire(sender);
+}
+
+void checkCallsWaitForTheNextOwner() {
+	startScheduler();
+	Party first = makeParty();
+	Party second = makeParty();
+	Party client = makeParty();
+	uint32_t endpoint = createFor(client, CAPABILITY_FLAG_GRANT | CAPABILITY_FLAG_MINT);
+
+	EXPECT_TRUE(SyncIpc::callThroughEndpoint(*client.thread, endpoint, FIRST_REQUEST, abi::call::NO_TIMEOUT,
+											 CLIENT_BADGE) == CallStart::BLOCKED);
+	EXPECT_TRUE(client.thread->getState() == ThreadState::WAITING_REPLY);
+	EXPECT_EQ(client.thread->callEndpoint, endpoint);
+	EXPECT_TRUE(client.thread->callTarget == nullptr);
+	EXPECT_FALSE(SyncIpc::hasCallers(*first.thread));
+
+	EXPECT_TRUE(endpoint_table.bind(endpoint, first.id()));
+	EXPECT_TRUE(SyncIpc::hasCallers(*first.thread));
+	EXPECT_FALSE(SyncIpc::hasCallers(*second.thread));
+	retire(first);
+	EXPECT_TRUE(client.thread->getState() == ThreadState::WAITING_REPLY);
+
+	EXPECT_TRUE(endpoint_table.bind(endpoint, second.id()));
+	EXPECT_TRUE(SyncIpc::hasCallers(*second.thread));
+	EXPECT_TRUE(SyncIpc::accept(*second.thread, abi::call::NO_TIMEOUT) == AcceptResult::SERVED);
+	EXPECT_FALSE(SyncIpc::hasCallers(*second.thread));
+	EXPECT_TRUE(second.thread->serving == client.thread);
+	EXPECT_TRUE(client.thread->callTarget == second.thread);
+	EXPECT_EQ(client.thread->callEndpoint, NO_ENDPOINT);
+
+	SyscallFrame request = {};
+	core::hal::read_syscall_frame(second.thread->getStackPointer(), request);
+	EXPECT_EQ(request.result, abi::call::SUCCESS);
+	EXPECT_EQ(request.values[PEER_VALUE], static_cast<uintptr_t>(CLIENT_BADGE));
+	EXPECT_EQ(request.values[FIRST_WORD_VALUE], static_cast<uintptr_t>(FIRST_REQUEST[0]));
+
+	EXPECT_TRUE(SyncIpc::reply(*second.thread, FIRST_REPLY, false));
+	EXPECT_TRUE(client.thread->getState() == ThreadState::READY);
+
+	Scheduler::takeRescheduleRequest();
+	drain();
+	retire(second);
+	retire(client);
+	TaskManager::buryDeadThreads();
+}
+
+void checkAQueuedCallTimesOutAndLeavesTheQueue() {
+	startScheduler();
+	Party server = makeParty();
+	Party client = makeParty();
+	uint32_t endpoint = createFor(client, CAPABILITY_FLAG_GRANT | CAPABILITY_FLAG_MINT);
+
+	EXPECT_TRUE(SyncIpc::callThroughEndpoint(*client.thread, endpoint, FIRST_REQUEST, SHORT_WAIT_MILLISECONDS,
+											 CLIENT_BADGE) == CallStart::BLOCKED);
+	for (uint64_t tick = 0; tick < SETTLE_TICKS; tick++)
+		Timeouts::onTick();
+
+	EXPECT_TRUE(client.thread->getState() == ThreadState::READY);
+	EXPECT_EQ(client.thread->callEndpoint, NO_ENDPOINT);
+	SyscallFrame answer = {};
+	core::hal::read_syscall_frame(client.thread->getStackPointer(), answer);
+	EXPECT_EQ(answer.result, abi::call::TIMED_OUT);
+
+	EXPECT_TRUE(endpoint_table.bind(endpoint, server.id()));
+	EXPECT_FALSE(SyncIpc::hasCallers(*server.thread));
+	EXPECT_TRUE(SyncIpc::callThroughEndpoint(*client.thread, endpoint, FIRST_REQUEST, NO_WAIT_MILLISECONDS,
+											 CLIENT_BADGE) == CallStart::TIMED_OUT);
+	EXPECT_TRUE(SyncIpc::callThroughEndpoint(*client.thread, NO_ENDPOINT, FIRST_REQUEST,
+											 abi::call::NO_TIMEOUT, CLIENT_BADGE) == CallStart::REFUSED);
+
+	Scheduler::takeRescheduleRequest();
+	drain();
+	retire(server);
+	retire(client);
+	TaskManager::buryDeadThreads();
+}
+
+void checkARestartedServerTakesTheCallerThatWaitedAsleep() {
+	startScheduler();
+	Party first = makeParty();
+	Party second = makeParty();
+	Party client = makeParty();
+	uint32_t endpoint = createFor(client, CAPABILITY_FLAG_GRANT | CAPABILITY_FLAG_MINT);
+
+	EXPECT_TRUE(endpoint_table.bind(endpoint, first.id()));
+	EXPECT_TRUE(SyncIpc::accept(*first.thread, abi::call::NO_TIMEOUT) == AcceptResult::BLOCKED);
+	EXPECT_TRUE(first.thread->getState() == ThreadState::WAITING_CALL);
+	retire(first);
+
+	EXPECT_TRUE(SyncIpc::callThroughEndpoint(*client.thread, endpoint, SECOND_REQUEST, abi::call::NO_TIMEOUT,
+											 CLIENT_BADGE) == CallStart::BLOCKED);
+	EXPECT_TRUE(client.thread->getState() == ThreadState::WAITING_REPLY);
+
+	EXPECT_TRUE(endpoint_table.bind(endpoint, second.id()));
+	EXPECT_TRUE(SyncIpc::accept(*second.thread, abi::call::NO_TIMEOUT) == AcceptResult::SERVED);
+	EXPECT_TRUE(SyncIpc::reply(*second.thread, SECOND_REPLY, false));
+	EXPECT_TRUE(client.thread->getState() == ThreadState::READY);
+
+	Scheduler::takeRescheduleRequest();
+	drain();
+	retire(second);
+	retire(client);
+	TaskManager::buryDeadThreads();
+}
+
 } // namespace
 
 void test_endpoint() {
@@ -349,6 +626,17 @@ void test_endpoint() {
 	checkResolveFindsTheOwnerAndTheBadge();
 	checkRestartedServerKeepsTheHandles();
 	checkRevokedHandleLeadsNowhere();
+	idleThread = new Thread(idleEntry, ThreadPriority::IDLE);
+	checkResolveNamesAnUnboundEndpoint();
+	checkMessagesWaitForTheNextOwner();
+	checkAFullQueueRefusesAndOnlyTheOwnerDrainsIt();
+	checkCapabilityMessagesDoNotPassToANewOwner();
+	checkCallsWaitForTheNextOwner();
+	checkAQueuedCallTimesOutAndLeavesTheQueue();
+	checkARestartedServerTakesTheCallerThatWaitedAsleep();
+	retire(idleThread);
+	TaskManager::buryDeadThreads();
+	idleThread = nullptr;
 	endpoint_table.clear();
 	TestRunner::end_suite();
 }

@@ -52,7 +52,7 @@ Process::~Process() {
 	if (id != NO_PROCESS_ID) {
 		hal::InterruptGuard guard;
 		security::capability_tree.releaseHolder(id);
-		endpoint_table.releaseOwner(id);
+		endpoint_table.releaseOwner(id, closeTokenOfMessage);
 		reply_table.releaseProcess(id);
 	}
 

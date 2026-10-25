@@ -49,6 +49,9 @@ constexpr uint32_t TAG_BY_PROCESS_ID = 0xB2;
 /** Value of `arg0` of the message sent through the owner handle after the endpoint was bound to the giver. */
 constexpr uint32_t TAG_AFTER_REBIND = 0xC3;
 
+/** Value of `arg0` of the messages the giver sends to an endpoint that nobody is bound to yet. */
+constexpr uint32_t TAG_QUEUED = 0xC4;
+
 /** Stage of the call that gives the server a handle to forward through; word 1 is the handle in the table of the server. */
 constexpr uint32_t STAGE_SET_FORWARD = 4;
 

@@ -3,6 +3,8 @@
 #include <cock/core/irq/irq_routing.hpp>
 #include <cock/core/memory/slab_pool.hpp>
 #include <cock/core/memory/vmm.hpp>
+#include <cock/core/task/endpoint_table.hpp>
+#include <cock/core/task/reply_table.hpp>
 #include <cock/core/task/sched_metrics.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/futex.hpp>
@@ -38,6 +40,23 @@ void *Thread::operator new(size_t size) {
 }
 
 void Thread::operator delete(void *pointer) { ThreadPool::release(pointer); }
+
+bool Thread::getNextMessage(Message &out) {
+	if (inbox.pop(out)) return true;
+	if (process == nullptr || process->isKernel() || !isMainThread()) return false;
+
+	uint32_t owner = process->getId();
+	if (!endpoint_table.take(owner, out)) return false;
+	out.target_pid = id;
+	if (out.reply != abi::endpoint::NO_REPLY) reply_table.claim(out.reply, owner);
+	return true;
+}
+
+bool Thread::hasMessages() const {
+	if (!inbox.isEmpty()) return true;
+	return process != nullptr && !process->isKernel() && isMainThread() &&
+		   endpoint_table.hasQueuedFor(process->getId());
+}
 
 Thread::Thread(ThreadFunction entry_point, ThreadPriority priority) {
 	initBase(priority, ThreadType::KERNEL, TaskManager::getKernelProcess());

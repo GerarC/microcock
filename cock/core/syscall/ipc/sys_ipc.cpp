@@ -85,6 +85,19 @@ static uintptr_t queue_message(Thread &current, Message &message, Thread &target
 	return FAILURE;
 }
 
+static uintptr_t post_message(Thread &current, Message &message, const EndpointRoute &route) {
+	CapabilityNodeId node = NO_CAPABILITY_NODE;
+	if (message.type == MessageType::CAPABILITY_TRANSFER) {
+		if (route.target == nullptr) return FAILURE;
+		node = attach_capability(current, *route.target->getProcess(), message);
+		if (node == NO_CAPABILITY_NODE) return FAILURE;
+	}
+
+	if (IPC::post(route.endpoint, message)) return node == NO_CAPABILITY_NODE ? SUCCESS : node;
+	if (node != NO_CAPABILITY_NODE) security::withdraw_capability(*route.target->getProcess(), node);
+	return FAILURE;
+}
+
 uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
 					   uintptr_t, uintptr_t, uintptr_t) {
 	Thread *current = Scheduler::getCurrentThread();
@@ -112,19 +125,18 @@ uintptr_t sys_ep_send(uintptr_t handle, uintptr_t msg_ptr, uintptr_t flags,
 	if (!sender_may_use(*current, message.type)) return FAILURE;
 
 	EndpointRoute route = resolveHandle(*current, handle);
-	if (route.target == nullptr) return FAILURE;
+	if (route.endpoint == abi::endpoint::NO_ENDPOINT) return FAILURE;
 	message.badge = route.badge;
 	message.reply = abi::endpoint::NO_REPLY;
 
 	uint32_t token = abi::endpoint::NO_REPLY;
 	if (flags & abi::endpoint::SEND_EXPECT_REPLY) {
-		token = reply_table.open(route.target->getProcess()->getId(), current->getId(),
-								 current->getProcess()->getId());
+		token = reply_table.openQueued(current->getId(), current->getProcess()->getId());
 		if (token == abi::endpoint::NO_REPLY) return FAILURE;
 		message.reply = token;
 	}
 
-	uintptr_t result = queue_message(*current, message, *route.target);
+	uintptr_t result = post_message(*current, message, route);
 	if (result == FAILURE && token != abi::endpoint::NO_REPLY) reply_table.close(token);
 	return result;
 }
@@ -171,14 +183,13 @@ uintptr_t sys_ep_forward(uintptr_t token, uintptr_t handle, uintptr_t msg_ptr,
 		return FAILURE;
 
 	EndpointRoute route = resolveHandle(*current, handle);
-	if (route.target == nullptr) return FAILURE;
+	if (route.endpoint == abi::endpoint::NO_ENDPOINT) return FAILURE;
 	message.badge = route.badge;
 	message.reply = static_cast<uint32_t>(token);
 
-	uint32_t next = route.target->getProcess()->getId();
-	if (!reply_table.pass(message.reply, holder, next)) return FAILURE;
-	if (IPC::deliver(route.target->getId(), message)) return SUCCESS;
-	reply_table.pass(message.reply, next, holder);
+	if (!reply_table.park(message.reply, holder)) return FAILURE;
+	if (IPC::post(route.endpoint, message)) return SUCCESS;
+	reply_table.claim(message.reply, holder);
 	return FAILURE;
 }
 

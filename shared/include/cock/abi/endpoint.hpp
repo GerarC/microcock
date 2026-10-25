@@ -3,7 +3,9 @@
  * @brief Endpoints and handles: the destination of a message is an endpoint the sender holds a handle on, not a process id.
  *
  * An endpoint is a numbered mailbox in the kernel. One process at a time is bound to it and receives what is sent to it;
- * `init` can bind another process after the first one dies, and the handles that clients hold keep working. A handle is an
+ * `init` can bind another process after the first one dies, and the handles that clients hold keep working. The messages
+ * and the synchronous calls sent to the endpoint wait in a queue that belongs to the endpoint, so the process bound next
+ * receives what was sent while nobody was bound. A handle is an
  * `ENDPOINT` capability: `SYS_EP_SEND` and `SYS_EP_CALL` take the number of its node of the derivation tree. Every handle
  * carries a badge that the kernel stores in the message, so the receiver learns which client sent it without the sender
  * being able to choose or forge it.
@@ -42,6 +44,12 @@ constexpr size_t MAX_REPLIES = 256;
 
 /** Most reply tokens one process can have open as the one that asked, so a server that never answers cannot use up the table. */
 constexpr size_t MAX_REPLIES_PER_REQUESTER = 16;
+
+/** Most asynchronous messages that wait in the queue of one endpoint; a send to a full queue fails like a send to a full inbox. */
+constexpr size_t MAX_QUEUED_PER_ENDPOINT = 16;
+
+/** Number of queued messages the kernel can hold for all the endpoints together. */
+constexpr size_t QUEUED_MESSAGE_POOL = 256;
 
 /** Id of the first endpoint created; ids follow in order, and a range of the capability that names every endpoint is `FIRST_ENDPOINT` with `MAX_ENDPOINTS` entries. */
 constexpr uint32_t FIRST_ENDPOINT = 1;
