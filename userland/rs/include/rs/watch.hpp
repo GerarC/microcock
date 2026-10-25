@@ -34,7 +34,8 @@ bool watchProgram(const cock::abi::manifest::Entry &entry, uint32_t pid);
  *
  * Reads the `PM_EXITED` and `PM_SPAWNED` messages that `pm` sends and the ones kept by `awaitExit` and
  * `keepExitNotice`. A `PM_SPAWNED` message makes `rs` register the new process with the name server and equip it
- * (`startedForInit`). When a watched
+ * (`startedForInit`); a `PM_FORKED` message makes it tell the name server that a process is a copy of another
+ * (`registerFork`). When a watched
  * program ends it is spawned again from the same entry and given its capabilities and bound to the name server again, and
  * `rs: restarted <name> <n> of <limit>` is printed. Each program may be restarted `restarts`
  * times in one window of `RESTART_WINDOW_MILLISECONDS`; the counter starts again when the window

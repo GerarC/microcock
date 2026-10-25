@@ -130,4 +130,13 @@ bool bindService(uint32_t label, uint32_t pid) {
 	return false;
 }
 
+bool registerFork(uint32_t child, uint32_t parent) {
+	uint32_t words[CALL_WORDS] = {cock::abi::names::pack(Op::FORKED), child, parent};
+	if (ask(words)) return true;
+	if (!cock::user::process_alive(child)) return false;
+	printf("rs: cannot register copy %u of %u\n", static_cast<unsigned>(child),
+		   static_cast<unsigned>(parent));
+	return false;
+}
+
 } // namespace cock::rs

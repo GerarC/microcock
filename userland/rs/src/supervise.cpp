@@ -1,5 +1,6 @@
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <rs/directory.hpp>
 #include <rs/pm.hpp>
 #include <rs/supervise.hpp>
 #include <stddef.h>
@@ -17,6 +18,8 @@ namespace cock::rs {
 void keepExitNotice(const Message &message) {
 	if (isSpawnNotice(message))
 		startedForInit(message.payload.args.arg0, message.payload.args.arg1);
+	else if (isForkNotice(message))
+		registerFork(message.payload.args.arg0, message.payload.args.arg1);
 	else if (isExitNotice(message))
 		cock::user::stash_message(message);
 }

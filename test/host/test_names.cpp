@@ -1,5 +1,6 @@
 #include <cock/abi/names.hpp>
 #include <names/assembly.hpp>
+#include <names/forked.hpp>
 #include <names/paths.hpp>
 #include <names/policy.hpp>
 #include <names/services.hpp>
@@ -11,6 +12,7 @@
 namespace host_test {
 
 using namespace cock::abi::names;
+using cock::names::addForked;
 using cock::names::addPart;
 using cock::names::allowTalk;
 using cock::names::Assembled;
@@ -18,6 +20,9 @@ using cock::names::defineService;
 using cock::names::findByLabel;
 using cock::names::findByName;
 using cock::names::findByPid;
+using cock::names::findClient;
+using cock::names::findForked;
+using cock::names::MAX_FORKED;
 using cock::names::lists;
 using cock::names::MAX_ASSEMBLIES;
 using cock::names::MAX_PATH_BYTES;
@@ -42,6 +47,10 @@ constexpr uint32_t OUTSIDER_LABEL = 19;
 constexpr uint32_t UNKNOWN_LABEL = 99;
 constexpr uint32_t SHELL_PID = 7;
 constexpr uint32_t OTHER_PID = 8;
+constexpr uint32_t COPY_PID = 200;
+constexpr uint32_t COPY_OF_COPY_PID = 201;
+constexpr uint32_t STRANGER_PID = 202;
+constexpr uint32_t FIRST_FILLER = 300;
 constexpr uint32_t FIRST_CALLER = 100;
 constexpr uint32_t SECOND_CALLER = 101;
 constexpr size_t NO_ENTRIES = 0;
@@ -53,6 +62,8 @@ constexpr size_t NO_PART = 0;
 bool allAlive(uint32_t) { return true; }
 
 bool noneAlive(uint32_t) { return false; }
+
+bool onlyStrangerAlive(uint32_t pid) { return pid == STRANGER_PID; }
 
 void send(const char *name, size_t part, size_t parts, uint32_t (&words)[CALL_WORDS]) {
 	words[HEADER_WORD] = pack(Op::CONNECT, 0, part, part + 1 == parts);
@@ -230,6 +241,35 @@ void checkPolicy() {
 	CHECK_FALSE(allowTalk(*outsider, VFS_LABEL));
 }
 
+void checkForked() {
+	Service *console = findByLabel(CONSOLE_LABEL);
+	CHECK_TRUE(console != nullptr);
+
+	CHECK_TRUE(addForked(COPY_PID, SHELL_PID, allAlive));
+	CHECK_TRUE(findForked(COPY_PID, allAlive) == console);
+	CHECK_TRUE(findClient(COPY_PID, allAlive) == console);
+	CHECK_TRUE(findClient(SHELL_PID, allAlive) == console);
+	CHECK_TRUE(findForked(COPY_PID, noneAlive) == nullptr);
+	CHECK_TRUE(findForked(SHELL_PID, allAlive) == nullptr);
+	CHECK_EQ(SHELL_PID, console->pid);
+
+	CHECK_TRUE(addForked(COPY_PID, SHELL_PID, allAlive));
+	CHECK_TRUE(addForked(COPY_OF_COPY_PID, COPY_PID, allAlive));
+	CHECK_TRUE(findClient(COPY_OF_COPY_PID, allAlive) == console);
+
+	CHECK_FALSE(addForked(STRANGER_PID, OTHER_PID, allAlive));
+	CHECK_FALSE(addForked(STRANGER_PID, STRANGER_PID, allAlive));
+	CHECK_FALSE(addForked(SHELL_PID, COPY_PID, allAlive));
+	CHECK_FALSE(addForked(STRANGER_PID, SHELL_PID, noneAlive));
+	CHECK_FALSE(addForked(NOT_RUNNING, SHELL_PID, allAlive));
+	CHECK_TRUE(findClient(STRANGER_PID, allAlive) == nullptr);
+
+	for (uint32_t index = 0; index < MAX_FORKED; index++) addForked(FIRST_FILLER + index, SHELL_PID, allAlive);
+	CHECK_FALSE(addForked(STRANGER_PID, SHELL_PID, allAlive));
+	CHECK_TRUE(addForked(STRANGER_PID, SHELL_PID, onlyStrangerAlive));
+	CHECK_TRUE(findForked(STRANGER_PID, onlyStrangerAlive) == console);
+}
+
 } // namespace
 
 void testNames() {
@@ -240,6 +280,7 @@ void testNames() {
 	checkPaths();
 	checkServices();
 	checkPolicy();
+	checkForked();
 }
 
 } // namespace host_test

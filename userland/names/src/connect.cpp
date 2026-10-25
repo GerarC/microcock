@@ -2,6 +2,7 @@
 #include <cock/abi/endpoint.hpp>
 #include <cock/user/api.hpp>
 #include <names/connect.hpp>
+#include <names/forked.hpp>
 #include <names/grants.hpp>
 #include <names/policy.hpp>
 #include <names/services.hpp>
@@ -20,7 +21,7 @@ constexpr bool NO_MINT = false;
 namespace cock::names {
 
 Status connect(uint32_t client, const char *name, uint32_t (&reply)[abi::names::CALL_WORDS]) {
-	const Service *caller = findByPid(client);
+	const Service *caller = findClient(client, cock::user::process_alive);
 	if (caller == nullptr) return Status::UNKNOWN_CLIENT;
 
 	const Service *server = findByName(name);

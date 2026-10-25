@@ -24,8 +24,9 @@ constexpr uint32_t NOTICE_RETRY_MILLISECONDS = 50;
 void takeMessage(const cock::ipc::Message &message);
 
 /**
- * @brief Delivers the notices the root server had no room for: the exits that must be forwarded, and the
- * `PM_SPAWNED` message of each process `init` asked for.
+ * @brief Delivers the notices the root server had no room for: the exits that must be forwarded, the
+ * `PM_SPAWNED` message of each process `init` asked for, and the `PM_FORKED` message of each copy made by `fork`
+ * (kernel ids of the copy and of its parent; a copy whose parent has no row any more is dropped).
  *
  * Stops at the first one that still does not fit; its row keeps the mark and the next call tries it again.
  *

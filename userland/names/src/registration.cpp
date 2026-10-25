@@ -1,5 +1,6 @@
 #include <cock/abi/service.hpp>
 #include <cock/user/api.hpp>
+#include <names/forked.hpp>
 #include <names/paths.hpp>
 #include <names/registration.hpp>
 #include <names/services.hpp>
@@ -28,6 +29,10 @@ Status bind(uint32_t label, uint32_t pid, uint32_t endpoint) {
 	return Status::OK;
 }
 
+Status forked(uint32_t child, uint32_t parent) {
+	return addForked(child, parent, cock::user::process_alive) ? Status::OK : Status::BAD_REQUEST;
+}
+
 } // namespace
 
 Status registerService(uint32_t process, const uint32_t (&words)[abi::names::CALL_WORDS]) {
@@ -40,6 +45,8 @@ Status registerService(uint32_t process, const uint32_t (&words)[abi::names::CAL
 		return allow(label, words[abi::names::PID_WORD]);
 	case static_cast<uint32_t>(Op::BIND):
 		return bind(label, words[abi::names::PID_WORD], words[abi::names::ENDPOINT_WORD]);
+	case static_cast<uint32_t>(Op::FORKED):
+		return forked(words[abi::names::PID_WORD], words[abi::names::PARENT_WORD]);
 	default:
 		return Status::BAD_REQUEST;
 	}

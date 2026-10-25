@@ -12,7 +12,7 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `pm` | Process manager. `rs` creates it from the initrd and it creates every other process after it; it is their parent in the kernel and keeps the table; see [pm](pm.md) |
 | `init` | The first process as Linux sees it (id 1), without authority: starts the programs of the manifest that carry `parent=init` (the shell) and starts them again; see [pm](pm.md) |
 | `pmclient` | Test program: lists the table of `pm`, checks the first rows, its own row and that a caller that is not `rs` is refused; the end to end test requires `pmclient: ok` |
-| `forkprobe` | Test program: forks through `pm`, changes a global and a stack variable on each side and checks that each keeps its own value, forks again inside the child (which only works through the handle it inherited), and collects both with `wait`; the end to end test requires `forkprobe: ok` |
+| `forkprobe` | Test program: forks through `pm`, changes a global and a stack variable on each side and checks that each keeps its own value, forks again inside the child (which only works through the handle it inherited), connects the child and the grandchild through the name server (`console` allowed, `vfs` refused, as for the parent), and collects both with `wait`; the end to end test requires `forkprobe: ok` |
 | `names` | Name server, the second boot module. `rs` describes the system to it; a program asks it, through the handle it was born with, for a handle on a server; see [names](names.md) |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `rs` can read the manifest) |

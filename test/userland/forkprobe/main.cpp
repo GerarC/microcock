@@ -14,6 +14,8 @@ using cock::user::pm::Waited;
 namespace {
 
 constexpr char SERVER_NAME[] = "pm";
+constexpr char ALLOWED_NAME[] = "console";
+constexpr char FORBIDDEN_NAME[] = "vfs";
 constexpr uint32_t ORIGINAL = 0x600D;
 constexpr uint32_t PARENT_CHANGED = 0xA11CE;
 constexpr uint32_t CHILD_CHANGED = 0xB0B;
@@ -24,20 +26,33 @@ constexpr int CHILD_COULD_NOT_FORK = 3;
 constexpr int CHILD_LOST_ITS_VALUES = 4;
 constexpr int CHILD_BAD_WAIT = 5;
 constexpr int GRANDCHILD_SAW_WRONG_VALUES = 6;
+constexpr int CHILD_NAMES_REFUSED = 7;
+constexpr int CHILD_NAMES_TOO_OPEN = 8;
+constexpr int GRANDCHILD_NAMES_WRONG = 9;
 constexpr int CHILD_PASSED = 42;
 constexpr int GRANDCHILD_PASSED = 43;
 
 volatile uint32_t dataValue = ORIGINAL;
 
+bool connects(const char *name, cock::abi::names::Status expected) {
+	return cock::user::names::connect(name).status == expected;
+}
+
 int runGrandchild(volatile uint32_t &local) {
 	bool inherited = dataValue == CHILD_CHANGED && local == CHILD_CHANGED;
-	return inherited ? GRANDCHILD_PASSED : GRANDCHILD_SAW_WRONG_VALUES;
+	if (!inherited) return GRANDCHILD_SAW_WRONG_VALUES;
+	if (!connects(ALLOWED_NAME, cock::abi::names::Status::OK) ||
+		!connects(FORBIDDEN_NAME, cock::abi::names::Status::DENIED))
+		return GRANDCHILD_NAMES_WRONG;
+	return GRANDCHILD_PASSED;
 }
 
 int runChild(cock::user::pm::Client &client, volatile uint32_t &local) {
 	if (dataValue != ORIGINAL || local != ORIGINAL) return CHILD_SAW_WRONG_VALUES;
 	dataValue = CHILD_CHANGED;
 	local = CHILD_CHANGED;
+	if (!connects(ALLOWED_NAME, cock::abi::names::Status::OK)) return CHILD_NAMES_REFUSED;
+	if (!connects(FORBIDDEN_NAME, cock::abi::names::Status::DENIED)) return CHILD_NAMES_TOO_OPEN;
 
 	Forked grandchild = client.fork();
 	if (grandchild.status != Status::OK) return CHILD_COULD_NOT_FORK;

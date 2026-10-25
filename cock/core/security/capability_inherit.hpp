@@ -41,8 +41,8 @@ bool can_inherit_capabilities(const task::Process &parent);
  * source, which is what the program stored in its memory. It keeps the badge too, with one
  * exception: a badge equal to the id of the parent is the identity servers know the parent by
  * (the initial handle of a process carries it), so the copy gets the id of the child and a
- * server tells the two apart. A server that has never heard of the child, such as the name
- * server, does not answer it until it learns of it.
+ * server tells the two apart. A server that keeps a table of its clients, such as the name
+ * server, must be told of the child (`PM_FORKED`); until then it does not answer it.
  *
  * @param parent The process that forks; its table is not changed.
  * @param child The new process, which already has an id and holds no capability.

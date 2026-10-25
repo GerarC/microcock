@@ -15,8 +15,8 @@
  * the message.
  *
  * A name that starts with `/` is a path; any other name is short for `/run/<name>`. `CONNECT` is the only
- * operation a program uses. The other three are sent by the root server (`ROOT_PID`) while it starts the
- * system, and the name server refuses them from anyone else.
+ * operation a program uses. The other four are sent by the root server (`ROOT_PID`) while it starts the
+ * system and when `pm` tells it that a process forked, and the name server refuses them from anyone else.
  */
 #ifndef COCK_ABI_NAMES_HPP
 #define COCK_ABI_NAMES_HPP
@@ -37,6 +37,8 @@ enum class Op : uint32_t {
 	ALLOW = 3,
 	/** Root only: the process with the id in word 1 now runs the service with the label of the header, and receives on the endpoint in word 2 (`NO_ENDPOINT` when the service has none). */
 	BIND = 4,
+	/** Root only: the process with the id in word 1 is a copy of the process with the id in word 2 (a `fork`), which runs a service or is itself a copy. The copy may connect to what the service may connect to and to nothing else; it runs no service and has no label. A request of the copy that the name server kept waiting is answered now. */
+	FORKED = 5,
 };
 
 /** Status in word 0 of a reply. */
@@ -73,6 +75,8 @@ constexpr size_t PID_WORD = 1;
 constexpr size_t LABEL_WORD = 2;
 /** Index of the endpoint id in a `BIND` request. */
 constexpr size_t ENDPOINT_WORD = 2;
+/** Index of the process id of the parent in a `FORKED` request. */
+constexpr size_t PARENT_WORD = 2;
 /** Index of the handle in a reply to `CONNECT`. */
 constexpr size_t HANDLE_WORD = 3;
 /** Bytes in one word. */

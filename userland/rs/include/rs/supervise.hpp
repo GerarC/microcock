@@ -14,7 +14,7 @@ namespace cock::rs {
  *
  * Fits the `onForeign` hook of the file client. A `PM_SPAWNED` message is served at once (`startedForInit`), so a
  * program that `init` started is registered with the name server without waiting for `rs` to finish what it is
- * doing. A `PM_EXITED` message from `pm` is put
+ * doing; so is a `PM_FORKED` message (`registerFork`). A `PM_EXITED` message from `pm` is put
  * in the stash of the C++ API, where `superviseServers` reads it; any other message is dropped.
  * The stash holds `STASH_CAPACITY` messages; a notice that finds it full is lost.
  *

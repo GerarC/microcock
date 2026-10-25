@@ -22,6 +22,7 @@ The root server of MicroCOCK, the `rs` (reincarnation server) of Minix 3. It is 
 | `rs` to `pm` | `CAPABILITY_GRANTED`, `arg0` a handle on the endpoint of `rs`, `arg1` the endpoint of the name server | Sent after `pm` got the right to create processes, the program labels and the endpoint of the name server |
 | `pm` to `rs` | `PM_EXITED` (`arg0` kernel process id, `arg1` status) | For the entries with `repeat=` and `restart=`, which `rs` spawns with the notice requested; the badge is the process id of `pm` |
 | `pm` to `rs` | `PM_SPAWNED` (`arg0` kernel process id, `arg1` label) | A process that `init` asked for exists: `rs` registers it with the name server and equips it |
+| `pm` to `rs` | `PM_FORKED` (`arg0` kernel process id of the copy, `arg1` that of its parent) | A process made a copy of itself: `rs` tells the name server (`Op::FORKED`), which gives the copy the rights of its parent and nothing else. `rs` does not look at the policy; the name server knows the parent |
 
 Every program `rs` spawns also starts with an **initial handle** on the endpoint of the name server (`SpawnRights::initialEndpoint`, built in `rightsOf`), badged with its process id, so it can `connect` from its first instruction; no message is involved.
 
@@ -41,7 +42,7 @@ The manifest grammar (`shared/include/cock/abi/manifest.hpp`) has these keys aft
 
 An entry with `restart=N` is spawned (through `pm`) with the exit notice requested and put in a table of watched programs. After the last entry has run, `rs` waits for the notices `pm` forwards (`PM_EXITED`); it does that for ever. When a watched program ends it prints `rs: <name> ended with status <n>`, spawns it again from the same entry, gives it the same capabilities and argument, tells the name server which process runs it now, and prints `rs: restarted <name> <k> of <N>`. The new process has a new process id and the same name, so a client finds it by connecting through the name server again, which gives no new capability; a call that was blocked on the old one has already failed as it does for any dead server. After `N` restarts in one window (`RESTART_WINDOW_MILLISECONDS`, 60000) `rs` prints `rs: <name> gave up after <N> restarts` and stops watching it; the counter starts again when the window is over. `rs` has no clock, so the window counts only the time it waits with nothing to do (a program that crashes in a tight loop reaches its limit sooner, never later). When no program is watched any more, `rs` exits.
 
-The file client of `rs` takes in the notices that arrive while it waits for a file reply (`keepExitNotice`): a `PM_EXITED` goes to the stash of the C++ API and a `PM_SPAWNED` is served at once (`startedForInit`); without that hook they are dropped and a restart never happens.
+The file client of `rs` takes in the notices that arrive while it waits for a file reply (`keepExitNotice`): a `PM_EXITED` goes to the stash of the C++ API and a `PM_SPAWNED` is served at once (`startedForInit`) and so is a `PM_FORKED` (`registerFork`); without that hook they are dropped and a restart never happens.
 
 ## What the manifests grant
 

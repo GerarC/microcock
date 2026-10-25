@@ -51,7 +51,8 @@ bool serve(uint32_t caller, const uint32_t (&words)[abi::names::CALL_WORDS],
 		status = serveName(caller, process, words, reply, parked);
 	} else {
 		status = registerService(process, words);
-		if (status == Status::OK && op == static_cast<uint32_t>(Op::BIND))
+		if (status == Status::OK &&
+			(op == static_cast<uint32_t>(Op::BIND) || op == static_cast<uint32_t>(Op::FORKED)))
 			answerParked(words[abi::names::PID_WORD]);
 	}
 	reply[abi::names::HEADER_WORD] = static_cast<uint32_t>(status);

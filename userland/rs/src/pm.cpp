@@ -135,6 +135,11 @@ bool isExitNotice(const cock::ipc::Message &message) {
 		   message.badge == process;
 }
 
+bool isForkNotice(const cock::ipc::Message &message) {
+	return message.type == cock::ipc::MessageType::PM_FORKED && process != NO_PROCESS &&
+		   message.badge == process;
+}
+
 bool isSpawnNotice(const cock::ipc::Message &message) {
 	return message.type == cock::ipc::MessageType::PM_SPAWNED && process != NO_PROCESS &&
 		   message.badge == process;

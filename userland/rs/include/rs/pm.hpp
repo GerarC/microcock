@@ -88,6 +88,14 @@ void startedForInit(uint32_t pid, uint32_t label);
 bool isSpawnNotice(const cock::ipc::Message &message);
 
 /**
+ * @brief Tells whether a message is the notice that `pm` made a copy of a process (`fork`).
+ * @param message A message that arrived in the inbox of `rs`.
+ * @return True for a `PM_FORKED` message whose badge is the process id of `pm`; the kernel stamps the badge, so no
+ * other process can pass for it. `arg0` is then the kernel process id of the copy and `arg1` that of its parent.
+ */
+bool isForkNotice(const cock::ipc::Message &message);
+
+/**
  * @brief Tells whether a message is an exit notice that `pm` sent on.
  * @param message A message that arrived in the inbox of `rs`.
  * @return True for a `PM_EXITED` message whose badge is the process id of `pm`; the kernel stamps the badge, so no

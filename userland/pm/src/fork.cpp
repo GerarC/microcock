@@ -20,6 +20,7 @@ Status forkProcess(uint32_t caller, uint32_t &pid) {
 
 	Row *row = table.add(created, parent->pid, false);
 	if (row == nullptr) return Status::FAILED;
+	row->forkPending = true;
 	pid = row->pid;
 	return Status::OK;
 }

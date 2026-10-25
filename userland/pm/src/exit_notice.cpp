@@ -24,6 +24,14 @@ bool sendSpawned(const cock::pm::Row &row) {
 	return cock::user::ep_send(cock::pm::rootHandle, notice);
 }
 
+bool sendForked(const cock::pm::Row &row, uint32_t parentKernelId) {
+	Message notice = {};
+	notice.type = MessageType::PM_FORKED;
+	notice.payload.args.arg0 = row.kernelId;
+	notice.payload.args.arg1 = parentKernelId;
+	return cock::user::ep_send(cock::pm::rootHandle, notice);
+}
+
 } // namespace
 
 namespace cock::pm {
@@ -40,6 +48,11 @@ bool flushNotices() {
 	for (Row *row = table.pendingAnnounce(); row != nullptr; row = table.pendingAnnounce()) {
 		if (!sendSpawned(*row)) return true;
 		row->announcePending = false;
+	}
+	for (Row *row = table.pendingFork(); row != nullptr; row = table.pendingFork()) {
+		const Row *parent = table.find(row->parent);
+		if (parent != nullptr && !sendForked(*row, parent->kernelId)) return true;
+		row->forkPending = false;
 	}
 	for (Row *row = table.pendingForward(); row != nullptr; row = table.pendingForward()) {
 		if (!sendExit(*row)) return true;

@@ -1,5 +1,6 @@
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
+#include <rs/directory.hpp>
 #include <rs/grant.hpp>
 #include <rs/pm.hpp>
 #include <rs/spawn.hpp>
@@ -67,6 +68,10 @@ void restart(Client &client, Watch *watch) {
 void handle(Client &client, const Message &message) {
 	if (cock::rs::isSpawnNotice(message)) {
 		cock::rs::startedForInit(message.payload.args.arg0, message.payload.args.arg1);
+		return;
+	}
+	if (cock::rs::isForkNotice(message)) {
+		cock::rs::registerFork(message.payload.args.arg0, message.payload.args.arg1);
 		return;
 	}
 	if (!cock::rs::isExitNotice(message)) return;

@@ -183,9 +183,10 @@ public:
 	 * The copy shares the memory of the caller copy on write: each side sees its own values after a
 	 * write. It has the `IPC` and endpoint capabilities of the caller, with the same handle numbers, and no
 	 * other; a server tells the copy from the caller by the id the badge of the handle carries, so what it
-	 * keeps per caller, such as a file session, is not shared: the copy opens its own. The name server does
-	 * not know the copy, so the copy cannot ask it for new handles. Only the calling thread exists in the
-	 * copy. The caller collects its status with `wait`.
+	 * keeps per caller, such as a file session, is not shared: the copy opens its own. The name server treats
+	 * the copy as its parent (`PM_FORKED`), so `names::connect` works in the copy for what the parent may
+	 * reach and fails with `DENIED` for the rest. Only the calling thread exists in the copy. The caller
+	 * collects its status with `wait`.
 	 *
 	 * @return In the parent `OK` and the id in the table of the child; in the child `OK` and
 	 * `abi::pm::NO_PID` (`isChild`). On failure only the parent returns, with `NOT_FOUND` (no row), `NO_ROOM`

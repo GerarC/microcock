@@ -100,6 +100,23 @@ void checkAnnounce() {
 	CHECK_TRUE(table.pendingAnnounce() == nullptr);
 }
 
+void checkForkNotice() {
+	Table table;
+	CHECK_TRUE(table.pendingFork() == nullptr);
+
+	Row *parent = table.add(FIRST_KERNEL_ID, NO_PID, false);
+	Row *copy = table.add(SECOND_KERNEL_ID, parent == nullptr ? NO_PID : parent->pid, false);
+	CHECK_TRUE(parent != nullptr && copy != nullptr);
+	if (parent == nullptr || copy == nullptr) return;
+	CHECK_FALSE(copy->forkPending);
+	CHECK_TRUE(table.pendingFork() == nullptr);
+
+	copy->forkPending = true;
+	CHECK_TRUE(table.pendingFork() == copy);
+	copy->forkPending = false;
+	CHECK_TRUE(table.pendingFork() == nullptr);
+}
+
 void checkExit() {
 	Table table;
 	Row *kept = table.add(FIRST_KERNEL_ID, NO_PID, true);
@@ -287,6 +304,7 @@ void testPmTable() {
 	checkAdd();
 	checkInitPid();
 	checkAnnounce();
+	checkForkNotice();
 	checkExit();
 	checkZombies();
 	checkAdoption();

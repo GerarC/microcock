@@ -52,6 +52,8 @@ struct Row {
 	uint32_t waitTicket;
 	/** Process id of the child the process waits for, or `abi::pm::ANY_CHILD`; valid while `waiting`. */
 	uint32_t waitTarget;
+	/** True when the root server was not yet told that the process is a copy made by `fork`. */
+	bool forkPending;
 };
 
 /** The rows and the counter of process ids. */
@@ -111,7 +113,8 @@ public:
 				   announceLabel != abi::service::NO_SERVICE,
 					   false,
 					   NO_WAIT,
-					   NO_WAIT};
+					   NO_WAIT,
+					   false};
 		return row;
 	}
 
@@ -247,11 +250,22 @@ public:
 		return nullptr;
 	}
 
+	/**
+	 * @brief Finds a row of a copy made by `fork` whose creation the root server was not yet told about.
+	 * @return The row, or null when none waits.
+	 */
+	Row *pendingFork() {
+		for (Row &row : rows)
+			if (row.state != abi::pm::State::FREE && row.forkPending) return &row;
+		return nullptr;
+	}
+
 private:
 	static void release(Row &row) {
 		row = Row{NO_KERNEL_ID, abi::pm::NO_PID, abi::pm::NO_PID, abi::pm::State::FREE,
 				  0,            false,           false,           abi::service::NO_SERVICE,
-				  false,        false,           NO_WAIT,         NO_WAIT};
+				  false,        false,           NO_WAIT,         NO_WAIT,
+				  false};
 	}
 
 	static bool matches(const Row &row, uint32_t target) {
