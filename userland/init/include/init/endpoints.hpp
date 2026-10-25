@@ -33,6 +33,17 @@ uint32_t endpointOf(uint32_t label);
  */
 uint32_t bindEndpoint(uint32_t label, uint32_t pid);
 
+/**
+ * @brief Makes a handle for `init` itself on the endpoint of a service.
+ *
+ * `init` holds one capability over every endpoint but that capability is a range, so it cannot send
+ * through it. This grants `init` a capability for the one endpoint, which takes an entry of its table.
+ *
+ * @param label Service label of the program.
+ * @return The handle, or `NO_CAPABILITY_NODE` when the label has no endpoint or the table is full.
+ */
+uint32_t handleOf(uint32_t label);
+
 } // namespace cock::init
 
 #endif // !INIT_ENDPOINTS_HPP

@@ -1,3 +1,4 @@
+#include <cock/abi/endpoint.hpp>
 #include <cock/user/session.hpp>
 #include <vfs/clients.hpp>
 #include <vfs/reply.hpp>
@@ -11,12 +12,14 @@ namespace cock::vfs {
 
 void handle(const Message &message) {
 	if (message.sender_pid == cock::ipc::KERNEL_SENDER) return;
-	uint32_t pid = message.sender_pid;
+	if (message.reply == cock::abi::endpoint::NO_REPLY) return;
+	uint32_t client = message.badge;
+	uint32_t token = message.reply;
 	uint32_t id = message.payload.args.arg0;
 
 	switch (message.type) {
 	case MessageType::FS_CONNECT:
-		return connect(pid, id);
+		return connect(token, client, id);
 	case MessageType::FS_OPEN:
 	case MessageType::FS_READ:
 	case MessageType::FS_WRITE:
@@ -33,8 +36,8 @@ void handle(const Message &message) {
 		return;
 	}
 
-	Session *session = cock::user::findSession(sessions, MAX_CLIENTS, pid);
-	if (session == nullptr) return reply(pid, id, Status::NOT_CONNECTED);
+	Session *session = cock::user::findSession(sessions, MAX_CLIENTS, client);
+	if (session == nullptr) return reply(token, id, Status::NOT_CONNECTED);
 
 	switch (message.type) {
 	case MessageType::FS_OPEN:
@@ -54,11 +57,11 @@ void handle(const Message &message) {
 	case MessageType::FS_LINK:
 		return linkEntry(*session, message);
 	case MessageType::FS_STAT:
-		return statFile(message);
+		return statFile(*session, message);
 	case MessageType::FS_READDIR:
 		return listDirectory(*session, message);
 	default:
-		return closeFile(message);
+		return closeFile(*session, message);
 	}
 }
 

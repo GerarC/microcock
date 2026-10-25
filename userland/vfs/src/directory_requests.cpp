@@ -28,7 +28,7 @@ uint32_t countEntries(Open &open, Session &session) {
 	return count;
 }
 
-bool replyMountPoint(uint32_t pid, uint32_t id, Session &session, uint32_t wanted) {
+bool replyMountPoint(uint32_t token, uint32_t id, Session &session, uint32_t wanted) {
 	uint32_t seen = START_OFFSET;
 	for (size_t index = 0; index < mountCount; index++) {
 		const char *name = nullptr;
@@ -37,7 +37,7 @@ bool replyMountPoint(uint32_t pid, uint32_t id, Session &session, uint32_t wante
 
 		size_t length = strlen(name);
 		memcpy(session.window, name, length + SEPARATOR_BYTES);
-		reply(pid, id, Status::OK, static_cast<uint32_t>(length),
+		reply(token, id, Status::OK, static_cast<uint32_t>(length),
 			  static_cast<uint32_t>(FileType::DIRECTORY));
 		return true;
 	}
@@ -47,10 +47,10 @@ bool replyMountPoint(uint32_t pid, uint32_t id, Session &session, uint32_t wante
 } // namespace
 
 void listDirectory(Session &session, const Message &message) {
-	uint32_t pid = message.sender_pid;
+	uint32_t token = message.reply;
 	uint32_t id = message.payload.args.arg0;
-	Open *open = findOpen(pid, message.payload.args.arg1);
-	if (open == nullptr) return reply(pid, id, Status::BAD_HANDLE);
+	Open *open = findOpen(session.pid, message.payload.args.arg1);
+	if (open == nullptr) return reply(token, id, Status::BAD_HANDLE);
 
 	size_t index = open->mount;
 	uint32_t wanted = message.payload.args.arg2;
@@ -58,16 +58,16 @@ void listDirectory(Session &session, const Message &message) {
 	FileType type = FileType::REGULAR;
 	if (client.readdir(open->backend, wanted, reinterpret_cast<char *>(session.window),
 					   cock::abi::fs::WINDOW_BYTES, type))
-		return reply(pid, id, Status::OK,
+		return reply(token, id, Status::OK,
 					 static_cast<uint32_t>(strlen(reinterpret_cast<char *>(session.window))),
 					 static_cast<uint32_t>(type));
 
 	if (!open->root || client.lastStatus() != Status::OUT_OF_RANGE)
-		return reply(pid, id, failure(index));
+		return reply(token, id, failure(index));
 
 	uint32_t backendEntries = countEntries(*open, session);
-	if (wanted < backendEntries || !replyMountPoint(pid, id, session, wanted - backendEntries))
-		return reply(pid, id, Status::OUT_OF_RANGE);
+	if (wanted < backendEntries || !replyMountPoint(token, id, session, wanted - backendEntries))
+		return reply(token, id, Status::OUT_OF_RANGE);
 }
 
 } // namespace cock::vfs

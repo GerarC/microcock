@@ -54,18 +54,20 @@ void writeFile(Session &session, const cock::ipc::Message &message);
 /**
  * @brief Handles `FS_STAT`: size and type of an open file.
  *
+ * @param session Session of the client.
  * @param message Request: handle in the second argument.
  * @note Replies `BAD_HANDLE` for a handle the sender does not own.
  */
-void statFile(const cock::ipc::Message &message);
+void statFile(Session &session, const cock::ipc::Message &message);
 
 /**
  * @brief Handles `FS_CLOSE`: closes the file at its server and frees the slot.
  *
+ * @param session Session of the client.
  * @param message Request: handle in the second argument.
  * @note The slot is freed even when the server fails to close the file.
  */
-void closeFile(const cock::ipc::Message &message);
+void closeFile(Session &session, const cock::ipc::Message &message);
 
 /**
  * @brief Handles a request that takes one path and one operation of the server.

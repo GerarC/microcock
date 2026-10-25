@@ -1,3 +1,4 @@
+#include <cock/abi/capability.hpp>
 #include <cock/abi/endpoint.hpp>
 #include <cock/user/api.hpp>
 #include <init/endpoints.hpp>
@@ -46,6 +47,14 @@ uint32_t bindEndpoint(uint32_t label, uint32_t pid) {
 	uint32_t endpoint = endpointOf(label);
 	if (endpoint == NO_ENDPOINT || !cock::user::ep_bind(endpoint, pid)) return NO_ENDPOINT;
 	return endpoint;
+}
+
+uint32_t handleOf(uint32_t label) {
+	uint32_t endpoint = endpointOf(label);
+	if (endpoint == NO_ENDPOINT) return cock::abi::NO_CAPABILITY_NODE;
+	uint32_t self = cock::user::self();
+	return cock::user::cap_grant_node(self, cock::abi::CapabilityType::ENDPOINT, endpoint,
+									  cock::abi::endpoint::SINGLE_ENDPOINT, false, false, self);
 }
 
 } // namespace cock::init

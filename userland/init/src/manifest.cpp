@@ -1,4 +1,6 @@
 #include <cock/abi/fs.hpp>
+#include <cock/abi/service.hpp>
+#include <init/endpoints.hpp>
 #include <init/files.hpp>
 #include <init/manifest.hpp>
 #include <stdio.h>
@@ -32,7 +34,8 @@ cock::abi::manifest::Manifest manifest;
 
 bool loadManifest(Client &client, uint32_t files) {
 	size_t length = NO_BYTES;
-	if (!client.connectTo(files) || !readManifestText(client, length)) {
+	uint32_t handle = handleOf(cock::abi::service::RAMFS_SERVICE);
+	if (!client.connectTo(files, handle) || !readManifestText(client, length)) {
 		printf("init: cannot read %s\n", cock::abi::manifest::FILE_PATH);
 		return false;
 	}

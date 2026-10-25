@@ -21,7 +21,8 @@ extern cock::abi::manifest::Manifest manifest;
  * entries on success.
  *
  * @param client Receives the connection, which later reads the program images.
- * @param files Process id of `ramfs`, which `init` reaches without the name server.
+ * @param files Process id of `ramfs`, which `init` reaches without the name server, through a handle it
+ * makes for itself (`handleOf`).
  * @return True when `manifest` holds the entries, false on any failure.
  */
 bool loadManifest(cock::user::fs::Client &client, uint32_t files);

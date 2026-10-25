@@ -96,4 +96,4 @@ The endpoint is not tied to a process for life. `Process::~Process` unbinds the 
 * The table has 256 endpoints, never freed.
 * A process holds at most `CapabilitySet::MAX_CAPABILITIES` (16) capabilities, handles included.
 * The queue of an endpoint is the inbox and the call queue of the thread bound to it; what is queued when the owner dies is lost.
-* Only the console client uses a handle so far. `init` makes one endpoint per program and binds it at every start, `names` gives a handle at connect (with the process id of the client as badge), but the other services are still reached by process id: their protocols still answer with an asynchronous message addressed to the process id of the sender. The reply tokens above replace that address; moving each server to them is the next step.
+* The console, the clock, the block driver and the file servers (`ramfs`, `vfs`, FAT32, ext2) answer through reply tokens and key their clients by the badge. `init`, which has no name-server connection, makes a handle for itself on `ramfs` with its own process id as badge. The other services are still reached by process id: the keyboard and display links, and the test programs.

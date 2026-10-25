@@ -71,20 +71,24 @@ class Client {
 	 *         not be mapped.
 	 */
 	bool connect(const char *name = abi::fs::SERVER_NAME) {
-		return connectTo(names::server(name));
+		names::Connection connection = names::connect(name);
+		return connectTo(connection.pid, connection.handle);
 	}
 
 	/**
-	 * @brief Opens a session with a file server whose process id is known, and maps its window.
+	 * @brief Opens a session with a file server whose process id and handle are known, and maps
+	 *        its window.
 	 *
-	 * For a caller that already holds the right to talk to the process: the root server, which
-	 * reaches every process, and callers that connected through the name server themselves.
-	 * @param pid Process id of the server.
+	 * For a caller that obtained both without the name server: the first program, which makes the
+	 * handle itself.
+	 * @param pid Process id of the server; used to see whether it is alive.
+	 * @param endpoint Handle on the endpoint of the server.
 	 * @return The same as `connect`.
 	 */
-	bool connectTo(uint32_t pid) {
+	bool connectTo(uint32_t pid, uint32_t endpoint) {
 		server = pid;
-		if (server == NO_PROCESS) return false;
+		route = endpoint;
+		if (server == NO_PROCESS || route == abi::NO_CAPABILITY_NODE) return false;
 
 		Reply reply = {};
 		if (!call(MessageType::FS_CONNECT, 0, 0, 0, reply) ||
@@ -126,7 +130,7 @@ class Client {
 		request.payload.args.arg1 = first;
 		request.payload.args.arg2 = second;
 		request.payload.args.arg3 = third;
-		if (!ipc_send(server, request)) return false;
+		if (!ep_send(route, request, true)) return false;
 
 		Message answer = {};
 		bool matches = receiveReply(
@@ -373,8 +377,10 @@ class Client {
 			   reply.status == Status::OK;
 	}
 
-	/** Process id of the server, `NO_PROCESS` before `connect`. */
+	/** Process id of the server, `NO_PROCESS` before `connect`; used only to see whether it is alive. */
 	uint32_t server = NO_PROCESS;
+	/** Handle on the endpoint of the server, `NO_CAPABILITY_NODE` before `connect`. */
+	uint32_t route = abi::NO_CAPABILITY_NODE;
 	/** Mapping of the shared window, null before `connect`. */
 	uint8_t *view = nullptr;
 	/** Id of the next request. */

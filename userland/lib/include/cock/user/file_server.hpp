@@ -19,6 +19,7 @@
 #ifndef COCK_USER_FILE_SERVER_HPP
 #define COCK_USER_FILE_SERVER_HPP
 
+#include <cock/abi/endpoint.hpp>
 #include <cock/abi/fs.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
@@ -123,12 +124,14 @@ struct FileServer {
 	 */
 	static void handle(const Message &message) {
 		if (message.sender_pid == ipc::KERNEL_SENDER) return;
-		uint32_t pid = message.sender_pid;
+		if (message.reply == abi::endpoint::NO_REPLY) return;
+		uint32_t token = message.reply;
+		uint32_t client = message.badge;
 		uint32_t id = message.payload.args.arg0;
 
 		switch (message.type) {
 		case MessageType::FS_CONNECT:
-			return connect(pid, id);
+			return connect(token, client, id);
 		case MessageType::FS_OPEN:
 		case MessageType::FS_READ:
 		case MessageType::FS_WRITE:
@@ -145,8 +148,8 @@ struct FileServer {
 			return;
 		}
 
-		Session *session = findSession(sessions, MAX_CLIENTS, pid);
-		if (session == nullptr) return reply(pid, id, Status::NOT_CONNECTED);
+		Session *session = findSession(sessions, MAX_CLIENTS, client);
+		if (session == nullptr) return reply(token, id, Status::NOT_CONNECTED);
 
 		switch (message.type) {
 		case MessageType::FS_OPEN:
@@ -175,14 +178,15 @@ struct FileServer {
 	}
 
 	/**
-	 * @brief Sends an `FS_REPLY` to a client. Never blocks; a full inbox loses the reply.
-	 * @param pid Client process id.
+	 * @brief Sends an `FS_REPLY` through the reply token of a request. Never blocks; a full
+	 *        inbox loses the reply.
+	 * @param token Reply token the request carried.
 	 * @param id Request id echoed back.
 	 * @param status Result code.
 	 * @param first First result word.
 	 * @param second Second result word.
 	 */
-	static void reply(uint32_t pid, uint32_t id, Status status, uint32_t first = 0,
+	static void reply(uint32_t token, uint32_t id, Status status, uint32_t first = 0,
 					  uint32_t second = 0) {
 		Message answer = {};
 		answer.type = MessageType::FS_REPLY;
@@ -190,7 +194,7 @@ struct FileServer {
 		answer.payload.args.arg1 = static_cast<uint32_t>(status);
 		answer.payload.args.arg2 = first;
 		answer.payload.args.arg3 = second;
-		ipc_send(pid, answer);
+		ep_reply(token, answer);
 	}
 
 	/** @brief Frees the session and window of every client whose process is no longer alive. */
@@ -205,25 +209,26 @@ struct FileServer {
 	 *
 	 * A client that connects again keeps its session and window but loses its open
 	 * handles. When the table is full, sessions of dead clients are freed first.
-	 * @param pid Client process id.
+	 * @param token Reply token of the request.
+	 * @param client Badge of the client, which is its process id.
 	 * @param id Request id.
 	 *
 	 * Replies `OK` with the window object id in the first word, or `NO_SPACE` when
 	 * there is no free slot or the window could not be created or shared.
 	 */
-	static void connect(uint32_t pid, uint32_t id) {
-		Session *session = findSession(sessions, MAX_CLIENTS, pid);
+	static void connect(uint32_t token, uint32_t client, uint32_t id) {
+		Session *session = findSession(sessions, MAX_CLIENTS, client);
 		if (session != nullptr) {
 			memset(session->handles, 0, sizeof(session->handles));
 			memset(session->writers, 0, sizeof(session->writers));
-			return reply(pid, id, Status::OK, session->windowId);
+			return reply(token, id, Status::OK, session->windowId);
 		}
 
 		releaseDeadSessions();
 		session = freeSession(sessions, MAX_CLIENTS);
-		if (session == nullptr || !openSession(*session, pid, abi::fs::WINDOW_PAGES))
-			return reply(pid, id, Status::NO_SPACE);
-		reply(pid, id, Status::OK, session->windowId);
+		if (session == nullptr || !openSession(*session, client, abi::fs::WINDOW_PAGES))
+			return reply(token, id, Status::NO_SPACE);
+		reply(token, id, Status::OK, session->windowId);
 	}
 
 	/**
@@ -288,39 +293,39 @@ struct FileServer {
 	 * @param message Request.
 	 */
 	static void openFile(Session &session, const Message &message) {
-		uint32_t pid = message.sender_pid;
+		uint32_t token = message.reply;
 		uint32_t id = message.payload.args.arg0;
 		uint32_t length = message.payload.args.arg1;
 		uint32_t flags = message.payload.args.arg2;
 		if ((flags & ~abi::fs::OPEN_FLAGS_MASK) != 0)
-			return reply(pid, id, Status::UNSUPPORTED);
+			return reply(token, id, Status::UNSUPPORTED);
 
 		bool wantsWrite = (flags & abi::fs::OPEN_WRITE) != 0;
 		bool creates = (flags & abi::fs::OPEN_CREATE) != 0;
 		bool truncates = (flags & abi::fs::OPEN_TRUNCATE) != 0;
-		if ((creates || truncates) && !wantsWrite) return reply(pid, id, Status::BAD_REQUEST);
-		if (wantsWrite && !Backend::writable()) return reply(pid, id, Status::READ_ONLY);
+		if ((creates || truncates) && !wantsWrite) return reply(token, id, Status::BAD_REQUEST);
+		if (wantsWrite && !Backend::writable()) return reply(token, id, Status::READ_ONLY);
 
 		char path[abi::fs::MAX_PATH_BYTES] = {};
-		if (!copyPath(session, 0, length, path)) return reply(pid, id, Status::BAD_REQUEST);
+		if (!copyPath(session, 0, length, path)) return reply(token, id, Status::BAD_REQUEST);
 
 		size_t slot = 0;
 		while (slot < MAX_HANDLES && session.handles[slot].open)
 			slot++;
-		if (slot == MAX_HANDLES) return reply(pid, id, Status::NO_SPACE);
+		if (slot == MAX_HANDLES) return reply(token, id, Status::NO_SPACE);
 
 		Node node = {};
 		if (!Backend::resolve(path, node)) {
-			if (!creates) return reply(pid, id, Status::NOT_FOUND);
+			if (!creates) return reply(token, id, Status::NOT_FOUND);
 			Status made = Backend::create(path, node);
-			if (made != Status::OK) return reply(pid, id, made);
+			if (made != Status::OK) return reply(token, id, made);
 		} else {
 			if (wantsWrite && node.type != FileType::REGULAR)
-				return reply(pid, id, Status::UNSUPPORTED);
-			if (conflicts(node, wantsWrite)) return reply(pid, id, Status::BUSY);
+				return reply(token, id, Status::UNSUPPORTED);
+			if (conflicts(node, wantsWrite)) return reply(token, id, Status::BUSY);
 			if (truncates && node.size != NO_BYTES) {
 				Status cut = Backend::truncate(node);
-				if (cut != Status::OK) return reply(pid, id, cut);
+				if (cut != Status::OK) return reply(token, id, cut);
 			}
 		}
 
@@ -328,7 +333,7 @@ struct FileServer {
 		session.handles[slot].open = true;
 		session.handles[slot].node = node;
 		session.writers[slot] = wantsWrite;
-		reply(pid, id, Status::OK, static_cast<uint32_t>(slot + 1));
+		reply(token, id, Status::OK, static_cast<uint32_t>(slot + 1));
 	}
 
 	/**
@@ -343,26 +348,26 @@ struct FileServer {
 	 * @param message Request.
 	 */
 	static void writeFile(Session &session, const Message &message) {
-		uint32_t pid = message.sender_pid;
+		uint32_t token = message.reply;
 		uint32_t id = message.payload.args.arg0;
 		uint32_t number = message.payload.args.arg1;
 		Handle *found = findHandle(session, number);
-		if (found == nullptr) return reply(pid, id, Status::BAD_HANDLE);
-		if (!session.writers[number - 1]) return reply(pid, id, Status::READ_ONLY);
+		if (found == nullptr) return reply(token, id, Status::BAD_HANDLE);
+		if (!session.writers[number - 1]) return reply(token, id, Status::READ_ONLY);
 
 		uint32_t offset = message.payload.args.arg2;
 		uint32_t count = message.payload.args.arg3;
-		if (offset > found->node.size) return reply(pid, id, Status::OUT_OF_RANGE);
+		if (offset > found->node.size) return reply(token, id, Status::OUT_OF_RANGE);
 		if (count > abi::fs::WINDOW_BYTES) count = static_cast<uint32_t>(abi::fs::WINDOW_BYTES);
-		if (count == NO_BYTES) return reply(pid, id, Status::OK, NO_BYTES);
+		if (count == NO_BYTES) return reply(token, id, Status::OK, NO_BYTES);
 
 		uint32_t room = Backend::MAX_FILE_BYTES - offset;
 		if (count > room) count = room;
-		if (count == NO_BYTES) return reply(pid, id, Status::NO_SPACE);
+		if (count == NO_BYTES) return reply(token, id, Status::NO_SPACE);
 
 		uint32_t written = NO_BYTES;
 		Status status = Backend::write(*found, session.window, offset, count, written);
-		reply(pid, id, status, written);
+		reply(token, id, status, written);
 	}
 
 	/**
@@ -389,14 +394,14 @@ struct FileServer {
 	 * @param message Request.
 	 */
 	static void makeDirectory(Session &session, const Message &message) {
-		uint32_t pid = message.sender_pid;
+		uint32_t token = message.reply;
 		uint32_t id = message.payload.args.arg0;
-		if (!Backend::writable()) return reply(pid, id, Status::READ_ONLY);
+		if (!Backend::writable()) return reply(token, id, Status::READ_ONLY);
 
 		char path[abi::fs::MAX_PATH_BYTES] = {};
 		if (!copyPath(session, 0, message.payload.args.arg1, path))
-			return reply(pid, id, Status::BAD_REQUEST);
-		reply(pid, id, Backend::makeDirectory(path));
+			return reply(token, id, Status::BAD_REQUEST);
+		reply(token, id, Backend::makeDirectory(path));
 	}
 
 	/**
@@ -409,19 +414,19 @@ struct FileServer {
 	 * @param message Request.
 	 */
 	static void removeDirectory(Session &session, const Message &message) {
-		uint32_t pid = message.sender_pid;
+		uint32_t token = message.reply;
 		uint32_t id = message.payload.args.arg0;
-		if (!Backend::writable()) return reply(pid, id, Status::READ_ONLY);
+		if (!Backend::writable()) return reply(token, id, Status::READ_ONLY);
 
 		char path[abi::fs::MAX_PATH_BYTES] = {};
 		if (!copyPath(session, 0, message.payload.args.arg1, path))
-			return reply(pid, id, Status::BAD_REQUEST);
+			return reply(token, id, Status::BAD_REQUEST);
 
 		Node node = {};
-		if (!Backend::resolveLeaf(path, node)) return reply(pid, id, Status::NOT_FOUND);
-		if (node.type != FileType::DIRECTORY) return reply(pid, id, Status::UNSUPPORTED);
-		if (inUse(node)) return reply(pid, id, Status::BUSY);
-		reply(pid, id, Backend::removeDirectory(path));
+		if (!Backend::resolveLeaf(path, node)) return reply(token, id, Status::NOT_FOUND);
+		if (node.type != FileType::DIRECTORY) return reply(token, id, Status::UNSUPPORTED);
+		if (inUse(node)) return reply(token, id, Status::BUSY);
+		reply(token, id, Backend::removeDirectory(path));
 	}
 
 	/**
@@ -434,22 +439,22 @@ struct FileServer {
 	 * @param message Request.
 	 */
 	static void renameEntry(Session &session, const Message &message) {
-		uint32_t pid = message.sender_pid;
+		uint32_t token = message.reply;
 		uint32_t id = message.payload.args.arg0;
-		if (!Backend::writable()) return reply(pid, id, Status::READ_ONLY);
+		if (!Backend::writable()) return reply(token, id, Status::READ_ONLY);
 
 		char from[abi::fs::MAX_PATH_BYTES] = {};
 		char to[abi::fs::MAX_PATH_BYTES] = {};
 		if (!copyPath(session, 0, message.payload.args.arg1, from) ||
 			!copyPath(session, abi::fs::RENAME_NEW_OFFSET, message.payload.args.arg2, to))
-			return reply(pid, id, Status::BAD_REQUEST);
+			return reply(token, id, Status::BAD_REQUEST);
 
 		Node node = {};
-		if (!Backend::resolveLeaf(from, node)) return reply(pid, id, Status::NOT_FOUND);
-		if (inUse(node)) return reply(pid, id, Status::BUSY);
+		if (!Backend::resolveLeaf(from, node)) return reply(token, id, Status::NOT_FOUND);
+		if (inUse(node)) return reply(token, id, Status::BUSY);
 		Node target = {};
-		if (Backend::resolveLeaf(to, target) && inUse(target)) return reply(pid, id, Status::BUSY);
-		reply(pid, id, Backend::rename(from, to));
+		if (Backend::resolveLeaf(to, target) && inUse(target)) return reply(token, id, Status::BUSY);
+		reply(token, id, Backend::rename(from, to));
 	}
 
 	/**
@@ -462,21 +467,21 @@ struct FileServer {
 	 * @param message Request.
 	 */
 	static void linkEntry(Session &session, const Message &message) {
-		uint32_t pid = message.sender_pid;
+		uint32_t token = message.reply;
 		uint32_t id = message.payload.args.arg0;
-		if (!Backend::writable()) return reply(pid, id, Status::READ_ONLY);
+		if (!Backend::writable()) return reply(token, id, Status::READ_ONLY);
 
 		char existing[abi::fs::MAX_PATH_BYTES] = {};
 		char name[abi::fs::MAX_PATH_BYTES] = {};
 		if (!copyPath(session, 0, message.payload.args.arg1, existing) ||
 			!copyPath(session, abi::fs::RENAME_NEW_OFFSET, message.payload.args.arg2, name))
-			return reply(pid, id, Status::BAD_REQUEST);
+			return reply(token, id, Status::BAD_REQUEST);
 
 		Node node = {};
-		if (!Backend::resolveLeaf(existing, node)) return reply(pid, id, Status::NOT_FOUND);
-		if (node.type != FileType::REGULAR) return reply(pid, id, Status::UNSUPPORTED);
-		if (inUse(node)) return reply(pid, id, Status::BUSY);
-		reply(pid, id, Backend::link(existing, name));
+		if (!Backend::resolveLeaf(existing, node)) return reply(token, id, Status::NOT_FOUND);
+		if (node.type != FileType::REGULAR) return reply(token, id, Status::UNSUPPORTED);
+		if (inUse(node)) return reply(token, id, Status::BUSY);
+		reply(token, id, Backend::link(existing, name));
 	}
 
 	/**
@@ -489,19 +494,19 @@ struct FileServer {
 	 * @param message Request.
 	 */
 	static void unlinkFile(Session &session, const Message &message) {
-		uint32_t pid = message.sender_pid;
+		uint32_t token = message.reply;
 		uint32_t id = message.payload.args.arg0;
-		if (!Backend::writable()) return reply(pid, id, Status::READ_ONLY);
+		if (!Backend::writable()) return reply(token, id, Status::READ_ONLY);
 
 		char path[abi::fs::MAX_PATH_BYTES] = {};
 		if (!copyPath(session, 0, message.payload.args.arg1, path))
-			return reply(pid, id, Status::BAD_REQUEST);
+			return reply(token, id, Status::BAD_REQUEST);
 
 		Node node = {};
-		if (!Backend::resolveLeaf(path, node)) return reply(pid, id, Status::NOT_FOUND);
-		if (node.type != FileType::REGULAR) return reply(pid, id, Status::UNSUPPORTED);
-		if (conflicts(node, true)) return reply(pid, id, Status::BUSY);
-		reply(pid, id, Backend::unlink(path));
+		if (!Backend::resolveLeaf(path, node)) return reply(token, id, Status::NOT_FOUND);
+		if (node.type != FileType::REGULAR) return reply(token, id, Status::UNSUPPORTED);
+		if (conflicts(node, true)) return reply(token, id, Status::BUSY);
+		reply(token, id, Backend::unlink(path));
 	}
 
 	/**
@@ -515,25 +520,25 @@ struct FileServer {
 	 * @param message Request.
 	 */
 	static void readFile(Session &session, const Message &message) {
-		uint32_t pid = message.sender_pid;
+		uint32_t token = message.reply;
 		uint32_t id = message.payload.args.arg0;
 		Handle *found = findHandle(session, message.payload.args.arg1);
-		if (found == nullptr) return reply(pid, id, Status::BAD_HANDLE);
+		if (found == nullptr) return reply(token, id, Status::BAD_HANDLE);
 		if (found->node.type != FileType::REGULAR)
-			return reply(pid, id, Status::UNSUPPORTED);
+			return reply(token, id, Status::UNSUPPORTED);
 
 		uint32_t offset = message.payload.args.arg2;
 		uint32_t length = message.payload.args.arg3;
-		if (offset > found->node.size) return reply(pid, id, Status::OUT_OF_RANGE);
+		if (offset > found->node.size) return reply(token, id, Status::OUT_OF_RANGE);
 
 		uint32_t count = found->node.size - offset;
 		if (count > length) count = length;
 		if (count > abi::fs::WINDOW_BYTES) count = static_cast<uint32_t>(abi::fs::WINDOW_BYTES);
-		if (count == NO_BYTES) return reply(pid, id, Status::OK, NO_BYTES);
+		if (count == NO_BYTES) return reply(token, id, Status::OK, NO_BYTES);
 
 		if (!Backend::read(*found, session.window, offset, count))
-			return reply(pid, id, Status::IO_ERROR);
-		reply(pid, id, Status::OK, count);
+			return reply(token, id, Status::IO_ERROR);
+		reply(token, id, Status::OK, count);
 	}
 
 	/**
@@ -545,11 +550,11 @@ struct FileServer {
 	 * @param message Request.
 	 */
 	static void statFile(Session &session, const Message &message) {
-		uint32_t pid = message.sender_pid;
+		uint32_t token = message.reply;
 		uint32_t id = message.payload.args.arg0;
 		Handle *found = findHandle(session, message.payload.args.arg1);
-		if (found == nullptr) return reply(pid, id, Status::BAD_HANDLE);
-		reply(pid, id, Status::OK, found->node.size, static_cast<uint32_t>(found->node.type));
+		if (found == nullptr) return reply(token, id, Status::BAD_HANDLE);
+		reply(token, id, Status::OK, found->node.size, static_cast<uint32_t>(found->node.type));
 	}
 
 	/**
@@ -563,19 +568,19 @@ struct FileServer {
 	 * @param message Request.
 	 */
 	static void listDirectory(Session &session, const Message &message) {
-		uint32_t pid = message.sender_pid;
+		uint32_t token = message.reply;
 		uint32_t id = message.payload.args.arg0;
 		Handle *found = findHandle(session, message.payload.args.arg1);
-		if (found == nullptr) return reply(pid, id, Status::BAD_HANDLE);
+		if (found == nullptr) return reply(token, id, Status::BAD_HANDLE);
 		if (found->node.type != FileType::DIRECTORY)
-			return reply(pid, id, Status::UNSUPPORTED);
+			return reply(token, id, Status::UNSUPPORTED);
 
 		FileType type = FileType::REGULAR;
 		char *name = reinterpret_cast<char *>(session.window);
 		if (!Backend::list(found->node, message.payload.args.arg2, name,
 						   abi::fs::WINDOW_BYTES, type))
-			return reply(pid, id, Status::OUT_OF_RANGE);
-		reply(pid, id, Status::OK, static_cast<uint32_t>(strlen(name)),
+			return reply(token, id, Status::OUT_OF_RANGE);
+		reply(token, id, Status::OK, static_cast<uint32_t>(strlen(name)),
 			  static_cast<uint32_t>(type));
 	}
 
@@ -587,13 +592,13 @@ struct FileServer {
 	 * @param message Request.
 	 */
 	static void closeFile(Session &session, const Message &message) {
-		uint32_t pid = message.sender_pid;
+		uint32_t token = message.reply;
 		uint32_t id = message.payload.args.arg0;
 		Handle *found = findHandle(session, message.payload.args.arg1);
-		if (found == nullptr) return reply(pid, id, Status::BAD_HANDLE);
+		if (found == nullptr) return reply(token, id, Status::BAD_HANDLE);
 		found->open = false;
 		session.writers[message.payload.args.arg1 - 1] = false;
-		reply(pid, id, Status::OK);
+		reply(token, id, Status::OK);
 	}
 };
 

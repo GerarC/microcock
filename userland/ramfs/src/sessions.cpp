@@ -17,20 +17,20 @@ void releaseDeadSessions() {
 			cock::user::releaseSession(session, cock::abi::fs::WINDOW_BYTES);
 }
 
-void connect(uint32_t pid, uint32_t id) {
-	Session *session = cock::user::findSession(sessions, MAX_CLIENTS, pid);
+void connect(uint32_t token, uint32_t client, uint32_t id) {
+	Session *session = cock::user::findSession(sessions, MAX_CLIENTS, client);
 	if (session != nullptr) {
 		memset(session->open, 0, sizeof(session->open));
-		reply(pid, id, Status::OK, session->windowId);
+		reply(token, id, Status::OK, session->windowId);
 		return;
 	}
 
 	releaseDeadSessions();
 	session = cock::user::freeSession(sessions, MAX_CLIENTS);
 	if (session == nullptr ||
-		!cock::user::openSession(*session, pid, cock::abi::fs::WINDOW_PAGES))
-		return reply(pid, id, Status::NO_SPACE);
-	reply(pid, id, Status::OK, session->windowId);
+		!cock::user::openSession(*session, client, cock::abi::fs::WINDOW_PAGES))
+		return reply(token, id, Status::NO_SPACE);
+	reply(token, id, Status::OK, session->windowId);
 }
 
 const Entry *handleEntry(const Session &session, uint32_t handle) {

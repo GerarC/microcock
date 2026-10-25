@@ -28,7 +28,7 @@ Header: `shared/include/cock/abi/fs.hpp`. Every request carries a request id in 
 | `FS_CLOSE` | yes | none |
 | `FS_WRITE`, `FS_UNLINK`, `FS_MKDIR`, `FS_RMDIR`, `FS_RENAME`, `FS_LINK` | no | `READ_ONLY` |
 
-Any other type is ignored, and so is anything from `KERNEL_SENDER`. A client that did not connect gets `NOT_CONNECTED`. The window is a one page shared memory object that the server creates, shares with the client and maps on `FS_CONNECT`; paths are copied out of it and a read never exceeds it. Sessions (8 clients, 16 handles each) are keyed by the kernel stamped `sender_pid`; dead clients are released when the table is full. The client library is `userland/lib/include/cock/user/fs.hpp`.
+Any other type is ignored, and so is anything from `KERNEL_SENDER` or without a reply token. A client that did not connect gets `NOT_CONNECTED`. The window is a one page shared memory object that the server creates, shares with the client and maps on `FS_CONNECT`; paths are copied out of it and a read never exceeds it. Sessions (8 clients, 16 handles each) are keyed by the badge of the handle (the process id of the client); dead clients are released when the table is full. The client library is `userland/lib/include/cock/user/fs.hpp`.
 
 ## The archive index
 
