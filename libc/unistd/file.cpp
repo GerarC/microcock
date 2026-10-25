@@ -1,3 +1,4 @@
+#include "cwd.hpp"
 #include "descriptor.hpp"
 #include <cock/abi/fs.hpp>
 #include <cock/user/fs.hpp>
@@ -8,6 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+using cock::libc::absolutePath;
 using cock::libc::CLOSED;
 using cock::libc::Description;
 using cock::libc::dropDescriptions;
@@ -15,6 +17,7 @@ using cock::libc::failWith;
 using cock::libc::FAILURE;
 using cock::libc::openDescription;
 using cock::libc::Operations;
+using cock::libc::PATH_BUFFER_BYTES;
 
 namespace {
 
@@ -160,6 +163,8 @@ int open(const char *path, int flags, ...) {
 	int access = flags & O_ACCMODE;
 	if (path == nullptr || (access != O_RDONLY && access != O_WRONLY && access != O_RDWR))
 		return failWith(EINVAL);
+	char absolute[PATH_BUFFER_BYTES];
+	if (!absolutePath(path, absolute)) return FAILURE;
 	if (!ensureConnected()) return failWith(ENOTCONN);
 
 	uint32_t serverFlags = cock::abi::fs::OPEN_READ_ONLY;
@@ -167,7 +172,7 @@ int open(const char *path, int flags, ...) {
 	if ((flags & O_CREAT) != 0) serverFlags |= cock::abi::fs::OPEN_CREATE;
 	if ((flags & O_TRUNC) != 0) serverFlags |= cock::abi::fs::OPEN_TRUNCATE;
 
-	uint32_t handle = client.open(path, serverFlags);
+	uint32_t handle = client.open(absolute, serverFlags);
 	if (handle == cock::abi::fs::NO_HANDLE) return failFromServer();
 
 	int descriptor = openDescription(fileOperations(), handle, access != O_WRONLY, access != O_RDONLY,
@@ -178,32 +183,63 @@ int open(const char *path, int flags, ...) {
 
 int unlink(const char *path) {
 	if (path == nullptr) return failWith(EINVAL);
+	char absolute[PATH_BUFFER_BYTES];
+	if (!absolutePath(path, absolute)) return FAILURE;
 	if (!ensureConnected()) return failWith(ENOTCONN);
-	return client.unlink(path) ? SUCCESS : failFromServer();
+	return client.unlink(absolute) ? SUCCESS : failFromServer();
 }
 
 int mkdir(const char *path, mode_t) {
 	if (path == nullptr) return failWith(EINVAL);
+	char absolute[PATH_BUFFER_BYTES];
+	if (!absolutePath(path, absolute)) return FAILURE;
 	if (!ensureConnected()) return failWith(ENOTCONN);
-	return client.mkdir(path) ? SUCCESS : failFromServer();
+	return client.mkdir(absolute) ? SUCCESS : failFromServer();
 }
 
 int rmdir(const char *path) {
 	if (path == nullptr) return failWith(EINVAL);
+	char absolute[PATH_BUFFER_BYTES];
+	if (!absolutePath(path, absolute)) return FAILURE;
 	if (!ensureConnected()) return failWith(ENOTCONN);
-	return client.rmdir(path) ? SUCCESS : failFromServer();
+	return client.rmdir(absolute) ? SUCCESS : failFromServer();
 }
 
 int rename(const char *from, const char *to) {
 	if (from == nullptr || to == nullptr) return failWith(EINVAL);
+	char absoluteFrom[PATH_BUFFER_BYTES];
+	char absoluteTo[PATH_BUFFER_BYTES];
+	if (!absolutePath(from, absoluteFrom) || !absolutePath(to, absoluteTo)) return FAILURE;
 	if (!ensureConnected()) return failWith(ENOTCONN);
-	return client.rename(from, to) ? SUCCESS : failFromServer();
+	return client.rename(absoluteFrom, absoluteTo) ? SUCCESS : failFromServer();
 }
 
 int link(const char *existing, const char *name) {
 	if (existing == nullptr || name == nullptr) return failWith(EINVAL);
+	char absoluteExisting[PATH_BUFFER_BYTES];
+	char absoluteName[PATH_BUFFER_BYTES];
+	if (!absolutePath(existing, absoluteExisting) || !absolutePath(name, absoluteName)) return FAILURE;
 	if (!ensureConnected()) return failWith(ENOTCONN);
-	return client.link(existing, name) ? SUCCESS : failFromServer();
+	return client.link(absoluteExisting, absoluteName) ? SUCCESS : failFromServer();
+}
+
+int __file_is_directory(const char *path) {
+	if (!ensureConnected()) return ENOTCONN;
+
+	uint32_t handle = client.open(path, cock::abi::fs::OPEN_READ_ONLY);
+	if (handle == cock::abi::fs::NO_HANDLE) {
+		failFromServer();
+		return errno;
+	}
+
+	cock::user::fs::FileInfo info = {};
+	if (!client.stat(handle, info)) {
+		int error = errorFor(client.lastStatus());
+		client.close(handle);
+		return error;
+	}
+	client.close(handle);
+	return info.type == cock::abi::fs::FileType::DIRECTORY ? SUCCESS : ENOTDIR;
 }
 
 }

@@ -16,7 +16,9 @@ Type on the keyboard of the QEMU window. Without a disk only `/` exists (the `in
 | `help` | Lists the commands |
 | `version` | Prints `microcock vMAJOR.MINOR.PATCH` (the numbers come from the `Makefile`) |
 | `echo text...` | Prints the words separated by single spaces |
-| `ls [path]` | Lists a directory (`/` by default); a name ending in `/` is a directory; a file prints its own path |
+| `cd [path]` | Changes the current directory (`/` without a path). It fails with `sh: cd: path: not found`, `not a directory` or `path too long` and leaves the directory as it was. A built-in, because the directory belongs to the process |
+| `pwd` | Prints the current directory |
+| `ls [path]` | Lists a directory (the current one by default); a name ending in `/` is a directory; a file prints its own path |
 | `cat path` | Prints a file |
 | `write path text...` | Creates or replaces a file with the text and a newline |
 | `mkdir path`, `rmdir path` | Makes a directory, removes an empty one |
@@ -26,7 +28,7 @@ Type on the keyboard of the QEMU window. Without a disk only `/` exists (the `in
 | `sleep seconds` | Waits, up to 3600 seconds |
 | `clear` | Clears the screen (the `CLEAR` operation of the console protocol) |
 
-Paths are absolute: there is no current directory. A failure prints `sh: command: path: reason`, with the reason taken from the file server status (`not found`, `read only`, `already exists`, `not empty`, `different volumes`, and so on). An unknown command prints `sh: name: command not found`.
+The shell has a current directory, like any process (`libc/unistd/cwd.cpp`; it starts in `/`). A path that does not start with `/` is taken from it, and `.` and `..` are understood (`..` of `/` is `/`). Every command resolves its paths with `cock/path/resolve.hpp` (`sh/paths.hpp`) before the file server sees them, so the servers get absolute paths only. A failure prints `sh: command: path: reason`, with the reason taken from the file server status (`not found`, `read only`, `already exists`, `not empty`, `different volumes`, and so on). An unknown command prints `sh: name: command not found`.
 
 ## How a line is read
 The console server edits the line (echo and Backspace) and delivers it whole, with its newline, when Enter is pressed. `sh` calls `read(0)` in a loop, 12 bytes at a time, until it sees the newline. The call blocks in the kernel until a line is ready (see [console](console.md#what-the-server-does)). A line holds at most 127 characters and 8 words (`cock/shell/words.hpp`, tested on the host in `test/host/test_shell.cpp`).
@@ -34,7 +36,7 @@ The console server edits the line (echo and Backspace) and delivers it whole, wi
 ## Limits
 * No `spawn`: the shell cannot run other programs yet. That needs a capability to call `spawn` (stage 9) or a request to `rs`.
 * No quoting, pipes, redirection, history, tab completion or Ctrl+C.
-* No current directory and no `..`.
+* Links are not looked at when `..` is resolved: `cd link/..` goes to the parent of the link's name, not of its target.
 * `/` is the `initrd` and is read only, so `write`, `mkdir`, `rm` and `mv` only work under `/fat` and `/ext` and need a disk. A writable `/tmp` in memory is noted in the roadmap (`tmpfs`).
 * `cat` writes the bytes as they are, so a binary file prints garbage on the screen.
 

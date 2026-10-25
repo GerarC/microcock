@@ -29,6 +29,8 @@
 #define EEXIST       17
 /** Cross-device link: rename or link between two different mounts. */
 #define EXDEV        18
+/** Not a directory: `chdir` to a path that names something else. */
+#define ENOTDIR      20
 /** Invalid argument: null path, bad flags, bad whence or out of range value. */
 #define EINVAL       22
 /** Too many open files in the system: a server has no room for another object, such as a pipe. */
@@ -39,6 +41,10 @@
 #define ENOSPC       28
 /** Read-only file system. */
 #define EROFS        30
+/** Result too large: the buffer given to `getcwd` cannot hold the directory. */
+#define ERANGE       34
+/** File name too long: a path, once resolved against the working directory, does not fit in 127 characters. */
+#define ENAMETOOLONG 36
 /** Broken pipe: a write to a pipe that no process has open for reading. */
 #define EPIPE        32
 /** Illegal seek: the descriptor is the console or another object with no offset. */
@@ -58,7 +64,7 @@ extern "C" {
  * @brief Error code of the last failed libc call.
  *
  * Set by the file calls (open, close, dup, dup2, read, write, lseek, unlink,
- * mkdir, rmdir, rename, link) when they return -1. Never cleared by the library.
+ * mkdir, rmdir, rename, link, chdir, getcwd) when they return -1. Never cleared by the library.
  */
 extern int errno;
 

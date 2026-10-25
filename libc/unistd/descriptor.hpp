@@ -129,6 +129,17 @@ const cock::libc::Operations *__file_operations();
 const cock::libc::Operations *__pipe_operations();
 
 /**
+ * @brief Tells whether a path names a directory, for `chdir`.
+ *
+ * Defined by `file.cpp`, which owns the connection to `vfs`: a second client in the same process would reconnect and
+ * close the files the program has open. `cwd.cpp` calls it through a weak reference.
+ * @param path An absolute, normalized path, as `cock::libc::absolutePath` gives.
+ * @return 0 when it is a directory, otherwise an `errno` value: `ENOTDIR` for something else, `ENOENT`, `ENOTCONN` or the
+ * error of the server.
+ */
+int __file_is_directory(const char *path);
+
+/**
  * @brief Tells `file.cpp` that the descriptors it holds came from an `exec`, so its first connection to `vfs` keeps
  * the files the process has open there instead of closing them as a new connection would.
  */

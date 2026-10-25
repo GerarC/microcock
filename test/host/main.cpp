@@ -26,6 +26,7 @@ void testReplyTable();
 void testPmTable();
 void testExecArgs();
 void testElfMutator();
+void testPath();
 } // namespace host_test
 
 int main() {
@@ -53,6 +54,7 @@ int main() {
 	host_test::testPmTable();
 	host_test::testExecArgs();
 	host_test::testElfMutator();
+	host_test::testPath();
 
 	printf("host tests: %d checks, %d failed\n", host_test::checksRun,
 		   host_test::checksFailed);

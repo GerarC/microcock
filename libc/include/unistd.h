@@ -9,7 +9,8 @@
  * Descriptors 0, 1 and 2 are born as stdin, stdout and stderr served by the
  * console server (with the kernel debug console as fallback); they can be
  * closed and replaced like any other. The rest are files opened through the
- * `vfs` server, which the library offsets itself.
+ * `vfs` server, which the library offsets itself. A path that does not start with `/` is relative to the working
+ * directory (`chdir`, `getcwd`).
  * Offsets are 31 bit, so files are limited to 2 GiB minus one byte.
  */
 #ifndef UNISTD_H
@@ -113,23 +114,23 @@ int pipe(int fds[2]);
 
 /**
  * @brief Removes a file name.
- * @param path Absolute path, null terminated.
- * @return 0, or -1 with `errno` set (`EINVAL`, `ENOTCONN`, `ENOENT`,
+ * @param path Path, null terminated; relative paths start at the working directory.
+ * @return 0, or -1 with `errno` set (`EINVAL`, `ENAMETOOLONG`, `ENOTCONN`, `ENOENT`,
  *         `EBUSY`, `EROFS`...).
  */
 int unlink(const char *path);
 
 /**
  * @brief Removes an empty directory.
- * @param path Absolute path, null terminated.
+ * @param path Path, null terminated; relative paths start at the working directory.
  * @return 0, or -1 with `errno` set (`ENOTEMPTY`, `ENOENT`...).
  */
 int rmdir(const char *path);
 
 /**
  * @brief Renames or moves a file or directory.
- * @param from Existing absolute path.
- * @param to New absolute path; both must be on the same mount.
+ * @param from Existing path, absolute or relative to the working directory.
+ * @param to New path, the same way; both must be on the same mount.
  * @return 0, or -1 with `errno` set (`EXDEV` across mounts, `EEXIST`,
  *         `ENOENT`, `EINVAL` for a null path...).
  */
@@ -137,12 +138,34 @@ int rename(const char *from, const char *to);
 
 /**
  * @brief Creates a hard link.
- * @param existing Absolute path of an existing file.
- * @param name Absolute path of the new name, on the same mount.
+ * @param existing Path of an existing file, absolute or relative to the working directory.
+ * @param name Path of the new name, the same way, on the same mount.
  * @return 0, or -1 with `errno` set (`EXDEV`, `EEXIST`, `ENOTSUP` on file
  *         systems without links...).
  */
 int link(const char *existing, const char *name);
+
+/**
+ * @brief Changes the working directory of the process.
+ *
+ * Every path the file calls receive that does not start with `/` is taken from this directory, and `.` and `..` are
+ * understood (`..` of the root is the root). Links are not looked at: the servers resolve them. A new process starts in
+ * `/`; `fork` and `exec` keep the directory.
+ * @param path Path of the directory, absolute or relative to the current one.
+ * @return 0, or -1 with `errno` set and the directory unchanged: `EINVAL` (null path), `ENOENT`, `ENOTDIR` (it names
+ *         something else), `ENAMETOOLONG` (the result does not fit in 127 characters), `ENOTCONN` or the error of the
+ *         server.
+ */
+int chdir(const char *path);
+
+/**
+ * @brief Copies the working directory into a buffer.
+ * @param buf Destination.
+ * @param size Size of `buf` in bytes, the terminator included.
+ * @return `buf`, holding an absolute path with no `.`, `..` or trailing `/` (the root is `/`), or null with `errno` set
+ *         to `EINVAL` (null buffer or zero size) or `ERANGE` (the buffer is too small; 128 bytes always suffice).
+ */
+char *getcwd(char *buf, size_t size);
 
 /**
  * @brief Terminates the calling process immediately.

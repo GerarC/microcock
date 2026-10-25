@@ -10,12 +10,14 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <unistd.h>
 
 namespace {
 
 constexpr char PM_NAME[] = "pm";
 constexpr char MISSING_PATH[] = "/bin/missing";
 constexpr char NOT_AN_IMAGE_PATH[] = "/hello.txt";
+constexpr char WORKING_DIRECTORY[] = "/bin";
 constexpr char CHILD_PATH[] = "/bin/execchild";
 constexpr char CHILD_NAME[] = "execchild";
 constexpr char FIRST_ARGUMENT[] = "alpha";
@@ -57,6 +59,11 @@ extern "C" int main() {
 		return EXIT_FAILED;
 	}
 	cock::user::pm::Client process(manager.handle);
+
+	if (chdir(WORKING_DIRECTORY) != 0) {
+		puts("execprobe: cannot change the directory");
+		return EXIT_FAILED;
+	}
 
 	const char *none[] = {CHILD_NAME};
 	bool missing = cock::user::exec(process, files, MISSING_PATH, none, ONE_ARGUMENT) ==

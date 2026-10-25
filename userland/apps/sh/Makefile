@@ -1,6 +1,6 @@
 NAME = sh
-SRCS = src/main.cpp src/input.cpp src/commands.cpp src/builtins.cpp src/file_commands.cpp src/process_commands.cpp
-LIBC_SRCS = string/memcpy.cpp string/memset.cpp string/strlen.cpp stdio/printf.cpp stdio/putchar.cpp stdio/puts.cpp unistd/write.cpp sys/mman/munmap.cpp
+SRCS = src/main.cpp src/input.cpp src/commands.cpp src/builtins.cpp src/directory_commands.cpp src/paths.cpp src/file_commands.cpp src/process_commands.cpp
+LIBC_SRCS = string/memcpy.cpp string/memset.cpp string/memcmp.cpp string/strlen.cpp stdio/printf.cpp stdio/putchar.cpp stdio/puts.cpp unistd/write.cpp unistd/file.cpp unistd/cwd.cpp sys/mman/munmap.cpp
 
 include ../../common.mk
 

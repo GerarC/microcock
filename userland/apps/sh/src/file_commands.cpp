@@ -4,6 +4,7 @@
 #include <sh/arguments.hpp>
 #include <sh/commands.hpp>
 #include <sh/file_commands.hpp>
+#include <sh/paths.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -19,7 +20,7 @@ namespace cock::sh {
 namespace {
 
 constexpr int STDOUT_DESCRIPTOR = 1;
-constexpr char ROOT_PATH[] = "/";
+constexpr char CURRENT_PATH[] = ".";
 constexpr size_t FILE_CHUNK_BYTES = 512;
 constexpr size_t NAME_BYTES = 256;
 constexpr uint32_t START_OFFSET = 0;
@@ -81,8 +82,10 @@ void listCommand(const Words &words) {
 	if (words.count > ONE_ARGUMENT) return usage(words.items[FIRST_WORD], "[path]");
 	if (!connectFiles()) return;
 
-	const char *path = words.count == ONE_ARGUMENT ? words.items[SECOND_WORD] : ROOT_PATH;
-	uint32_t handle = fs.open(path);
+	const char *path = words.count == ONE_ARGUMENT ? words.items[SECOND_WORD] : CURRENT_PATH;
+	char absolute[PATH_BYTES] = {};
+	if (!resolvePath(words.items[FIRST_WORD], path, absolute)) return;
+	uint32_t handle = fs.open(absolute);
 	if (handle == NO_HANDLE) return failFile("ls", path);
 
 	cock::user::fs::FileInfo info = {};
@@ -109,7 +112,9 @@ void catCommand(const Words &words) {
 	if (!connectFiles()) return;
 
 	const char *path = words.items[SECOND_WORD];
-	uint32_t handle = fs.open(path);
+	char absolute[PATH_BYTES] = {};
+	if (!resolvePath(words.items[FIRST_WORD], path, absolute)) return;
+	uint32_t handle = fs.open(absolute);
 	if (handle == NO_HANDLE) return failFile("cat", path);
 
 	cock::user::fs::FileInfo info = {};
@@ -144,6 +149,8 @@ void writeCommand(const Words &words) {
 	if (!connectFiles()) return;
 
 	const char *path = words.items[SECOND_WORD];
+	char absolute[PATH_BYTES] = {};
+	if (!resolvePath(words.items[FIRST_WORD], path, absolute)) return;
 	char text[TEXT_BYTES] = {};
 	size_t length = NO_LENGTH;
 	if (!cock::shell::join(words, THIRD_WORD, text, sizeof(text) - sizeof(char), length)) {
@@ -154,7 +161,7 @@ void writeCommand(const Words &words) {
 
 	uint32_t flags = cock::abi::fs::OPEN_WRITE | cock::abi::fs::OPEN_CREATE |
 					 cock::abi::fs::OPEN_TRUNCATE;
-	uint32_t handle = fs.open(path, flags);
+	uint32_t handle = fs.open(absolute, flags);
 	if (handle == NO_HANDLE) return failFile("write", path);
 
 	if (fs.write(handle, START_OFFSET, text, length) != static_cast<long>(length))
@@ -165,25 +172,36 @@ void writeCommand(const Words &words) {
 void makeDirectoryCommand(const Words &words) {
 	if (words.count != ONE_ARGUMENT) return usage(words.items[FIRST_WORD], "path");
 	if (!connectFiles()) return;
-	if (!fs.mkdir(words.items[SECOND_WORD])) failFile("mkdir", words.items[SECOND_WORD]);
+	char absolute[PATH_BYTES] = {};
+	if (!resolvePath(words.items[FIRST_WORD], words.items[SECOND_WORD], absolute)) return;
+	if (!fs.mkdir(absolute)) failFile("mkdir", words.items[SECOND_WORD]);
 }
 
 void removeDirectoryCommand(const Words &words) {
 	if (words.count != ONE_ARGUMENT) return usage(words.items[FIRST_WORD], "path");
 	if (!connectFiles()) return;
-	if (!fs.rmdir(words.items[SECOND_WORD])) failFile("rmdir", words.items[SECOND_WORD]);
+	char absolute[PATH_BYTES] = {};
+	if (!resolvePath(words.items[FIRST_WORD], words.items[SECOND_WORD], absolute)) return;
+	if (!fs.rmdir(absolute)) failFile("rmdir", words.items[SECOND_WORD]);
 }
 
 void removeCommand(const Words &words) {
 	if (words.count != ONE_ARGUMENT) return usage(words.items[FIRST_WORD], "path");
 	if (!connectFiles()) return;
-	if (!fs.unlink(words.items[SECOND_WORD])) failFile("rm", words.items[SECOND_WORD]);
+	char absolute[PATH_BYTES] = {};
+	if (!resolvePath(words.items[FIRST_WORD], words.items[SECOND_WORD], absolute)) return;
+	if (!fs.unlink(absolute)) failFile("rm", words.items[SECOND_WORD]);
 }
 
 void moveCommand(const Words &words) {
 	if (words.count != TWO_ARGUMENTS) return usage(words.items[FIRST_WORD], "from to");
 	if (!connectFiles()) return;
-	if (!fs.rename(words.items[SECOND_WORD], words.items[THIRD_WORD]))
+	char from[PATH_BYTES] = {};
+	char to[PATH_BYTES] = {};
+	if (!resolvePath(words.items[FIRST_WORD], words.items[SECOND_WORD], from) ||
+		!resolvePath(words.items[FIRST_WORD], words.items[THIRD_WORD], to))
+		return;
+	if (!fs.rename(from, to))
 		failFile("mv", words.items[SECOND_WORD]);
 }
 

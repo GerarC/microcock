@@ -1,16 +1,25 @@
 #include <cock/abi/process.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/crt0.hpp>
+#include <errno.h>
+#include <fcntl.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 namespace {
 
 constexpr char EXPECTED_NAME[] = "execchild";
 constexpr char EXPECTED_FIRST[] = "alpha";
 constexpr char EXPECTED_SECOND[] = "beta";
+constexpr char EXPECTED_DIRECTORY[] = "/bin";
+constexpr char ROOT_DIRECTORY[] = "/";
+constexpr char PARENT_PATH[] = "..";
+constexpr char RELATIVE_IMAGE[] = "./execchild";
+constexpr char IMAGE_FROM_ROOT[] = "bin/execchild";
+constexpr size_t DIRECTORY_BYTES = 128;
 constexpr uint32_t EXPECTED_ARGS = 4;
 constexpr uint32_t NAME_INDEX = 0;
 constexpr uint32_t FIRST_INDEX = 1;
@@ -45,6 +54,20 @@ bool sameProcess() {
 	return parse(cock::user::argument(PID_INDEX), before) && before == cock::user::self();
 }
 
+bool directoryArrived() {
+	char directory[DIRECTORY_BYTES] = {};
+	if (getcwd(directory, sizeof(directory)) == nullptr || strcmp(directory, EXPECTED_DIRECTORY) != 0) return false;
+
+	int file = open(RELATIVE_IMAGE, O_RDONLY);
+	if (file < 0) return false;
+	close(file);
+
+	if (chdir(PARENT_PATH) != 0 || getcwd(directory, sizeof(directory)) == nullptr ||
+		strcmp(directory, ROOT_DIRECTORY) != 0)
+		return false;
+	return chdir(IMAGE_FROM_ROOT) != 0 && errno == ENOTDIR;
+}
+
 bool otherThreadsGone() {
 	uint32_t mask = cock::user::process_state_mask(cock::user::self());
 	return (mask & cock::abi::process::THREAD_BLOCKED) == NO_BITS;
@@ -57,9 +80,11 @@ extern "C" int main(int argc, char **argv) {
 	bool same = sameProcess();
 	bool handle = cock::user::initialHandle() != NO_HANDLE;
 	bool alone = otherThreadsGone();
-	if (!arguments || !same || !handle || !alone) {
-		printf("execchild: wrong, arguments %d pid %d handle %d alone %d\n", static_cast<int>(arguments),
-			   static_cast<int>(same), static_cast<int>(handle), static_cast<int>(alone));
+	bool directory = directoryArrived();
+	if (!arguments || !same || !handle || !alone || !directory) {
+		printf("execchild: wrong, arguments %d pid %d handle %d alone %d directory %d\n",
+			   static_cast<int>(arguments), static_cast<int>(same), static_cast<int>(handle),
+			   static_cast<int>(alone), static_cast<int>(directory));
 		return EXIT_FAILED;
 	}
 

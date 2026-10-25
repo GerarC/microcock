@@ -2,6 +2,7 @@
 #include <sh/arguments.hpp>
 #include <sh/builtins.hpp>
 #include <sh/commands.hpp>
+#include <sh/directory_commands.hpp>
 #include <sh/file_commands.hpp>
 #include <sh/process_commands.hpp>
 #include <stddef.h>
@@ -27,6 +28,8 @@ constexpr Command COMMANDS[] = {
 	{"help", "list the commands", helpCommand},
 	{"version", "print the version", versionCommand},
 	{"echo", "echo text...: print the text", echoCommand},
+	{"cd", "cd [path]: change the directory", changeDirectoryCommand},
+	{"pwd", "print the directory", printDirectoryCommand},
 	{"ls", "ls [path]: list a directory", listCommand},
 	{"cat", "cat path: print a file", catCommand},
 	{"write", "write path text...: replace a file with the text", writeCommand},
@@ -44,7 +47,7 @@ constexpr size_t COMMAND_COUNT = sizeof(COMMANDS) / sizeof(COMMANDS[0]);
 void helpCommand(const Words &) {
 	for (size_t index = 0; index < COMMAND_COUNT; index++)
 		printf("  %s: %s\n", COMMANDS[index].name, COMMANDS[index].summary);
-	printf("paths are absolute, for example /fat or /ext\n");
+	printf("paths are absolute or relative to the directory of cd, for example /fat or /ext\n");
 }
 
 bool streq(const char *left, const char *right) {

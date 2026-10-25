@@ -37,12 +37,13 @@ extern "C" {
  * descriptor. Descriptors 0, 1 and 2 are the console until the program closes
  * them, so the first file is normally 3; the table holds 32 descriptors.
  *
- * @param path Absolute path, null terminated. Must not be null.
+ * @param path Path, null terminated, absolute or relative to the working directory. Must not be null.
  * @param flags One access mode (`O_RDONLY`, `O_WRONLY` or `O_RDWR`) combined
  *              with `O_CREAT`, `O_TRUNC` and `O_APPEND`.
  * @param ... Ignored. The POSIX mode argument is accepted and not read.
  * @return The new descriptor (3 or more) or -1 with `errno` set: `EINVAL`
- *         (null path or bad access mode), `EMFILE` (no free slot),
+ *         (null path or bad access mode), `ENAMETOOLONG` (the resolved path
+ *         does not fit), `EMFILE` (no free slot),
  *         `ENOTCONN` (no file server) or the error reported by the server
  *         (`ENOENT`, `EROFS`, `ENOSPC`, `EIO`...).
  */

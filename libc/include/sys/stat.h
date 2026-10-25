@@ -16,7 +16,7 @@ typedef unsigned int mode_t;
 
 /**
  * @brief Creates a directory through the `vfs` server.
- * @param path Absolute path, null terminated.
+ * @param path Path, null terminated, absolute or relative to the working directory.
  * @param mode Ignored: there are no permission bits.
  * @return 0 on success, or -1 with `errno` set: `EINVAL` (null path),
  *         `ENOTCONN`, or the server error (`EEXIST`, `ENOENT`, `ENOSPC`,

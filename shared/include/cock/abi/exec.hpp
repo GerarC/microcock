@@ -13,6 +13,7 @@
 #define SHARED_COCK_ABI_EXEC_HPP
 
 #include <cock/abi/executable.hpp>
+#include <cock/abi/fs.hpp>
 #include <cock/abi/process.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -91,6 +92,8 @@ struct ArgsBlock {
 	DescriptorRecord descriptions[DESCRIPTOR_COUNT];
 	/** For each descriptor, the index of the description it names, or `NO_DESCRIPTION`; two descriptors with the same index share it. */
 	uint8_t slots[DESCRIPTOR_COUNT];
+	/** The working directory of the replaced program: an absolute, normalized path, or an empty string when none is handed on (the new program starts in `/`). */
+	char cwd[fs::MAX_PATH_BYTES];
 };
 
 static_assert(sizeof(ArgsBlock) <= ARGS_PAGE_BYTES, "the arguments must fit in their page");

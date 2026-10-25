@@ -24,7 +24,9 @@ The shell serves nothing. It uses the console protocol (`shared/include/cock/abi
 | `help` | List the commands |
 | `version` | Print `microcock vMAJOR.MINOR.PATCH` |
 | `echo text...` | Print the words joined by single spaces |
-| `ls [path]` | List a directory (`/` by default); directories end in `/`; a file prints its own path |
+| `cd [path]` | Change the current directory (`/` without a path) |
+| `pwd` | Print the current directory |
+| `ls [path]` | List a directory (the current one by default); directories end in `/`; a file prints its own path |
 | `cat path` | Print a file |
 | `write path text...` | Create or replace a file with the text and a newline |
 | `mkdir path`, `rmdir path` | Make a directory, remove an empty one |
@@ -34,7 +36,7 @@ The shell serves nothing. It uses the console protocol (`shared/include/cock/abi
 | `sleep seconds` | Wait, up to 3600 seconds |
 | `clear` | Clear the screen |
 
-Paths are absolute. An unknown command prints `sh: <name>: command not found`; more than 8 words print `sh: too many words`.
+A path may be relative to the current directory, with `.` and `..`. An unknown command prints `sh: <name>: command not found`; more than 8 words print `sh: too many words`.
 
 ## Source layout
 
@@ -43,6 +45,8 @@ Paths are absolute. An unknown command prints `sh: <name>: command not found`; m
 | `src/main.cpp` | `main`: the banner, the prompt and the read and run loop |
 | `src/input.cpp`, `include/sh/input.hpp` | `readLine`: one line from descriptor 0, in chunks of 12 bytes |
 | `src/commands.cpp`, `include/sh/commands.hpp` | The command table, `help`, `run` (split a line and call a command) and `usage` |
+| `src/directory_commands.cpp`, `include/sh/directory_commands.hpp` | `cd` and `pwd`, over `chdir` and `getcwd` of the C library |
+| `src/paths.cpp`, `include/sh/paths.hpp` | `resolvePath`: a word of a command against the current directory, for the file commands |
 | `src/builtins.cpp`, `include/sh/builtins.hpp` | `version`, `echo`, `sleep` and `clear` (the console client lives here) |
 | `src/file_commands.cpp`, `include/sh/file_commands.hpp` | `ls`, `cat`, `write`, `mkdir`, `rmdir`, `rm`, `mv`, the file client and `statusText` |
 | `src/process_commands.cpp`, `include/sh/process_commands.hpp` | `ps` and the client of `pm` |
@@ -62,13 +66,13 @@ bash scripts/qemu_userland_test.sh
 bash scripts/host_test.sh
 ```
 
-Add `HOST_TOOLCHAIN=1` without the cross compiler. Type in the QEMU window; without `DISK` only `/` (the initrd, read only) exists. The userland script types fifteen commands through the QEMU monitor (`echo`, `version`, `ps`, `ls`, `cat`, `write`, `mv`, `rm`, a failing `cat`, `sleep`, `clear` and a last `echo`) and requires their output on the serial log, the last prompt on the screen and a clean `e2fsck` afterwards.
+Add `HOST_TOOLCHAIN=1` without the cross compiler. Type in the QEMU window; without `DISK` only `/` (the initrd, read only) exists. The userland script types its commands through the QEMU monitor (`echo`, `version`, `ps`, `ls`, `cat`, `write`, `mv`, `rm`, a failing `cat`, `cd` and `pwd` with relative paths, `..` and two failing `cd`, `sleep`, `clear` and a last `echo`) and requires their output on the serial log, the last prompt on the screen and a clean `e2fsck` afterwards.
 
 ## Limits and known gaps
 
 - It cannot run programs: there is no `spawn` for it until a capability or a request to `rs` exists (stage 9).
 - No quoting, pipes, redirection, history, tab completion or Ctrl+C.
-- No current directory and no `..`; every path is absolute.
+- `..` is resolved on the text of the path, so a link in the path is not followed first.
 - A line holds at most 127 characters; `write` and `echo` text is at most 255 characters.
 - `/` is the initrd and read only, so `write`, `mkdir`, `rm` and `mv` need a disk under `/fat` or `/ext`.
 - `cat` writes bytes as they are, so a binary file prints garbage.

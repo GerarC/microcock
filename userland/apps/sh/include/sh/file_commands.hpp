@@ -4,7 +4,8 @@
  * Every command takes the words of the line, where the first one is the name of the command.
  * The first one that needs a file connects to the file server. A failure prints
  * `sh: <command>: <path>: <reason>` with the reason taken from the status of the server;
- * a wrong count of arguments prints the usage. None returns a status. Paths are absolute.
+ * a wrong count of arguments prints the usage. None returns a status. A path that does not start with `/` is relative
+ * to the working directory (`cd`, `pwd`); `sh/paths.hpp` resolves it before the server sees it.
  */
 #ifndef SH_FILE_COMMANDS_HPP
 #define SH_FILE_COMMANDS_HPP
@@ -14,7 +15,7 @@
 namespace cock::sh {
 
 /**
- * @brief `ls [path]`: lists a directory, `/` by default.
+ * @brief `ls [path]`: lists a directory, the working directory by default.
  *
  * Directories end in a slash. For a file it prints the path.
  *
