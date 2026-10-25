@@ -35,7 +35,13 @@ Synchronous calls of four words, `shared/include/cock/abi/pm.hpp`, through a han
 | `SPAWN object` | `rs`, `init` | The first page holds a `SpawnRequest` (name, `SpawnRights`, flags, image size), the image starts at `IMAGE_OFFSET`; `pm` copies the request, checks it and creates the process |
 | `REGISTER kernel parent wanted` | `rs` | Records a process that already runs |
 | `PERMIT label` | `rs` | `init` may create processes with that label |
-| `LIST index` | anyone with a handle | One row of the table |
+| `LIST index` | anyone with a handle | One row of the table, with the state in bits 8 to 15 of the reply header |
+
+## Process states
+
+The states are those of `ps` in Linux (`abi::pm::State`). The table stores only two of them, `RUNNING` for a process that lives and `EXITED` (`X`) for one whose exit notice arrived. `LIST` does not report the stored `RUNNING` as it is: it asks the kernel for the states of the live threads (`SYS_PROC_STATE`) and `cock::pm::classify` (`shared/include/cock/pm/classify.hpp`) turns the mask into `R` when a thread is ready or running and into `S` when every live thread waits (timer, futex, message, accept or reply). Nothing is reported by the scheduler and nothing is stored, so the thread path of the kernel has no extra work, and the answer is the state at the moment of the call. When the kernel cannot read the threads, for example because the first thread of the process was already reaped while another thread lives, `LIST` answers `R`.
+
+`T` (stopped), `Z` (zombie) and `D` (uninterruptible sleep) have a value in `State` and a letter in `ps`, and nothing produces them: `Z` comes with `wait` (L1), `T` with signals (L3), and `D` with the first wait that a signal must not end, which sets it and says so in its header.
 
 The size of the object is `pm`'s own, so a caller cannot make `pm` read past it. `pm` checks that the name ends, the flags are known (`FORWARD_EXIT`, `AS_INIT`), the image fits the object, the label is a program label and there are at most eight IPC labels. A process created for `init` gets no IPC label and an initial handle on the name server.
 

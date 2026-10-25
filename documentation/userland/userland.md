@@ -90,6 +90,7 @@ When an entry has grants or an argument, `rs` sends the process `CAPABILITY_GRAN
 | `cap_accept(mask)`, `cap_send(pid, type, first, count, delegate, tag)` | `SYS_CAP_ACCEPT`, and `SYS_IPC_SEND` of a `CAPABILITY_TRANSFER` message (returns the node id of the copy, `abi::NO_CAPABILITY_NODE` on failure) |
 | `cap_grant_node(pid, type, first, count)`, `cap_revoke(node)` | `SYS_CAP_GRANT` returning the derivation node, and `SYS_CAP_REVOKE` |
 | `process_alive(pid)` | `SYS_PROC_ALIVE` |
+| `process_state_mask(pid)` | `SYS_PROC_STATE` |
 | `ipc_try_recv(message)` | `SYS_IPC_TRY_RECV`; `Received::MESSAGE`, `EMPTY` or `FAILED` |
 | `ipc_recv_timeout(message, milliseconds)` | `SYS_IPC_RECV_TIMEOUT`; the same results, `EMPTY` when the time ran out; like `ipc_try_recv` it reads only the kernel inbox |
 | `sleep_ms(milliseconds)` | `SYS_SLEEP`; true when it slept (resolution 10 ms) |

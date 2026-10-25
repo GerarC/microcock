@@ -93,6 +93,8 @@ bool threadsShareMemoryUnderMutex();
 bool futexWakesEveryWaiterAndThreadsAreBounded();
 /** Three threads wait on one futex word while the main thread sets it and wakes them, fifty rounds in lock step; each waiter pauses between reading the word and waiting, so the wake arrives while nobody sleeps and `futex_wait` must see the changed word; every waiter proceeds every round (none reaches the one second limit) and the acknowledgements add up to the exact total. */
 bool futexLosesNoWakeup();
+/** `SYS_PROC_STATE` of the own process shows the running thread, adds the blocked bit while a second thread waits on a futex and drops it when that thread ends; the id of a thread that is not the first, `NO_PROCESS` and an unknown id give no mask. */
+bool processStateReportsThreads();
 /** `futex_wait` and `futex_wake` fail on null, unaligned, kernel and unmapped words, and `futex_wait` on a time above the maximum; `futex_wait` returns `FUTEX_VALUE_CHANGED` for a different value and `FUTEX_TIMED_OUT` for a zero or short time, and `futex_wake` on a word without waiters returns zero; `thread_create_raw` fails for kernel or unmapped entry points, kernel or unmapped stacks and a stack below the minimum. */
 bool futexAndThreadCallsRefuseBadInput();
 

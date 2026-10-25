@@ -25,10 +25,15 @@ constexpr uintptr_t EXIT_FAILED = 1;
 struct Census {
 	size_t rows = NO_ROWS;
 	size_t exited = NO_ROWS;
+	size_t other = NO_ROWS;
 	bool rootFirst = false;
-	bool selfRunning = false;
+	bool selfSleeping = false;
 	bool selfChildOfRoot = false;
 };
+
+bool isLive(State state) {
+	return state == State::RUNNING || state == State::SLEEPING;
+}
 
 Census count(cock::user::pm::Client &client) {
 	Census census;
@@ -42,10 +47,11 @@ Census count(cock::user::pm::Client &client) {
 		if (index == FIRST_ROW) {
 			rootPid = row.pid;
 			census.rootFirst = row.kernelId == cock::abi::service::ROOT_PID &&
-							   row.parent == cock::abi::pm::NO_PID && row.state == State::RUNNING;
+							   row.parent == cock::abi::pm::NO_PID && isLive(row.state);
 		}
+		if (!isLive(row.state) && row.state != State::EXITED) census.other++;
 		if (row.kernelId == self) {
-			census.selfRunning = row.state == State::RUNNING;
+			census.selfSleeping = row.state == State::SLEEPING;
 			census.selfChildOfRoot = row.parent == rootPid;
 		}
 	}
@@ -71,8 +77,9 @@ extern "C" int main() {
 
 	cock::user::pm::Client client(pm.handle);
 	Census census = count(client);
-	bool ok = census.rows >= FIRST_PROCESSES && census.rootFirst && census.selfRunning &&
-			  census.selfChildOfRoot && census.exited != NO_ROWS && refusesStrangers(client);
+	bool ok = census.rows >= FIRST_PROCESSES && census.rootFirst && census.selfSleeping &&
+			  census.selfChildOfRoot && census.exited != NO_ROWS && census.other == NO_ROWS &&
+			  refusesStrangers(client);
 
 	puts(ok ? "pmclient: ok" : "pmclient: wrong table");
 	return ok ? EXIT_PASSED : EXIT_FAILED;

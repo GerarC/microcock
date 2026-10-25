@@ -1,3 +1,4 @@
+#include <cock/pm/classify.hpp>
 #include <cock/user/api.hpp>
 #include <pm/objects.hpp>
 #include <pm/requests.hpp>
@@ -54,6 +55,10 @@ Status list(const uint32_t (&words)[CALL_WORDS], uint32_t (&reply)[CALL_WORDS], 
 	reply[SECOND_WORD] = row->pid;
 	reply[THIRD_WORD] = row->parent;
 	state = row->state;
+	if (state == State::RUNNING) {
+		State seen = cock::pm::classify(cock::user::process_state_mask(row->kernelId));
+		if (seen != State::FREE) state = seen;
+	}
 	return Status::OK;
 }
 

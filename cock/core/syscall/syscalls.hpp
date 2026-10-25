@@ -507,6 +507,16 @@ uintptr_t sys_proc_discard(uintptr_t handle, uintptr_t, uintptr_t, uintptr_t, ui
 uintptr_t sys_proc_alive(uintptr_t pid, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
 						 uintptr_t);
 
+/**
+ * @brief Tells in which states the live threads of a process are.
+ * @param pid Process id, generation included: the id of its first thread.
+ * @return A mask of the `abi::process::THREAD_*` bits, one for each state a live thread is in; all ones
+ * (`abi::process::NO_STATE_MASK`) when the id is not a process id, names the kernel process or has no live
+ * thread. Any process may ask; nothing is written and nothing waits.
+ */
+uintptr_t sys_proc_state(uintptr_t pid, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
+						 uintptr_t);
+
 /** @brief Largest finite timeout in milliseconds accepted by the timed calls. */
 constexpr uintptr_t MAX_TIMEOUT_MILLISECONDS = 0x7FFFFFFF;
 

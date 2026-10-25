@@ -1,4 +1,6 @@
 #include <cock/abi/pm.hpp>
+#include <cock/abi/process.hpp>
+#include <cock/pm/classify.hpp>
 #include <cock/pm/table.hpp>
 #include <test/host/check.hpp>
 #include <stddef.h>
@@ -29,6 +31,8 @@ constexpr size_t ONE_ROW = 1;
 constexpr size_t TWO_ROWS = 2;
 constexpr size_t FIRST_INDEX = 0;
 constexpr uint32_t HEADER_STATE_SHIFT = cock::abi::pm::BYTE_BITS;
+constexpr uint32_t NO_BITS = 0;
+constexpr uint32_t UNKNOWN_BIT = 0x80;
 
 void checkAdd() {
 	Table table;
@@ -171,6 +175,29 @@ void checkHeaders() {
 	CHECK_TRUE(cock::abi::pm::stateOf(cock::abi::pm::packReply(Status::OK)) == State::FREE);
 }
 
+void checkClassify() {
+	using namespace cock::abi::process;
+	using cock::pm::classify;
+
+	CHECK_TRUE(classify(THREAD_READY) == State::RUNNING);
+	CHECK_TRUE(classify(THREAD_RUNNING) == State::RUNNING);
+	CHECK_TRUE(classify(THREAD_BLOCKED) == State::SLEEPING);
+	CHECK_TRUE(classify(THREAD_WAITING_MSG) == State::SLEEPING);
+	CHECK_TRUE(classify(THREAD_WAITING_CALL) == State::SLEEPING);
+	CHECK_TRUE(classify(THREAD_WAITING_REPLY) == State::SLEEPING);
+	CHECK_TRUE(classify(THREAD_SLEEPING_MASK) == State::SLEEPING);
+	CHECK_TRUE(classify(THREAD_BLOCKED | THREAD_READY) == State::RUNNING);
+	CHECK_TRUE(classify(THREAD_WAITING_REPLY | THREAD_RUNNING) == State::RUNNING);
+	CHECK_TRUE(classify(NO_BITS) == State::FREE);
+	CHECK_TRUE(classify(UNKNOWN_BIT) == State::FREE);
+	CHECK_TRUE(classify(UNKNOWN_BIT | THREAD_BLOCKED) == State::SLEEPING);
+
+	CHECK_EQ(NO_BITS, THREAD_RUNNABLE_MASK & THREAD_SLEEPING_MASK);
+	CHECK_EQ(static_cast<uint32_t>(State::SLEEPING),
+			 static_cast<uint32_t>(cock::abi::pm::stateOf(
+				 cock::abi::pm::packReply(Status::OK, State::SLEEPING))));
+}
+
 } // namespace
 
 void testPmTable() {
@@ -181,6 +208,7 @@ void testPmTable() {
 	checkFull();
 	checkAt();
 	checkHeaders();
+	checkClassify();
 }
 
 } // namespace host_test

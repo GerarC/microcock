@@ -473,6 +473,7 @@ enum SyscallNum : uint32_t {
     SYS_PROC_ALIVE               = 0x206, /**< Tell whether the thread with an id (a process id names its first thread) is alive. */
     SYS_THREAD_CREATE            = 0x207, /**< Create a thread in the calling process. */
     SYS_THREAD_PROCESS           = 0x208, /**< Give the process a thread belongs to, so a server that sees the id of the calling thread knows whose it is. */
+    SYS_PROC_STATE               = 0x209, /**< Tell in which states the live threads of a process are, as a mask of bits; the process manager turns it into the state `R` or `S`. */
 
     SYS_SLEEP                    = 0x210, /**< Sleep for a number of milliseconds (0 only yields). */
     SYS_FUTEX_WAIT               = 0x211, /**< Block on a user address while it holds an expected value. */

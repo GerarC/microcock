@@ -36,6 +36,8 @@ constexpr uint32_t STALE_PAUSE_MILLISECONDS = 1;
 constexpr uint32_t PING_PONG_WAITERS = 3;
 constexpr uint32_t FIRST_ROUND = 1;
 constexpr uint32_t LOST_WAKEUP_MILLISECONDS = 1000;
+constexpr uint32_t NO_BITS = 0;
+constexpr uint32_t ONE_THREAD = 1;
 
 alignas(PAGE_BYTES) uint8_t stacks[STACK_COUNT][STACK_BYTES];
 
@@ -169,6 +171,36 @@ bool futexLosesNoWakeup() {
 	return !stalled && !__atomic_load_n(&wakeupLost, __ATOMIC_SEQ_CST) &&
 		   __atomic_load_n(&acknowledged, __ATOMIC_SEQ_CST) ==
 			   PING_PONG_ROUNDS * PING_PONG_WAITERS;
+}
+
+bool processStateReportsThreads() {
+	cock::user::sleep_ms(SETTLE_MILLISECONDS);
+	__atomic_store_n(&finished, NO_COUNT, __ATOMIC_SEQ_CST);
+	__atomic_store_n(&gate, GATE_CLOSED, __ATOMIC_SEQ_CST);
+
+	uint32_t self = cock::user::self();
+	uint32_t alone = cock::user::process_state_mask(self);
+	bool aloneRuns = (alone & THREAD_RUNNING) != NO_BITS && (alone & THREAD_BLOCKED) == NO_BITS;
+
+	uint32_t waiter = cock::user::thread_start(gateWaiter, nullptr, stacks[FIRST_STACK], STACK_BYTES);
+	if (waiter == NO_PROCESS) return false;
+	cock::user::sleep_ms(SETTLE_MILLISECONDS);
+
+	uint32_t together = cock::user::process_state_mask(self);
+	bool sleeperSeen = (together & THREAD_RUNNING) != NO_BITS && (together & THREAD_BLOCKED) != NO_BITS;
+	bool threadIdRefused = cock::user::process_state_mask(waiter) == cock::user::NO_STATE_MASK;
+
+	__atomic_store_n(&gate, GATE_OPEN, __ATOMIC_SEQ_CST);
+	cock::user::futex_wake(&gate, WAKE_EVERYONE);
+	waitFinished(ONE_THREAD);
+	cock::user::sleep_ms(SETTLE_MILLISECONDS);
+
+	uint32_t finishedMask = cock::user::process_state_mask(self);
+	bool sleeperGone = (finishedMask & THREAD_RUNNING) != NO_BITS && (finishedMask & THREAD_BLOCKED) == NO_BITS;
+	bool unknownRefused = cock::user::process_state_mask(NO_PROCESS) == cock::user::NO_STATE_MASK &&
+						  cock::user::process_state_mask(waiter) == cock::user::NO_STATE_MASK;
+
+	return aloneRuns && sleeperSeen && threadIdRefused && sleeperGone && unknownRefused;
 }
 
 bool futexAndThreadCallsRefuseBadInput() {

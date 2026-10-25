@@ -70,6 +70,7 @@ void SyscallManager::init() {
     syscall_table[SyscallNum::SYS_FUTEX_WAKE] = sys_futex_wake;
     syscall_table[SyscallNum::SYS_GETTID] = sys_gettid;
     syscall_table[SyscallNum::SYS_THREAD_PROCESS] = sys_thread_process;
+    syscall_table[SyscallNum::SYS_PROC_STATE] = sys_proc_state;
     syscall_table[SyscallNum::SYS_IPC_CALL] = sys_ipc_call;
     syscall_table[SyscallNum::SYS_IPC_ACCEPT] = sys_ipc_accept;
     syscall_table[SyscallNum::SYS_IPC_REPLY] = sys_ipc_reply;

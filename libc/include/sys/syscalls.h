@@ -50,6 +50,8 @@
     #define SYS_THREAD_CREATE    0x207
     /** Gives the process a thread belongs to. a1: thread id. Returns the process id, or all ones when the thread is unknown, dead or the kernel's. */
     #define SYS_THREAD_PROCESS   0x208
+    /** Tells in which states the live threads of a process are. a1: process id. Returns a mask (1 ready, 2 running, 4 blocked, 8 waiting for a message, 16 waiting in accept, 32 waiting for a reply), or all ones when the id is not a process id, is the kernel's or has no live thread. */
+    #define SYS_PROC_STATE       0x209
 
     /** Sleeps; messages that arrive meanwhile do not wake the thread. a1: milliseconds (at most 0x7FFFFFFF; 0 only yields). Returns 0, or all ones when the time is too large. */
     #define SYS_SLEEP            0x210

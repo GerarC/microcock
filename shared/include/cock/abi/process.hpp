@@ -35,6 +35,26 @@ constexpr size_t PENDING_STACK_BYTES = 0x10000;
 /** Alignment in bytes of every address and size given to the `SYS_PROC_*` calls that map memory (the page size). */
 constexpr size_t PENDING_PAGE_BYTES = 0x1000;
 
+/** Bit of the mask `SYS_PROC_STATE` returns: a live thread waits in the ready queue. */
+constexpr uint32_t THREAD_READY = 0x01;
+/** Bit of the mask `SYS_PROC_STATE` returns: a live thread runs on the CPU. */
+constexpr uint32_t THREAD_RUNNING = 0x02;
+/** Bit of the mask `SYS_PROC_STATE` returns: a live thread sleeps on a timer or a futex. */
+constexpr uint32_t THREAD_BLOCKED = 0x04;
+/** Bit of the mask `SYS_PROC_STATE` returns: a live thread waits for an asynchronous message. */
+constexpr uint32_t THREAD_WAITING_MSG = 0x08;
+/** Bit of the mask `SYS_PROC_STATE` returns: a live thread, a server, waits in accept. */
+constexpr uint32_t THREAD_WAITING_CALL = 0x10;
+/** Bit of the mask `SYS_PROC_STATE` returns: a live thread waits for the reply of its call. */
+constexpr uint32_t THREAD_WAITING_REPLY = 0x20;
+/** Bits of the mask that mean a thread can run: the process is runnable. */
+constexpr uint32_t THREAD_RUNNABLE_MASK = THREAD_READY | THREAD_RUNNING;
+/** Bits of the mask that mean a thread sleeps in a wait that ends by itself or by a message. */
+constexpr uint32_t THREAD_SLEEPING_MASK =
+	THREAD_BLOCKED | THREAD_WAITING_MSG | THREAD_WAITING_CALL | THREAD_WAITING_REPLY;
+/** Result of `SYS_PROC_STATE` for a process that is unknown, belongs to the kernel or has no live thread. */
+constexpr uintptr_t NO_STATE_MASK = static_cast<uintptr_t>(-1);
+
 /** Timeout of `SYS_FUTEX_WAIT` that means wait forever. */
 constexpr uint32_t FUTEX_NO_TIMEOUT = 0xFFFFFFFF;
 /** Result of `SYS_FUTEX_WAIT`: woken by `SYS_FUTEX_WAKE`. */

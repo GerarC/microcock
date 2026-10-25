@@ -6,7 +6,7 @@
 
 namespace {
 
-constexpr size_t CHECK_COUNT = 63;
+constexpr size_t CHECK_COUNT = 64;
 constexpr uintptr_t EXIT_ALL_PASSED = 0;
 constexpr uintptr_t EXIT_SOME_FAILED = 1;
 
@@ -57,6 +57,7 @@ extern "C" int main() {
 		probe::threadsShareMemoryUnderMutex(),
 		probe::futexWakesEveryWaiterAndThreadsAreBounded(),
 		probe::futexLosesNoWakeup(),
+		probe::processStateReportsThreads(),
 		probe::synchronousCallsRoundTrip(),
 		probe::queuedCallsAreServedInOrderAndMisuseIsRefused(),
 		probe::deadServerFailsEveryCaller(),

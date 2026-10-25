@@ -42,7 +42,7 @@ enum class Op : uint32_t {
 	SPAWN = 2,
 	/** Root only: a process that already exists is added to the table. Word 1 is its kernel process id, word 2 the kernel process id of its parent or `NO_PARENT`, word 3 the process id of the table it must get (`INIT_PID` for `init`) or `NO_PID` for the next free one. The reply carries the process id of the table in word 1. */
 	REGISTER = 3,
-	/** Read one row: word 1 is the index. The reply carries the kernel process id in word 1, the process id of the table in word 2 and the parent in word 3. */
+	/** Read one row: word 1 is the index. The reply carries the kernel process id in word 1, the process id of the table in word 2 and the parent in word 3. The state is in bits 8 to 15 of word 0: `RUNNING` or `SLEEPING` for a live process, as the kernel reports its threads at that moment, and `EXITED` for one that ended. */
 	LIST = 4,
 	/** Root only: the process that runs as `init` may create processes with the service label of word 1. A label is given once; the list holds `MAX_PERMITTED_LABELS`. */
 	PERMIT = 5,
@@ -64,14 +64,29 @@ enum class Status : uint32_t {
 	NOT_FOUND = 5,
 };
 
-/** State of a row of the table. */
+/**
+ * State of a row of the table, with the letter Linux prints for it in `ps`.
+ *
+ * The table stores `RUNNING` for a process that lives and `EXITED` for one whose exit notice arrived. `LIST`
+ * reports `SLEEPING` instead of `RUNNING` when every live thread waits, which `pm` asks the kernel each time
+ * (`SYS_PROC_STATE`) and does not store. `STOPPED`, `ZOMBIE` and `UNINTERRUPTIBLE` are reserved: no value
+ * changes and no word of the protocol changes when a stage starts to produce them.
+ */
 enum class State : uint32_t {
 	/** The row is unused. */
 	FREE = 0,
-	/** The process runs, as far as `pm` knows. */
+	/** `R`: at least one live thread is ready or running; also what `LIST` reports for a live process whose threads the kernel cannot read. */
 	RUNNING = 1,
-	/** The exit notice arrived; the row stays until another process needs the room. */
+	/** `X`: the exit notice arrived; the row stays until another process needs the room. */
 	EXITED = 2,
+	/** `S`: every live thread waits for a message, a timer, a futex, a call or a reply, a wait that a signal will be able to end. */
+	SLEEPING = 3,
+	/** `T`: stopped by a signal. Reserved for `kill` and signals (L3); nothing produces it yet. */
+	STOPPED = 4,
+	/** `Z`: every thread exited and the parent did not collect the status. Reserved for `wait` (L1); nothing produces it yet. */
+	ZOMBIE = 5,
+	/** `D`: a thread waits in a call that a signal must not end. Reserved: the first wait of this kind sets it and says so in its header; nothing produces it yet. */
+	UNINTERRUPTIBLE = 6,
 };
 
 /** Number of words of a request or a reply (the synchronous call width). */

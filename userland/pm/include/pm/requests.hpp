@@ -13,7 +13,9 @@ namespace cock::pm {
  * @brief Serves one synchronous call.
  *
  * `ALLOCATE`, `SPAWN` and `REGISTER` are served only for the root server, whose handle carries the badge
- * `ROOT_PID`; anyone else gets `DENIED`. `LIST` is served for every caller that holds a handle. A `REGISTER`
+ * `ROOT_PID`; anyone else gets `DENIED`. `LIST` is served for every caller that holds a handle; for a process that lives it asks the kernel for the states of
+ * its threads and answers `RUNNING` or `SLEEPING` (the row keeps `RUNNING`), and falls back to `RUNNING` when the
+ * kernel cannot read them. A `REGISTER`
  * refuses a process the kernel does not know as alive and a parent that is not in the table.
  *
  * @param caller Badge of the handle the call came through: the kernel process id of the caller.

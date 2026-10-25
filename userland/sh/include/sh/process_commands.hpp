@@ -14,7 +14,8 @@ namespace cock::sh {
 /**
  * @brief `ps`: prints the table of `pm`, one line per process: `PID PPID STAT`.
  *
- * `STAT` is `R` for a process that runs as far as `pm` knows and `X` for one whose exit notice arrived.
+ * `STAT` is the letter of the state `pm` reports: `R` runnable, `S` sleeping, `X` for a process whose exit notice
+ * arrived, and `T`, `Z` and `D` once something produces those states.
  * The parent of a process with none is printed as `-`.
  *
  * @param words Words of the line; unused.

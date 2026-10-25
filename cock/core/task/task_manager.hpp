@@ -94,6 +94,13 @@ class TaskManager {
 	static Thread *getThreadByPID(uint32_t pid);
 
 	/**
+	 * @brief Collects the states of the live threads of a process.
+	 * @param process The process.
+	 * @return A mask of the `abi::process::THREAD_*` bits, one for each state a live thread is in; zero when
+	 * the process has no live thread. Dead threads that were not reaped yet do not count.
+	 */
+	static uint32_t threadStateMask(const Process &process);
+	/**
 	 * @brief Finds a live process that the kernel started from a boot module, by name.
 	 * @param name Null terminated module name.
 	 * @return The process id of the first match, or all ones when none exists.

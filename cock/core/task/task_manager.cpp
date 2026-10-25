@@ -1,3 +1,4 @@
+#include <cock/abi/process.hpp>
 #include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/task/ipc.hpp>
 #include <cock/core/task/sched_metrics.hpp>
@@ -70,6 +71,46 @@ bool TaskManager::registerThread(Thread *thread) {
 Thread *TaskManager::getThreadByPID(uint32_t pid) {
 	Thread *thread = registry[pid & SLOT_MASK];
 	return (thread && thread->getId() == pid) ? thread : nullptr;
+}
+
+namespace {
+
+constexpr uint32_t NO_BITS = 0;
+
+uint32_t stateBit(ThreadState state) {
+	switch (state) {
+	case ThreadState::READY:
+		return abi::process::THREAD_READY;
+	case ThreadState::RUNNING:
+		return abi::process::THREAD_RUNNING;
+	case ThreadState::BLOCKED:
+		return abi::process::THREAD_BLOCKED;
+	case ThreadState::WAITING_MSG:
+		return abi::process::THREAD_WAITING_MSG;
+	case ThreadState::WAITING_CALL:
+		return abi::process::THREAD_WAITING_CALL;
+	case ThreadState::WAITING_REPLY:
+		return abi::process::THREAD_WAITING_REPLY;
+	case ThreadState::DEAD:
+		return NO_BITS;
+	}
+	return NO_BITS;
+}
+
+} // namespace
+
+uint32_t TaskManager::threadStateMask(const Process &process) {
+	InterruptGuard guard;
+
+	uint32_t mask = NO_BITS;
+	size_t remaining = process.getThreadCount();
+	for (size_t slot = 0; slot < MAX_PROCESSES && remaining != 0; slot++) {
+		Thread *thread = registry[slot];
+		if (!thread || thread->getProcess() != &process) continue;
+		remaining--;
+		mask |= stateBit(thread->getState());
+	}
+	return mask;
 }
 
 uint32_t TaskManager::findBootModuleId(const char *name) {

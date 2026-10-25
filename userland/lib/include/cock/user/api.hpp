@@ -713,6 +713,21 @@ inline bool process_alive(uint32_t pid) {
 	return syscall(SYS_PROC_ALIVE, pid, 0, 0, 0, 0, 0) == SUCCESS;
 }
 
+/** Result of `process_state_mask` for a process that is unknown, belongs to the kernel or has no live thread. */
+constexpr uint32_t NO_STATE_MASK = 0;
+
+/**
+ * @brief Tells in which states the live threads of a process are (`SYS_PROC_STATE`).
+ *
+ * @param pid Process id: the id of its first thread, which must not have been reaped yet.
+ * @return A mask of the `abi::process::THREAD_*` bits, one for each state a live thread is in, or
+ *         `NO_STATE_MASK` when the id is not a process id, names the kernel or has no live thread.
+ */
+inline uint32_t process_state_mask(uint32_t pid) {
+	uintptr_t result = syscall(SYS_PROC_STATE, pid, 0, 0, 0, 0, 0);
+	return result == FAILURE ? NO_STATE_MASK : static_cast<uint32_t>(result);
+}
+
 /**
  * @brief Gives the process a thread belongs to (`SYS_THREAD_PROCESS`).
  *

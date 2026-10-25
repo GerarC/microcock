@@ -150,7 +150,7 @@ The in-kernel suite `Capability transfer` covers `delegate_capability` and `with
 
 The in-kernel suites `Capability revocation` and `IPC access` cover revocation and the rule of `mayShare` with real processes (same process, no handle, the handle of either side, an unbound endpoint, a third process, revocation cutting both directions, a label that can be set once) and the initial handle of `SpawnRights`.
 
-`scripts/qemu_userland_test.sh` requires `probe: 63/63 checks passed`.
+`scripts/qemu_userland_test.sh` requires `probe: 64/64 checks passed`.
 
 ## Current limits
 * The policy is fixed at boot: the kernel trusts the first program module it loads (the root task, `rs` in the shipped boot order; the kernel does not read its name), and the root task decides who gets what.

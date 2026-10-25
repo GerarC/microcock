@@ -22,7 +22,7 @@ Type on the keyboard of the QEMU window. Without a disk only `/` exists (the `in
 | `mkdir path`, `rmdir path` | Makes a directory, removes an empty one |
 | `rm path` | Deletes a file |
 | `mv from to` | Renames or moves; both paths must be on the same volume |
-| `ps` | Prints the table of the [process manager](pm.md), one line per process: `PID PPID STAT`. `STAT` is `R` (runs, as far as `pm` knows) or `X` (its exit notice arrived); a process with no parent shows `-`. It reads the rows with the `LIST` operation through a handle on `pm` (the manifest line of `sh` has `ipc=pm`). No name and no other states yet: those come with the process states and the process table items of the roadmap |
+| `ps` | Prints the table of the [process manager](pm.md), one line per process: `PID PPID STAT`. `STAT` is `R` (a thread is ready or running), `S` (every live thread waits) or `X` (its exit notice arrived); `T`, `Z` and `D` are printed once something produces them, see [process states](pm.md#process-states). A process with no parent shows `-`. It reads the rows with the `LIST` operation through a handle on `pm` (the manifest line of `sh` has `ipc=pm`); the shell itself shows `S`, because it waits for the reply of `pm`. No name yet: it comes with the process table item of the roadmap |
 | `sleep seconds` | Waits, up to 3600 seconds |
 | `clear` | Clears the screen (the `CLEAR` operation of the console protocol) |
 

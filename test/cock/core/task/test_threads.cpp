@@ -43,6 +43,12 @@ constexpr size_t EVERYONE = 100;
 constexpr uint32_t FIRST_THREAD_ID = 7;
 constexpr uint32_t PARENT_ID = 42;
 constexpr uint32_t EXIT_STATUS = 9;
+constexpr uint32_t NO_BITS = 0;
+
+using cock::abi::process::THREAD_BLOCKED;
+using cock::abi::process::THREAD_WAITING_CALL;
+using cock::abi::process::THREAD_WAITING_MSG;
+using cock::abi::process::THREAD_WAITING_REPLY;
 
 Thread *idleThread = nullptr;
 
@@ -149,6 +155,41 @@ void checkRemoveAndDeath() {
 	TaskManager::buryDeadThreads();
 }
 
+void checkThreadStateMask() {
+	startScheduler();
+	Process *process = TaskManager::getKernelProcess();
+	uint32_t before = TaskManager::threadStateMask(*process);
+	EXPECT_EQ(NO_BITS, before & (THREAD_WAITING_REPLY | THREAD_WAITING_CALL | THREAD_WAITING_MSG));
+
+	Thread *replying = makeThread();
+	Thread *accepting = makeThread();
+	Thread *listening = makeThread();
+	replying->setState(ThreadState::WAITING_REPLY);
+	accepting->setState(ThreadState::WAITING_CALL);
+	listening->setState(ThreadState::WAITING_MSG);
+
+	uint32_t during = TaskManager::threadStateMask(*process);
+	EXPECT_EQ(THREAD_WAITING_REPLY | THREAD_WAITING_CALL | THREAD_WAITING_MSG,
+			  during & (THREAD_WAITING_REPLY | THREAD_WAITING_CALL | THREAD_WAITING_MSG));
+	EXPECT_EQ(before & THREAD_BLOCKED, during & THREAD_BLOCKED);
+
+	replying->setState(ThreadState::BLOCKED);
+	EXPECT_EQ(THREAD_BLOCKED, TaskManager::threadStateMask(*process) & THREAD_BLOCKED);
+	EXPECT_EQ(NO_BITS, TaskManager::threadStateMask(*process) & THREAD_WAITING_REPLY);
+
+	replying->setState(ThreadState::DEAD);
+	accepting->setState(ThreadState::DEAD);
+	listening->setState(ThreadState::DEAD);
+	uint32_t after = TaskManager::threadStateMask(*process);
+	EXPECT_EQ(NO_BITS, after & (THREAD_BLOCKED | THREAD_WAITING_REPLY | THREAD_WAITING_CALL |
+								THREAD_WAITING_MSG));
+
+	TaskManager::notifyThreadDeath(replying);
+	TaskManager::notifyThreadDeath(accepting);
+	TaskManager::notifyThreadDeath(listening);
+	TaskManager::buryDeadThreads();
+}
+
 void checkProcessCounters() {
 	PhysAddr space = VirtualMemoryManager::createAddressSpace();
 	EXPECT_FALSE(space.isNull());
@@ -197,6 +238,7 @@ void test_threads() {
 	checkWakeOrderAndKeys();
 	checkWakeCancelsTimeout();
 	checkRemoveAndDeath();
+	checkThreadStateMask();
 	checkProcessCounters();
 
 	Scheduler::init();
