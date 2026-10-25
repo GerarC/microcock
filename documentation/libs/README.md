@@ -8,4 +8,6 @@
 
 The kernel links none of the user-facing parts of these libraries. Rules for programs: no floating point, SSE or MMX, and the system call wrapper never addresses memory through `EBP` (see [userland](../userland/userland.md)).
 
+How a program's descriptors work, and what `dup2` can redirect, is in [descriptors](descriptors.md).
+
 Each header carries the reference of its functions as Doxygen comments; [userland/lib](../../userland/lib/README.md) lists the files of the user library.

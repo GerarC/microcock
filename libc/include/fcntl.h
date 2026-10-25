@@ -34,8 +34,8 @@ extern "C" {
  * @brief Opens a file on the virtual file system.
  *
  * Connects to the `vfs` server on first use and takes the lowest free
- * descriptor. Descriptors 0, 1 and 2 are the console and are never returned;
- * file descriptors start at 3 and at most 16 can be open at once.
+ * descriptor. Descriptors 0, 1 and 2 are the console until the program closes
+ * them, so the first file is normally 3; the table holds 32 descriptors.
  *
  * @param path Absolute path, null terminated. Must not be null.
  * @param flags One access mode (`O_RDONLY`, `O_WRONLY` or `O_RDWR`) combined

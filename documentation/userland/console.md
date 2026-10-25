@@ -9,7 +9,7 @@
 | Protocol and packing | `shared/include/cock/abi/console.hpp` |
 | Line editor (no I/O, tested on the host) | `shared/include/cock/abi/console_line.hpp`, `test/host/test_console.cpp` |
 | Client | `userland/lib/include/cock/user/console.hpp` |
-| C library hooks | `libc/unistd/console.cpp` (`__console_write`, `__console_read`), used by `write.cpp` and `read.cpp` |
+| C library hooks | `libc/unistd/console.cpp` (`__console_write`, `__console_read`), called by the console description of `libc/unistd/descriptor.cpp` |
 | First client | `userland/sh` (the shell) |
 
 ## Protocol
@@ -30,7 +30,7 @@ A length of 0 or more than 12 is `BAD_REQUEST`. `BUSY` answers a `READ` when the
 * **One loop.** `ipc_accept` returns a call, or `MESSAGE_PENDING` when a key arrived, and then the server empties its inbox with `ipc_try_recv` and wakes the readers.
 
 ## The client and the C library
-`cock::user::console::Client` connects to the server through the name server (again if it died; the manifest of the program must list `console` in `ipc=`), and offers `write` and `read`. `libc/unistd/console.cpp` exports `__console_write` for descriptors 1 and 2 and `__console_read` for descriptor 0. `write` and `read` call them when the program linked that file (the symbols are weak), and fall back to `SYS_WRITE` and `SYS_READ` when it did not or the server is not found. Descriptors 3 and up still go to the file client. `printf` and `putchar` need no change.
+`cock::user::console::Client` connects to the server through the name server (again if it died; the manifest of the program must list `console` in `ipc=`), and offers `write` and `read`. `libc/unistd/console.cpp` exports `__console_write` for output and `__console_read` for input. The table of descriptors (`libc/unistd/descriptor.cpp`, see [descriptors](../libs/descriptors.md)) starts with descriptors 0, 1 and 2 as console descriptions that call them, and falls back to `SYS_WRITE` and `SYS_READ` when the server is not found; a program that opts out of the console client has no table and `write` and `read` call the system calls directly. Because the console is a description like any other, `dup2` can point descriptor 1 at a file. `printf` and `putchar` need no change.
 
 `userland/common.mk` links the client into every program (`unistd/read.cpp` and `unistd/console.cpp` are added to `LIBC_SRCS`). A program opts out with `CONSOLE_CLIENT = no` before the include. These do, and for a reason:
 

@@ -13,6 +13,7 @@ namespace {
 
 constexpr char EXT_FILE[] = "/ext/scratch/cfile.txt";
 constexpr char EXT_GONE[] = "/ext/scratch/cgone.txt";
+constexpr char EXT_REDIRECTED[] = "/ext/scratch/credirected.txt";
 constexpr char FAT_FILE[] = "/fat/SCRATCH/cfile.txt";
 constexpr char FAT_GONE[] = "/fat/SCRATCH/cgone.txt";
 constexpr char MISSING_FILE[] = "/ext/scratch/cmissing.txt";
@@ -37,6 +38,15 @@ constexpr size_t FINAL_BYTES = sizeof(FINAL_TEXT) - sizeof(char);
 constexpr size_t REPLACED_BYTES = sizeof(REPLACED_TEXT) - sizeof(char);
 constexpr size_t REPLACE_AT = 2;
 constexpr size_t BUFFER_BYTES = 64;
+constexpr char REDIRECTED_TEXT[] = "redirected";
+constexpr size_t REDIRECTED_BYTES = sizeof(REDIRECTED_TEXT) - sizeof(char);
+constexpr size_t PREFIX_BYTES = 5;
+constexpr size_t SECOND_PREFIX_END = PREFIX_BYTES + PREFIX_BYTES;
+constexpr off_t SEEK_TARGET = 3;
+constexpr int STDIN_DESCRIPTOR = 0;
+constexpr int STDOUT_DESCRIPTOR = 1;
+constexpr int HIGH_DESCRIPTOR = 20;
+constexpr int BEYOND_TABLE_DESCRIPTOR = 1000;
 constexpr int INVALID_DESCRIPTOR = 99;
 constexpr int NO_OFFSET = 0;
 constexpr int EXIT_SERVED = 0;
@@ -149,6 +159,53 @@ bool worksOnDirectories(const char *base) {
 	return ok;
 }
 
+bool sharesOffset(const char *file) {
+	char buffer[BUFFER_BYTES] = {};
+	int fd = open(file, O_RDONLY);
+	if (fd < 0) return false;
+
+	int copy = dup(fd);
+	bool ok = copy >= 0 && copy != fd;
+	ok = ok && read(fd, buffer, PREFIX_BYTES) == static_cast<ssize_t>(PREFIX_BYTES) &&
+		 memcmp(buffer, FIRST_TEXT, PREFIX_BYTES) == 0;
+	ok = ok && lseek(copy, NO_OFFSET, SEEK_CUR) == static_cast<off_t>(PREFIX_BYTES);
+	ok = ok && read(copy, buffer, PREFIX_BYTES) == static_cast<ssize_t>(PREFIX_BYTES) &&
+		 memcmp(buffer, FIRST_TEXT + PREFIX_BYTES, PREFIX_BYTES) == 0;
+	ok = ok && close(fd) == 0;
+	ok = ok && lseek(copy, NO_OFFSET, SEEK_CUR) == static_cast<off_t>(SECOND_PREFIX_END);
+	ok = ok && close(copy) == 0 && failsWith(close(copy), EBADF);
+	return ok && failsWith(static_cast<int>(read(copy, buffer, sizeof(buffer))), EBADF);
+}
+
+bool replacesDescriptor(const char *file) {
+	int fd = open(file, O_RDONLY);
+	bool ok = fd >= 0 && dup2(fd, HIGH_DESCRIPTOR) == HIGH_DESCRIPTOR;
+	ok = ok && lseek(HIGH_DESCRIPTOR, SEEK_TARGET, SEEK_SET) == SEEK_TARGET &&
+		 lseek(fd, NO_OFFSET, SEEK_CUR) == SEEK_TARGET;
+	ok = ok && dup2(fd, fd) == fd && failsWith(dup2(fd, BEYOND_TABLE_DESCRIPTOR), EBADF) &&
+		 failsWith(dup2(BEYOND_TABLE_DESCRIPTOR, fd), EBADF) && failsWith(dup(BEYOND_TABLE_DESCRIPTOR), EBADF);
+	return ok && close(fd) == 0 && close(HIGH_DESCRIPTOR) == 0;
+}
+
+bool keepsConsoleModes() {
+	char buffer[BUFFER_BYTES];
+	return failsWith(lseek(STDOUT_DESCRIPTOR, NO_OFFSET, SEEK_CUR), ESPIPE) &&
+		   failsWith(static_cast<int>(read(STDOUT_DESCRIPTOR, buffer, sizeof(buffer))), EBADF) &&
+		   failsWith(static_cast<int>(write(STDIN_DESCRIPTOR, buffer, sizeof(buffer))), EBADF);
+}
+
+bool redirectsOutput(const char *file) {
+	int saved = dup(STDOUT_DESCRIPTOR);
+	int fd = open(file, O_WRONLY | O_CREAT | O_TRUNC);
+	bool ok = saved >= 0 && fd >= 0 && dup2(fd, STDOUT_DESCRIPTOR) == STDOUT_DESCRIPTOR;
+	ok = ok && writesAll(STDOUT_DESCRIPTOR, REDIRECTED_TEXT, REDIRECTED_BYTES);
+	if (saved >= 0) ok = dup2(saved, STDOUT_DESCRIPTOR) == STDOUT_DESCRIPTOR && ok;
+	if (saved >= 0) ok = close(saved) == 0 && ok;
+	if (fd >= 0) ok = close(fd) == 0 && ok;
+	ok = ok && readsBack(file, REDIRECTED_TEXT, REDIRECTED_BYTES);
+	return unlink(file) == 0 && ok;
+}
+
 bool keepsForeignMessages() {
 	cock::ipc::Message ping = {};
 	ping.type = cock::ipc::MessageType::SYS_PING;
@@ -174,6 +231,9 @@ extern "C" int main() {
 	if (served) puts("cfile: directories ok");
 	served = served && refusesBadCalls();
 	if (served) puts("cfile: errors ok");
+	served = served && sharesOffset(EXT_FILE) && replacesDescriptor(EXT_FILE) && keepsConsoleModes() &&
+			 redirectsOutput(EXT_REDIRECTED);
+	if (served) puts("cfile: descriptors ok");
 	served = served && keepsForeignMessages();
 
 	puts(served ? "cfile: ok" : "cfile: refused");

@@ -31,12 +31,14 @@
 #define EXDEV        18
 /** Invalid argument: null path, bad flags, bad whence or out of range value. */
 #define EINVAL       22
-/** Too many open files: all of the per-process descriptor slots are in use. */
+/** Too many open files: all of the 32 descriptor slots of the process are in use. */
 #define EMFILE       24
 /** No space left on the device. */
 #define ENOSPC       28
 /** Read-only file system. */
 #define EROFS        30
+/** Illegal seek: the descriptor is the console or another object with no offset. */
+#define ESPIPE       29
 /** Directory not empty: rmdir or rename onto a directory that has entries. */
 #define ENOTEMPTY    39
 /** Operation not supported by the file system or the server. */
@@ -51,8 +53,8 @@ extern "C" {
 /**
  * @brief Error code of the last failed libc call.
  *
- * Set by the file calls (open, close, read, write, lseek, unlink, mkdir,
- * rmdir, rename, link) when they return -1. Never cleared by the library.
+ * Set by the file calls (open, close, dup, dup2, read, write, lseek, unlink,
+ * mkdir, rmdir, rename, link) when they return -1. Never cleared by the library.
  */
 extern int errno;
 

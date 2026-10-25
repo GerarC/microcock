@@ -1,12 +1,14 @@
+#include "descriptor.hpp"
 #include <cock/user/console.hpp>
 #include <stddef.h>
 #include <unistd.h>
 
+using cock::libc::STDERR_DESCRIPTOR;
+using cock::libc::STDIN_DESCRIPTOR;
+using cock::libc::STDOUT_DESCRIPTOR;
+
 namespace {
 
-constexpr int STDIN_DESCRIPTOR = 0;
-constexpr int STDOUT_DESCRIPTOR = 1;
-constexpr int STDERR_DESCRIPTOR = 2;
 constexpr ssize_t FAILURE = -1;
 
 cock::user::console::Client client;

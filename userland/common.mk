@@ -15,7 +15,7 @@ CXX_FLAGS = -std=gnu++20 -ffreestanding -nostdlib -fno-exceptions -fno-rtti \
             $(USER_EXTRA_FLAGS)
 
 CONSOLE_CLIENT ?= yes
-CONSOLE_SRCS = unistd/read.cpp unistd/console.cpp
+CONSOLE_SRCS = unistd/read.cpp unistd/console.cpp unistd/descriptor.cpp unistd/errno.cpp
 ifeq ($(CONSOLE_CLIENT),yes)
 LIBC_SRCS := $(LIBC_SRCS) $(filter-out $(LIBC_SRCS),$(CONSOLE_SRCS))
 endif
