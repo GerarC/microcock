@@ -5,7 +5,7 @@ The clock server. It is the only holder of the CMOS ports, reads the real time c
 ## Where it sits
 
 ```text
-fat, ext --RTC_READ--> rtc --port I/O--> CMOS index and data ports
+fat, ext --RTC_READ (handle, reply token)--> rtc --port I/O--> CMOS index and data ports
 ```
 
 - Capability, from `initrd/manifest.conf`: `io:0x70+2`, the index and data ports of the CMOS (`rtc path=bin/rtc.elf`). The test manifest adds nothing for it.
@@ -14,12 +14,12 @@ fat, ext --RTC_READ--> rtc --port I/O--> CMOS index and data ports
 
 ## Protocol
 
-Header: `shared/include/cock/abi/rtc.hpp`; conversions in `shared/include/cock/abi/datetime.hpp`. Messages are asynchronous IPC messages, not synchronous calls.
+Header: `shared/include/cock/abi/rtc.hpp`; conversions in `shared/include/cock/abi/datetime.hpp`. Messages are asynchronous IPC messages, not synchronous calls: the client sends `RTC_READ` through its handle on the `rtc` endpoint asking for a reply token (`SEND_EXPECT_REPLY`), and the server answers with `ep_reply` on the token of the request. Neither side uses a process id. A message with no token is ignored.
 
 | Message | Arguments | Notes |
 |---------|-----------|-------|
-| `RTC_READ` | `arg0` request id | Sent by a client; messages from `KERNEL_SENDER` are ignored |
-| `RTC_REPLY` | `arg0` the id, `arg1` status, `arg2` packed date, `arg3` packed time | Sent to the requester |
+| `RTC_READ` | `arg0` request id | Sent by a client through its handle with a reply token; a message with no token is ignored |
+| `RTC_REPLY` | `arg0` the id, `arg1` status, `arg2` packed date, `arg3` packed time | Sent to the requester with `ep_reply` |
 
 Statuses: `OK` and `UNAVAILABLE` (the clock could not give a stable, valid reading). A packed date is year, month and day in 16, 8 and 8 bits; a packed time is hour, minute and second in the low three bytes. `cock::abi::rtc::unpack` turns both words back into a `DateTime` and checks that it is valid. The clock is taken as UTC: there is no time zone.
 
@@ -35,7 +35,7 @@ Statuses: `OK` and `UNAVAILABLE` (the clock could not give a stable, valid readi
 | `src/grant.cpp`, `include/rtc/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED`, keeping every other message |
 | `src/requests.cpp`, `include/rtc/requests.hpp` | `initClock` and `handle`, which answers `RTC_READ`; owns the `Cmos` reader |
 | `src/pending.cpp`, `include/rtc/pending.hpp` | `keepPending` and `handlePending`: requests that arrive before the grant |
-| `src/reply.cpp`, `include/rtc/reply.hpp` | `reply`: sends `RTC_REPLY` |
+| `src/reply.cpp`, `include/rtc/reply.hpp` | `reply`: sends `RTC_REPLY` through the token |
 | `Makefile` | `NAME = rtc`, `SRCS` under `src/` and the small `LIBC_SRCS` list |
 | `../lib/include/cock/user/cmos.hpp` | `Cmos`, the register reader used only by this server |
 | `../lib/include/cock/user/clock.hpp` | `Clock`, the client other programs use |

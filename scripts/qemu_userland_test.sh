@@ -12,6 +12,7 @@ QEMU_BIN="${QEMU:-qemu-system-i386}"
 SHELL_COMMANDS="echo hello shell|version|ls /|cat /mounts.conf|ls /ext|write /ext/scratch/sh.txt written by sh|cat /ext/scratch/sh.txt|mv /ext/scratch/sh.txt /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|rm /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|sleep 1|clear|echo after clear"
 SHELL_OUTPUT_COPIES=2
 FILE_CLIENT_RUNS=10
+CLOCK_FALLBACK_YEAR=2001
 DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
 EXPECTED_SCREEN_TEXT="cock> echo after clear|after clear"
@@ -180,6 +181,13 @@ if [ "$ext_keep" != "$WRITE_KEEP_TEXT" ]; then
 	echo "[qemu_userland_test] ext2 file written by the guest reads back as: $ext_keep"
 	status=1
 fi
+ext_mtime=$(debugfs -R "stat /$EXT_SCRATCH/$WRITE_KEEP_NAME" "$EXT_PART" 2> /dev/null | sed -n 's/^ *mtime: .*-- //p')
+case "$ext_mtime" in
+	"" | *"$CLOCK_FALLBACK_YEAR"*)
+		echo "[qemu_userland_test] ext2 file written by the guest has the fallback time ($ext_mtime): the rtc server did not answer"
+		status=1
+		;;
+esac
 if debugfs -R "stat /$EXT_SCRATCH/$WRITE_GONE_NAME" "$EXT_PART" 2>&1 | grep -q "Inode:"; then
 	echo "[qemu_userland_test] ext2 file deleted by the guest is still there"
 	status=1

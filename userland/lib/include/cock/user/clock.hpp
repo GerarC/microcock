@@ -2,8 +2,10 @@
  * @file clock.hpp
  * @brief Client of the RTC server: reads the wall clock without touching the CMOS ports.
  *
- * Talks to the RTC server by asynchronous messages (`RTC_READ` and `RTC_REPLY`). The
- * server is the only process that holds the CMOS ports (see `cmos.hpp`).
+ * Talks to the RTC server by asynchronous messages (`RTC_READ` and `RTC_REPLY`). The request goes
+ * through the handle the name server gave, asking for a reply token, and the server answers through
+ * that token, so neither side addresses a process id. The server is the only process that holds the
+ * CMOS ports (see `cmos.hpp`).
  */
 #ifndef COCK_USER_CLOCK_HPP
 #define COCK_USER_CLOCK_HPP
@@ -33,8 +35,10 @@ class Clock {
 	 *         otherwise (call again later).
 	 */
 	bool init() {
-		server = names::server(abi::rtc::SERVER_NAME);
-		lost = server == NO_PROCESS;
+		names::Connection connection = names::connect(abi::rtc::SERVER_NAME);
+		server = connection.pid;
+		handle = connection.handle;
+		lost = server == NO_PROCESS || handle == abi::NO_CAPABILITY_NODE;
 		return !lost;
 	}
 
@@ -55,7 +59,7 @@ class Clock {
 		ipc::Message request = {};
 		request.type = ipc::MessageType::RTC_READ;
 		request.payload.args.arg0 = id;
-		if (!ipc_send(server, request)) {
+		if (!ep_send(handle, request, true)) {
 			lost = !process_alive(server);
 			return false;
 		}
@@ -79,8 +83,10 @@ class Clock {
 	}
 
   private:
-	/** Process id of the RTC server, `NO_PROCESS` before `init`. */
+	/** Process id of the RTC server, `NO_PROCESS` before `init`; used only to see whether it is alive. */
 	uint32_t server = NO_PROCESS;
+	/** Handle on the endpoint of the RTC server, `NO_CAPABILITY_NODE` before `init`. */
+	uint32_t handle = abi::NO_CAPABILITY_NODE;
 	/** Id of the next request. */
 	uint32_t nextId = 1;
 	/** True when the last attempt to reach the server failed because it was gone. */

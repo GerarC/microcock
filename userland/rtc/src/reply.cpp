@@ -8,14 +8,14 @@ using cock::ipc::MessageType;
 
 namespace cock::rtc {
 
-void reply(uint32_t pid, uint32_t id, Status status, uint32_t date, uint32_t time) {
+void reply(uint32_t token, uint32_t id, Status status, uint32_t date, uint32_t time) {
 	Message answer = {};
 	answer.type = MessageType::RTC_REPLY;
 	answer.payload.args.arg0 = id;
 	answer.payload.args.arg1 = static_cast<uint32_t>(status);
 	answer.payload.args.arg2 = date;
 	answer.payload.args.arg3 = time;
-	cock::user::ipc_send(pid, answer);
+	cock::user::ep_reply(token, answer);
 }
 
 } // namespace cock::rtc

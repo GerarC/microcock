@@ -21,7 +21,8 @@ bool initClock();
 /**
  * @brief Handles one message: answers `RTC_READ` with the current date and time.
  *
- * Messages from the kernel and message types other than `RTC_READ` are ignored.
+ * A message that carries no reply token (the kernel's notices, and anything sent by process id) and
+ * message types other than `RTC_READ` are ignored: the server answers only through a token.
  *
  * @param message Message received, never trusted.
  * @note Replies `UNAVAILABLE` when the clock cannot be read.
