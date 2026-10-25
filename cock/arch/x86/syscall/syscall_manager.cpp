@@ -73,6 +73,7 @@ void SyscallManager::init() {
     syscall_table[SyscallNum::SYS_PROC_STATE] = sys_proc_state;
     syscall_table[SyscallNum::SYS_PROC_EXEC] = sys_proc_exec;
     syscall_table[SyscallNum::SYS_PROC_FORK] = sys_proc_fork;
+    syscall_table[SyscallNum::SYS_PROC_SIGNAL] = sys_proc_signal;
     syscall_table[SyscallNum::SYS_IPC_CALL] = sys_ipc_call;
     syscall_table[SyscallNum::SYS_IPC_ACCEPT] = sys_ipc_accept;
     syscall_table[SyscallNum::SYS_IPC_REPLY] = sys_ipc_reply;

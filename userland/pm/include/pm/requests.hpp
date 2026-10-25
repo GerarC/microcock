@@ -21,6 +21,8 @@ namespace cock::pm {
  * `WAIT` is served for every caller and reaches only its children; when none has exited yet the call is
  * detached (see `waitForChild`) and answered later by `takeMessage`.
  *
+ * `KILL` is served for every caller, and `signalProcess` decides who may signal what.
+ *
  * @param caller Badge of the handle the call came through: the kernel process id of the caller.
  * @param words The four request words.
  * @param reply Receives the four reply words; word 0 holds the status.

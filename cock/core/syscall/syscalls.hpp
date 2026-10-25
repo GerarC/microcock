@@ -508,6 +508,22 @@ uintptr_t sys_proc_alive(uintptr_t pid, uintptr_t, uintptr_t, uintptr_t, uintptr
 						 uintptr_t);
 
 /**
+ * @brief Sends a signal to a user process other than the caller's.
+ *
+ * The caller must hold a `SPAWN` capability, which is the right to manage processes; who may signal whom is the
+ * policy of the process manager. `abi::process::SIGNAL_KILL` ends every thread of the process, whatever each one
+ * waits for, and the process exits with `abi::process::KILLED_STATUS`, so its parent gets the usual exit notice.
+ * `SIGNAL_TERMINATE` and `SIGNAL_INTERRUPT` queue a `SIGNAL` message, stamped by the kernel, in the inbox of the
+ * main thread and do nothing else.
+ * @param pid Process id, generation included.
+ * @param signal One of the three signal numbers of `abi::process`.
+ * @return 0 when done; all ones when the caller has no `SPAWN` capability, the id is not the main thread of a live
+ * user process, the process is the caller's own, the signal is unknown, or the inbox of the target is full.
+ */
+uintptr_t sys_proc_signal(uintptr_t pid, uintptr_t signal, uintptr_t, uintptr_t, uintptr_t,
+						  uintptr_t);
+
+/**
  * @brief Tells in which states the live threads of a process are.
  * @param pid Process id, generation included: the id of its first thread.
  * @return A mask of the `abi::process::THREAD_*` bits, one for each state a live thread is in; all ones

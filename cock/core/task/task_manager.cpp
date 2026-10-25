@@ -140,6 +140,16 @@ void TaskManager::terminateSiblings(Thread &keep) {
 	}
 }
 
+void TaskManager::terminateProcess(Process &process) {
+	InterruptGuard guard;
+
+	for (size_t slot = 0; slot < MAX_PROCESSES; slot++) {
+		Thread *thread = registry[slot];
+		if (!thread || thread->getProcess() != &process) continue;
+		Scheduler::terminateThread(thread);
+	}
+}
+
 void TaskManager::setReaper(Thread *thread) { reaper = thread; }
 
 bool TaskManager::graveyardEmpty() { return graveyard.isEmpty(); }

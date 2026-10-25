@@ -311,6 +311,26 @@ public:
 		return waited;
 	}
 
+	/**
+	 * @brief Sends a signal to a process.
+	 *
+	 * `abi::process::SIGNAL_TERMINATE` and `SIGNAL_INTERRUPT` reach the main thread of the process as a
+	 * `SIGNAL` message that it may ignore; `SIGNAL_KILL` ends it at once, and its parent collects the status
+	 * `abi::process::KILLED_STATUS`. The root server may signal any process, anyone else only its descendants.
+	 *
+	 * @param pid Id in the table of the process.
+	 * @param signal One of the three signals of `abi::process`.
+	 * @return `OK` when the signal was sent, `DENIED` when the caller may not signal that process, `NOT_FOUND`
+	 * when it is unknown or ended, `BAD_REQUEST` for an unknown signal or when the call failed, `FAILED` when the
+	 * kernel refused.
+	 */
+	abi::pm::Status kill(uint32_t pid, uint32_t signal) {
+		uint32_t words[abi::pm::CALL_WORDS] = {abi::pm::pack(abi::pm::Op::KILL), pid, signal};
+		CallResult result = ep_call(handle, words);
+		if (!result.ok) return abi::pm::Status::BAD_REQUEST;
+		return abi::pm::statusOf(result.words[abi::pm::HEADER_WORD]);
+	}
+
 private:
 	static size_t pageRound(size_t bytes) {
 		return (bytes + abi::shm::PAGE_BYTES - 1) / abi::shm::PAGE_BYTES * abi::shm::PAGE_BYTES;

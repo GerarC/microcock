@@ -217,6 +217,29 @@ public:
 	}
 
 	/**
+	 * @brief Tells whether a process is a child, a grandchild or a later descendant of another.
+	 *
+	 * Follows the parent of each row, at most `MAX_PROCESSES` steps, so a loop in the table cannot hang it. The
+	 * parent of a row is the process that asked for it, or the reaper when that one exited first.
+	 *
+	 * @param pid Process id of the table of the candidate descendant.
+	 * @param ancestor Process id of the table of the candidate ancestor.
+	 * @return True when `ancestor` is reached from `pid` by one or more steps; false for the same process, for an
+	 *         unknown id and for `abi::pm::NO_PID`.
+	 */
+	bool isDescendant(uint32_t pid, uint32_t ancestor) {
+		if (ancestor == abi::pm::NO_PID) return false;
+		uint32_t current = pid;
+		for (size_t step = 0; step < MAX_PROCESSES; step++) {
+			Row *row = find(current);
+			if (row == nullptr || row->parent == abi::pm::NO_PID) return false;
+			if (row->parent == ancestor) return true;
+			current = row->parent;
+		}
+		return false;
+	}
+
+	/**
 	 * @brief Collects a zombie: its status was handed to the parent, so the row is gone.
 	 * @param row A row of the table; one that is not a zombie is left as it is.
 	 */

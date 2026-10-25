@@ -37,7 +37,7 @@ constexpr uintptr_t NO_MESSAGE = 1;
 
 static bool sender_may_use(const Thread &thread, MessageType type) {
 	if (type == MessageType::IRQ_NOTIFICATION ||
-		type == MessageType::PROCESS_EXITED)
+		type == MessageType::PROCESS_EXITED || type == MessageType::SIGNAL)
 		return false;
 	if (type == MessageType::CAPABILITY_GRANTED)
 		return thread.getProcess()->getCapabilities().holdsGrantAuthority();

@@ -34,6 +34,7 @@ Synchronous calls of four words, `shared/include/cock/abi/pm.hpp`, through a han
 | `ALLOCATE bytes` | any process in the table | `pm` makes a shared object of that size, shares it with the caller for writing and returns its id; one per caller. Only `rs` and `init` can use it for `SPAWN`; any process can use it for `EXEC` |
 | `EXEC object` | any process in the table | The first page of the object holds an `ExecRequest` (name, image size, arguments, the initial handle and the descriptors of the program, which the C library writes and the new image rebuilds; see [descriptors](../libs/descriptors.md)) and the image starts at `IMAGE_OFFSET`. `pm` checks it, builds the new image, writes the argument page and asks the kernel to swap it in (`SYS_PROC_EXEC`). On success the call never returns |
 | `FORK` | any process in the table | Makes a copy of the caller. `pm` asks the kernel for it (`SYS_PROC_FORK`) while the caller waits for this very reply, which is the consent the kernel asks for, and adds the row of the child with the caller as its parent. The reply to the caller carries the id in the table of the child; the child, which resumes inside the same call, gets the same reply with id `NO_PID`; the reply to the caller is held until the programs that keep state for each process have copied it. See "Fork" below |
+| `KILL pid signal` | any process in the table; `rs` for every process | Sends interrupt, terminate (a `SIGNAL` message the program may ignore) or kill (ends the process, status 137) to a live process; a caller other than `rs` reaches only its descendants. See "Signals" below |
 | `SPAWN object` | `rs`, `init` | The first page holds a `SpawnRequest` (name, `SpawnRights`, flags, image size), the image starts at `IMAGE_OFFSET`; `pm` copies the request, checks it and creates the process |
 | `REGISTER kernel parent wanted` | `rs` | Records a process that already runs |
 | `PERMIT label` | `rs` | `init` may create processes with that label |
@@ -44,7 +45,7 @@ Synchronous calls of four words, `shared/include/cock/abi/pm.hpp`, through a han
 
 The states are those of `ps` in Linux (`abi::pm::State`). The table stores only two of them, `RUNNING` for a process that lives and `EXITED` (`X`) for one whose exit notice arrived. `LIST` does not report the stored `RUNNING` as it is: it asks the kernel for the states of the live threads (`SYS_PROC_STATE`) and `cock::pm::classify` (`shared/include/cock/pm/classify.hpp`) turns the mask into `R` when a thread is ready or running and into `S` when every live thread waits (timer, futex, message, accept or reply). Nothing is reported by the scheduler and nothing is stored, so the thread path of the kernel has no extra work, and the answer is the state at the moment of the call. When the kernel cannot read the threads, for example because the first thread of the process was already reaped while another thread lives, `LIST` answers `R`.
 
-`Z` (zombie) is stored: a process that exits while its parent lives, and is not the root server, stays `Z` with its id and its status until the parent collects it with `WAIT`; then it is `X`. `T` (stopped) and `D` (uninterruptible sleep) have a value in `State` and a letter in `ps`, and nothing produces them: `T` comes with signals (L3), and `D` with the first wait that a signal must not end, which sets it and says so in its header.
+`Z` (zombie) is stored: a process that exits while its parent lives, and is not the root server, stays `Z` with its id and its status until the parent collects it with `WAIT`; then it is `X`. `T` (stopped) and `D` (uninterruptible sleep) have a value in `State` and a letter in `ps`, and nothing produces them: `T` comes with stop and continue (a later part of L3), and `D` with the first wait that a signal must not end, which sets it and says so in its header.
 
 ### Wait and adoption
 
@@ -71,13 +72,21 @@ Two notices travel the other way, as ordinary messages through a handle that `rs
 
 A notice that finds the inbox of `rs` full is tried again every 50 ms.
 
+### Signals
+
+`Client::kill(pid, signal)` sends `KILL` with the id in the table of the target and one of three signals (`abi::process`, Linux numbers): `SIGNAL_INTERRUPT` (2), `SIGNAL_TERMINATE` (15) and `SIGNAL_KILL` (9). **Who may signal whom is decided here**: the root server may signal any process that lives, and any other caller only its descendants (`Table::isDescendant`: its children, theirs, and so on, following the parent of each row, so a process whose parent exited first belongs to `rs`). A caller never reaches itself, its parent or a sibling, and `pm` answers `DENIED`. The target must be a live row: a process that ended, or is a zombie, is `NOT_FOUND`; a signal other than the three is `BAD_REQUEST`.
+
+The delivery is the kernel's (`SYS_PROC_SIGNAL`, which `pm` may call because it holds `SPAWN`; any other program gets a refusal from the kernel itself). Interrupt and terminate are an ordinary message: the kernel puts a `SIGNAL` message with the signal in `arg0` in the inbox of the main thread, and **the program decides what to do with it**; one that never reads its inbox is not affected, and one that wants to finish reads it and returns from `main`. Nothing in the message can be forged, because the kernel refuses to send the type `SIGNAL` on behalf of a program. Kill cannot be caught: the kernel ends every thread of the process, whatever each one waits for, and the process exits with `KILLED_STATUS` (137, 128 plus the signal as a shell shows it), so the exit notice reaches `pm`, the row becomes a zombie, and the parent collects that status with `WAIT`. The row does not change when the signal is sent but when the notice arrives. `FAILED` means the kernel refused: the inbox of the target is full, or the target is the process of the caller.
+
+Stop and continue (state `T`) are not done: they need a kernel primitive that stops threads.
+
 ## The table
 
 The id in the table is not the kernel one. It counts from 2 in the order processes arrive; id 1 is `init`, and a restarted `init` takes it again. The parent is the id in the table of whoever asked for the process: `rs` for the servers, `init` for the shell. A row has the kernel id, the id, the parent, the state (running, zombie or exited) and the exit status; the row of a process that exited and was collected stays until no row is free, and a zombie row is never reused. The table is a header (`shared/include/cock/pm/table.hpp`) with host tests.
 
 ## Limits
 
-- No signals yet. Any process can fill the 8 object slots of `pm` with `ALLOCATE` and starve `spawn` until a permission model exists (E5). A parent that never calls `WAIT` leaves zombies that fill the table (as in Linux) until it exits; `WAIT` has no non-blocking flag and no timeout.
+- No stop and continue, no signal handlers table (a program reads the `SIGNAL` message itself) and no default action for terminate and interrupt: a program that does not read them goes on. Any process can fill the 8 object slots of `pm` with `ALLOCATE` and starve `spawn` until a permission model exists (E5). A parent that never calls `WAIT` leaves zombies that fill the table (as in Linux) until it exits; `WAIT` has no non-blocking flag and no timeout.
 - If `pm` dies the table and the notices of its children are lost, because their parent disappears. `rs` could start another one but not rebuild the table. Minix has the same limit.
 - The boot modules are in the table but are never marked as exited: the kernel sends no notice for them.
 - A process may have at most `MAX_NOTIFIED_CHILDREN` (64) children with a pending exit notice, and `pm` has 128 rows.

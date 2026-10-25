@@ -116,6 +116,15 @@ class TaskManager {
 	 */
 	static void terminateSiblings(Thread &keep);
 	/**
+	 * @brief Ends every thread of a process, as `SIGNAL_KILL` does.
+	 * @param process A user process that is not the one of the running thread: the running thread is skipped, so a
+	 * process that contains it would be left alive.
+	 * @note Each thread goes through `Scheduler::terminateThread`, which takes it out of every queue it waits in.
+	 * Dead threads that were not reaped are skipped. The exit notice goes out when the last one dies, with the
+	 * status the caller set before.
+	 */
+	static void terminateProcess(Process &process);
+	/**
 	 * @brief Sets the thread that reaps the dead.
 	 * @param thread Reaper thread, woken when a thread dies while it sleeps.
 	 */

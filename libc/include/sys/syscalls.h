@@ -56,6 +56,8 @@
     #define SYS_PROC_EXEC        0x20A
     /** Makes a copy of a process that waits for the reply of a call the caller serves: a new child of the caller with the address space shared copy on write, the IPC and endpoint capabilities of the original, and one thread that resumes inside the same call with an answer the caller supplies. a1: id of the process to copy, a2: pointer to four 32 bit words, the answer the copy finds. Returns the id of the new process, or all ones (nothing is created). The caller needs a SPAWN capability. */
     #define SYS_PROC_FORK        0x20B
+    /** Sends a signal to a process other than the caller's. a1: process id, a2: signal (2 interrupt and 15 terminate arrive as a SIGNAL message in the inbox of its first thread, 9 kill ends every thread of the process, which exits with status 137). Returns 0, or all ones (unknown id, the kernel's process, the caller's own, a signal that does not exist, a full inbox). The caller needs a SPAWN capability. */
+    #define SYS_PROC_SIGNAL      0x20C
 
     /** Sleeps; messages that arrive meanwhile do not wake the thread. a1: milliseconds (at most 0x7FFFFFFF; 0 only yields). Returns 0, or all ones when the time is too large. */
     #define SYS_SLEEP            0x210

@@ -765,6 +765,20 @@ inline uint32_t process_state_mask(uint32_t pid) {
 }
 
 /**
+ * @brief Sends a signal to a process other than the caller's (`SYS_PROC_SIGNAL`).
+ *
+ * Needs a `SPAWN` capability, which only the process manager holds; programs ask it through `pm::Client::kill`.
+ * @param pid Process id in the kernel.
+ * @param signal `abi::process::SIGNAL_KILL` ends the process at once; `SIGNAL_TERMINATE` and `SIGNAL_INTERRUPT`
+ *        reach the main thread of the process as a `SIGNAL` message.
+ * @return true when the signal was sent; false when the caller has no right, the process is unknown, the kernel's
+ *         or the caller's own, the signal does not exist or the inbox of the target is full.
+ */
+inline bool proc_signal(uint32_t pid, uint32_t signal) {
+	return syscall(SYS_PROC_SIGNAL, pid, signal, 0, 0, 0, 0) == SUCCESS;
+}
+
+/**
  * @brief Gives the process a thread belongs to (`SYS_THREAD_PROCESS`).
  *
  * A server that serves a synchronous call sees the id of the calling thread; this tells it whose

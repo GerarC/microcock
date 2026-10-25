@@ -12,6 +12,7 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `pm` | Process manager. `rs` creates it from the initrd and it creates every other process after it; it is their parent in the kernel and keeps the table; see [pm](pm.md) |
 | `init` | The first process as Linux sees it (id 1), without authority: starts the programs of the manifest that carry `parent=init` (the shell) and starts them again; see [pm](pm.md) |
 | `pmclient` | Test program: lists the table of `pm`, checks the first rows, its own row and that a caller that is not `rs` is refused; the end to end test requires `pmclient: ok` |
+| `sigprobe` | Test program: signals through `pm` (`ipc=pm,console`). A forked child catches terminate and exits with its own status, a second child ignores terminate and interrupt and is ended by kill (status 137), a signal to an ended process is `NOT_FOUND`, an unknown signal is `BAD_REQUEST`, a child may not signal its parent (`DENIED`), and a program can neither call `SYS_PROC_SIGNAL` nor send a `SIGNAL` message itself; the end to end test requires `sigprobe: ok` |
 | `forkprobe` | Test program: forks through `pm`, changes a global and a stack variable on each side and checks that each keeps its own value, forks again inside the child (which only works through the handle it inherited), connects the child and the grandchild through the name server (`console` allowed, `vfs` refused, as for the parent), and collects both with `wait`; the end to end test requires `forkprobe: ok` |
 | `names` | Name server, the second boot module. `rs` describes the system to it; a program asks it, through the handle it was born with, for a handle on a server; see [names](names.md) |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
@@ -98,6 +99,7 @@ When an entry has grants or an argument, `rs` sends the process `CAPABILITY_GRAN
 | `cap_grant_node(pid, type, first, count)`, `cap_revoke(node)` | `SYS_CAP_GRANT` returning the derivation node, and `SYS_CAP_REVOKE` |
 | `process_alive(pid)` | `SYS_PROC_ALIVE` |
 | `process_state_mask(pid)` | `SYS_PROC_STATE` |
+| `proc_signal(pid, signal)` | `SYS_PROC_SIGNAL`; only `pm` holds the capability. Programs use `pm::Client::kill` |
 | `proc_exec(handle, entry, pid, initial)` | `SYS_PROC_EXEC`; only `pm` holds the capability |
 | `proc_fork(pid, reply)` | `SYS_PROC_FORK`; only `pm` holds the capability. Programs use `pm::Client::fork` |
 | `exec(process, files, path, argv, argc)` (`exec.hpp`) | Replaces the image of the program with a file: reads it through the file server into an object of `pm` and sends `EXEC`; returns only when it failed (`ExecFailure`) |

@@ -253,6 +253,45 @@ void checkAdoption() {
 	CHECK_TRUE(!waiter->waiting);
 }
 
+void checkDescendants() {
+	Table table;
+	Row *root = table.add(ROOT_KERNEL_ID, NO_PID, false);
+	CHECK_TRUE(root != nullptr);
+	if (root == nullptr) return;
+	table.setReaper(root->pid);
+	Row *child = table.add(FIRST_KERNEL_ID, root->pid, false);
+	CHECK_TRUE(child != nullptr);
+	if (child == nullptr) return;
+	Row *grandchild = table.add(SECOND_KERNEL_ID, child->pid, false);
+	Row *other = table.add(THIRD_KERNEL_ID, root->pid, false);
+	CHECK_TRUE(grandchild != nullptr && other != nullptr);
+	if (grandchild == nullptr || other == nullptr) return;
+
+	CHECK_TRUE(table.isDescendant(child->pid, root->pid));
+	CHECK_TRUE(table.isDescendant(grandchild->pid, child->pid));
+	CHECK_TRUE(table.isDescendant(grandchild->pid, root->pid));
+	CHECK_TRUE(!table.isDescendant(root->pid, child->pid));
+	CHECK_TRUE(!table.isDescendant(child->pid, grandchild->pid));
+	CHECK_TRUE(!table.isDescendant(other->pid, child->pid));
+	CHECK_TRUE(!table.isDescendant(child->pid, child->pid));
+	CHECK_TRUE(!table.isDescendant(UNKNOWN_KERNEL_ID, root->pid));
+	CHECK_TRUE(!table.isDescendant(child->pid, NO_PID));
+	CHECK_TRUE(!table.isDescendant(root->pid, NO_PID));
+
+	table.markExited(FIRST_KERNEL_ID, SOME_STATUS);
+	CHECK_EQ(root->pid, grandchild->parent);
+	CHECK_TRUE(!table.isDescendant(grandchild->pid, child->pid));
+	CHECK_TRUE(table.isDescendant(grandchild->pid, root->pid));
+}
+
+void checkKillHeader() {
+	using cock::abi::pm::Op;
+	CHECK_EQ(static_cast<uint32_t>(Op::KILL), cock::abi::pm::opOf(cock::abi::pm::pack(Op::KILL)));
+	CHECK_TRUE(Op::KILL != Op::FORK);
+	CHECK_EQ(cock::abi::process::SIGNAL_EXIT_BASE + cock::abi::process::SIGNAL_KILL,
+			 cock::abi::process::KILLED_STATUS);
+}
+
 void checkFull() {
 	Table table;
 	for (size_t index = 0; index < MAX_PROCESSES; index++)
@@ -337,6 +376,8 @@ void testPmTable() {
 	checkExit();
 	checkZombies();
 	checkAdoption();
+	checkDescendants();
+	checkKillHeader();
 	checkFull();
 	checkAt();
 	checkHeaders();

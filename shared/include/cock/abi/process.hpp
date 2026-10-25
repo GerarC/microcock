@@ -18,6 +18,16 @@ constexpr size_t MIN_THREAD_STACK_BYTES = 0x2000;
 constexpr uint32_t NO_PARENT = 0xFFFFFFFF;
 /** Exit status reported in `PROCESS_EXITED` when a CPU exception ended the process. */
 constexpr uint32_t FAULT_STATUS = 0xFFFFFFFF;
+/** Signal of `SYS_PROC_SIGNAL` that asks a program to interrupt what it does; delivered as a `SIGNAL` message, which the program may ignore. */
+constexpr uint32_t SIGNAL_INTERRUPT = 2;
+/** Signal of `SYS_PROC_SIGNAL` that ends the process at once; nothing in the process can catch it. */
+constexpr uint32_t SIGNAL_KILL = 9;
+/** Signal of `SYS_PROC_SIGNAL` that asks a program to finish; delivered as a `SIGNAL` message, which the program may ignore. */
+constexpr uint32_t SIGNAL_TERMINATE = 15;
+/** Added to the number of the signal to make the exit status of a process that `SIGNAL_KILL` ended, as a shell shows it. */
+constexpr uint32_t SIGNAL_EXIT_BASE = 128;
+/** Exit status of a process ended by `SIGNAL_KILL`. */
+constexpr uint32_t KILLED_STATUS = SIGNAL_EXIT_BASE + SIGNAL_KILL;
 /** Flag of `SYS_PROC_CREATE`: send the creator a `PROCESS_EXITED` message when the child ends. */
 constexpr uintptr_t SPAWN_NOTIFY_EXIT = 1;
 /** Most children with `SPAWN_NOTIFY_EXIT` a process may have at once, running or exited and not yet read; `SYS_PROC_START` fails past it, so no exit notice is ever dropped. */

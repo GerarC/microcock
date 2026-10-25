@@ -21,6 +21,7 @@ extern void test_timeouts();
 extern void test_threads();
 extern void test_sync_ipc();
 extern void test_exit_notice();
+extern void test_signal();
 } // namespace cock::test::task
 
 namespace cock::test::arch {
@@ -68,6 +69,7 @@ void run_all_tests() {
 	task::test_threads();
 	task::test_sync_ipc();
 	task::test_exit_notice();
+	task::test_signal();
 
 	Logger::info("<=== ENDING COCK TEST SUIT ===>\n");
 	TestRunner::print_summary();

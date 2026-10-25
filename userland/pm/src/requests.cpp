@@ -4,6 +4,7 @@
 #include <pm/fork.hpp>
 #include <pm/objects.hpp>
 #include <pm/requests.hpp>
+#include <pm/signal.hpp>
 #include <pm/spawn.hpp>
 #include <pm/state.hpp>
 #include <pm/wait.hpp>
@@ -91,6 +92,7 @@ bool allowed(Op op, Caller who) {
 	case Op::ALLOCATE:
 	case Op::EXEC:
 	case Op::FORK:
+	case Op::KILL:
 		return true;
 	case Op::SPAWN:
 		return who == Caller::ROOT || who == Caller::INIT;
@@ -102,7 +104,7 @@ bool allowed(Op op, Caller who) {
 }
 
 bool knownOp(uint32_t op) {
-	return op >= static_cast<uint32_t>(Op::ALLOCATE) && op <= static_cast<uint32_t>(Op::FORK);
+	return op >= static_cast<uint32_t>(Op::ALLOCATE) && op <= static_cast<uint32_t>(Op::KILL);
 }
 
 } // namespace
@@ -146,6 +148,9 @@ bool serve(uint32_t caller, const uint32_t (&words)[CALL_WORDS], uint32_t (&repl
 				break;
 			case Op::FORK:
 				status = forkCaller(caller, reply, detached);
+				break;
+			case Op::KILL:
+				status = signalProcess(caller, words[FIRST_WORD], words[SECOND_WORD]);
 				break;
 			}
 		}
