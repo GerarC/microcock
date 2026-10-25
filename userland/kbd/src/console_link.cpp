@@ -1,4 +1,5 @@
 #include <cock/abi/console.hpp>
+#include <cock/abi/capability.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/names.hpp>
@@ -7,7 +8,7 @@
 
 using cock::ipc::Message;
 using cock::ipc::MessageType;
-using cock::user::NO_PROCESS;
+using cock::abi::NO_CAPABILITY_NODE;
 
 namespace cock::kbd {
 
@@ -17,10 +18,10 @@ void sendKey(uint32_t &console, char character) {
 	Message message = {};
 	message.type = MessageType::CONSOLE_KEY;
 	message.payload.args.arg0 = static_cast<uint32_t>(character);
-	if (console != NO_PROCESS && cock::user::ipc_send(console, message)) return;
+	if (console != NO_CAPABILITY_NODE && cock::user::ep_send(console, message)) return;
 
-	console = cock::user::names::server(cock::abi::console::SERVER_NAME);
-	if (console != NO_PROCESS) cock::user::ipc_send(console, message);
+	console = cock::user::names::connect(cock::abi::console::SERVER_NAME).handle;
+	if (console != NO_CAPABILITY_NODE) cock::user::ep_send(console, message);
 }
 
 } // namespace cock::kbd

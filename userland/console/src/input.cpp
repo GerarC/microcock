@@ -39,9 +39,9 @@ void handleMessage(const Message &message) {
 	if (message.type != MessageType::CONSOLE_KEY) return;
 	if (message.sender_pid == cock::ipc::KERNEL_SENDER) return;
 
-	if (message.sender_pid != keyboard)
+	if (message.badge != keyboard)
 		keyboard = cock::user::names::server(proto::KEYBOARD_NAME);
-	if (message.sender_pid != keyboard) return;
+	if (message.badge != keyboard) return;
 
 	char character = static_cast<char>(message.payload.args.arg0);
 	echo(discipline.feed(character), character);

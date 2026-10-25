@@ -1,3 +1,4 @@
+#include <cock/abi/capability.hpp>
 #include <cock/abi/console.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
@@ -6,7 +7,7 @@
 
 using cock::ipc::Message;
 using cock::ipc::MessageType;
-using cock::user::NO_PROCESS;
+using cock::abi::NO_CAPABILITY_NODE;
 
 namespace proto = cock::abi::console;
 
@@ -20,12 +21,12 @@ constexpr size_t DISPLAY_CHUNK_BYTES = 20;
 
 static_assert(proto::CHUNK_BYTES <= DISPLAY_CHUNK_BYTES);
 
-uint32_t display = NO_PROCESS;
+uint32_t display = NO_CAPABILITY_NODE;
 
 void deliverToDisplay(const Message &message) {
-	if (display == NO_PROCESS) return;
+	if (display == NO_CAPABILITY_NODE) return;
 	for (uint32_t attempt = 0; attempt < DISPLAY_RETRIES; attempt++) {
-		if (cock::user::ipc_send(display, message)) return;
+		if (cock::user::ep_send(display, message)) return;
 		cock::user::sleep_ms(DISPLAY_RETRY_MS);
 	}
 }
@@ -33,8 +34,8 @@ void deliverToDisplay(const Message &message) {
 } // namespace
 
 bool connectDisplay() {
-	display = cock::user::names::server(proto::DISPLAY_NAME);
-	return display != NO_PROCESS;
+	display = cock::user::names::connect(proto::DISPLAY_NAME).handle;
+	return display != NO_CAPABILITY_NODE;
 }
 
 void screenWrite(const char *text, size_t length) {

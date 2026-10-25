@@ -1,3 +1,4 @@
+#include <cock/abi/capability.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
 #include <kbd/console_link.hpp>
@@ -18,7 +19,7 @@ constexpr const char FAILED_MESSAGE[] = "kbd: cannot bind the keyboard\n";
 
 extern "C" int main() {
 	cock::kbd::waitForCapabilities();
-	uint32_t console = cock::user::NO_PROCESS;
+	uint32_t console = cock::abi::NO_CAPABILITY_NODE;
 
 	if (!cock::kbd::openController()) {
 		puts(FAILED_MESSAGE);
