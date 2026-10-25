@@ -13,13 +13,13 @@
 
 namespace fuzz {
 
-/** Processes that the inbox storm may talk to. The arrays are owned by the caller and must outlive the call. */
+/** Servers that the inbox storm may talk to, by handle. The arrays are owned by the caller and must outlive the call. */
 struct World {
-	/** Process ids of the servers that receive random messages. */
+	/** Handles on the servers that receive random messages. */
 	const uint32_t *servers;
 	/** Number of entries of `servers`. */
 	size_t serverCount;
-	/** Process ids that also receive random synchronous calls (servers that tolerate garbage output; the console is left out). */
+	/** Handles that also receive random synchronous calls (servers that tolerate garbage output; the console is left out). */
 	const uint32_t *callTargets;
 	/** Number of entries of `callTargets`. */
 	size_t callTargetCount;

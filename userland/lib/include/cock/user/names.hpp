@@ -1,16 +1,18 @@
 /**
  * @file names.hpp
- * @brief Client of the name server: asks for the right to talk to a server and learns its process id.
+ * @brief Client of the name server: asks for a handle on a server and learns its process id.
  *
  * This replaces the search of a process by name that the kernel used to offer. The call goes to the name
- * server (`abi::service::NAMES_PID`), which checks the `ipc=` policy of the manifest and, when it allows the
- * exchange, gives the calling process an `IPC` capability for the label of the server. From then on the
- * caller may send, call and share memory with that process, and the server may answer.
+ * server through the initial handle of the program (`initialHandle()`, whose badge is the process id of the
+ * caller), which checks the `ipc=` policy of the manifest and, when it allows the exchange, gives the calling
+ * process a handle on the endpoint of the server. From then on the caller may send and call through it, and
+ * the server answers with the reply token.
  *
  * The call is synchronous and uses only registers, so it never touches the inbox of the caller and is safe
  * in the middle of a program that serves requests. A name travels in parts of 12 bytes, one call each, so a
  * path such as `/run/console` takes one or two calls. Any thread of a process may connect: the name server
- * asks the kernel which process the calling thread belongs to.
+ * identifies the caller by the badge of the handle, which is the process id. A program that was started with
+ * no initial handle gets `BAD_REQUEST` from `connect`.
  */
 #ifndef COCK_USER_NAMES_HPP
 #define COCK_USER_NAMES_HPP
@@ -20,6 +22,7 @@
 #include <cock/abi/service.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/call.hpp>
+#include <cock/user/crt0.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -40,7 +43,7 @@ struct Connection {
 	uint32_t pid;
 	/** Service label of the server, which covers every process that runs the same program. */
 	uint32_t label;
-	/** Handle the caller holds on the endpoint of the server (`ep_call`, `ep_send`), whose badge is the process id of the caller; `abi::NO_CAPABILITY_NODE` when the server has no endpoint. The same handle comes back on every connect, and it keeps working when the server restarts. */
+	/** Handle the caller holds on the endpoint of the server (`ep_call`, `ep_send`), whose badge is the process id of the caller. The same handle comes back on every connect, and it keeps working when the server restarts. */
 	uint32_t handle;
 };
 
@@ -59,7 +62,7 @@ inline bool sendParts(const char *name, size_t length, Connection &connection) {
 							 part + 1 == parts)};
 		abi::names::packPart(name, length, part, words);
 
-		CallResult result = ipc_call(abi::service::NAMES_PID, words, CONNECT_WAIT_MS);
+		CallResult result = ep_call(initialHandle(), words, CONNECT_WAIT_MS);
 		if (result.status == CallStatus::TIMED_OUT) {
 			connection.status = abi::names::Status::UNKNOWN_CLIENT;
 			return true;
@@ -79,7 +82,7 @@ inline bool sendParts(const char *name, size_t length, Connection &connection) {
 }
 
 /**
- * @brief Asks the name server for the right to talk to a server.
+ * @brief Asks the name server for a handle on a server.
  *
  * Blocks until the name server answers. Right after a program starts, `init` may not have registered it yet;
  * the name server then holds the call until it does, for at most `CONNECT_WAIT_MS`, and answers `UNKNOWN_CLIENT` if the time runs out.
@@ -99,6 +102,7 @@ inline Connection connect(const char *name) {
 	while (name[length] != '\0' && length <= abi::names::MAX_NAME_BYTES)
 		length++;
 	if (length == 0 || length > abi::names::MAX_NAME_BYTES) return connection;
+	if (initialHandle() == abi::NO_CAPABILITY_NODE) return connection;
 
 	if (!sendParts(name, length, connection)) connection.status = abi::names::Status::BAD_REQUEST;
 	return connection;

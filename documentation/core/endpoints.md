@@ -1,6 +1,6 @@
 # Endpoints and handles
 
-An endpoint is a numbered mailbox in the kernel. A program sends to an endpoint through a **handle** it holds, not to a process id. This is step E3 of the path to Unix style IPC: E3a is the endpoint, the handle and the badge, E3b1 the work of `init` and `names`, and E3b2 the reply tokens. Most programs still address each other by process id: the servers move to handles and tokens next, and the process id leaves the interface in E3c.
+An endpoint is a numbered mailbox in the kernel. A program sends to an endpoint through a **handle** it holds, not to a process id. This is step E3 of the path to Unix style IPC: E3a is the endpoint, the handle and the badge, E3b1 the work of `init` and `names`, E3b2 the reply tokens, and E3c the end of the process id as an address: no message, call or capability message reaches another process by its id, and `sender_pid` is gone from the message. The threads of one process still reach each other by thread id (`SYS_IPC_SEND`, `SYS_IPC_CALL`), because a thread is not a security boundary and has no endpoint.
 
 ## Why
 
@@ -46,16 +46,22 @@ User wrappers: `ep_create`, `ep_bind`, `ep_send`, `ep_reply`, `ep_forward` (`coc
 
 ## What a message carries
 
-* A message sent through a handle has `badge` set to the badge of the handle, whatever the sender wrote. A message sent by process id, and the notices the kernel makes (interrupts, exits), have `NO_BADGE` (0).
-* A synchronous call through a handle puts the badge in the `peer` register of the server's accept. A call by thread id puts the id of the caller, as before. A server that serves both has to tell them apart by what it expects; once every program uses handles (E3c) the id is gone.
-* The kernel still writes `sender_pid`. It stays until E3c.
+* A message sent through a handle has `badge` set to the badge of the handle, whatever the sender wrote. A message sent between the threads of one process, an answer (`SYS_EP_REPLY`) and the notices the kernel makes (interrupts, exits) have `NO_BADGE` (0). Who sent a message is its badge; there is no `sender_pid` field.
+* A synchronous call through a handle puts the badge in the `peer` register of the server's accept. A call between threads of one process puts the id of the caller.
+* The notices of the kernel are told apart by their type (`IRQ_NOTIFICATION`, `PROCESS_EXITED`), which no program may send.
+
+## The handle a program is born with
+
+A program must reach the name server before it can reach anything else, and it cannot learn the number of a handle from anyone who is not running yet. `SpawnRights` (the third argument of `SYS_PROC_CREATE`, see [capabilities](capabilities.md)) carries one more entry for this: `initialEndpoint` and `initialFlags`. When `SYS_PROC_START` creates the first thread, the kernel derives an `ENDPOINT` capability for that endpoint from the creator (which needs the grant and mint rights over it), gives it the process id of the new process as its badge, and leaves its number in `EAX` of the first thread. `crt0` stores it and `cock::user::initialHandle()` returns it; `cock::user::names::connect` calls the name server through it. There is no message to wait for and no window in which the program runs without it.
+
+`init` gives every program of the manifest a handle on the endpoint of `names`. A program that was started with none (the boot modules, and the children of a program that has no such handle to give) gets `BAD_REQUEST` from `connect`, and `initialHandle()` returns 0.
 
 ## Answering without a process id: reply tokens
 
 A badge says who sent a message but is not an address, so a server cannot answer "to badge 7". The answer to an asynchronous request goes through a **reply token**, the idea of the `rcvid` of QNX and of the send-once right of Mach.
 
-1. The sender asks for it: `SYS_EP_SEND` with the flag `SEND_EXPECT_REPLY`. The kernel opens a token in `ReplyTable` (`cock/core/task/reply_table.hpp`) and writes it in `Message::reply` of the message the receiver gets. Without the flag, and for every message sent by process id, `reply` is `NO_REPLY` (0); whatever the sender wrote there is replaced.
-2. The receiver answers with `SYS_EP_REPLY(token, message)`. The answer is queued for the thread that asked, with the id of the replying thread as `sender_pid`, and the token is spent.
+1. The sender asks for it: `SYS_EP_SEND` with the flag `SEND_EXPECT_REPLY`. The kernel opens a token in `ReplyTable` (`cock/core/task/reply_table.hpp`) and writes it in `Message::reply` of the message the receiver gets. Without the flag, and for every message sent between the threads of one process, `reply` is `NO_REPLY` (0); whatever the sender wrote there is replaced.
+2. The receiver answers with `SYS_EP_REPLY(token, message)`. The answer is queued for the thread that asked, with `badge` and `reply` cleared, and the token is spent.
 3. Or it passes the request on with `SYS_EP_FORWARD(token, handle, message)`: the process bound to the endpoint of the handle receives the message with the same token, and with the badge of the handle, and holds it from then on. It answers the thread that asked directly. `vfs` does not have to wait for `fat` and relay the answer.
 
 The token is a number with a generation: `(generation << 8) | slot`. A token that was spent, dropped or never given does not work, even if its slot was reused. Only the **holder**, the process the message was delivered to, can use it, and only once; the table lives in the kernel, so a token takes no entry of the capability table of the server (which has 16).
@@ -72,9 +78,9 @@ What the kernel checks and does:
 * **A server cannot tell whether a client is alive.** A badge is a number, and `names` makes it the process id of the client so a server can ask `process_alive`, as `console` does to free the text of a writer that died. That works only while the badge is the process id, and a reused id could be taken for the old client. A notice from the kernel when a client dies is the answer, and it is not made.
 * **A client waits forever when the holder dies.** The kernel drops the tokens of a process that ends and tells nobody: the thread that asked gets no answer and no failure. It needs a time limit of its own, or a notice that the kernel does not send yet.
 * **A token has no time limit.** A server that keeps a token and never answers holds one of the 16 of the requester until one of the two ends.
-* **The answer does not come from the process asked.** After a forward, `sender_pid` of the answer is the thread that replied, not the server the client sent to. A client that checks `sender_pid == server` (the libraries of `fs`, `block` and `rtc` do) must match the request id or the token instead.
-* **Shared memory is still shared by process id** (`SYS_SHM_SHARE`), and so are `spawn` and the exit notices. They are not messages, and the badge does not replace them.
-* **Two entries of the capability table for each connection** while the `IPC` capability by label and the handle both exist; it goes away with step E3c.
+* **The answer does not say who gave it.** After a forward the answer comes from the process that replied, not from the server the client sent to, and it carries no badge. The libraries of `fs`, `block` and `rtc` accept a message of the right type, with `badge == NO_BADGE` (so it came through `SYS_EP_REPLY` and not through a handle) and the request id they sent.
+* **Shared memory is still shared by process id** (`SYS_SHM_SHARE`), and so are `spawn` and the exit notices. They are not messages, and the badge does not replace them. The right to share is now a handle: `mayShare` (`cock/core/security/ipc_access.hpp`) holds when the two processes are the same, or when one holds a handle on an endpoint the other receives on.
+* **A connection to the name server serves a process, not a thread.** The badge of the initial handle is the process id, so two threads of one program that connect at the same moment share the part of a long name that the name server is putting together. A program connects from one thread at a time.
 
 ## Routing
 
@@ -89,11 +95,13 @@ The endpoint is not tied to a process for life. `Process::~Process` unbinds the 
 * Ring 3 (`epgiver` and `epserver`, see `test/userland/README.md`): the badge reaches the server in a call and in a message, a forged badge is replaced, a process with no handle cannot send or call with any of 256 guessed handles, create an endpoint or bind one, a revoked handle fails, and binding the endpoint to another process moves it.
 * Host tests (`test/host/test_reply_table.cpp`): open and close, forged and stale tokens, the pass of the holder, the quota, the full table and the tokens dropped when a process ends.
 * Ring 3, `epgiver` and `epserver` again: a request with `SEND_EXPECT_REPLY` reaches the server with a token, the server forwards it through a second handle (the forwarded message carries the badge of that handle and the same token), the final receiver answers and the giver gets the answer with the replier as sender; the token is then spent, so a second reply and a forward fail; 1024 token values nobody gave fail; the seventeenth open token of the giver is refused. Mutants that skip the holder check or keep the token after the answer fail the test.
-* The syscall fuzzer has an entry for each call.
+* In-kernel suite `IPC access` (`test/cock/core/security/test_ipc_access.cpp`): `mayShare` through a handle of either side, an unbound endpoint, a third process, revocation cutting both directions, and the initial handle of `SpawnRights` (badge equal to the new process id, refusal without the mint right, for an endpoint the creator does not hold, and for unknown flags).
+* Ring 3, `epgiver` again: sending or calling a process of another program by its id fails, and the probe checks the same after `connect`.
+* The syscall fuzzer has an entry for each call and, with the `HANDLE` argument kind, uses the handles that the name server gave it.
 
 ## Limits
 
 * The table has 256 endpoints, never freed.
 * A process holds at most `CapabilitySet::MAX_CAPABILITIES` (16) capabilities, handles included.
 * The queue of an endpoint is the inbox and the call queue of the thread bound to it; what is queued when the owner dies is lost.
-* The console, the clock, the block driver and the file servers (`ramfs`, `vfs`, FAT32, ext2) answer through reply tokens and key their clients by the badge. `init`, which has no name-server connection, makes a handle for itself on `ramfs` with its own process id as badge. `kbd` sends keys and the console draws through handles with no reply token. What is still reached by process id is the test programs (`phoenix`, `syncbench`, `capgiver`, the probe), which E3c moves.
+* The console, the clock, the block driver and the file servers (`ramfs`, `vfs`, FAT32, ext2) answer through reply tokens and key their clients by the badge. `init`, which is not started by anyone, makes a handle for itself on `ramfs` and on `names` with its own process id as badge. `kbd` sends keys and the console draws through handles with no reply token. Nothing is reached by process id across processes any more: the test programs (`phoenix`, `capgiver`, the probe, the fuzzer) use handles too, and `syncbench` and the thread tests of the probe use thread ids inside their own process.

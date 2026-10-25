@@ -11,6 +11,7 @@
 #ifndef COCK_USER_FS_HPP
 #define COCK_USER_FS_HPP
 
+#include <cock/abi/endpoint.hpp>
 #include <cock/abi/fs.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
@@ -137,7 +138,7 @@ class Client {
 			server, answer,
 			[&](const Message &candidate) {
 				return candidate.type == MessageType::FS_REPLY &&
-					   candidate.sender_pid == server &&
+					   candidate.badge == abi::endpoint::NO_BADGE &&
 					   candidate.payload.args.arg0 == id;
 			},
 			onForeign);

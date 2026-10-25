@@ -124,14 +124,17 @@ class Client {
 
   private:
 	/**
-	 * @brief Sends one request, through the handle on the console endpoint when the name server gave
-	 * one and by thread id otherwise.
+	 * @brief Sends one request through the handle on the console endpoint that the name server gave.
 	 * @param words The four request words.
-	 * @return The call result.
+	 * @return The call result; `FAILED` when not connected.
 	 */
 	CallResult request(const uint32_t (&words)[CALL_WORDS]) {
-		if (handle != abi::NO_CAPABILITY_NODE) return ep_call(handle, words);
-		return ipc_call(server, words);
+		if (handle == abi::NO_CAPABILITY_NODE) {
+			CallResult failed = {};
+			failed.status = CallStatus::FAILED;
+			return failed;
+		}
+		return ep_call(handle, words);
 	}
 
 	/**

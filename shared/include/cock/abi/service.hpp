@@ -1,10 +1,12 @@
 /**
  * @file service.hpp
- * @brief Service labels: the stable names under which the IPC capability authorizes communication.
+ * @brief Service labels: the stable names under which the name server applies its policy and the `IPC`
+ * capability decides which labels a spawner may give.
  *
  * A label belongs to a program, not to a running process, so it survives a restart: `init` gives the
- * same label to the new process that replaces a dead server, and every capability held for that
- * label keeps working. A process has no label until `SYS_SERVICE_SET` gives it one, and the label
+ * same label to the new process that replaces a dead server, and the endpoint bound to that label
+ * keeps working for its clients. The kernel compares no label when a message is sent: the handle is
+ * the permission. A process has no label until `SYS_SERVICE_SET` gives it one, and the label
  * can be set once.
  */
 #ifndef SHARED_COCK_ABI_SERVICE_HPP
@@ -25,8 +27,6 @@ constexpr uint32_t RAMFS_SERVICE = 2;
 constexpr uint32_t NAMES_SERVICE = 3;
 /** Process id of `init`: the kernel starts it first, and the idle thread has id 0. */
 constexpr uint32_t ROOT_PID = 1;
-/** Process id of the name server: the kernel starts it right after `init`, so it follows the order of `USERLAND_BOOT_ORDER`. `init` checks it. */
-constexpr uint32_t NAMES_PID = 2;
 /** Label of the first program of the manifest; the program at index `n` gets `PROGRAM_SERVICE_BASE + n`. */
 constexpr uint32_t PROGRAM_SERVICE_BASE = 16;
 /** Number of labels that the root IPC capability covers, from `NO_SERVICE` on: all of them. */
@@ -44,6 +44,11 @@ constexpr size_t MAX_SPAWN_IPC = 8;
  * first thread, before it can run. Giving them
  * later with `SYS_SERVICE_SET` and `SYS_CAP_GRANT` leaves a window in which the program already
  * runs and is refused by its own servers.
+ *
+ * The same moment also gives the new process one handle, so that it can reach a server with no
+ * grant message and no wait: the kernel derives an `ENDPOINT` capability from the creator, stamps
+ * the process id of the new process as its badge and leaves the number of the handle in `EAX` when
+ * the first thread starts (`cock::user::initialHandle()` returns it).
  */
 struct SpawnRights {
 	/** Service label of the new process, not `NO_SERVICE`. */
@@ -52,6 +57,10 @@ struct SpawnRights {
 	uint32_t ipcCount;
 	/** Labels the new process may talk to; the spawner must hold a grantable `IPC` capability for each. */
 	uint32_t ipc[MAX_SPAWN_IPC];
+	/** Endpoint the initial handle leads to, or `endpoint::NO_ENDPOINT` for none. The creator must hold a grantable `ENDPOINT` capability for it, with the mint right because the badge is chosen. */
+	uint32_t initialEndpoint;
+	/** Flags of the initial handle: `GRANT_DELEGATE` and `GRANT_MINT`, or zero for a plain handle. */
+	uint32_t initialFlags;
 };
 
 } // namespace cock::abi::service

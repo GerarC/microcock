@@ -119,4 +119,10 @@ void update_thread_entry(uintptr_t context_ptr, void *new_entry) {
 	regs->eip = reinterpret_cast<uint32_t>(new_entry);
 }
 
+void set_thread_argument(uintptr_t context_ptr, uintptr_t value) {
+	InterruptRegisters *regs =
+		reinterpret_cast<InterruptRegisters *>(context_ptr);
+	regs->eax = static_cast<uint32_t>(value);
+}
+
 } // namespace cock::core::hal

@@ -1,6 +1,5 @@
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/security/capability_transfer.hpp>
-#include <cock/core/security/ipc_access.hpp>
 #include <cock/core/syscall/ipc/endpoint_route.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/ipc.hpp>
@@ -98,8 +97,7 @@ uintptr_t sys_ipc_send(uintptr_t to_pid, uintptr_t msg_ptr, uintptr_t,
 	message.reply = abi::endpoint::NO_REPLY;
 
 	Thread *target = TaskManager::getThreadByPID(static_cast<uint32_t>(to_pid));
-	if (!target || !security::mayTalk(*current->getProcess(), *target->getProcess()))
-		return FAILURE;
+	if (!target || target->getProcess() != current->getProcess()) return FAILURE;
 	return queue_message(*current, message, *target);
 }
 
@@ -187,7 +185,6 @@ uintptr_t sys_ep_forward(uintptr_t token, uintptr_t handle, uintptr_t msg_ptr,
 static bool take_next(Thread &thread, Message &message) {
 	uint32_t line = 0;
 	if (thread.takeNotification(line)) {
-		message.sender_pid = ipc::KERNEL_SENDER;
 		message.target_pid = thread.getId();
 		message.type = MessageType::IRQ_NOTIFICATION;
 		message.payload.args.arg0 = line;
@@ -195,7 +192,6 @@ static bool take_next(Thread &thread, Message &message) {
 	}
 	task::ExitNotice notice;
 	if (thread.takeExitNotice(notice)) {
-		message.sender_pid = ipc::KERNEL_SENDER;
 		message.target_pid = thread.getId();
 		message.type = MessageType::PROCESS_EXITED;
 		message.payload.args.arg0 = notice.child;

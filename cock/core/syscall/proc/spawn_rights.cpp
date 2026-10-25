@@ -1,25 +1,44 @@
 #include <cock/core/memory/vmm.hpp>
+#include <cock/abi/capability.hpp>
+#include <cock/abi/endpoint.hpp>
+#include <cock/core/security/capability_transfer.hpp>
 #include <cock/core/security/capability_tree.hpp>
-#include <cock/core/security/ipc_access.hpp>
 #include <cock/core/syscall/proc/spawn_rights.hpp>
 #include <string.h>
 
 namespace cock::core::syscall {
 
+namespace {
+
+constexpr size_t NO_HANDLES = 0;
+constexpr size_t SINGLE_HANDLE = 1;
+constexpr uint64_t SINGLE_LABEL = 1;
+
+} // namespace
+
 using memory::VirtAddr;
 using memory::VirtualMemoryManager;
 using security::capability_tree;
 using security::Capability;
+using security::CAPABILITY_FLAG_GRANT;
+using security::CAPABILITY_FLAG_MINT;
 using security::CapabilityType;
-using security::SINGLE_LABEL;
+using security::NO_CAPABILITY_NODE;
 using task::Process;
 
 bool spawn_rights_valid(const Process &creator, const abi::service::SpawnRights &rights) {
+	bool has_handle = rights.initialEndpoint != abi::endpoint::NO_ENDPOINT;
 	if (rights.label == abi::service::NO_SERVICE ||
 		rights.ipcCount > abi::service::MAX_SPAWN_IPC ||
-		!capability_tree.hasRoom(rights.ipcCount))
+		(rights.initialFlags & ~abi::ALL_GRANT_FLAGS) != 0 ||
+		!capability_tree.hasRoom(rights.ipcCount + (has_handle ? SINGLE_HANDLE : NO_HANDLES)))
 		return false;
 	if (!creator.getCapabilities().mayGrant(CapabilityType::IPC, rights.label, SINGLE_LABEL))
+		return false;
+	if (has_handle &&
+		!creator.getCapabilities().hasFlag(CapabilityType::ENDPOINT, rights.initialEndpoint,
+										   abi::endpoint::SINGLE_ENDPOINT,
+										   CAPABILITY_FLAG_GRANT | CAPABILITY_FLAG_MINT))
 		return false;
 
 	for (uint32_t index = 0; index < rights.ipcCount; index++) {
@@ -39,8 +58,8 @@ bool read_spawn_rights(const Process &creator, VirtAddr limit, uintptr_t rights_
 	return spawn_rights_valid(creator, rights);
 }
 
-void give_spawn_rights(const Process &creator, Process &process,
-					   const abi::service::SpawnRights &rights) {
+uint32_t give_spawn_rights(const Process &creator, Process &process,
+						   const abi::service::SpawnRights &rights) {
 	process.setServiceId(rights.label);
 	for (uint32_t index = 0; index < rights.ipcCount; index++) {
 		const Capability *source = creator.getCapabilities().grantable(
@@ -53,6 +72,12 @@ void give_spawn_rights(const Process &creator, Process &process,
 											  CapabilityType::IPC, granted.first, granted.count);
 		process.getCapabilities().add(granted);
 	}
+
+	if (rights.initialEndpoint == abi::endpoint::NO_ENDPOINT) return NO_CAPABILITY_NODE;
+	return security::delegate_capability(
+		creator, process, CapabilityType::ENDPOINT, rights.initialEndpoint,
+		abi::endpoint::SINGLE_ENDPOINT, (rights.initialFlags & abi::GRANT_DELEGATE) != 0,
+		(rights.initialFlags & abi::GRANT_MINT) != 0, process.getId());
 }
 
 } // namespace cock::core::syscall

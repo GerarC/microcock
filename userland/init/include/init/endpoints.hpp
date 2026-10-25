@@ -5,6 +5,7 @@
 #ifndef INIT_ENDPOINTS_HPP
 #define INIT_ENDPOINTS_HPP
 
+#include <cock/ipc/message.hpp>
 #include <stdint.h>
 
 namespace cock::init {
@@ -43,6 +44,20 @@ uint32_t bindEndpoint(uint32_t label, uint32_t pid);
  * @return The handle, or `NO_CAPABILITY_NODE` when the label has no endpoint or the table is full.
  */
 uint32_t handleOf(uint32_t label);
+
+/**
+ * @brief Sends one asynchronous message to the process that runs a service, through a handle that
+ * lives only for the send.
+ *
+ * Makes a handle with `handleOf` and takes it back with `SYS_CAP_REVOKE` after the send, so the
+ * 16 entries of the table of `init` do not fill up with one handle per program.
+ *
+ * @param label Service label of the program.
+ * @param message The message; the kernel stamps the badge (the process id of `init`).
+ * @return True when the message was queued; false when the label has no endpoint, no process is
+ * bound to it, or the inbox of the receiver is full.
+ */
+bool sendTo(uint32_t label, const cock::ipc::Message &message);
 
 } // namespace cock::init
 

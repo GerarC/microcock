@@ -17,6 +17,9 @@ namespace cock::user::capability_script {
 /** Name of the receiver in the manifest, used by the giver to connect. */
 constexpr char RECEIVER_NAME[] = "capreceiver";
 
+/** Name of the giver in the manifest, used by the receiver to connect and try to give back what it was given. */
+constexpr char GIVER_NAME[] = "capgiver";
+
 /** First port of the range the giver holds. */
 constexpr uint32_t GIVER_FIRST_PORT = 0x2F8;
 

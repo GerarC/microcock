@@ -49,12 +49,11 @@ A call that has to wait asks the scheduler to restart it (see [task management](
 Threads communicate using a `RingBuffer`. Every thread keeps an inbox that holds 16 (`THREAD_INBOX_CAPACITY`) of the `Message` structures. Delivery never blocks the sender.
 
 ### Inboxes belong to threads
-The inbox, the pending interrupt notifications and the interrupt lines a program binds belong to one **thread**, not to the process. `sender_pid` in a message is the id of the sending thread. A process id given to `SYS_IPC_SEND` or `SYS_PROC_ALIVE` stands for its first thread, and a thread id works too. `SYS_IRQ_BIND` and `SYS_IRQ_ACK` are tied to the thread that bound the line, so a program that binds a line in one thread and receives in another never sees the notification: bind and receive in the same thread, and hand the work to other threads from there.
+The inbox, the pending interrupt notifications and the interrupt lines a program binds belong to one **thread**, not to the process. A message does not say who sent it; the badge does (see below). A process id given to `SYS_IPC_SEND` or `SYS_PROC_ALIVE` stands for its first thread, and a thread id works too, but `SYS_IPC_SEND` accepts only a thread of the caller's own process: another program is reached through a handle on its endpoint (`SYS_EP_SEND`). `SYS_IRQ_BIND` and `SYS_IRQ_ACK` are tied to the thread that bound the line, so a program that binds a line in one thread and receives in another never sees the notification: bind and receive in the same thread, and hand the work to other threads from there.
 
 ### The message
 ```cpp
 typedef struct message_t {
-	uint32_t sender_pid;
 	uint32_t target_pid;
 	MessageType type;
 	uint32_t reply;
@@ -68,7 +67,7 @@ typedef struct message_t {
 } Message;
 ```
 
-The kernel writes `sender_pid`, `target_pid`, `badge` and `reply` itself on delivery; whatever the sender put there is replaced. `reply` is the token a receiver uses to answer (`SYS_EP_REPLY`, `SYS_EP_FORWARD`), and is `NO_REPLY` unless the sender asked for one with `SYS_EP_SEND`. The sender of a message produced by the kernel is `KERNEL_SENDER` (`0`, defined in `shared/include/cock/ipc/message.hpp`). The badge is the one stored in the handle the sender used (`SYS_EP_SEND`, see [endpoints](endpoints.md)), and `NO_BADGE` (0) for a message sent by process id and for kernel notices. The message types are:
+The kernel writes `target_pid`, `badge` and `reply` itself on delivery; whatever the sender put there is replaced. The message is 40 bytes: it has no sender field, because a process id says who holds a number now, and the badge says which right the sender used. `reply` is the token a receiver uses to answer (`SYS_EP_REPLY`, `SYS_EP_FORWARD`), and is `NO_REPLY` unless the sender asked for one with `SYS_EP_SEND`. The badge is the one stored in the handle the sender used (`SYS_EP_SEND`, see [endpoints](endpoints.md)), and `NO_BADGE` (0) for a message between threads of one process, for an answer and for kernel notices. A notice of the kernel is recognized by its type (`IRQ_NOTIFICATION`, `PROCESS_EXITED`), which no program may send. The message types are:
 
 | Type | Meaning |
 |------|---------|
@@ -78,21 +77,20 @@ The kernel writes `sender_pid`, `target_pid`, `badge` and `reply` itself on deli
 | `CONSOLE_KEY` | Keyboard driver to console server (value 30): `arg0` is the typed character; the console accepts it only from the process the name server calls `kbd`; see [console](../userland/console.md) |
 | `OUTPUT_WRITE_STR` | Write `arg0` bytes that follow in `arg1` and the next arguments |
 | `PROCESS_EXITED` | The kernel tells the spawner that a process it asked about ended (`arg0` process id, `arg1` exit status, `0xFFFFFFFF` when an exception ended it). It comes from a per-process record, not from the inbox, so it is never lost; only the main thread of the spawner receives it. Only the kernel produces it; a program that tries to send one gets `-1` |
-| `IRQ_NOTIFICATION` | The kernel tells a driver that its interrupt line fired (`arg0` is the line). Only the kernel produces it, with `KERNEL_SENDER` as sender; a program that tries to send one gets `-1` |
+| `IRQ_NOTIFICATION` | The kernel tells a driver that its interrupt line fired (`arg0` is the line). Only the kernel produces it; a program that tries to send one gets `-1` |
 | `FS_CONNECT`, `FS_OPEN`, `FS_READ`, `FS_STAT`, `FS_READDIR`, `FS_CLOSE`, `FS_REPLY`, `FS_WRITE`, `FS_UNLINK`, `FS_MKDIR`, `FS_RMDIR`, `FS_RENAME`, `FS_LINK` | The file server protocol (values 9 to 15, 20, 21 and 23 to 26); see [file system](../userland/filesystem.md) |
 | `BLK_CONNECT`, `BLK_INFO`, `BLK_READ`, `BLK_REPLY`, `BLK_WRITE` | The block server protocol (values 16 to 19 and 22); see [block storage](../userland/block_storage.md) |
 | `RTC_READ`, `RTC_REPLY` | The clock server protocol (values 27 and 28): `arg0` request id; the reply carries the status in `arg1` and the date and time packed in `arg2` and `arg3` (`shared/include/cock/abi/rtc.hpp`) |
 | `CAPABILITY_GRANTED` | The root server tells a driver that its capabilities are in place (`arg0` is the numeric argument of its manifest entry, for example the device of `fat`; zero when it has none). Only a process that holds a capability with the grant right can send it |
-| `CAPABILITY_TRANSFER` | Gives the receiver a copy of part of a capability of the sender (value 31): `arg0` type, `arg1` first, `arg2` count, `arg3` flags (`GRANT_DELEGATE`, `GRANT_MINT`, both or none), `arg4` written by the kernel with the node id of the copy, `arg5` free, except for an `ENDPOINT` capability, where it is the badge of the copy (only a sender with the mint right may pass a value other than 0). Refused unless the receiver accepted the type with `SYS_CAP_ACCEPT`; see [capabilities](capabilities.md#capabilities-in-messages). A successful `SYS_IPC_SEND` of this type returns the node id instead of 0 |
+| `CAPABILITY_TRANSFER` | Gives the receiver a copy of part of a capability of the sender (value 31): `arg0` type, `arg1` first, `arg2` count, `arg3` flags (`GRANT_DELEGATE`, `GRANT_MINT`, both or none), `arg4` written by the kernel with the node id of the copy, `arg5` free, except for an `ENDPOINT` capability, where it is the badge of the copy (only a sender with the mint right may pass a value other than 0). Refused unless the receiver accepted the type with `SYS_CAP_ACCEPT`; see [capabilities](capabilities.md#capabilities-in-messages). A successful `SYS_EP_SEND` of this type returns the node id instead of 0 |
 
 ### Sending (`sys_ipc_send`)
-Before delivering, the system call checks that the sender may use the message type: `IRQ_NOTIFICATION` and `PROCESS_EXITED` are refused to every program, and `CAPABILITY_GRANTED` is refused unless the sender holds grant authority. A server can therefore trust the type of a message it receives without checking who sent it. `SYS_EP_SEND` takes a handle instead of a process id and skips the next check, because holding the handle is the permission; the rest is the same (see [endpoints](endpoints.md)). Then `SYS_IPC_SEND` checks the IPC capability (`mayTalk`): the sender and the target must be the same process, or one of them must hold an `IPC` capability that covers the service label of the other; see [capabilities](capabilities.md#the-ipc-capability). `SYS_IPC_CALL` and `SYS_SHM_SHARE` make the same check, and a refusal costs the caller nothing but a `-1`. A `CAPABILITY_TRANSFER` message then gets its copy made (`delegate_capability`), and the copy is taken back if the delivery fails. `IPC::deliver` then validates the target, stamps the message and pushes it into the inbox of the target. If the target was blocked waiting for a message (`WAITING_MSG`), it is set to `READY` and put back in the scheduler. The call fails, and the sender is told, when the target does not exist or its inbox is full.
+Before delivering, the system call checks that the sender may use the message type: `IRQ_NOTIFICATION` and `PROCESS_EXITED` are refused to every program, and `CAPABILITY_GRANTED` is refused unless the sender holds grant authority. A server can therefore trust the type of a message it receives without checking who sent it. `SYS_EP_SEND` takes a handle instead of a thread id, and holding the handle is the permission; the rest is the same (see [endpoints](endpoints.md)). `SYS_IPC_SEND` has no permission to check: it accepts only a thread of the sender's own process, and a refusal costs the caller nothing but a `-1`. `SYS_IPC_CALL` has the same limit, and `SYS_SHM_SHARE` asks for a handle on the other process (`mayShare`, see [capabilities](capabilities.md#the-ipc-capability)). A `CAPABILITY_TRANSFER` message then gets its copy made (`delegate_capability`), and the copy is taken back if the delivery fails. `IPC::deliver` then validates the target, stamps the message and pushes it into the inbox of the target. If the target was blocked waiting for a message (`WAITING_MSG`), it is set to `READY` and put back in the scheduler. The call fails, and the sender is told, when the target does not exist or its inbox is full.
 
 ```cpp
 bool IPC::deliver(uint32_t to_pid, Message message) {
 	uintptr_t flags = hal::save_and_block_interruptions();
 	Thread *target = TaskManager::getThreadByPID(to_pid);
-	Thread *sender = Scheduler::getCurrentThread();
 	...
 	if (target->getState() == ThreadState::WAITING_MSG) {
 		target->setState(ThreadState::READY);
@@ -120,11 +118,11 @@ Threads and futexes (`SYS_THREAD_CREATE` `0x207`, `SYS_FUTEX_WAIT` `0x211`, `SYS
 Both calls are driven by `Timeouts` (see [task management](task_management.md#timeouts)). The clock is the 100 Hz tick, so the resolution is 10 ms and a time is rounded up to whole ticks.
 
 ## Synchronous calls
-Besides the asynchronous messages, a thread can **call** another and wait for the answer. The request and the answer are four 32 bit words that travel in registers: nothing is copied through user memory, so there is no pointer to validate, and the kernel writes the answer straight into the saved registers of the thread that waits. The call is a separate channel: it carries no message type and does not go through `sender_may_use`; the server learns who called from the id the kernel stamps.
+Besides the asynchronous messages, a thread can **call** another and wait for the answer. The request and the answer are four 32 bit words that travel in registers: nothing is copied through user memory, so there is no pointer to validate, and the kernel writes the answer straight into the saved registers of the thread that waits. The call is a separate channel: it carries no message type and does not go through `sender_may_use`; the server learns who called from the badge of the handle (`SYS_EP_CALL`) or, for a thread of its own process, from the id the kernel stamps.
 
 | Call | Number | Registers in | Registers out |
 |------|--------|--------------|---------------|
-| `SYS_IPC_CALL` | `0x230` | `EBX` target thread id, `ECX`, `EDX`, `ESI`, `EDI` the four words, `EBP` milliseconds | `EAX` status, `EBX` id of the replier, `ECX` to `EDI` the four words of the answer |
+| `SYS_IPC_CALL` | `0x230` | `EBX` target thread id (of the caller's own process), `ECX`, `EDX`, `ESI`, `EDI` the four words, `EBP` milliseconds | `EAX` status, `EBX` id of the replier, `ECX` to `EDI` the four words of the answer |
 | `SYS_EP_CALL` | `0x236` | `EBX` handle on an endpoint, `ECX`, `EDX`, `ESI`, `EDI` the four words, `EBP` milliseconds | the same as `SYS_IPC_CALL`; fails when the caller holds no such handle (see [endpoints](endpoints.md)) |
 | `SYS_IPC_ACCEPT` | `0x231` | `EBP` milliseconds | `EAX` status, `EBX` the peer: the badge of the handle when the call came through an endpoint, the id of the caller when it came by thread id; `ECX` to `EDI` the four words of the request |
 | `SYS_IPC_REPLY` | `0x232` | `ECX` to `EDI` the four words of the answer | `EAX` 0, or -1 when no call is being served |
@@ -159,7 +157,7 @@ A driver in userland handles a hardware interrupt like this:
 A notification is a bit in the thread, one bit per line, not a message in the inbox. That has two consequences:
 
 * it **cannot be lost**: a full inbox, full of messages from other programs, does not stop an interrupt from reaching its driver,
-* it **cannot be forged**: a program is not allowed to send an `IRQ_NOTIFICATION`, and the one the driver receives carries `KERNEL_SENDER`.
+* it **cannot be forged**: a program is not allowed to send an `IRQ_NOTIFICATION`, and the driver recognizes the one it receives by its type.
 
 Notifications of different lines are delivered lowest line first.
 

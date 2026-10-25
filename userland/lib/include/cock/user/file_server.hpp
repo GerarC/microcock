@@ -123,7 +123,6 @@ struct FileServer {
 	 * @param message Message received.
 	 */
 	static void handle(const Message &message) {
-		if (message.sender_pid == ipc::KERNEL_SENDER) return;
 		if (message.reply == abi::endpoint::NO_REPLY) return;
 		uint32_t token = message.reply;
 		uint32_t client = message.badge;

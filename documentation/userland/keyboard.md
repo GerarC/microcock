@@ -35,9 +35,7 @@ extern "C" int main() {
 ```cpp
 for (;;) {
 	cock::user::ipc_recv(message);
-	if (message.type != MessageType::IRQ_NOTIFICATION ||
-		message.sender_pid != cock::ipc::KERNEL_SENDER)
-		continue;
+	if (message.type != MessageType::IRQ_NOTIFICATION) continue;
 
 	show(display, decoder.feed(cock::user::port_in8(PS2_DATA_PORT)));
 	cock::user::irq_ack(KEYBOARD_IRQ_LINE);

@@ -64,9 +64,7 @@ void restart(Client &client, Watch *watch) {
 }
 
 void handle(Client &client, const Message &message) {
-	if (message.type != MessageType::PROCESS_EXITED ||
-		message.sender_pid != cock::ipc::KERNEL_SENDER)
-		return;
+	if (message.type != MessageType::PROCESS_EXITED) return;
 	Watch *watch = find(message.payload.args.arg0);
 	if (watch == nullptr) return;
 	printf("init: %s ended with status %u\n", watch->entry->name,

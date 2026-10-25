@@ -6,18 +6,20 @@ The root server of MicroCOCK. It is the only process the kernel starts with auth
 
 - It is a Multiboot module named `init` (see `USERLAND_BOOT_ORDER` in the root `Makefile`: `init`, `names`, `ramfs`, `vga_driver`). The kernel gives the root capabilities to the first program module it loads, which the boot order makes `init`; it also gives it the service label `ROOT_SERVICE`.
 - It needs no line in the manifest: it is the one that reads it. Its own policy is written in the code: bring the name server up, and grant `ramfs` the `initrd` boot module and tell it so.
-- It starts the system and exits with status 0, unless an entry has `restart=`: then it stays alive and starts those programs again when they end (see "Restarting servers"). It exits with status 1 if the name server (`names`, which must have the process id `NAMES_PID`), `ramfs` or the `initrd` module is missing, if `manifest.conf` cannot be read, or if the parser rejects a line.
+- It starts the system and exits with status 0, unless an entry has `restart=`: then it stays alive and starts those programs again when they end (see "Restarting servers"). It exits with status 1 if the name server (`names`), `ramfs` or the `initrd` module is missing, if `manifest.conf` cannot be read, or if the parser rejects a line.
 - The C library console client is switched off (`CONSOLE_CLIENT = no`): `init` prints before `console` has its capabilities.
 
 ## Protocol
 
 | Direction | Message | Use |
 |-----------|---------|-----|
-| `init` to `names` | `CAPABILITY_GRANTED` (after the label and a `SYS_CAP_GRANT` of `IPC` with `GRANT_DELEGATE`) | Lets the name server serve |
-| `init` to `names` | Synchronous calls `DEFINE`, `ALLOW` and `BIND` | Describe the programs, the `ipc=` policy and the process that runs each program (see [names](../../documentation/userland/names.md)) |
+| `init` to `names` | `CAPABILITY_GRANTED` (after the label and a `SYS_CAP_GRANT` of `ENDPOINT` with `GRANT_DELEGATE` and `GRANT_MINT`) | Lets the name server serve |
+| `init` to `names` | Synchronous calls `DEFINE`, `ALLOW` and `BIND`, through a handle `init` made for itself | Describe the programs, the `ipc=` policy and the process that runs each program (see [names](../../documentation/userland/names.md)) |
 | `init` to `ramfs` | `CAPABILITY_GRANTED` (after `SYS_CAP_GRANT` of `BOOT_MODULE`) | Lets `ramfs` open the `initrd` |
 | `init` to `ramfs` | `FS_CONNECT`, `FS_OPEN`, `FS_STAT`, `FS_READ`, `FS_CLOSE` | Reads `manifest.conf` and each program image, through `cock::user::fs::Client` |
-| `init` to each started process | `CAPABILITY_GRANTED`, `arg0` is the `arg=` value | Sent after the grants, only when the entry has grants or an argument |
+| `init` to each started process | `CAPABILITY_GRANTED`, `arg0` is the `arg=` value | Sent after the grants, only when the entry has grants or an argument, through a handle on the endpoint of the program that lives only for the send (`sendTo`) |
+
+Every program `init` spawns also starts with an **initial handle** on the endpoint of the name server (`SpawnRights::initialEndpoint`, built in `rightsOf`), badged with its process id, so it can `connect` from its first instruction; no message is involved.
 | kernel to `init` | `PROCESS_EXITED` | Only for `repeat=` and `restart=` entries, which `init` spawns with the exit notice requested and supervises |
 
 The manifest grammar (`shared/include/cock/abi/manifest.hpp`) has these keys after the entry name:
@@ -27,7 +29,7 @@ The manifest grammar (`shared/include/cock/abi/manifest.hpp`) has these keys aft
 | `path=` | File of the initrd to spawn; without it the entry is a boot module that is only configured |
 | `caps=` | Up to four grants: `io:first+count`, `irq:line`, `mem:first+size`, `spawn` (the right to call `SYS_PROC_CREATE`) |
 | `arg=` | One number that travels in `CAPABILITY_GRANTED` (the block device of `fat` and `ext`) |
-| `ipc=` | Names of the programs this one may connect to (send, call, share memory), up to eight; `init` sends them to the name server, which checks them when the program connects and gives the `IPC` capability then |
+| `ipc=` | Names of the programs this one may connect to (send, call, share memory), up to eight; `init` sends them to the name server, which checks them when the program connects and gives a handle on the server then |
 | `repeat=` | Run the program that many times in a row, 1 to 32 |
 | `restart=` | Start the program again when it ends, at most that many times in one window, 1 to 16; needs `path=` and no `repeat=` |
 
@@ -60,6 +62,7 @@ The kernel still checks every grant against what `init` holds, so a manifest lin
 |------|-------|
 | `src/main.cpp` | `main`: `startNames`, `grantInitrd`, `loadManifest`, `describeSystem`, `runEntry` for each entry, exit |
 | `include/init/directory.hpp`, `src/directory.cpp` | `startNames()`, `describeSystem()`, `bindService()`: what `init` tells the name server |
+| `include/init/endpoints.hpp`, `src/endpoints.cpp` | `endpointOf()`, `bindEndpoint()`, `handleOf()` and `sendTo()`: the endpoint of each label and the handles `init` makes for itself |
 | `include/init/boot.hpp`, `src/boot.cpp` | `grantInitrd()`: the policy in the code, the label of `ramfs` and the `initrd` boot module for it; returns its process id |
 | `include/init/service.hpp`, `src/service.cpp` | `labelOf()`, `labelOfName()`, `rightsOf()` and `labelBootModule()`: the service label of each entry |
 | `include/init/grant.hpp`, `src/grant.cpp` | `announce()` and `equip()`: grants of an entry and the `CAPABILITY_GRANTED` message |

@@ -17,9 +17,11 @@ namespace cock::core::syscall {
  * @param creator The process that creates the new one.
  * @param rights The rights, already copied into the kernel.
  * @return True when the label is not `NO_SERVICE`, the list is within
- * `MAX_SPAWN_IPC`, the derivation tree has room for one node per label, the
- * creator may grant the label, and for every label of the list it holds a
- * grantable `IPC` capability whose node still exists.
+ * `MAX_SPAWN_IPC`, the derivation tree has room for one node per label and for the
+ * initial handle, the creator may grant the label, for every label of the list it
+ * holds a grantable `IPC` capability whose node still exists, the flags of the handle
+ * are known, and for the initial endpoint it holds an `ENDPOINT` capability with the
+ * grant and mint rights.
  */
 bool spawn_rights_valid(const task::Process &creator, const abi::service::SpawnRights &rights);
 
@@ -41,8 +43,10 @@ bool read_spawn_rights(const task::Process &creator, memory::VirtAddr limit,
  * @param creator The process that creates the new one.
  * @param process The new process, which already has an id.
  * @param rights Rights accepted by `spawn_rights_valid` in the same system call.
+ * @return The node id of the initial handle (`SpawnRights::initialEndpoint`), whose badge is
+ * the id of the new process, or `NO_CAPABILITY_NODE` when the rights ask for none.
  */
-void give_spawn_rights(const task::Process &creator, task::Process &process,
+uint32_t give_spawn_rights(const task::Process &creator, task::Process &process,
 					   const abi::service::SpawnRights &rights);
 
 } // namespace cock::core::syscall

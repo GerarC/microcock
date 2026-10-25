@@ -13,12 +13,12 @@ namespace cock::init {
 /**
  * @brief Brings the name server up.
  *
- * Finds the boot module `names` and checks that its process id is `NAMES_PID`, which every program
- * assumes. Gives it its service label, the right to pass on `IPC` capabilities and the right to
- * hand out handles on every endpoint with the badge of its choice, sends it
- * `CAPABILITY_GRANTED` and registers `ramfs`, which has no manifest entry. Prints `init: no name
- * server` when the module is missing or has another process id, and `init: cannot register <name>`
- * when the name server refuses.
+ * Finds the boot module `names`, gives it its service label and the right to hand out handles on
+ * every endpoint with the badge of its choice, binds it to its endpoint, makes the handle `init`
+ * calls it through (the one `SpawnRights::initialEndpoint` gives every program it starts is on the
+ * same endpoint), sends it `CAPABILITY_GRANTED` and registers `ramfs`, which has no manifest entry.
+ * Prints `init: no name server` when the module is missing, and `init: cannot register <name>` when
+ * the name server refuses.
  *
  * @return True when the name server is running and knows `ramfs`; false otherwise, and `init`
  * cannot start the system.

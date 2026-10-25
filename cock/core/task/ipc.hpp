@@ -38,22 +38,12 @@ class IPC {
 	/**
 	 * @brief Delivers a message without yielding.
 	 * @param to_pid Thread id of the target.
-	 * @param message Message to deliver. Sender and target fields are
-	 * overwritten by the kernel, the sender is the current thread (0 when
-	 * none).
+	 * @param message Message to deliver. The target field is overwritten by the
+	 * kernel; `badge` and `reply` are the caller's to set.
 	 * @return True when queued. False when the target does not exist, is dead
 	 * or its inbox is full.
 	 */
 	static bool deliver(uint32_t to_pid, Message message);
-	/**
-	 * @brief Delivers a message on behalf of another sender.
-	 * @param to_pid Thread id of the target.
-	 * @param message Message to deliver.
-	 * @param sender_pid Value stored as the sender, for instance the kernel
-	 * sender id.
-	 * @return True when queued, false as for deliver.
-	 */
-	static bool deliverAs(uint32_t to_pid, Message message, uint32_t sender_pid);
 	/**
 	 * @brief Raises an interrupt notification on a thread.
 	 * @param to_pid Thread id of the target.

@@ -2,8 +2,9 @@
  * @file names.hpp
  * @brief Wire protocol of the name server (`names`) and the packing helpers for its calls.
  *
- * A program that wants to talk to a server calls the name server (`NAMES_PID`) with synchronous calls of
- * four words. Word 0 is the header (see `pack`): the operation in bits 0 to 7, the number of the part in
+ * A program that wants to talk to a server calls the name server, through the handle it was born with
+ * (`cock::user::initialHandle()`, a handle on the endpoint of the name server whose badge is the process id of
+ * the program), with synchronous calls of four words. Word 0 is the header (see `pack`): the operation in bits 0 to 7, the number of the part in
  * bits 8 to 15, the `LAST` flag in bit 16 and a service label in bits 17 to 31. Words 1 to 3 carry 12 bytes
  * of a name, the first byte in the low bits of word 1 (little endian), or the numbers an operation needs.
  * A name longer than 12 bytes travels in several calls, one part each, in order; the name server answers

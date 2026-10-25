@@ -42,7 +42,7 @@ Status serveName(uint32_t caller, uint32_t process, const uint32_t (&words)[abi:
 
 bool serve(uint32_t caller, const uint32_t (&words)[abi::names::CALL_WORDS],
 		   uint32_t (&reply)[abi::names::CALL_WORDS]) {
-	uint32_t process = cock::user::thread_process(caller);
+	uint32_t process = caller;
 	uint32_t op = abi::names::opOf(words[abi::names::HEADER_WORD]);
 
 	bool parked = false;

@@ -28,7 +28,7 @@ uint32_t grantInitrd() {
 		bindService(cock::abi::service::RAMFS_SERVICE, files);
 	printf("init: initrd is boot module %u\n", initrd);
 	cock::user::cap_grant(files, cock::abi::CapabilityType::BOOT_MODULE, initrd, SINGLE_RESOURCE);
-	announce(files);
+	announce(cock::abi::service::RAMFS_SERVICE);
 	return files;
 }
 

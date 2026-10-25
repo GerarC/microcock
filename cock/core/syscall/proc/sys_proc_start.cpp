@@ -1,3 +1,4 @@
+#include <cock/core/hal/tasking.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/syscall/proc/pending_image.hpp>
 #include <cock/core/syscall/proc/spawn_rights.hpp>
@@ -69,7 +70,10 @@ uintptr_t sys_proc_start(uintptr_t handle, uintptr_t entry_point, uintptr_t, uin
 
 	process->setNotifiesExit(entry->notify);
 	if (entry->notify) creator.reserveExitNotice();
-	if (entry->hasRights) give_spawn_rights(creator, *process, entry->rights);
+	if (entry->hasRights) {
+		uint32_t initial = give_spawn_rights(creator, *process, entry->rights);
+		hal::set_thread_argument(thread->getStackPointer(), initial);
+	}
 	PendingProcesses::release(static_cast<uint32_t>(handle));
 	Scheduler::addThread(thread);
 	return thread->getId();

@@ -11,7 +11,6 @@ using cock::ipc::MessageType;
 namespace cock::vfs {
 
 void handle(const Message &message) {
-	if (message.sender_pid == cock::ipc::KERNEL_SENDER) return;
 	if (message.reply == cock::abi::endpoint::NO_REPLY) return;
 	uint32_t client = message.badge;
 	uint32_t token = message.reply;

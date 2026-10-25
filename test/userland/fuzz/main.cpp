@@ -55,6 +55,7 @@ constexpr size_t MAX_SHM_IDS = 32;
 constexpr size_t MAX_DEAD_IDS = 8;
 constexpr size_t NAME_BUFFER_BYTES = 64;
 constexpr uint32_t HOSTILE_PERCENT = 30;
+constexpr uint32_t HALF_PERCENT = 50;
 constexpr uint32_t HOSTILE_NUMBER_PERCENT = 4;
 constexpr uint32_t PLAUSIBLE_LENGTH_LIMIT = 64;
 constexpr uint32_t PLAUSIBLE_VALUE_LIMIT = 64;
@@ -121,6 +122,10 @@ const char *serverLabels[MAX_SERVERS];
 size_t serverCount = 0;
 uint32_t callTargets[MAX_SERVERS];
 size_t callTargetCount = 0;
+uint32_t serverHandles[MAX_SERVERS];
+size_t serverHandleCount = 0;
+uint32_t callHandles[MAX_SERVERS];
+size_t callHandleCount = 0;
 uintptr_t regions[MAX_REGIONS];
 size_t regionCount = 0;
 uint32_t shmIds[MAX_SHM_IDS];
@@ -211,6 +216,13 @@ uintptr_t makeCallTarget() {
 	return callTargets[prng.below(static_cast<uint32_t>(callTargetCount))];
 }
 
+uintptr_t makeHandle() {
+	if (prng.chance(HOSTILE_PERCENT) || serverHandleCount == 0) return makeValue();
+	if (callHandleCount > 0 && prng.chance(HALF_PERCENT))
+		return callHandles[prng.below(static_cast<uint32_t>(callHandleCount))];
+	return serverHandles[prng.below(static_cast<uint32_t>(serverHandleCount))];
+}
+
 uintptr_t makeMilliseconds() {
 	if (prng.chance(HOSTILE_PERCENT)) return prng.pick(REFUSED_MILLISECONDS);
 	return prng.pick(SMALL_MILLISECONDS);
@@ -270,6 +282,8 @@ uintptr_t makeArgument(Arg kind) {
 		return UNUSED;
 	case Arg::ID:
 		return makeId();
+	case Arg::HANDLE:
+		return makeHandle();
 	case Arg::ADDRESS_IN:
 		return makeAddress(false);
 	case Arg::ADDRESS_OUT:
@@ -352,7 +366,6 @@ void sendToSelf(uint32_t marker) {
 
 void fillOutgoingMessage() {
 	cock::ipc::Message message = {};
-	message.sender_pid = prng.next();
 	message.target_pid = prng.next();
 	message.type = static_cast<cock::ipc::MessageType>(prng.below(MESSAGE_TYPE_LIMIT));
 	for (size_t index = 0; index < MESSAGE_ARGUMENTS; index++)
@@ -438,9 +451,10 @@ void fuzzOnce() {
 	}
 
 	if (spec.number == SYS_IPC_RECV) sendToSelf(SELF_MESSAGE_VALUE);
-	if (spec.number == SYS_IPC_SEND) fillOutgoingMessage();
+	bool sendsMessage = spec.number == SYS_IPC_SEND || spec.number == SYS_EP_SEND;
+	if (sendsMessage) fillOutgoingMessage();
 	if (spec.number == SYS_IPC_CALL) args[0] = makeCallTarget();
-	if (spec.number == SYS_IPC_SEND) args[1] = reinterpret_cast<uintptr_t>(scratch);
+	if (sendsMessage) args[1] = reinterpret_cast<uintptr_t>(scratch);
 
 	if (TRACE) {
 		printf("fuzz: pick %x hostile %u number %x\n", chosen.number,
@@ -474,31 +488,43 @@ void printStatistics() {
 	}
 }
 
-uint32_t findServer(const char *name) {
+cock::user::names::Connection findServer(const char *name) {
+	cock::user::names::Connection connection = {};
+	connection.pid = NO_PROCESS;
+	connection.handle = cock::abi::NO_CAPABILITY_NODE;
 #ifdef FUZZ_ROOT
-	return cock::user::module_process(name);
+	connection.pid = cock::user::module_process(name);
 #else
-	return cock::user::names::server(name);
+	connection = cock::user::names::connect(name);
 #endif
+	return connection;
 }
 
 void collectServers() {
 	for (size_t index = 0; index < SERVER_NAME_COUNT && serverCount < MAX_SERVERS; index++) {
-		uint32_t pid = findServer(SERVER_NAMES[index]);
+		cock::user::names::Connection connection = findServer(SERVER_NAMES[index]);
+		uint32_t pid = connection.pid;
 		if (pid == NO_PROCESS) continue;
 
 		serverLabels[serverCount] = SERVER_NAMES[index];
 		servers[serverCount++] = pid;
-		if (strcmp(SERVER_NAMES[index], CONSOLE_NAME) != 0 && pid != selfPid)
-			callTargets[callTargetCount++] = pid;
+		bool callable = strcmp(SERVER_NAMES[index], CONSOLE_NAME) != 0 && pid != selfPid;
+		if (callable) callTargets[callTargetCount++] = pid;
+		if (connection.handle == cock::abi::NO_CAPABILITY_NODE) continue;
+
+		serverHandles[serverHandleCount++] = connection.handle;
+		if (callable) callHandles[callHandleCount++] = connection.handle;
 	}
 
-	uint32_t names = cock::abi::service::NAMES_PID;
-	if (serverCount < MAX_SERVERS && names != selfPid && cock::user::process_alive(names)) {
+#ifdef FUZZ_ROOT
+	uint32_t names = cock::user::module_process(NAMES_LABEL);
+	if (serverCount < MAX_SERVERS && names != NO_PROCESS && names != selfPid &&
+		cock::user::process_alive(names)) {
 		serverLabels[serverCount] = NAMES_LABEL;
 		servers[serverCount++] = names;
 		callTargets[callTargetCount++] = names;
 	}
+#endif
 }
 
 void runScenario(uint32_t round) {
@@ -512,7 +538,7 @@ void runScenario(uint32_t round) {
 		completed = fuzz::runFutexScenario(seed);
 		break;
 	default: {
-		fuzz::World world = {servers, serverCount, callTargets, callTargetCount};
+		fuzz::World world = {serverHandles, serverHandleCount, callHandles, callHandleCount};
 		fuzz::runInboxStorm(world, seed);
 		break;
 	}

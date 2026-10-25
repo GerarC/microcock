@@ -1,5 +1,4 @@
 #include <cock/abi/call.hpp>
-#include <cock/core/security/ipc_access.hpp>
 #include <cock/core/syscall/ipc/endpoint_route.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/scheduler.hpp>
@@ -68,8 +67,7 @@ uintptr_t sys_ipc_call(uintptr_t target, uintptr_t word0, uintptr_t word1,
 	if (!current || !timeoutOk(milliseconds)) return FAILURE;
 
 	Thread *server = TaskManager::getThreadByPID(static_cast<uint32_t>(target));
-	if (!server || !security::mayTalk(*current->getProcess(), *server->getProcess()))
-		return FAILURE;
+	if (!server || server->getProcess() != current->getProcess()) return FAILURE;
 
 	return startCall(*current, static_cast<uint32_t>(target),
 					 pack(word0, word1, word2, word3), milliseconds, current->getId());

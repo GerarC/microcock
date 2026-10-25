@@ -21,7 +21,7 @@ The manifest line is `kbd path=bin/kbd.elf` with those grants. `init` grants the
 | Message | Direction | Content |
 |---------|-----------|---------|
 | `CAPABILITY_GRANTED` | `init` to `kbd` | `arg0` is the display (console) pid; the first one received is taken |
-| `IRQ_NOTIFICATION` | kernel to `kbd` | The line fired; only accepted when `sender_pid` is `KERNEL_SENDER` |
+| `IRQ_NOTIFICATION` | kernel to `kbd` | The line fired; only the kernel can produce this type, so the type is the whole check |
 | `CONSOLE_KEY` | `kbd` to `console` | `arg0` is the typed character |
 
 Message layout: `shared/include/cock/ipc/message.hpp`. Per key the driver reads one byte from the data port, feeds the decoder, sends the character if there is one and calls `SYS_IRQ_ACK`. The kernel keeps the line masked until the acknowledge, so a burst of keys never piles up interrupts. If a capability is missing the driver prints `kbd: cannot bind the keyboard` and exits; on success it prints `kbd: ready`.

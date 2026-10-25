@@ -9,7 +9,7 @@
  * numeric argument) and `caps=<grant>,<grant>...` with grants `io:<first>[+count]`, `irq:<line>[+count]` and
  * `mem:<first>+<bytes>` plus the bare `spawn` (the right to call `SYS_PROC_CREATE`), each of them with a final `*` when the program may pass the capability on, and `ipc=<name>,<name>...` (programs this one may exchange messages with, calls
  * and shared memory with; the name server checks the list when the program connects to one of them and gives it
- * an IPC capability for the service label then).
+ * a handle on the endpoint of that program then).
  * Numbers are decimal or `0x` hexadecimal and must fit in 32 bits. The parser has no
  * dependencies and is covered by host tests; init reads the file, the kernel never does.
  */

@@ -41,7 +41,7 @@ void asyncServer(void *) {
 		Message reply = {};
 		reply.type = MessageType::SYS_PONG;
 		reply.payload.args.arg0 = value + 1;
-		cock::user::ipc_send(request.sender_pid, reply);
+		cock::user::ipc_send(request.payload.args.arg1, reply);
 		if (value == STOP_VALUE) return;
 	}
 }
@@ -65,6 +65,7 @@ bool measureAsync(uint64_t &cycles) {
 
 	Message request = {};
 	request.type = MessageType::SYS_PING;
+	request.payload.args.arg1 = cock::user::gettid();
 	Message reply = {};
 
 	uint64_t start = readCycles();

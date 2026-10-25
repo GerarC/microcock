@@ -315,7 +315,6 @@ void checkDeliver() {
 
 	Message received = {};
 	EXPECT_TRUE(receiver->getNextMessage(received));
-	EXPECT_EQ(sender->getId(), received.sender_pid);
 	EXPECT_EQ(receiver->getId(), received.target_pid);
 	EXPECT_TRUE(received.type == MessageType::SYS_PING);
 	EXPECT_EQ(FIRST_ARGUMENT, received.payload.args.arg0);

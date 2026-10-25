@@ -54,7 +54,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler, and `USER_EXTRA_FLAGS=-fno-om
 ## Limits and known gaps
 
 - Not thread safe: `fs::Client`, `Clock` and the stash keep state per program; `malloc` of the C library is locked and safe for threads.
-- Clients connect to a server through the name server (`names.hpp`). The kernel lets a process talk to a server only when it holds an IPC capability for the server (or the server for it); the name server gives it when the manifest key `ipc=` allows the connection. Knowing the id of a server grants nothing.
+- Clients connect to a server through the name server (`names.hpp`). The kernel lets a process send to or call a server only through a handle on the endpoint of the server; the name server gives it when the manifest key `ipc=` allows the connection, and the program reaches the name server through the handle it was born with (`initialHandle()`, saved by `crt0`). Knowing the id of a server grants nothing.
 - Wait times have a resolution of the kernel tick (10 ms for `sleep_ms`).
 - The wrappers keep the stash of 16 messages; more are dropped.
 - There is no x86_64 variant yet: the wrappers assume the `int 0x80` ABI of i386.

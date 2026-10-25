@@ -72,10 +72,12 @@ bool connectGivesTheRightToTalk() {
 
 	const uint32_t words[CALL_WORDS] = {
 		cock::abi::console::pack(UNKNOWN_OPERATION, NO_LENGTH), 0, 0, 0};
-	cock::user::CallResult answer = cock::user::ipc_call(connection.pid, words);
-	return answer.ok &&
-		   (answer.words[cock::abi::console::HEADER_WORD] & cock::abi::console::BYTE_MASK) ==
-			   static_cast<uint32_t>(cock::abi::console::Status::BAD_REQUEST);
+	cock::user::CallResult answer = cock::user::ep_call(connection.handle, words);
+	bool reached = answer.ok &&
+				   (answer.words[cock::abi::console::HEADER_WORD] & cock::abi::console::BYTE_MASK) ==
+					   static_cast<uint32_t>(cock::abi::console::Status::BAD_REQUEST);
+	return reached && !cock::user::ipc_call(connection.pid, words).ok &&
+		   !cock::user::ipc_send(connection.pid, cock::ipc::Message{});
 }
 
 bool registrationIsRootOnly() {
@@ -85,7 +87,7 @@ bool registrationIsRootOnly() {
 	for (cock::abi::names::Op operation : OPERATIONS) {
 		const uint32_t words[CALL_WORDS] = {cock::abi::names::pack(operation, FORGED_LABEL),
 											FORGED_LABEL, 0, 0};
-		cock::user::CallResult answer = cock::user::ipc_call(cock::abi::service::NAMES_PID, words);
+		cock::user::CallResult answer = cock::user::ep_call(cock::user::initialHandle(), words);
 		if (!answer.ok ||
 			static_cast<Status>(answer.words[cock::abi::names::HEADER_WORD]) != Status::NOT_ROOT)
 			return false;

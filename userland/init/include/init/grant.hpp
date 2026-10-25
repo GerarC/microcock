@@ -14,10 +14,12 @@ namespace cock::init {
  *
  * `arg0` of the message carries the argument of the program.
  *
- * @param pid Process to tell.
+ * Goes to the endpoint of the label (`sendTo`), so the process must already be bound to it.
+ *
+ * @param label Service label of the process to tell.
  * @param argument One number for the program, such as the block device of `fat`.
  */
-void announce(uint32_t pid, uint32_t argument = 0);
+void announce(uint32_t label, uint32_t argument = 0);
 
 /**
  * @brief Gives a process what its manifest entry says.

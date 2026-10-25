@@ -12,6 +12,7 @@
 #define COCK_USER_BLOCK_HPP
 
 #include <cock/abi/block.hpp>
+#include <cock/abi/endpoint.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/names.hpp>
@@ -210,7 +211,7 @@ class Client {
 			server, answer,
 			[&](const Message &candidate) {
 				return candidate.type == MessageType::BLK_REPLY &&
-					   candidate.sender_pid == server &&
+					   candidate.badge == abi::endpoint::NO_BADGE &&
 					   candidate.payload.args.arg0 == id;
 			},
 			onForeign);

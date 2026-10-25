@@ -131,13 +131,18 @@ uintptr_t sys_not_implemented(uintptr_t, uintptr_t, uintptr_t, uintptr_t,
 
 // ==== Inter-Process Communication ====
 /**
- * @brief Sends an asynchronous IPC message to a specified target Process ID.
- * @param to_pid Destination process id.
- * @param msg_ptr User pointer to a Message, copied before use.
+ * @brief Sends an asynchronous IPC message to a thread of the calling process.
+ *
+ * It is the way the threads of one process talk to each other. A thread of
+ * another process is reached only through a handle on its endpoint
+ * (`SYS_EP_SEND`).
+ * @param to_pid Destination thread id (for a first thread, the process id).
+ * @param msg_ptr User pointer to a Message, copied before use. The kernel
+ * clears `badge` and `reply`.
  * @return 0 when queued, all ones when the buffer is invalid, the message
  * type is reserved to the kernel (IRQ notification, process exit), a
  * capability grant message is sent by a process without grant authority, or
- * the target is unknown, dead or has a full inbox.
+ * the target is unknown, dead, belongs to another process or has a full inbox.
  *
  * A `CAPABILITY_TRANSFER` message also gives the receiving process a copy of
  * part of a capability of the sender (arg0 type, arg1 first, arg2 count, arg3
@@ -145,8 +150,9 @@ uintptr_t sys_not_implemented(uintptr_t, uintptr_t, uintptr_t, uintptr_t,
  * `ENDPOINT` capability; for any other type arg5 is free). The copy is made before the message is queued
  * and undone if queuing fails. On success the call returns the node id of the
  * copy (above 0 and below all ones) instead of 0, and the receiver finds the
- * same id in arg4. It fails, with nothing given, when the sender and the
- * receiver may not talk, the receiver is the sender or a kernel process, the
+ * same id in arg4. Through this call it always fails, because the receiver is
+ * the sender; `SYS_EP_SEND` does it. It fails, with nothing given, when the receiver
+ * is the sender or a kernel process, the
  * type or flags are invalid, the receiver did not accept the type with
  * `SYS_CAP_ACCEPT`, the sender holds no grantable capability that covers the
  * range, or the table of the receiver or the derivation tree is full.
@@ -174,8 +180,7 @@ uintptr_t sys_ep_send(uintptr_t handle, uintptr_t msg_ptr, uintptr_t flags,
  * @brief Answers a message that carried a reply token.
  * @param token The token, from `Message::reply`. The caller's process must hold it.
  * @param msg_ptr User pointer to a Message, copied before use. Reserved types and
- * `CAPABILITY_TRANSFER` are refused. The kernel clears `badge` and `reply` and stamps the
- * sender with the id of the calling thread.
+ * `CAPABILITY_TRANSFER` are refused. The kernel clears `badge` and `reply`.
  * @return 0 when the answer was queued for the thread that asked and the token was spent.
  * All ones when the pointer or the type is bad or the caller does not hold the token; when
  * the thread that asked is gone the token is closed, and when its inbox is full it stays
@@ -541,9 +546,10 @@ uintptr_t sys_thread_create(uintptr_t entry, uintptr_t stack_base,
 							uintptr_t);
 
 /**
- * @brief Synchronous call: sends four words to a thread and blocks until it
- * replies; the answer comes back in the registers of the call.
- * @param target Thread id of the server.
+ * @brief Synchronous call: sends four words to a thread of the calling process
+ * and blocks until it replies; the answer comes back in the registers of the call.
+ * A server of another process is called through a handle (`SYS_EP_CALL`).
+ * @param target Thread id of the server, which must belong to the calling process.
  * @param word0 First payload word, truncated to 32 bits.
  * @param word1 Second payload word.
  * @param word2 Third payload word.
@@ -552,7 +558,7 @@ uintptr_t sys_thread_create(uintptr_t entry, uintptr_t stack_base,
  * finite value up to the maximum.
  * @return The call result code: success (reply words are in the result
  * registers), timed out, or failure when the time limit is invalid, the target
- * is dead or the call is refused.
+ * is dead or belongs to another process, or the call is refused.
  */
 uintptr_t sys_ipc_call(uintptr_t target, uintptr_t word0, uintptr_t word1,
 					   uintptr_t word2, uintptr_t word3, uintptr_t milliseconds);

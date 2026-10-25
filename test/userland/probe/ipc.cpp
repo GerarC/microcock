@@ -45,7 +45,7 @@ bool messageToSelfArrives() {
 	Message received = {};
 	if (!cock::user::ipc_recv(received)) return false;
 	return received.type == MessageType::SYS_PING &&
-		   received.sender_pid == self &&
+		   received.target_pid == self &&
 		   received.payload.args.arg0 == PING_VALUE;
 }
 

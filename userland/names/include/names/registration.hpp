@@ -14,7 +14,7 @@ namespace cock::names {
  * from `ENDPOINT_WORD`.
  *
  * Only the root server may register: any other caller gets `NOT_ROOT` and nothing changes.
- * @param process Process id of the caller (not the thread id), from `thread_process`.
+ * @param process Process id of the caller, from the badge of its handle.
  * @param words The request words.
  * @return `OK` when the table changed; `NOT_ROOT` for a caller that is not `ROOT_PID`; `BAD_REQUEST` for an unknown
  *         label, a service that already lists eight labels, a process id that is not alive or already runs another

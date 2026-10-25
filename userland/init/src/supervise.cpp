@@ -15,9 +15,7 @@ constexpr uint32_t SUPERVISE_POLL_MILLISECONDS = 20;
 namespace cock::init {
 
 void keepExitNotice(const Message &message) {
-	if (message.type == MessageType::PROCESS_EXITED &&
-		message.sender_pid == cock::ipc::KERNEL_SENDER)
-		cock::user::stash_message(message);
+	if (message.type == MessageType::PROCESS_EXITED) cock::user::stash_message(message);
 }
 
 bool awaitExit(uint32_t pid) {
@@ -37,9 +35,7 @@ bool awaitExit(uint32_t pid) {
 		cock::user::Received received =
 			cock::user::ipc_recv_timeout(message, SUPERVISE_POLL_MILLISECONDS);
 		if (received == cock::user::Received::MESSAGE) {
-			if (message.type == MessageType::PROCESS_EXITED &&
-				message.sender_pid == cock::ipc::KERNEL_SENDER &&
-				message.payload.args.arg0 == pid)
+			if (message.type == MessageType::PROCESS_EXITED && message.payload.args.arg0 == pid)
 				return true;
 			keepExitNotice(message);
 			continue;

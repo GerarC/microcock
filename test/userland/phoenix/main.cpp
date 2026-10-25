@@ -16,7 +16,7 @@ extern "C" int main() {
 		if (request.type != MessageType::SYS_PING) continue;
 		Message reply = {};
 		reply.type = MessageType::SYS_PONG;
-		cock::user::ipc_send(request.sender_pid, reply);
+		cock::user::ep_reply(request.reply, reply);
 		cock::user::exit_process(EXIT_SERVED);
 	}
 	cock::user::exit_process(EXIT_SERVED);

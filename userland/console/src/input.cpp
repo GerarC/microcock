@@ -37,7 +37,6 @@ LineDiscipline discipline;
 
 void handleMessage(const Message &message) {
 	if (message.type != MessageType::CONSOLE_KEY) return;
-	if (message.sender_pid == cock::ipc::KERNEL_SENDER) return;
 
 	if (message.badge != keyboard)
 		keyboard = cock::user::names::server(proto::KEYBOARD_NAME);

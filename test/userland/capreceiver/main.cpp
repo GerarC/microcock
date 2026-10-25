@@ -1,7 +1,9 @@
 #include <cock/abi/capability.hpp>
+#include <cock/abi/endpoint.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/capability_script.hpp>
+#include <cock/user/names.hpp>
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -25,7 +27,7 @@ struct Transfers {
 };
 
 bool transferIsAsSent(const Message &message, uint32_t first, uint32_t flags) {
-	return message.sender_pid != cock::ipc::KERNEL_SENDER &&
+	return message.badge != cock::abi::endpoint::NO_BADGE &&
 		   message.payload.args.arg0 == static_cast<uint32_t>(CapabilityType::IO_PORTS) &&
 		   message.payload.args.arg1 == first && message.payload.args.arg2 == TRANSFER_PORT_COUNT &&
 		   message.payload.args.arg3 == flags && message.payload.args.arg4 != NO_CAPABILITY_NODE &&
@@ -38,24 +40,26 @@ void record(Transfers &transfers, const Message &message) {
 					   : message.payload.args.arg5 == SECOND_TAG &&
 							 transferIsAsSent(message, SECOND_TRANSFER_PORT, cock::abi::GRANT_DELEGATE);
 	transfers.correct = transfers.correct && valid;
-	transfers.giver = message.sender_pid;
+	transfers.giver = message.badge;
 	transfers.arrived++;
 }
 
-bool answer(uint32_t giver, bool ok) {
+bool answer(uint32_t token, bool ok) {
 	Message pong = {};
 	pong.type = MessageType::SYS_PONG;
 	pong.payload.args.arg0 = ok ? ANSWER_OK : ANSWER_WRONG;
-	return cock::user::ipc_send(giver, pong);
+	return cock::user::ep_reply(token, pong);
 }
 
 bool copiesCannotBeStretched(uint32_t giver) {
+	uint32_t handleOnGiver = cock::user::names::connect(GIVER_NAME).handle;
 	return !cock::user::request_ports(FIRST_TRANSFER_PORT, TRANSFER_PORT_COUNT * TRANSFER_CHECK_COUNT) &&
 		   !cock::user::request_ports(UNTRANSFERRED_PORT, SINGLE_UNIT) &&
 		   !cock::user::request_ports(UNHELD_PORT, SINGLE_UNIT) &&
 		   !cock::user::cap_grant(giver, CapabilityType::IO_PORTS, FIRST_TRANSFER_PORT, SINGLE_UNIT) &&
-		   cock::user::cap_send(giver, CapabilityType::IO_PORTS, FIRST_TRANSFER_PORT, SINGLE_UNIT) ==
-			   NO_CAPABILITY_NODE;
+		   handleOnGiver != NO_CAPABILITY_NODE &&
+		   cock::user::cap_send(handleOnGiver, CapabilityType::IO_PORTS, FIRST_TRANSFER_PORT,
+								SINGLE_UNIT) == NO_CAPABILITY_NODE;
 }
 
 bool delegatedCopyCanBePassedOn(uint32_t giver) {
@@ -89,13 +93,13 @@ extern "C" int main() {
 					  delegatedCopyCanBePassedOn(transfers.giver);
 			passed = ok;
 			if (ok) puts("capreceiver: copies are as sent");
-			answer(transfers.giver, ok);
+			answer(message.reply, ok);
 			continue;
 		}
 		if (message.payload.args.arg0 == STAGE_REVOKED) {
 			passed = passed && revocationTookOnlyTheFirst();
 			puts(passed ? "capreceiver: ok" : "capreceiver: failed");
-			answer(transfers.giver, passed);
+			answer(message.reply, passed);
 			break;
 		}
 	}

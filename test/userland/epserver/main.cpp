@@ -2,6 +2,7 @@
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/call.hpp>
+#include <cock/user/crt0.hpp>
 #include <cock/user/endpoint_script.hpp>
 #include <stdint.h>
 #include <stdio.h>
@@ -76,7 +77,6 @@ void record(Seen &seen, const Message &message) {
 						  message.reply != NO_REPLY;
 	} else if (tag == TAG_BY_PROCESS_ID) {
 		seen.byProcessId = true;
-		seen.wrongBadge = seen.wrongBadge || message.badge != NO_BADGE || message.reply != NO_REPLY;
 	} else if (tag == TAG_REQUEST) {
 		takeRequest(seen, message);
 	} else if (tag == TAG_FORWARDED) {
@@ -102,6 +102,7 @@ bool nothingCanBeDoneWithoutAHandle(uint32_t endpoint) {
 	message.type = MessageType::SYS_PING;
 	const uint32_t words[cock::user::CALL_WORDS] = {NO_WORD, NO_WORD, NO_WORD, NO_WORD};
 	for (uint32_t guess = FIRST_GUESS; guess < FIRST_GUESS + GUESS_COUNT; guess++) {
+		if (guess == cock::user::initialHandle()) continue;
 		if (cock::user::ep_send(guess, message)) return false;
 		if (cock::user::ep_call(guess, words, FAILING_CALL_MILLISECONDS).status != CallStatus::FAILED)
 			return false;
@@ -146,7 +147,7 @@ extern "C" int main() {
 			seen.forwardHandle = request.words[1];
 		} else if (stage == STAGE_FINISH) {
 			drain(seen);
-			if (!seen.throughHandle || !seen.byProcessId || seen.wrongBadge ||
+			if (!seen.throughHandle || seen.byProcessId || seen.wrongBadge ||
 				!repliesWereHandledAsExpected(seen))
 				verdict = ANSWER_WRONG;
 		} else {

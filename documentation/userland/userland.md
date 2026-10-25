@@ -9,7 +9,7 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | Program | Role |
 |---------|------|
 | `init` | Root server. The only process born with authority; it grants `ramfs` the `initrd`, reads `manifest.conf` through `ramfs` and does what each line says (starts programs with `cock::user::spawn`, grants capabilities), then exits |
-| `names` | Name server, the second boot module (process id `NAMES_PID`). `init` describes the system to it; a program asks it for the right to talk to a server; see [names](names.md) |
+| `names` | Name server, the second boot module. `init` describes the system to it; a program asks it, through the handle it was born with, for a handle on a server; see [names](names.md) |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `init` can read the manifest) |
 | `console` | Console server: owns the serial port `0x3F8+8` and the input line; serves `CON_WRITE` and `CON_READ` as synchronous calls, echoes typed keys on the display server; see [console](console.md) |
@@ -70,7 +70,7 @@ When an entry has grants or an argument, `init` sends the process `CAPABILITY_GR
 
 | Function | System call |
 |----------|-------------|
-| `ipc_send(pid, message)`, `ipc_recv(message)` | `SYS_IPC_SEND`, `SYS_IPC_RECV`; `ipc_recv` returns the messages stashed by the C library first |
+| `ipc_send(pid, message)`, `ipc_recv(message)` | `SYS_IPC_SEND` (to a thread of the caller's own process; another program is reached with `ep_send`), `SYS_IPC_RECV`; `ipc_recv` returns the messages stashed by the C library first |
 | `request_ports(first, count)` | `SYS_REQUEST_RESOURCE` |
 | `irq_bind(line)`, `irq_ack(line)` | `SYS_IRQ_BIND`, `SYS_IRQ_ACK` |
 | `cap_grant(pid, type, first, count, delegate)` | `SYS_CAP_GRANT`; `delegate` lets the receiver pass the capability on |
@@ -81,7 +81,7 @@ When an entry has grants or an argument, `init` sends the process `CAPABILITY_GR
 | `port_out8(port, value)`, `port_in8(port)`, `port_read_words(port, buffer, words)` | Port instructions (`outb`, `inb`, `rep insw`), allowed after `request_ports` |
 | `module_open(name)` | `SYS_MODULE_OPEN` |
 | `module_index(name)` | `SYS_MODULE_INDEX` |
-| `spawn(image, size, name, notify_exit, rights)` (`spawn.hpp`) | The loader in user space: reads the ELF image and builds the process with `SYS_PROC_CREATE`, `SYS_PROC_MAP`, `SYS_PROC_WRITE`, `SYS_PROC_PROTECT` and `SYS_PROC_START`, and destroys it with `SYS_PROC_DISCARD` if a step fails; `notify_exit` asks for a `PROCESS_EXITED` message when the process ends; `rights` (optional) gives the new process its service label and IPC capabilities before it runs |
+| `spawn(image, size, name, notify_exit, rights)` (`spawn.hpp`) | The loader in user space: reads the ELF image and builds the process with `SYS_PROC_CREATE`, `SYS_PROC_MAP`, `SYS_PROC_WRITE`, `SYS_PROC_PROTECT` and `SYS_PROC_START`, and destroys it with `SYS_PROC_DISCARD` if a step fails; `notify_exit` asks for a `PROCESS_EXITED` message when the process ends; `rights` (optional) gives the new process its service label, `IPC` capabilities for labels and one initial handle (whose number the program reads with `cock::user::initialHandle()`) before it runs |
 | `service_set(pid, label)` | `SYS_SERVICE_SET`; labels a running process once (used for boot modules) |
 | `cap_accept(mask)`, `cap_send(pid, type, first, count, delegate, tag)` | `SYS_CAP_ACCEPT`, and `SYS_IPC_SEND` of a `CAPABILITY_TRANSFER` message (returns the node id of the copy, `abi::NO_CAPABILITY_NODE` on failure) |
 | `cap_grant_node(pid, type, first, count)`, `cap_revoke(node)` | `SYS_CAP_GRANT` returning the derivation node, and `SYS_CAP_REVOKE` |
@@ -90,7 +90,7 @@ When an entry has grants or an argument, `init` sends the process `CAPABILITY_GR
 | `ipc_recv_timeout(message, milliseconds)` | `SYS_IPC_RECV_TIMEOUT`; the same results, `EMPTY` when the time ran out; like `ipc_try_recv` it reads only the kernel inbox |
 | `sleep_ms(milliseconds)` | `SYS_SLEEP`; true when it slept (resolution 10 ms) |
 | `thread_start(function, argument, stack, size)` (`thread.hpp`), `thread_create_raw`, `gettid()` | `SYS_THREAD_CREATE` and `SYS_GETTID`; the program provides the stack; the thread function is `void f(void *)` and may return |
-| `ipc_call(target, words)`, `ipc_accept()`, `ipc_reply(words)`, `ipc_reply_wait(words)` (`call.hpp`) | Synchronous calls in registers, four words each way, an optional time in milliseconds, `CallStatus` `OK`, `TIMED_OUT`, `MESSAGE_PENDING` or `FAILED`; see [ipc](../core/ipc.md#synchronous-calls) |
+| `ipc_call(target, words)` (a thread of the caller's own process), `ep_call(handle, words)` (another program), `ipc_accept()`, `ipc_reply(words)`, `ipc_reply_wait(words)` (`call.hpp`) | Synchronous calls in registers, four words each way, an optional time in milliseconds, `CallStatus` `OK`, `TIMED_OUT`, `MESSAGE_PENDING` or `FAILED`; see [ipc](../core/ipc.md#synchronous-calls) |
 | `futex_wait(word, expected, ms)`, `futex_wake(word, count)`, `Mutex` (`mutex.hpp`), `ConditionVariable` (`condition_variable.hpp`), `Semaphore` (`semaphore.hpp`), `JoinableThread` with `join` (`joinable_thread.hpp`) | `SYS_FUTEX_WAIT` and `SYS_FUTEX_WAKE`; the last three are built on them and on `process_alive`, with no kernel change; see [task management](../core/task_management.md#threads) |
 | `Clock` (`clock.hpp`), `init()`, `now(time)` | Asks the `rtc` server for the date and time (a program needs no port capability; `onForeign` receives the messages that arrive while it waits); `abi/datetime.hpp` converts it to Unix seconds and to FAT date and time. `Cmos` (`cmos.hpp`) is the reader of the ports `0x70` and `0x71` that only `rtc` uses |
 | `self()` | `SYS_GETPID` |

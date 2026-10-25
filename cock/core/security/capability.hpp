@@ -184,6 +184,21 @@ class CapabilitySet {
 		return nullptr;
 	}
 
+	/**
+	 * @brief Tells whether any entry of a type satisfies a condition.
+	 * @param type Kind of resource; the none type matches nothing.
+	 * @param matches Callable taking a `const Capability &` and returning bool.
+	 * @return True when `matches` accepts at least one entry of the type.
+	 */
+	template <typename Predicate>
+	bool anyOf(CapabilityType type, Predicate matches) const {
+		if (type == CapabilityType::NONE) return false;
+		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++) {
+			if (entries[idx].type == type && matches(entries[idx])) return true;
+		}
+		return false;
+	}
+
 	/** @brief Removes every capability. */
 	void clear() {
 		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++)

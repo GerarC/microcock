@@ -30,11 +30,12 @@ uint32_t labelOf(const cock::abi::manifest::Entry &entry);
 uint32_t labelOfName(const char *name);
 
 /**
- * @brief The rights a program is born with: its label and no IPC capability.
+ * @brief The rights a program is born with: its label, no `IPC` capability and one handle on the
+ * endpoint of the name server (`initialEndpoint`, which makes the endpoint the first time).
  *
  * Given to the loader (`cock::user::spawn`), which has the kernel set them before the first thread
- * of the program can run. The right to talk to other programs comes later, when the program
- * connects through the name server.
+ * of the program can run, with the number of the handle in `EAX`. Handles on other programs come
+ * later, when the program connects through the name server.
  *
  * @param entry The manifest entry the program is started from.
  * @return The rights to pass to `cock::user::spawn`.

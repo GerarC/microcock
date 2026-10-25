@@ -57,4 +57,13 @@ uint32_t handleOf(uint32_t label) {
 									  cock::abi::endpoint::SINGLE_ENDPOINT, false, false, self);
 }
 
+bool sendTo(uint32_t label, const cock::ipc::Message &message) {
+	uint32_t handle = handleOf(label);
+	if (handle == cock::abi::NO_CAPABILITY_NODE) return false;
+
+	bool sent = cock::user::ep_send(handle, message);
+	cock::user::cap_revoke(handle);
+	return sent;
+}
+
 } // namespace cock::init

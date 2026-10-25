@@ -68,6 +68,14 @@ void set_kernel_stack(uintptr_t stack_top);
 void update_thread_entry(uintptr_t context_ptr, void *new_entry);
 
 /**
+ * @brief Sets the value a dormant user thread finds in its first argument register when it
+ * starts running (`EAX` on x86).
+ * @param context_ptr Saved context of a thread that has never run.
+ * @param value The value; truncated to the register width.
+ */
+void set_thread_argument(uintptr_t context_ptr, uintptr_t value);
+
+/**
  * @brief Moves the saved instruction pointer back over the system call
  * instruction, so the call is executed again when the thread resumes.
  * @param context_ptr Saved context of a thread that is inside a call.

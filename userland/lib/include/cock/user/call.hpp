@@ -84,11 +84,12 @@ inline CallResult register_call(uint32_t number, uint32_t peer, const uint32_t *
 }
 
 /**
- * @brief Calls a server thread and waits for its answer (`SYS_IPC_CALL`). Blocks.
+ * @brief Calls a server thread of the calling process and waits for its answer (`SYS_IPC_CALL`). Blocks.
  *
  * The request is queued on the target (first come, first served). When the target waits
- * in accept, the kernel hands the CPU to it directly.
- * @param target Thread id of the server.
+ * in accept, the kernel hands the CPU to it directly. A server of another process is called
+ * with `ep_call`.
+ * @param target Thread id of the server, which must belong to the calling process.
  * @param words The four request words.
  * @param milliseconds Longest wait; `CALL_NO_TIMEOUT` by default. A late answer fails on the
  *        server side instead of reaching the caller.

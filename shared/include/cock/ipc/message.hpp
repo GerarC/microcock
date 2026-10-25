@@ -1,11 +1,12 @@
 /**
  * @file message.hpp
- * @brief Asynchronous IPC message (`SYS_IPC_SEND`, `SYS_IPC_RECV`) and the catalog of message types.
+ * @brief Asynchronous IPC message (`SYS_EP_SEND`, `SYS_IPC_SEND`, `SYS_IPC_RECV`) and the catalog of message types.
  *
- * A message is a fixed 44 byte record: sender, target, type, reply token, badge and a payload of six 32 bit words.
- * The kernel overwrites `sender_pid` with the real sender, `badge` with the badge of the handle used and `reply`
- * with a token it opened (or none), so receivers can trust all three. Request and reply protocols are
- * described with the ABI header of each server (`fs.hpp`, `block.hpp`, `console.hpp`, `rtc.hpp`).
+ * A message is a fixed 40 byte record: target, type, reply token, badge and a payload of six 32 bit words.
+ * The kernel overwrites `badge` with the badge of the handle used and `reply` with a token it opened (or none),
+ * so receivers can trust both: who sent a message is the badge, never a process id the sender wrote. Request and
+ * reply protocols are described with the ABI header of each server (`fs.hpp`, `block.hpp`, `console.hpp`,
+ * `rtc.hpp`).
  */
 #ifndef SHARED_COCK_IPC_HPP
 #define SHARED_COCK_IPC_HPP
@@ -18,9 +19,6 @@ namespace cock::ipc {
  * @brief Maximum number of arguments a standard IPC message can carry.
  */
 static constexpr size_t MAX_ARGUMENTS = 6;
-
-/** Value of `sender_pid` for messages that the kernel itself sends (interrupts, exit notices). */
-static constexpr uint32_t KERNEL_SENDER = 0;
 
 /**
  * @brief Defines the classification of IPC messages used for routing and handling.
@@ -65,11 +63,10 @@ enum class MessageType : uint32_t {
  * * Used to pass data asynchronously between isolated Userland processes and the Kernel.
  */
 typedef struct message_t {
-	uint32_t sender_pid;            /**< Process ID of the sender. */
-	uint32_t target_pid;            /**< Process ID of the intended recipient. */
+	uint32_t target_pid;            /**< Id of the thread that receives the message, written by the kernel. */
 	MessageType type;               /**< The type/command of the message. */
 	uint32_t reply;                 /**< Reply token (`SYS_EP_REPLY`, `SYS_EP_FORWARD`) when the sender asked for an answer (`SEND_EXPECT_REPLY`), written by the kernel; `abi::endpoint::NO_REPLY` otherwise. Only the process the message was delivered to can use it, and only once. */
-	uint32_t badge;                 /**< Badge of the handle the sender used (`SYS_EP_SEND`), written by the kernel; `abi::endpoint::NO_BADGE` for a message sent by process id and for kernel notices. A sender cannot choose it. */
+	uint32_t badge;                 /**< Badge of the handle the sender used (`SYS_EP_SEND`), written by the kernel; `abi::endpoint::NO_BADGE` for a message sent between the threads of one process, for an answer (`SYS_EP_REPLY`) and for kernel notices. A sender cannot choose it. */
 
     /**
      * @brief Payload carrying the actual data of the message.

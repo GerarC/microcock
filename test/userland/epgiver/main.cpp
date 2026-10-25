@@ -65,9 +65,15 @@ bool callThroughTheHandle(uint32_t handle) {
 	return answeredOk(cock::user::ep_call(handle, words));
 }
 
-bool serverStagesPass(uint32_t server, uint32_t stage, uint32_t endpoint) {
+bool serverStagesPass(uint32_t control, uint32_t stage, uint32_t endpoint) {
 	const uint32_t words[cock::user::CALL_WORDS] = {stage, endpoint, NO_WORD, NO_WORD};
-	return answeredOk(cock::user::ipc_call(server, words));
+	return answeredOk(cock::user::ep_call(control, words));
+}
+
+bool processIdReachesNobody(uint32_t server) {
+	const uint32_t words[cock::user::CALL_WORDS] = {NO_WORD, NO_WORD, NO_WORD, NO_WORD};
+	return !cock::user::ipc_send(server, pingWith(TAG_BY_PROCESS_ID, FORGED_BADGE)) &&
+		   cock::user::ipc_call(server, words, FAILING_CALL_MILLISECONDS).status == CallStatus::FAILED;
 }
 
 bool unheldHandlesFail() {
@@ -79,13 +85,13 @@ bool unheldHandlesFail() {
 		   !cock::user::ep_send(NO_CAPABILITY_NODE, message);
 }
 
-bool serverHoldsAForwardHandle(uint32_t server, uint32_t endpoint) {
+bool serverHoldsAForwardHandle(uint32_t server, uint32_t control, uint32_t endpoint) {
 	uint32_t forward = cock::user::cap_grant_node(server, CapabilityType::ENDPOINT, endpoint,
 												  SINGLE_ENDPOINT, NO_DELEGATE, NO_MINT, FORWARD_BADGE);
-	return forward != NO_CAPABILITY_NODE && serverStagesPass(server, STAGE_SET_FORWARD, forward);
+	return forward != NO_CAPABILITY_NODE && serverStagesPass(control, STAGE_SET_FORWARD, forward);
 }
 
-bool requestIsAnsweredThroughItsToken(uint32_t handle, uint32_t server) {
+bool requestIsAnsweredThroughItsToken(uint32_t handle) {
 	if (!cock::user::ep_send(handle, pingWith(TAG_REQUEST, FORGED_BADGE, REQUEST_VALUE), true))
 		return false;
 
@@ -94,7 +100,7 @@ bool requestIsAnsweredThroughItsToken(uint32_t handle, uint32_t server) {
 		cock::user::Received received = cock::user::ipc_recv_timeout(answer, ANSWER_WAIT_MILLISECONDS);
 		if (received == cock::user::Received::FAILED) return false;
 		if (received == cock::user::Received::EMPTY) continue;
-		return answer.type == MessageType::SYS_PING && answer.sender_pid == server &&
+		return answer.type == MessageType::SYS_PING &&
 			   answer.payload.args.arg0 == TAG_ANSWER &&
 			   answer.payload.args.arg1 == REQUEST_VALUE + ANSWER_INCREMENT &&
 			   answer.reply == cock::abi::endpoint::NO_REPLY && answer.badge == NO_BADGE;
@@ -156,13 +162,18 @@ extern "C" int main() {
 	passed = passed && handle != NO_CAPABILITY_NODE && callThroughTheHandle(handle);
 	if (passed) puts("epgiver: the server saw the badge of the handle");
 
-	passed = passed && cock::user::ep_send(handle, pingWith(TAG_THROUGH_HANDLE, FORGED_BADGE)) &&
-			 cock::user::ipc_send(server, pingWith(TAG_BY_PROCESS_ID, FORGED_BADGE));
-	passed = passed && unheldHandlesFail() && serverStagesPass(server, STAGE_CHECK, endpoint);
-	if (passed) puts("epgiver: nothing works without a handle");
+	uint32_t control = passed ? cock::user::cap_grant_node(cock::user::self(), CapabilityType::ENDPOINT,
+														   endpoint, SINGLE_ENDPOINT, NO_DELEGATE,
+														   NO_MINT, CONTROL_BADGE)
+							  : NO_CAPABILITY_NODE;
+	passed = passed && control != NO_CAPABILITY_NODE &&
+			 cock::user::ep_send(handle, pingWith(TAG_THROUGH_HANDLE, FORGED_BADGE)) &&
+			 processIdReachesNobody(server);
+	passed = passed && unheldHandlesFail() && serverStagesPass(control, STAGE_CHECK, endpoint);
+	if (passed) puts("epgiver: nothing works without a handle, and a process id leads nowhere");
 
-	passed = passed && serverHoldsAForwardHandle(server, endpoint) &&
-			 requestIsAnsweredThroughItsToken(handle, server);
+	passed = passed && serverHoldsAForwardHandle(server, control, endpoint) &&
+			 requestIsAnsweredThroughItsToken(handle);
 	if (passed) puts("epgiver: a request was forwarded and answered through its token");
 
 	passed = passed && tokensOfOthersFail(handle);
@@ -171,7 +182,7 @@ extern "C" int main() {
 	passed = passed && requesterQuotaHolds(handle);
 	if (passed) puts("epgiver: a requester cannot open more tokens than its quota");
 
-	passed = passed && serverStagesPass(server, STAGE_FINISH, endpoint);
+	passed = passed && serverStagesPass(control, STAGE_FINISH, endpoint);
 	if (passed) puts("epgiver: the kernel replaced the forged badges");
 
 	passed = passed && revokedHandleFails(handle);

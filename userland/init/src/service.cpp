@@ -2,12 +2,14 @@
 #include <cock/abi/service.hpp>
 #include <cock/user/api.hpp>
 #include <init/directory.hpp>
+#include <init/endpoints.hpp>
 #include <init/manifest.hpp>
 #include <init/service.hpp>
 #include <stdio.h>
 #include <string.h>
 
 using cock::abi::manifest::Entry;
+using cock::abi::service::NAMES_SERVICE;
 using cock::abi::service::NO_SERVICE;
 using cock::abi::service::PROGRAM_SERVICE_BASE;
 using cock::abi::service::RAMFS_SERVICE;
@@ -28,6 +30,7 @@ uint32_t labelOfName(const char *name) {
 SpawnRights rightsOf(const Entry &entry) {
 	SpawnRights rights = {};
 	rights.label = labelOf(entry);
+	rights.initialEndpoint = endpointOf(NAMES_SERVICE);
 	return rights;
 }
 

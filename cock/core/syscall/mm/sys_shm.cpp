@@ -53,8 +53,8 @@ uintptr_t sys_shm_share(uintptr_t id, uintptr_t target_pid, uintptr_t writable,
 	if (!target || target->getProcess()->isKernel() ||
 		target->getProcess()->getId() != target_pid)
 		return FAILURE;
-	if (!security::mayTalk(*current->getProcess(), *target->getProcess())) {
-		Logger::trace("sys_shm_share: PID %d has no IPC capability for PID %u",
+	if (!security::mayShare(*current->getProcess(), *target->getProcess())) {
+		Logger::trace("sys_shm_share: PID %d has no handle to PID %u",
 					  current->getProcess()->getId(), static_cast<unsigned>(target_pid));
 		return FAILURE;
 	}

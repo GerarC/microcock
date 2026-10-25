@@ -17,7 +17,6 @@ using cock::abi::CapabilityType;
 using cock::abi::manifest::Entry;
 using cock::abi::names::Op;
 using cock::abi::names::Status;
-using cock::abi::service::NAMES_PID;
 using cock::abi::service::NAMES_SERVICE;
 using cock::abi::service::NO_SERVICE;
 using cock::abi::service::RAMFS_SERVICE;
@@ -26,12 +25,13 @@ using cock::user::CALL_WORDS;
 namespace {
 
 constexpr const char NAMES_MODULE[] = "names";
-constexpr uintptr_t FIRST_LABEL = 0;
 constexpr size_t NO_LENGTH = 0;
 constexpr size_t SINGLE_PART = 1;
 
+uint32_t namesHandle = cock::abi::NO_CAPABILITY_NODE;
+
 bool ask(const uint32_t (&words)[CALL_WORDS]) {
-	cock::user::CallResult result = cock::user::ipc_call(NAMES_PID, words);
+	cock::user::CallResult result = cock::user::ep_call(namesHandle, words);
 	return result.ok &&
 		   static_cast<Status>(result.words[cock::abi::names::HEADER_WORD]) == Status::OK;
 }
@@ -50,7 +50,7 @@ bool define(uint32_t label, const char *name) {
 		uint32_t words[CALL_WORDS] = {cock::abi::names::pack(Op::DEFINE, label, part, last)};
 		cock::abi::names::packPart(name, length, part, words);
 
-		cock::user::CallResult result = cock::user::ipc_call(NAMES_PID, words);
+		cock::user::CallResult result = cock::user::ep_call(namesHandle, words);
 		Status expected = last ? Status::OK : Status::MORE;
 		if (!result.ok ||
 			static_cast<Status>(result.words[cock::abi::names::HEADER_WORD]) != expected)
@@ -70,20 +70,25 @@ namespace cock::init {
 
 bool startNames() {
 	uint32_t names = cock::user::module_process(NAMES_MODULE);
-	if (names != NAMES_PID) {
+	if (names == cock::user::NO_PROCESS) {
 		printf("init: no name server\n");
 		return false;
 	}
 
 	if (!cock::user::service_set(names, NAMES_SERVICE) ||
-		!cock::user::cap_grant(names, CapabilityType::IPC, FIRST_LABEL,
-							   cock::abi::service::GRANTABLE_LABEL_COUNT, true) ||
 		!cock::user::cap_grant(names, CapabilityType::ENDPOINT, cock::abi::endpoint::FIRST_ENDPOINT,
-							   cock::abi::endpoint::ENDPOINT_RANGE_COUNT, true, true)) {
+							   cock::abi::endpoint::ENDPOINT_RANGE_COUNT, true, true) ||
+		bindEndpoint(NAMES_SERVICE, names) == cock::abi::endpoint::NO_ENDPOINT) {
 		printf("init: cannot equip the name server\n");
 		return false;
 	}
-	announce(names);
+
+	namesHandle = handleOf(NAMES_SERVICE);
+	if (namesHandle == cock::abi::NO_CAPABILITY_NODE) {
+		printf("init: no handle on the name server\n");
+		return false;
+	}
+	announce(NAMES_SERVICE);
 
 	if (!define(RAMFS_SERVICE, cock::abi::fs::RAMFS_SERVER_NAME)) {
 		printf("init: cannot register %s\n", cock::abi::fs::RAMFS_SERVER_NAME);

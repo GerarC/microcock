@@ -22,6 +22,8 @@ enum class Arg : uint8_t {
 	NONE,
 	/** A process or thread id (live, dead or stale). */
 	ID,
+	/** A handle on the endpoint of a server (the number the name server gave), or any other number. */
+	HANDLE,
 	/** Pointer to memory the kernel reads (a valid buffer or a bad address). */
 	ADDRESS_IN,
 	/** Pointer to memory the kernel writes. */
@@ -137,11 +139,11 @@ constexpr Spec SPECS[] = {
 	{SYS_CAP_ACCEPT, COMMON, {Arg::VALUE}},
 	{SYS_EP_CREATE, COMMON, {Arg::ADDRESS_OUT}},
 	{SYS_EP_BIND, COMMON, {Arg::VALUE, Arg::ID}},
-	{SYS_EP_SEND, FREQUENT, {Arg::VALUE, Arg::ADDRESS_IN, Arg::FLAGS}},
+	{SYS_EP_SEND, FREQUENT, {Arg::HANDLE, Arg::ADDRESS_IN, Arg::FLAGS}},
 	{SYS_EP_REPLY, COMMON, {Arg::VALUE, Arg::ADDRESS_IN}},
-	{SYS_EP_FORWARD, COMMON, {Arg::VALUE, Arg::VALUE, Arg::ADDRESS_IN}},
-	{SYS_EP_CALL, COMMON,
-	 {Arg::VALUE, Arg::VALUE, Arg::VALUE, Arg::VALUE, Arg::VALUE, Arg::MILLISECONDS}},
+	{SYS_EP_FORWARD, COMMON, {Arg::VALUE, Arg::HANDLE, Arg::ADDRESS_IN}},
+	{SYS_EP_CALL, FREQUENT,
+	 {Arg::HANDLE, Arg::VALUE, Arg::VALUE, Arg::VALUE, Arg::VALUE, Arg::MILLISECONDS}},
 };
 
 /** Number of entries of `SPECS`. */

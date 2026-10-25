@@ -11,6 +11,7 @@
 #define COCK_USER_CLOCK_HPP
 
 #include <cock/abi/datetime.hpp>
+#include <cock/abi/endpoint.hpp>
 #include <cock/abi/rtc.hpp>
 #include <cock/ipc/message.hpp>
 #include <cock/user/api.hpp>
@@ -69,7 +70,7 @@ class Clock {
 			server, answer,
 			[&](const ipc::Message &candidate) {
 				return candidate.type == ipc::MessageType::RTC_REPLY &&
-					   candidate.sender_pid == server && candidate.payload.args.arg0 == id;
+					   candidate.badge == abi::endpoint::NO_BADGE && candidate.payload.args.arg0 == id;
 			},
 			onForeign);
 		if (!matches) {

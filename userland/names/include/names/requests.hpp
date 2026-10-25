@@ -11,7 +11,7 @@ namespace cock::names {
 
 /**
  * @brief Serves one call, which may be one part of a name.
- * @param caller Thread id of the caller, as the kernel stamped it.
+ * @param caller Process id of the caller: the badge of the handle the call came through (the `peer` of the accept), which the kernel wrote.
  * @param words The request words.
  * @param reply Receives the reply: the status in word 0, and for a successful `CONNECT` the process id and the label of the server.
  * @return true when the call is answered with `reply`; false when it was detached because the caller is not registered yet (see `parked.hpp`): the caller answers it later and sends nothing now.

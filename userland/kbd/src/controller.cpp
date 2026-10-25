@@ -20,8 +20,7 @@ bool openController() {
 }
 
 bool isInterrupt(const Message &message) {
-	return message.type == MessageType::IRQ_NOTIFICATION &&
-		   message.sender_pid == cock::ipc::KERNEL_SENDER;
+	return message.type == MessageType::IRQ_NOTIFICATION;
 }
 
 uint8_t readScancode() { return cock::user::port_in8(PS2_DATA_PORT); }

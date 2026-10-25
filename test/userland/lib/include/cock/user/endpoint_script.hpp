@@ -3,8 +3,9 @@
  * @brief What `epgiver` and `epserver` agree on: the badge, the tags and the stages of the conversation.
  *
  * The giver holds grant authority (manifest `caps=io:0x2E8+8*`), creates an endpoint, binds it to the
- * server and gives itself a handle with a chosen badge. The server holds nothing and accepts nothing; it
- * learns who spoke only from the badge the kernel writes.
+ * server and gives itself two handles with chosen badges (`HANDLE_BADGE` for the traffic under test and
+ * `CONTROL_BADGE` for the stages). The server holds only the handle it was born with (the one on the name
+ * server, which the guesses skip) and accepts nothing; it learns who spoke only from the badge the kernel writes.
  */
 #ifndef TEST_USER_ENDPOINT_SCRIPT_HPP
 #define TEST_USER_ENDPOINT_SCRIPT_HPP
@@ -39,7 +40,10 @@ constexpr uint32_t THIRD_PAYLOAD = 0x3333;
 /** Value of `arg0` of the message sent through the handle. */
 constexpr uint32_t TAG_THROUGH_HANDLE = 0xA1;
 
-/** Value of `arg0` of the message sent by process id. */
+/** Badge of the second handle the giver makes for itself, which carries the calls of the stages (`STAGE_CHECK`, `STAGE_SET_FORWARD`, `STAGE_FINISH`). */
+constexpr uint32_t CONTROL_BADGE = 0x71;
+
+/** Value of `arg0` of the message the giver sends by process id, which the kernel must refuse because the server is another process. */
 constexpr uint32_t TAG_BY_PROCESS_ID = 0xB2;
 
 /** Value of `arg0` of the message sent through the owner handle after the endpoint was bound to the giver. */

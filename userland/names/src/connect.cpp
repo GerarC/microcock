@@ -12,7 +12,6 @@ using cock::abi::names::Status;
 
 namespace {
 
-constexpr uintptr_t SINGLE_LABEL = 1;
 constexpr bool NO_DELEGATE = false;
 constexpr bool NO_MINT = false;
 
@@ -34,15 +33,12 @@ Status connect(uint32_t client, const char *name, uint32_t (&reply)[abi::names::
 	if (granted(client, server->label)) {
 		handle = handleOf(client, server->label);
 	} else {
-		if (!hasRoom() ||
-			!cock::user::cap_grant(client, CapabilityType::IPC, server->label, SINGLE_LABEL))
-			return Status::NO_ROOM;
-		if (server->endpoint != abi::endpoint::NO_ENDPOINT) {
-			handle = cock::user::cap_grant_node(client, CapabilityType::ENDPOINT, server->endpoint,
-												abi::endpoint::SINGLE_ENDPOINT, NO_DELEGATE, NO_MINT,
-												client);
-			if (handle == NO_CAPABILITY_NODE) return Status::NO_ROOM;
-		}
+		if (server->endpoint == abi::endpoint::NO_ENDPOINT) return Status::NOT_FOUND;
+		if (!hasRoom()) return Status::NO_ROOM;
+		handle = cock::user::cap_grant_node(client, CapabilityType::ENDPOINT, server->endpoint,
+											abi::endpoint::SINGLE_ENDPOINT, NO_DELEGATE, NO_MINT,
+											client);
+		if (handle == NO_CAPABILITY_NODE) return Status::NO_ROOM;
 		record(client, server->label, handle);
 	}
 

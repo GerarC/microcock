@@ -256,7 +256,7 @@ void runInboxStorm(const World &world, uint32_t seed) {
 				for (size_t argument = 0; argument < cock::ipc::MAX_ARGUMENTS; argument++)
 					message.payload.argv[argument] =
 						prng.chance(HOSTILE_PERCENT) ? prng.pick(HOSTILE_WORDS) : prng.next();
-				cock::user::ipc_send(world.servers[server], message);
+				cock::user::ep_send(world.servers[server], message);
 			}
 		}
 	}
@@ -264,7 +264,7 @@ void runInboxStorm(const World &world, uint32_t seed) {
 	for (size_t target = 0; target < world.callTargetCount; target++) {
 		uint32_t words[CALL_WORDS] = {};
 		randomWords(prng, words);
-		cock::user::ipc_call(world.callTargets[target], words, STORM_CALL_MS);
+		cock::user::ep_call(world.callTargets[target], words, STORM_CALL_MS);
 	}
 }
 

@@ -49,17 +49,19 @@ inline uint32_t self() {
 }
 
 /**
- * @brief Sends an asynchronous message (`SYS_IPC_SEND`). Never blocks.
+ * @brief Sends an asynchronous message to a thread of the caller's own process (`SYS_IPC_SEND`).
+ * Never blocks.
  *
  * The inbox belongs to a thread, not to the process: a process id is the id of its first
- * thread, so the message reaches that thread, and only that thread receives it.
- * @param pid Id of the target thread (for a first thread, the process id).
- * @param message Message to copy; the kernel stamps `sender_pid` with the id of the
- *        sending thread and `target_pid` with the id of the receiving thread.
- * @return true when the message was queued; false when the target does not exist or is
- *         dead, its inbox (16 messages) is full, the pointer is bad or the message type is
- *         not allowed for this sender (`IRQ_NOTIFICATION` and `PROCESS_EXITED` never;
- *         `CAPABILITY_GRANTED` only with grant authority). Nothing is retried. A
+ * thread, so the message reaches that thread, and only that thread receives it. A thread of
+ * another process is not reachable this way: use a handle (`ep_send`).
+ * @param pid Id of the target thread, which must belong to the calling process.
+ * @param message Message to copy; the kernel stamps `target_pid` with the id of the receiving
+ *        thread and clears `badge` and `reply`.
+ * @return true when the message was queued; false when the target does not exist, is dead or
+ *         belongs to another process, its inbox (16 messages) is full, the pointer is bad or the
+ *         message type is not allowed for this sender (`IRQ_NOTIFICATION` and `PROCESS_EXITED`
+ *         never; `CAPABILITY_GRANTED` only with grant authority). Nothing is retried. A
  *         `CAPABILITY_TRANSFER` message is sent with `cap_send`, because a successful send of
  *         one returns the node id and this wrapper reads only zero as success.
  */
@@ -266,14 +268,38 @@ inline bool cap_accept(uint32_t mask) {
 }
 
 /**
- * @brief Sends a capability the caller holds to another process in a message (`SYS_IPC_SEND`).
+ * @brief Builds the message that gives a capability (`CAPABILITY_TRANSFER`), for `cap_send` and `cap_send_local`.
+ * @param type Kind of capability.
+ * @param first First resource of the range.
+ * @param count Number of resources.
+ * @param delegate true to let the receiver pass the copy on.
+ * @param tag Value that arrives in `arg5`.
+ * @param mint `ENDPOINT` only: true to let the receiver choose badges.
+ * @return The message.
+ */
+inline ipc::Message capability_message(abi::CapabilityType type, uint32_t first, uint32_t count,
+									   bool delegate, uint32_t tag, bool mint) {
+	ipc::Message message = {};
+	message.type = ipc::MessageType::CAPABILITY_TRANSFER;
+	message.payload.args.arg0 = static_cast<uint32_t>(type);
+	message.payload.args.arg1 = first;
+	message.payload.args.arg2 = count;
+	message.payload.args.arg3 = (delegate ? abi::GRANT_DELEGATE : NO_GRANT_FLAGS) |
+								(mint ? abi::GRANT_MINT : NO_GRANT_FLAGS);
+	message.payload.args.arg5 = tag;
+	return message;
+}
+
+/**
+ * @brief Sends a capability the caller holds to another process in a message, through a handle
+ * (`SYS_EP_SEND`).
  *
- * The kernel derives a copy of part of a grantable capability of the caller for the receiver and
- * records it in the derivation tree, so a holder of an ancestor can revoke it. The send fails, and
- * nothing is given, when the caller may not talk to the receiver (the same rule as `ipc_send`), holds
+ * The kernel derives a copy of part of a grantable capability of the caller for the process bound
+ * to the endpoint of the handle and records it in the derivation tree, so a holder of an ancestor
+ * can revoke it. The send fails, and nothing is given, when the caller holds no such handle, holds
  * no grantable capability that covers the range, the receiver did not accept the type with
  * `cap_accept`, the receiver is the caller, or a table is full.
- * @param pid Receiver; any thread of the receiving process.
+ * @param handle A handle on the endpoint of the receiver.
  * @param type Kind of capability.
  * @param first First resource of the range.
  * @param count Number of resources.
@@ -284,18 +310,28 @@ inline bool cap_accept(uint32_t mask) {
  * @param mint `ENDPOINT` only: true to let the receiver choose badges (`abi::GRANT_MINT`).
  * @return The id of the node of the derivation tree that records the copy (greater than 0), which
  *         the caller can pass to `cap_revoke`; `abi::NO_CAPABILITY_NODE` when the send failed. The
- *         receiver finds the same id in `arg4` of the message.
+ *         receiver finds the same id in `arg4` of the message and the badge of the handle in `badge`.
  */
-inline uint32_t cap_send(uint32_t pid, abi::CapabilityType type, uint32_t first, uint32_t count,
+inline uint32_t cap_send(uint32_t handle, abi::CapabilityType type, uint32_t first, uint32_t count,
 						 bool delegate = false, uint32_t tag = 0, bool mint = false) {
-	ipc::Message message = {};
-	message.type = ipc::MessageType::CAPABILITY_TRANSFER;
-	message.payload.args.arg0 = static_cast<uint32_t>(type);
-	message.payload.args.arg1 = first;
-	message.payload.args.arg2 = count;
-	message.payload.args.arg3 = (delegate ? abi::GRANT_DELEGATE : NO_GRANT_FLAGS) |
-								(mint ? abi::GRANT_MINT : NO_GRANT_FLAGS);
-	message.payload.args.arg5 = tag;
+	ipc::Message message = capability_message(type, first, count, delegate, tag, mint);
+	uintptr_t result = syscall(SYS_EP_SEND, handle, reinterpret_cast<uintptr_t>(&message),
+							   abi::endpoint::NO_SEND_FLAGS, 0, 0, 0);
+	return result == FAILURE ? abi::NO_CAPABILITY_NODE : static_cast<uint32_t>(result);
+}
+
+/**
+ * @brief Sends a capability message by thread id (`SYS_IPC_SEND`). The kernel refuses it unless the
+ * thread belongs to the caller's own process, and a capability is never given to oneself, so it
+ * always returns `abi::NO_CAPABILITY_NODE`; the test programs use it to check that.
+ * @param pid Id of a thread.
+ * @param type Kind of capability.
+ * @param first First resource of the range.
+ * @param count Number of resources.
+ * @return `abi::NO_CAPABILITY_NODE` in every case a cross process send would be refused.
+ */
+inline uint32_t cap_send_local(uint32_t pid, abi::CapabilityType type, uint32_t first, uint32_t count) {
+	ipc::Message message = capability_message(type, first, count, false, 0, false);
 	uintptr_t result = syscall(SYS_IPC_SEND, pid, reinterpret_cast<uintptr_t>(&message), 0, 0, 0, 0);
 	return result == FAILURE ? abi::NO_CAPABILITY_NODE : static_cast<uint32_t>(result);
 }

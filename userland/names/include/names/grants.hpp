@@ -1,5 +1,5 @@
 /** @file
- * @brief The record of the `IPC` capabilities the name server already gave, so a client that connects
+ * @brief The record of the handles the name server already gave, so a client that connects
  * again does not use another slot of its capability table and another node of the derivation tree.
  */
 #ifndef NAMES_GRANTS_HPP
@@ -14,7 +14,7 @@ namespace cock::names {
 constexpr size_t MAX_GRANTS = 128;
 
 /**
- * @brief Tells whether a process already holds the capability for a label.
+ * @brief Tells whether a process already holds a handle for a label.
  * @param client Process id of the client.
  * @param label Service label of the server.
  * @return true when `record` stored the pair and the client is still alive.
@@ -25,8 +25,7 @@ bool granted(uint32_t client, uint32_t label);
  * @brief Finds the endpoint handle a client holds for a label.
  * @param client Process id of the client.
  * @param label Service label of the server.
- * @return The handle `record` stored, or `NO_CAPABILITY_NODE` when the pair is unknown or the server
- *         had no endpoint when the client connected.
+ * @return The handle `record` stored, or `NO_CAPABILITY_NODE` when the pair is unknown.
  */
 uint32_t handleOf(uint32_t client, uint32_t label);
 
@@ -39,10 +38,10 @@ uint32_t handleOf(uint32_t client, uint32_t label);
 bool hasRoom();
 
 /**
- * @brief Remembers that a client holds the capability for a label, and the handle it was given.
+ * @brief Remembers that a client holds a handle for a label.
  * @param client Process id of the client.
  * @param label Service label of the server.
- * @param handle Handle on the endpoint of the server, or `NO_CAPABILITY_NODE` when it has none.
+ * @param handle Handle on the endpoint of the server.
  * @pre `hasRoom()` returned true.
  */
 void record(uint32_t client, uint32_t label, uint32_t handle);

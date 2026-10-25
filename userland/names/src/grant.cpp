@@ -13,7 +13,7 @@ void waitForCapabilities() {
 	for (;;) {
 		cock::user::ipc_recv(message);
 		if (message.type == MessageType::CAPABILITY_GRANTED &&
-			message.sender_pid == cock::abi::service::ROOT_PID)
+			message.badge == cock::abi::service::ROOT_PID)
 			return;
 	}
 }

@@ -5,7 +5,7 @@
 | Folder | Holds |
 |--------|-------|
 | `abi/` | Wire formats and constants: capabilities, processes, shared memory, synchronous calls, the manifest and mounts, the block, console, file system, FAT32, ext2, RTC and date-time protocols |
-| `ipc/` | The message layout, the message types and `KERNEL_SENDER` (see [ipc](../core/ipc.md)) |
+| `ipc/` | The message layout and the message types (see [ipc](../core/ipc.md)) |
 | `data_structure/` | Freestanding containers: intrusive queue, linked list, ring buffer, range pool |
 | `shell/` | The line splitter and number parser of the shell, host tested |
 
