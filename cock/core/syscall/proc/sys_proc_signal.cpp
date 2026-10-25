@@ -45,7 +45,8 @@ uintptr_t sys_proc_signal(uintptr_t pid, uintptr_t signal, uintptr_t, uintptr_t,
 	Thread *current = Scheduler::getCurrentThread();
 	if (current == nullptr || pid > UINT32_MAX) return FAILURE;
 	if (signal != abi::process::SIGNAL_KILL && signal != abi::process::SIGNAL_TERMINATE &&
-		signal != abi::process::SIGNAL_INTERRUPT)
+		signal != abi::process::SIGNAL_INTERRUPT && signal != abi::process::SIGNAL_STOP &&
+		signal != abi::process::SIGNAL_CONTINUE)
 		return FAILURE;
 
 	Process &sender = *current->getProcess();
@@ -61,6 +62,14 @@ uintptr_t sys_proc_signal(uintptr_t pid, uintptr_t signal, uintptr_t, uintptr_t,
 	Process &process = *target->getProcess();
 	if (process.isKernel() || &process == &sender) return FAILURE;
 
+	if (signal == abi::process::SIGNAL_STOP) {
+		TaskManager::stopProcess(process);
+		return SUCCESS;
+	}
+	if (signal == abi::process::SIGNAL_CONTINUE) {
+		TaskManager::continueProcess(process);
+		return SUCCESS;
+	}
 	if (signal != abi::process::SIGNAL_KILL) return deliver_signal(*target, static_cast<uint32_t>(signal));
 
 	process.setExitStatus(abi::process::KILLED_STATUS);

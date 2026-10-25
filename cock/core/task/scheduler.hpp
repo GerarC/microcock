@@ -76,6 +76,20 @@ class Scheduler {
 	 * already dead is left alone.
 	 */
 	static void terminateThread(Thread *thread);
+	/**
+	 * @brief Takes a ready thread off its ready queue without changing its state, so a stopped process stops running.
+	 *
+	 * Nothing to do for a thread that is not queued. While `Process::isStopped` is true, `addThread` and the
+	 * re-queueing of a thread that was preempted do not queue its threads either.
+	 * @param thread A thread other than the running one and the idle thread.
+	 */
+	static void hold(Thread *thread);
+	/**
+	 * @brief Queues a thread that was held, once its process may run again.
+	 * @param thread Thread to queue when it is ready and not queued; any other state is left alone, and a thread
+	 * that waits is queued by whatever wakes it.
+	 */
+	static void release(Thread *thread);
 
 	/** @brief Asks for a thread switch when the current system call returns. */
 	static void requestReschedule();
@@ -174,7 +188,7 @@ class Scheduler {
 	static void boostPriorities();
 	/**
 	 * @brief Puts a thread on the ready queue of its priority.
-	 * @param thread Thread to enqueue, ignored if already queued.
+	 * @param thread Thread to enqueue, ignored if already queued or if its process is stopped.
 	 */
 	static void enqueue(Thread *thread);
 	/** @return The highest priority ready thread, removed from its queue, or

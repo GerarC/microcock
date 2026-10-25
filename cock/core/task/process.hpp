@@ -225,6 +225,16 @@ class Process {
 	 * @param status Value reported to the parent.
 	 */
 	void setExitStatus(uint32_t status) { exitStatus = status; }
+	/** @return True while the process is stopped: the scheduler does not run any of its threads. */
+	bool isStopped() const { return stopped; }
+	/**
+	 * @brief Marks the process as stopped or running again.
+	 *
+	 * Only `TaskManager::stopProcess` and `TaskManager::continueProcess` call it, because the threads
+	 * already queued must leave or enter the ready queues at the same time.
+	 * @param value True to stop, false to let the threads run.
+	 */
+	void setStopped(bool value) { stopped = value; }
 
 	/** @return True when another child may be spawned with an exit notice. */
 	bool canReserveExitNotice() const {
@@ -352,6 +362,7 @@ class Process {
 	uint32_t parentId = abi::process::NO_PARENT; /**< Spawning process. */
 	bool notifyExit = false; /**< Tell the parent on exit. */
 	uint32_t exitStatus = 0; /**< Exit status. */
+	bool stopped = false; /**< True while no thread of the process may run. */
 	uint32_t serviceId = abi::service::NO_SERVICE; /**< Service label, set once. */
 	uint32_t acceptedCapabilityTypes = abi::NO_CAPABILITY_TYPES; /**< Capability types a message may give the process. */
 	size_t notifiedChildren = 0; /**< Children with an exit notice that is reserved or stored. */

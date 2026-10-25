@@ -110,6 +110,7 @@ uint32_t TaskManager::threadStateMask(const Process &process) {
 		remaining--;
 		mask |= stateBit(thread->getState());
 	}
+	if (mask != NO_BITS && process.isStopped()) mask |= abi::process::THREAD_STOPPED;
 	return mask;
 }
 
@@ -147,6 +148,29 @@ void TaskManager::terminateProcess(Process &process) {
 		Thread *thread = registry[slot];
 		if (!thread || thread->getProcess() != &process) continue;
 		Scheduler::terminateThread(thread);
+	}
+}
+
+void TaskManager::stopProcess(Process &process) {
+	InterruptGuard guard;
+
+	process.setStopped(true);
+	for (size_t slot = 0; slot < MAX_PROCESSES; slot++) {
+		Thread *thread = registry[slot];
+		if (!thread || thread->getProcess() != &process) continue;
+		Scheduler::hold(thread);
+	}
+}
+
+void TaskManager::continueProcess(Process &process) {
+	InterruptGuard guard;
+
+	if (!process.isStopped()) return;
+	process.setStopped(false);
+	for (size_t slot = 0; slot < MAX_PROCESSES; slot++) {
+		Thread *thread = registry[slot];
+		if (!thread || thread->getProcess() != &process) continue;
+		Scheduler::release(thread);
 	}
 }
 

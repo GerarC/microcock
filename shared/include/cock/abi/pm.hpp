@@ -79,8 +79,8 @@ enum class Status : uint32_t {
  *
  * The table stores `RUNNING` for a process that lives and `EXITED` for one whose exit notice arrived. `LIST`
  * reports `SLEEPING` instead of `RUNNING` when every live thread waits, which `pm` asks the kernel each time
- * (`SYS_PROC_STATE`) and does not store. `STOPPED`, `ZOMBIE` and `UNINTERRUPTIBLE` are reserved: no value
- * changes and no word of the protocol changes when a stage starts to produce them.
+ * (`SYS_PROC_STATE`) and does not store; it does the same for `STOPPED`. `UNINTERRUPTIBLE` is reserved: no value
+ * changes and no word of the protocol changes when a stage starts to produce it.
  */
 enum class State : uint32_t {
 	/** The row is unused. */
@@ -91,7 +91,7 @@ enum class State : uint32_t {
 	EXITED = 2,
 	/** `S`: every live thread waits for a message, a timer, a futex, a call or a reply, a wait that a signal will be able to end. */
 	SLEEPING = 3,
-	/** `T`: stopped by a signal. Reserved for `kill` and signals (L3); nothing produces it yet. */
+	/** `T`: stopped by `SIGNAL_STOP`: no thread of the process runs until `SIGNAL_CONTINUE`. `LIST` reports it from the kernel each time, like `SLEEPING`, and the table does not store it. */
 	STOPPED = 4,
 	/** `Z`: every thread exited and the parent, which lives, did not collect the status with `WAIT` yet. The row keeps the process id and the status and is not reused; collecting it, or the exit of the parent, turns it into `EXITED`. */
 	ZOMBIE = 5,

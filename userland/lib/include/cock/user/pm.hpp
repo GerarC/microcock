@@ -316,10 +316,12 @@ public:
 	 *
 	 * `abi::process::SIGNAL_TERMINATE` and `SIGNAL_INTERRUPT` reach the main thread of the process as a
 	 * `SIGNAL` message that it may ignore; `SIGNAL_KILL` ends it at once, and its parent collects the status
-	 * `abi::process::KILLED_STATUS`. The root server may signal any process, anyone else only its descendants.
+	 * `abi::process::KILLED_STATUS`. `SIGNAL_STOP` stops every thread of the process until `SIGNAL_CONTINUE` and
+	 * `LIST` shows it as `STOPPED`; neither sends a message. The root server may signal any process, anyone else
+	 * only its descendants.
 	 *
 	 * @param pid Id in the table of the process.
-	 * @param signal One of the three signals of `abi::process`.
+	 * @param signal One of the five signals of `abi::process`.
 	 * @return `OK` when the signal was sent, `DENIED` when the caller may not signal that process, `NOT_FOUND`
 	 * when it is unknown or ended, `BAD_REQUEST` for an unknown signal or when the call failed, `FAILED` when the
 	 * kernel refused.

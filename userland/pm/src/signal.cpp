@@ -9,7 +9,8 @@ namespace {
 
 bool knownSignal(uint32_t signal) {
 	return signal == cock::abi::process::SIGNAL_INTERRUPT || signal == cock::abi::process::SIGNAL_TERMINATE ||
-		   signal == cock::abi::process::SIGNAL_KILL;
+		   signal == cock::abi::process::SIGNAL_KILL || signal == cock::abi::process::SIGNAL_STOP ||
+		   signal == cock::abi::process::SIGNAL_CONTINUE;
 }
 
 bool mayAffect(uint32_t caller, const cock::pm::Row &target) {

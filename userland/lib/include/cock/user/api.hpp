@@ -770,7 +770,8 @@ inline uint32_t process_state_mask(uint32_t pid) {
  * Needs a `SPAWN` capability, which only the process manager holds; programs ask it through `pm::Client::kill`.
  * @param pid Process id in the kernel.
  * @param signal `abi::process::SIGNAL_KILL` ends the process at once; `SIGNAL_TERMINATE` and `SIGNAL_INTERRUPT`
- *        reach the main thread of the process as a `SIGNAL` message.
+ *        reach the main thread of the process as a `SIGNAL` message; `SIGNAL_STOP` and `SIGNAL_CONTINUE` stop it and
+ *        let it run again.
  * @return true when the signal was sent; false when the caller has no right, the process is unknown, the kernel's
  *         or the caller's own, the signal does not exist or the inbox of the target is full.
  */

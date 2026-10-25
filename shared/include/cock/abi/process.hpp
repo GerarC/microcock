@@ -20,6 +20,10 @@ constexpr uint32_t NO_PARENT = 0xFFFFFFFF;
 constexpr uint32_t FAULT_STATUS = 0xFFFFFFFF;
 /** Signal of `SYS_PROC_SIGNAL` that asks a program to interrupt what it does; delivered as a `SIGNAL` message, which the program may ignore. */
 constexpr uint32_t SIGNAL_INTERRUPT = 2;
+/** Signal of `SYS_PROC_SIGNAL` that lets a stopped process run again; the kernel acts on it and no message is sent. It does nothing to a process that is not stopped. */
+constexpr uint32_t SIGNAL_CONTINUE = 18;
+/** Signal of `SYS_PROC_SIGNAL` that stops the process at once: no thread runs until `SIGNAL_CONTINUE`; nothing in the process can catch it and no message is sent. */
+constexpr uint32_t SIGNAL_STOP = 19;
 /** Signal of `SYS_PROC_SIGNAL` that ends the process at once; nothing in the process can catch it. */
 constexpr uint32_t SIGNAL_KILL = 9;
 /** Signal of `SYS_PROC_SIGNAL` that asks a program to finish; delivered as a `SIGNAL` message, which the program may ignore. */
@@ -57,6 +61,8 @@ constexpr uint32_t THREAD_WAITING_MSG = 0x08;
 constexpr uint32_t THREAD_WAITING_CALL = 0x10;
 /** Bit of the mask `SYS_PROC_STATE` returns: a live thread waits for the reply of its call. */
 constexpr uint32_t THREAD_WAITING_REPLY = 0x20;
+/** Bit of the mask `SYS_PROC_STATE` returns: the process is stopped (`SIGNAL_STOP`), so none of its threads runs whatever state they are in. */
+constexpr uint32_t THREAD_STOPPED = 0x40;
 /** Bits of the mask that mean a thread can run: the process is runnable. */
 constexpr uint32_t THREAD_RUNNABLE_MASK = THREAD_READY | THREAD_RUNNING;
 /** Bits of the mask that mean a thread sleeps in a wait that ends by itself or by a message. */

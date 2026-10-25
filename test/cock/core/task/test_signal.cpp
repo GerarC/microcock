@@ -2,6 +2,7 @@
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/task/ipc.hpp>
 #include <cock/core/task/process.hpp>
+#include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
 #include <cock/ipc/message.hpp>
@@ -14,12 +15,15 @@ namespace cock::test::task {
 
 using cock::abi::process::KILLED_STATUS;
 using cock::abi::process::SIGNAL_TERMINATE;
+using cock::abi::process::THREAD_READY;
+using cock::abi::process::THREAD_STOPPED;
 using core::memory::PhysAddr;
 using core::memory::VirtAddr;
 using core::memory::VirtualMemoryManager;
 using core::task::ExitNotice;
 using core::task::IPC;
 using core::task::Process;
+using core::task::Scheduler;
 using core::task::TaskManager;
 using core::task::Thread;
 using core::task::ThreadPriority;
@@ -32,6 +36,7 @@ namespace {
 constexpr uintptr_t USER_ENTRY_POINT = 0x400000;
 constexpr size_t THREADS_IN_PROCESS = 1;
 constexpr size_t NO_THREADS = 0;
+constexpr uint32_t NO_BITS = 0;
 constexpr uint32_t STATUS_BEFORE_KILL = 5;
 
 Process *makeProcess() {
@@ -116,6 +121,67 @@ void checkSignalMessageReachesTheInbox() {
 	TaskManager::buryDeadThreads();
 }
 
+void checkStoppedProcessIsNotQueued() {
+	Process *process = makeProcess();
+	Thread *thread = makeThread(*process);
+	Thread *bystander = makeThread(*makeProcess());
+	Scheduler::addThread(thread);
+	Scheduler::addThread(bystander);
+	EXPECT_TRUE(thread->queued);
+	EXPECT_EQ(NO_BITS, TaskManager::threadStateMask(*process) & THREAD_STOPPED);
+
+	TaskManager::stopProcess(*process);
+	EXPECT_TRUE(process->isStopped());
+	EXPECT_FALSE(thread->queued);
+	EXPECT_TRUE(bystander->queued);
+	EXPECT_EQ(THREAD_STOPPED, TaskManager::threadStateMask(*process) & THREAD_STOPPED);
+	EXPECT_EQ(THREAD_READY, TaskManager::threadStateMask(*process) & THREAD_READY);
+
+	Scheduler::addThread(thread);
+	EXPECT_FALSE(thread->queued);
+
+	TaskManager::stopProcess(*process);
+	EXPECT_FALSE(thread->queued);
+
+	TaskManager::continueProcess(*process);
+	EXPECT_FALSE(process->isStopped());
+	EXPECT_TRUE(thread->queued);
+	EXPECT_EQ(NO_BITS, TaskManager::threadStateMask(*process) & THREAD_STOPPED);
+
+	TaskManager::continueProcess(*process);
+	EXPECT_TRUE(thread->queued);
+
+	TaskManager::stopProcess(*process);
+	process->setExitStatus(KILLED_STATUS);
+	TaskManager::terminateProcess(*process);
+	EXPECT_TRUE(thread->getState() == ThreadState::DEAD);
+	EXPECT_EQ(NO_THREADS, process->getLiveThreadCount());
+
+	TaskManager::buryDeadThreads();
+	Scheduler::terminateThread(bystander);
+	TaskManager::buryDeadThreads();
+}
+
+void checkWokenThreadOfStoppedProcessWaitsForContinue() {
+	Process *process = makeProcess();
+	Thread *thread = makeThread(*process);
+	thread->setState(ThreadState::WAITING_MSG);
+	TaskManager::stopProcess(*process);
+
+	Message message = {};
+	message.type = MessageType::SIGNAL;
+	message.payload.args.arg0 = SIGNAL_TERMINATE;
+	EXPECT_TRUE(IPC::deliver(thread->getId(), message));
+	EXPECT_TRUE(thread->getState() == ThreadState::READY);
+	EXPECT_FALSE(thread->queued);
+
+	TaskManager::continueProcess(*process);
+	EXPECT_TRUE(thread->queued);
+
+	Scheduler::terminateThread(thread);
+	TaskManager::buryDeadThreads();
+}
+
 } // namespace
 
 void test_signal() {
@@ -125,6 +191,8 @@ void test_signal() {
 	checkProcessEnds();
 	checkParentLearnsTheStatus();
 	checkSignalMessageReachesTheInbox();
+	checkStoppedProcessIsNotQueued();
+	checkWokenThreadOfStoppedProcessWaitsForContinue();
 	TestRunner::end_suite();
 }
 

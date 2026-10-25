@@ -49,7 +49,7 @@ void Scheduler::init() {
 void Scheduler::setIdleThread(Thread *thread) { idleThread = thread; }
 
 void Scheduler::enqueue(Thread *thread) {
-	if (thread->queued) return;
+	if (thread->queued || thread->getProcess()->isStopped()) return;
 	thread->queued = true;
 	SchedMetrics::onReady(*thread);
 	readyQueues[static_cast<uint8_t>(thread->getPriority())].push(thread);
@@ -109,6 +109,21 @@ void Scheduler::terminateThread(Thread *thread) {
 	}
 	thread->setState(ThreadState::DEAD);
 	TaskManager::notifyThreadDeath(thread);
+}
+
+void Scheduler::hold(Thread *thread) {
+	InterruptGuard guard;
+
+	if (!thread || thread == currentThread || thread == idleThread || !thread->queued) return;
+	readyQueues[static_cast<uint8_t>(thread->getPriority())].remove(thread);
+	thread->queued = false;
+}
+
+void Scheduler::release(Thread *thread) {
+	InterruptGuard guard;
+
+	if (!thread || thread == idleThread || thread->getState() != ThreadState::READY) return;
+	enqueue(thread);
 }
 
 void Scheduler::requestReschedule() { rescheduleRequested = true; }
@@ -236,7 +251,7 @@ uintptr_t Scheduler::switchFrom(uintptr_t current_stack_pointer) {
 	Thread *next = nullptr;
 	if (handoffTarget != nullptr) {
 		if (handoffTarget->getState() == ThreadState::READY &&
-			!handoffTarget->queued)
+			!handoffTarget->queued && !handoffTarget->getProcess()->isStopped())
 			next = handoffTarget;
 		handoffTarget = nullptr;
 	}

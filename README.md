@@ -75,7 +75,7 @@ Userland processes communicate with the kernel through software interrupts (`int
 * `SYS_PROC_ALIVE` (0x206): Tell whether a process id is alive.
 * `SYS_THREAD_CREATE` (0x207): Start another thread of the caller process at an entry point, on a stack the caller provides; returns the thread id.
 * `SYS_THREAD_PROCESS` (0x208): Give the process a thread belongs to; a server that serves a synchronous call sees the id of the calling thread and uses this to know whose it is.
-* `SYS_PROC_SIGNAL` (0x20C): Send a signal to another process: terminate and interrupt arrive as a `SIGNAL` message in the inbox of its main thread, kill ends every thread of the process (exit status 137). Only a holder of `SPAWN` (`pm`) may call it; `pm` decides who may signal whom.
+* `SYS_PROC_SIGNAL` (0x20C): Send a signal to another process: terminate and interrupt arrive as a `SIGNAL` message in the inbox of its main thread, kill ends every thread of the process (exit status 137), stop keeps its threads from running until continue (state `T` in `ps`). Only a holder of `SPAWN` (`pm`) may call it; `pm` decides who may signal whom.
 * `SYS_PROC_STATE` (0x209): Tell in which states the live threads of a process are, as a mask of bits (ready, running, blocked, waiting for a message, in accept or for a reply); `pm` turns it into the `R` or `S` of `ps`. Read only, open to every process.
 * `SYS_SLEEP` (0x210): Block the caller for at least the given milliseconds (10 ms resolution).
 * `SYS_FUTEX_WAIT` (0x211): Block while a 32 bit word still holds an expected value, with an optional timeout.

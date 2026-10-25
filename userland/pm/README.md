@@ -25,7 +25,7 @@ Synchronous calls of four words through a handle on the endpoint of `pm`; the ba
 | `ALLOCATE bytes` | any process in the table | `pm` makes a shared object of that size, shares it with the caller for writing and returns its id. One object per caller; a slot of a caller that died is taken back when no other is free |
 | `EXEC object` | any process in the table | Replaces the image of the caller with the one in the object (an `ExecRequest` and the image); on success the call never returns. See the documentation page |
 | `FORK` | any process in the table | Makes a copy of the caller, with its memory shared copy on write and its `IPC` and endpoint capabilities; the reply to the caller carries the id in the table of the child, and the child, which resumes inside the same call, gets `NO_PID` |
-| `KILL pid signal` | any process in the table | Sends interrupt, terminate (a `SIGNAL` message the program may ignore) or kill (ends the process, status 137) through `SYS_PROC_SIGNAL`; `rs` may signal any live process, anyone else only its descendants |
+| `KILL pid signal` | any process in the table | Sends interrupt, terminate (a `SIGNAL` message the program may ignore), kill (ends the process, status 137), stop or continue (no thread of the process runs until continue; `LIST` shows `T`) through `SYS_PROC_SIGNAL`; `rs` may signal any live process, anyone else only its descendants |
 | `SPAWN object` | `rs`, `init` | The first page of the object holds a `SpawnRequest` (name, rights, flags, image size) and the image starts at `IMAGE_OFFSET`. `pm` copies the request, checks it and creates the process; the reply carries the kernel process id and the id in the table |
 | `REGISTER kernel parent wanted` | `rs` | Adds a process that already runs (the boot modules, `pm` itself) |
 | `PERMIT label` | `rs` | `init` may create processes with that label |
@@ -44,7 +44,7 @@ The id in the table is not the kernel one. The table numbers processes from 2 in
 
 - 128 rows. A row of a process that exited and was collected stays and is reused only when no row is free; a zombie, which its parent did not collect, and a row whose notice to `rs` is still pending are not reused.
 - A process that exits while its parent lives (and is not `rs`) is a zombie until the parent calls `WAIT`. When a process exits, its children pass to `rs`, which collects them; the children of `rs` are collected by `pm` at once.
-- No stop and continue, and no default action for terminate and interrupt: a program that does not read the `SIGNAL` message goes on.
+- No default action for terminate and interrupt: a program that does not read the `SIGNAL` message goes on.
 - A forked child is a child of `pm` in the kernel and runs no service. It reaches the name server through `rs`: `pm` sends `PM_FORKED` and the child gets the rights of its parent, nothing more. `rs` also forwards it to the programs that keep state for each process (`notify=fork`), and `pm` holds the reply to the parent until `rs` answers `PM_FORK_SETTLED` (or 40 waits of 50 ms pass), so the copy inherits the descriptors the parent had at the fork.
 - A notice that `rs` has no room for is tried again every 50 ms; the inbox of `rs` holds what the kernel allows.
 - The boot modules are registered but never marked as exited: their parent is the kernel, which sends no notice.

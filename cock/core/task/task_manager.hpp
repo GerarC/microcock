@@ -96,8 +96,9 @@ class TaskManager {
 	/**
 	 * @brief Collects the states of the live threads of a process.
 	 * @param process The process.
-	 * @return A mask of the `abi::process::THREAD_*` bits, one for each state a live thread is in; zero when
-	 * the process has no live thread. Dead threads that were not reaped yet do not count.
+	 * @return A mask of the `abi::process::THREAD_*` bits, one for each state a live thread is in, plus
+	 * `THREAD_STOPPED` while the process is stopped; zero when the process has no live thread. Dead threads that
+	 * were not reaped yet do not count.
 	 */
 	static uint32_t threadStateMask(const Process &process);
 	/**
@@ -124,6 +125,20 @@ class TaskManager {
 	 * status the caller set before.
 	 */
 	static void terminateProcess(Process &process);
+	/**
+	 * @brief Stops a process, as `SIGNAL_STOP` does: none of its threads runs until `continueProcess`.
+	 * @param process A user process that is not the one of the running thread.
+	 * @note Marks the process and takes its queued threads off the ready queues. A thread that wakes up while the
+	 * process is stopped (a message, a timer, a futex, a reply) becomes ready but is not queued. A process that is
+	 * already stopped stays so. `threadStateMask` reports `THREAD_STOPPED` for it.
+	 */
+	static void stopProcess(Process &process);
+	/**
+	 * @brief Lets a stopped process run again, as `SIGNAL_CONTINUE` does.
+	 * @param process A user process.
+	 * @note Clears the mark and queues every thread that is ready. A process that is not stopped is left alone.
+	 */
+	static void continueProcess(Process &process);
 	/**
 	 * @brief Sets the thread that reaps the dead.
 	 * @param thread Reaper thread, woken when a thread dies while it sleeps.

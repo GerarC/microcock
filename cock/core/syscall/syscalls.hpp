@@ -514,9 +514,11 @@ uintptr_t sys_proc_alive(uintptr_t pid, uintptr_t, uintptr_t, uintptr_t, uintptr
  * policy of the process manager. `abi::process::SIGNAL_KILL` ends every thread of the process, whatever each one
  * waits for, and the process exits with `abi::process::KILLED_STATUS`, so its parent gets the usual exit notice.
  * `SIGNAL_TERMINATE` and `SIGNAL_INTERRUPT` queue a `SIGNAL` message, stamped by the kernel, in the inbox of the
- * main thread and do nothing else.
+ * main thread and do nothing else. `SIGNAL_STOP` stops the process (`TaskManager::stopProcess`): no thread runs
+ * until `SIGNAL_CONTINUE`, and `SYS_PROC_STATE` reports `THREAD_STOPPED`; both succeed when the process is already
+ * in that state, and neither sends a message.
  * @param pid Process id, generation included.
- * @param signal One of the three signal numbers of `abi::process`.
+ * @param signal One of the five signal numbers of `abi::process`.
  * @return 0 when done; all ones when the caller has no `SPAWN` capability, the id is not the main thread of a live
  * user process, the process is the caller's own, the signal is unknown, or the inbox of the target is full.
  */
