@@ -6,6 +6,7 @@
 #include <pm/spawn.hpp>
 #include <pm/state.hpp>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 
@@ -63,7 +64,11 @@ namespace cock::pm {
 
 Status spawnFromObject(uint32_t caller, uint32_t id, uint32_t &kernelId, uint32_t &pid) {
 	const Object *object = findObject(caller, id);
-	if (object == nullptr) return Status::BAD_REQUEST;
+	if (object == nullptr) {
+		printf("pm: refused a spawn: no object %u for caller %u\n", static_cast<unsigned>(id),
+			   static_cast<unsigned>(caller));
+		return Status::BAD_REQUEST;
+	}
 	size_t objectBytes = object->bytes;
 
 	void *base = cock::user::shm_map(id, false);
@@ -76,7 +81,15 @@ Status spawnFromObject(uint32_t caller, uint32_t id, uint32_t &kernelId, uint32_
 	Caller who = callerOf(caller);
 	SpawnRequest request;
 	memcpy(&request, base, sizeof(request));
-	if (valid(request, objectBytes) && mayCreate(who, request)) {
+	bool wellFormed = valid(request, objectBytes);
+	bool allowed = wellFormed && mayCreate(who, request);
+	if (!allowed)
+		printf("pm: refused a spawn: well formed %d, caller %u of %u, flags %x, label %u, ipc %u, image %u, object %u\n",
+			   static_cast<int>(wellFormed), static_cast<unsigned>(who), static_cast<unsigned>(caller),
+			   static_cast<unsigned>(request.flags), static_cast<unsigned>(request.rights.label),
+			   static_cast<unsigned>(request.rights.ipcCount), static_cast<unsigned>(request.imageBytes),
+			   static_cast<unsigned>(objectBytes));
+	if (allowed) {
 		status = Status::NO_ROOM;
 		if (table.hasRoom()) {
 			const uint8_t *image = static_cast<const uint8_t *>(base) + cock::abi::pm::IMAGE_OFFSET;
