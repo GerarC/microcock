@@ -99,6 +99,19 @@ int dup(int fd);
 int dup2(int fd, int target);
 
 /**
+ * @brief Makes a pipe and gives the two descriptors that name its ends.
+ *
+ * The pipe lives in the `pipe` server (the program must list `pipe` in `ipc=`), which holds up to 512 bytes. A
+ * read waits while the pipe is empty and a write end is open, and returns 0 when it is empty and none is. A write
+ * waits while the pipe is full, and fails with `EPIPE` when no read end is open. Both descriptors are the lowest
+ * free ones; `lseek` on them fails with `ESPIPE`.
+ * @param fds Receives the read descriptor in element 0 and the write descriptor in element 1.
+ * @return 0, or -1 with `errno` set (`EFAULT` for a null array, `ENOTCONN` when the server cannot be reached,
+ *         `ENFILE` when it has no room, `EMFILE` when the process has no two free descriptors).
+ */
+int pipe(int fds[2]);
+
+/**
  * @brief Removes a file name.
  * @param path Absolute path, null terminated.
  * @return 0, or -1 with `errno` set (`EINVAL`, `ENOTCONN`, `ENOENT`,

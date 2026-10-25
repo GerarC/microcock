@@ -31,12 +31,16 @@
 #define EXDEV        18
 /** Invalid argument: null path, bad flags, bad whence or out of range value. */
 #define EINVAL       22
+/** Too many open files in the system: a server has no room for another object, such as a pipe. */
+#define ENFILE       23
 /** Too many open files: all of the 32 descriptor slots of the process are in use. */
 #define EMFILE       24
 /** No space left on the device. */
 #define ENOSPC       28
 /** Read-only file system. */
 #define EROFS        30
+/** Broken pipe: a write to a pipe that no process has open for reading. */
+#define EPIPE        32
 /** Illegal seek: the descriptor is the console or another object with no offset. */
 #define ESPIPE       29
 /** Directory not empty: rmdir or rename onto a directory that has entries. */

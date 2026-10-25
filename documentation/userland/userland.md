@@ -26,6 +26,7 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `fsclient` | Reads a file from the `initrd` and exits; `rs` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |
 | `rtc` | Clock server, the only owner of the CMOS ports `0x70+2` (granted by the manifest); answers `RTC_READ` with the date and time read twice until two reads agree, so two servers can never interleave on the index port; started before `fat` and `ext` |
+| `pipe` | Pipe server: holds the pipes and the ends of each process, serves `CREATE`, `READ`, `WRITE` and `CLOSE` as synchronous calls and holds a reader or writer with `SYS_IPC_DEFER` while the pipe is empty or full; no capability; see [pipe](pipe.md) |
 | `ata` | Block server for the first IDE disk: PIO reads, MBR and GPT partitions; started by `rs` with the ports `0x1F0+8` and `0x3F6+1`; see [block storage](block_storage.md) |
 | `fat` | FAT32 server over the block protocol; see [FAT32](fat32.md) |
 | `vfs` | The file server clients talk to: mount table of `/` (`ramfs`) and `/fat` (`fat`); see [file system](filesystem.md#the-vfs-server) |
@@ -33,6 +34,7 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `ext` | ext2 server over the block protocol; the manifest also starts it as `ext4probe` on the ext4 volume to show that it is refused; see [ext2](ext2.md) |
 | `extclient` | Reads files at every level of the block map, a sparse file, listings, symbolic links and the refusals from `/ext`; the end to end test requires its output |
 | `cfile` | Uses only the C library (`open`, `read`, `write`, `lseek`, `close`, `dup`, `dup2`, `unlink`) on files of `/ext` and `/fat` (and checks that `dup` shares the offset, that `dup2` replaces a descriptor and that standard output can be redirected to a file): create, append, overwrite after a seek, truncate, delete and the refusals; it checks `errno` for each refusal, makes, renames and removes directories, and that a message sent to itself before a file call is still there afterwards; it leaves `cfile.txt` for the host to check |
+| `pipeclient` | Uses only the C library (`pipe`, `read`, `write`, `dup`, `dup2`, `close`) and the pipe client: a round trip, the end of the data, `EPIPE`, an end kept open by `dup`, standard output redirected into a pipe, a reader woken by a late write from another thread, a writer held by a full pipe, and the refusals of the server; prints `pipeclient: ok` |
 | `mute` | Test server: reads one message and exits without answering |
 | `muteclient` | Checks that requests to a dead server fail instead of hanging, through `vfs` and directly |
 | `blkclient` | Lists the devices of `ata` and reads the first sector of the first partition; the end to end test checks its output |
