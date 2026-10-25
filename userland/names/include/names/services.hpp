@@ -13,8 +13,8 @@
 
 namespace cock::names {
 
-/** Most services the table holds: the manifest entries (32), `ramfs`, `names` and room for more. */
-constexpr size_t MAX_SERVICES = 48;
+/** Most services the table holds: the manifest entries (48), `ramfs`, `names` and room for more. */
+constexpr size_t MAX_SERVICES = 56;
 /** Most labels one service may be allowed to talk to. */
 constexpr size_t MAX_ALLOWED = abi::service::MAX_SPAWN_IPC;
 /** Process id of a service that is not running. */
@@ -36,14 +36,18 @@ struct Service {
 	uint32_t allowed[MAX_ALLOWED];
 	/** Number of valid entries of `allowed`. */
 	size_t allowedCount;
+	/** Label of the service that owns this one, or `NO_SERVICE` when it has no owner. */
+	uint32_t owner;
+	/** `MODE_OWNER` and `MODE_OTHER` bits: who may connect to this service, besides what the `ipc=` lists decide. */
+	uint32_t mode;
 };
 
 /**
  * @brief Adds a service.
  * @param label Its service label, not `NO_SERVICE`, at most `abi::names::MAX_LABEL`.
  * @param name Its path, already normalized; empty for a program that clients do not look for.
- * @return The new entry, or null when the label or a non empty name is already taken, the label is out of range
- *         or the table is full.
+ * @return The new entry, with no owner and the mode `MODE_ALL`, or null when the label or a non empty name is
+ *         already taken, the label is out of range or the table is full.
  */
 Service *defineService(uint32_t label, const char *name);
 
@@ -75,6 +79,15 @@ Service *findByPid(uint32_t pid);
  * @return true when added or already present; false when the other label is unknown or `from` has `MAX_ALLOWED` entries.
  */
 bool allowTalk(Service &from, uint32_t label);
+
+/**
+ * @brief Sets the owner and the mode of a service.
+ * @param service The service to change.
+ * @param owner Label of its owner, which must be defined, or `NO_SERVICE` for none.
+ * @param mode `MODE_OWNER` and `MODE_OTHER` bits and nothing else.
+ * @return true when set; false when the owner is unknown or the mode has other bits, and nothing changes.
+ */
+bool setOwner(Service &service, uint32_t owner, uint32_t mode);
 
 /**
  * @brief Tells whether a service lists a label.

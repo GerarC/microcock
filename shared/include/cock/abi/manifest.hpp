@@ -12,7 +12,10 @@
  * a handle on the endpoint of that program then), `parent=init` (`init`, not `rs`, starts the program, through
  * `pm`; it needs a path, one copy and no `restart=`) and `notify=fork` (the program keeps state for each process,
  * such as open files or the ends of pipes, so `rs` sends it a `PM_FORKED` message for each copy `fork` makes, and
- * the program gives the copy what its parent had; it needs a path).
+ * the program gives the copy what its parent had; it needs a path), `owner=<name>` (the program that owns this one) and
+ * `mode=<xx>` (who may connect to this program: two characters, the first for its owner and the second for every other
+ * program, each `x` to allow and `-` to refuse; with no `mode=` both are allowed, and without an owner only the second
+ * counts; the `ipc=` lists must allow the connection too).
  * Numbers are decimal or `0x` hexadecimal and must fit in 32 bits. The parser has no
  * dependencies and is covered by host tests; rs reads the file, the kernel never does.
  */
@@ -31,7 +34,7 @@ constexpr const char *FILE_PATH = "manifest.conf";
 /** Largest manifest file `rs` reads, in bytes. */
 constexpr size_t MAX_FILE_BYTES = 4096;
 /** Most entries in the manifest; one more is `TOO_MANY_ENTRIES`. */
-constexpr size_t MAX_ENTRIES = 40;
+constexpr size_t MAX_ENTRIES = 48;
 /** Longest process name including the terminator; longer names are rejected. */
 constexpr size_t MAX_NAME_BYTES = 32;
 /** Longest program path including the terminator. */
@@ -75,6 +78,10 @@ struct Entry {
 	char ipc[MAX_IPC_PEERS][MAX_NAME_BYTES];
 	/** Number of valid names in `ipc`, at most `MAX_IPC_PEERS`. */
 	size_t ipcCount;
+	/** Name of the program that owns this one (the `owner` key); empty when the line has none. */
+	char owner[MAX_NAME_BYTES];
+	/** `MODE_OWNER` and `MODE_OTHER` bits from the `mode` key; `MODE_ALL` when the line has none. */
+	uint32_t mode;
 	/** Copies to start, 1 to `MAX_REPEAT`. */
 	uint32_t repeat;
 	/** Restarts `rs` may make within one restart window, or `NO_RESTARTS` when the program is not supervised. */
@@ -93,6 +100,12 @@ struct Entry {
 	 * @return True when the path is empty.
 	 */
 	bool isBootModule() const { return path[0] == '\0'; }
+
+	/**
+	 * @brief Tells whether the name server has to be told an owner or a mode for the program.
+	 * @return True when the line had an `owner` or a `mode` other than the default.
+	 */
+	bool hasOwnership() const { return owner[0] != '\0' || mode != service::MODE_ALL; }
 };
 
 /** Reason why parsing stopped; see `Manifest::errorLine` for the line. */
@@ -190,6 +203,22 @@ constexpr const char *PARENT_INIT = "init";
 constexpr const char *KEY_NOTIFY = "notify";
 /** The only value of `notify`: the program is told about every copy made by `fork`. */
 constexpr const char *NOTIFY_FORK = "fork";
+/** Key of the program that owns this one. */
+constexpr const char *KEY_OWNER = "owner";
+/** Key of the connect permissions of the program. */
+constexpr const char *KEY_MODE = "mode";
+/** Characters in the value of `mode`: one for the owner, one for the others. */
+constexpr size_t MODE_TEXT_BYTES = 2;
+/** Position in the value of `mode` of the character for the owner. */
+constexpr size_t MODE_OWNER_INDEX = 0;
+/** Position in the value of `mode` of the character for every other program. */
+constexpr size_t MODE_OTHER_INDEX = 1;
+/** Character of `mode` that allows the class to connect. */
+constexpr char MODE_ALLOW = 'x';
+/** Character of `mode` that refuses the class. */
+constexpr char MODE_REFUSE = '-';
+/** Mode bits of a class that is refused. */
+constexpr uint32_t NO_MODE_BITS = 0;
 /** Grant type for `IO_PORTS`. */
 constexpr const char *TYPE_IO = "io";
 /** Grant type for `IRQ`. */
@@ -438,6 +467,26 @@ inline Error parseIpcNames(Slice list, Entry &entry) {
 }
 
 /**
+ * @brief Parses the value of the `mode` key, such as `x-`.
+ * @param text The value: `MODE_TEXT_BYTES` characters, each `x` or `-`.
+ * @param mode Receives the `MODE_OWNER` and `MODE_OTHER` bits on success.
+ * @return False for any other length or character.
+ */
+inline bool parseMode(Slice text, uint32_t &mode) {
+	if (text.length() != MODE_TEXT_BYTES) return false;
+
+	const char owner = text.begin[MODE_OWNER_INDEX];
+	const char other = text.begin[MODE_OTHER_INDEX];
+	if ((owner != MODE_ALLOW && owner != MODE_REFUSE) ||
+		(other != MODE_ALLOW && other != MODE_REFUSE))
+		return false;
+
+	mode = (owner == MODE_ALLOW ? service::MODE_OWNER : NO_MODE_BITS) |
+		   (other == MODE_ALLOW ? service::MODE_OTHER : NO_MODE_BITS);
+	return true;
+}
+
+/**
  * @brief Parses one non blank line into an entry.
  * @param line Trimmed line.
  * @param entry Entry to fill; `repeat` must already hold the default.
@@ -460,6 +509,8 @@ inline Error parseLine(Slice line, Entry &entry) {
 	bool seenIpc = false;
 	bool seenParent = false;
 	bool seenNotify = false;
+	bool seenOwner = false;
+	bool seenMode = false;
 
 	for (Slice token = nextToken(rest); !token.empty(); token = nextToken(rest)) {
 		Slice key;
@@ -502,6 +553,14 @@ inline Error parseLine(Slice line, Entry &entry) {
 			seenNotify = true;
 			if (!value.equals(NOTIFY_FORK)) return Error::BAD_VALUE;
 			entry.notifiedOfForks = true;
+		} else if (key.equals(KEY_OWNER)) {
+			if (seenOwner) return Error::DUPLICATE_KEY;
+			seenOwner = true;
+			if (!copyText(value, entry.owner, MAX_NAME_BYTES)) return Error::BAD_VALUE;
+		} else if (key.equals(KEY_MODE)) {
+			if (seenMode) return Error::DUPLICATE_KEY;
+			seenMode = true;
+			if (!parseMode(value, entry.mode)) return Error::BAD_VALUE;
 		} else if (key.equals(KEY_CAPS)) {
 			if (seenCaps) return Error::DUPLICATE_KEY;
 			seenCaps = true;
@@ -596,6 +655,7 @@ struct Manifest {
 
 		Entry entry = {};
 		entry.repeat = DEFAULT_REPEAT;
+		entry.mode = service::MODE_ALL;
 		Error result = detail::parseLine(line, entry);
 		if (result != Error::NONE) return result;
 		if (find(entry.name) != nullptr) return Error::DUPLICATE_NAME;

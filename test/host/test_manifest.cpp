@@ -211,7 +211,7 @@ void checkDelegateMark() {
 
 void checkKeyRules() {
 	CHECK_TRUE(errorOf("a flag\n") == Error::UNKNOWN_KEY);
-	CHECK_TRUE(errorOf("a mode=fast\n") == Error::UNKNOWN_KEY);
+	CHECK_TRUE(errorOf("a speed=fast\n") == Error::UNKNOWN_KEY);
 	CHECK_TRUE(errorOf("a path=x path=y\n") == Error::DUPLICATE_KEY);
 	CHECK_TRUE(errorOf("a path=x repeat=2 repeat=3\n") == Error::DUPLICATE_KEY);
 	CHECK_TRUE(errorOf("a path=\n") == Error::BAD_VALUE);
@@ -302,6 +302,42 @@ void checkIpcRules() {
 			   errorOf(ipcListOf(cock::abi::manifest::MAX_IPC_PEERS + ONE_NAME).c_str()));
 }
 
+void checkOwnerRules() {
+	using cock::abi::service::MODE_ALL;
+	using cock::abi::service::MODE_OTHER;
+	using cock::abi::service::MODE_OWNER;
+
+	Manifest manifest;
+	CHECK_TRUE(parses("a path=bin/a.elf\n", manifest));
+	CHECK_EQ(MODE_ALL, manifest.entries[0].mode);
+	CHECK_EQ(NO_NAMES, strlen(manifest.entries[0].owner));
+	CHECK_FALSE(manifest.entries[0].hasOwnership());
+
+	CHECK_TRUE(parses("vault path=bin/v.elf owner=keeper mode=x-\n", manifest));
+	CHECK_TRUE(strcmp(manifest.entries[0].owner, "keeper") == 0);
+	CHECK_EQ(MODE_OWNER, manifest.entries[0].mode);
+	CHECK_TRUE(manifest.entries[0].hasOwnership());
+
+	CHECK_TRUE(parses("a path=bin/a.elf mode=-x\n", manifest));
+	CHECK_EQ(MODE_OTHER, manifest.entries[0].mode);
+	CHECK_TRUE(manifest.entries[0].hasOwnership());
+	CHECK_TRUE(parses("a path=bin/a.elf mode=xx\n", manifest));
+	CHECK_FALSE(manifest.entries[0].hasOwnership());
+	CHECK_TRUE(parses("a path=bin/a.elf mode=--\n", manifest));
+	CHECK_EQ(cock::abi::manifest::detail::NO_MODE_BITS, manifest.entries[0].mode);
+	CHECK_TRUE(parses("a path=bin/a.elf owner=b\n", manifest));
+	CHECK_TRUE(manifest.entries[0].hasOwnership());
+
+	CHECK_TRUE(Error::BAD_VALUE == errorOf("a owner=\n"));
+	CHECK_TRUE(Error::BAD_VALUE == errorOf("a mode=\n"));
+	CHECK_TRUE(Error::BAD_VALUE == errorOf("a mode=x\n"));
+	CHECK_TRUE(Error::BAD_VALUE == errorOf("a mode=xxx\n"));
+	CHECK_TRUE(Error::BAD_VALUE == errorOf("a mode=rw\n"));
+	CHECK_TRUE(Error::BAD_VALUE == errorOf("a mode=x1\n"));
+	CHECK_TRUE(Error::DUPLICATE_KEY == errorOf("a owner=b owner=c\n"));
+	CHECK_TRUE(Error::DUPLICATE_KEY == errorOf("a mode=xx mode=--\n"));
+}
+
 void checkNames() {
 	char text[LONG_TEXT_BYTES];
 	memset(text, LONG_FILL, sizeof(text) - 1);
@@ -368,6 +404,7 @@ void testManifest() {
 	checkParentRules();
 	checkNotifyRules();
 	checkIpcRules();
+	checkOwnerRules();
 	checkNames();
 	checkErrorLines();
 	checkEntryLimit();

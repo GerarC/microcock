@@ -14,7 +14,7 @@ The root server of MicroCOCK, the `rs` (reincarnation server) of Minix 3. It is 
 | Direction | Message | Use |
 |-----------|---------|-----|
 | `rs` to `names` | `CAPABILITY_GRANTED` (after the label and a `SYS_CAP_GRANT` of `ENDPOINT` with `GRANT_DELEGATE` and `GRANT_MINT`) | Lets the name server serve |
-| `rs` to `names` | Synchronous calls `DEFINE`, `ALLOW` and `BIND`, through a handle `rs` made for itself | Describe the programs, the `ipc=` policy and the process that runs each program (see [names](../../documentation/userland/names.md)) |
+| `rs` to `names` | Synchronous calls `DEFINE`, `ALLOW`, `OWNER` and `BIND`, through a handle `rs` made for itself | Describe the programs, the `ipc=` policy, the owner and mode, and the process that runs each program (see [names](../../documentation/userland/names.md)) |
 | `rs` to `ramfs` | `CAPABILITY_GRANTED` (after `SYS_CAP_GRANT` of `BOOT_MODULE`) | Lets `ramfs` open the `initrd` |
 | `rs` to `ramfs` | `FS_CONNECT`, `FS_OPEN`, `FS_STAT`, `FS_READ`, `FS_CLOSE` | Reads `manifest.conf` and each program image, through `cock::user::fs::Client` |
 | `rs` to each started process | `CAPABILITY_GRANTED`, `arg0` is the `arg=` value | Sent after the grants, only when the entry has grants or an argument, through a handle on the endpoint of the program that lives only for the send (`sendTo`) |
@@ -36,6 +36,8 @@ The manifest grammar (`shared/include/cock/abi/manifest.hpp`) has these keys aft
 | `caps=` | Up to four grants: `io:first+count`, `irq:line`, `mem:first+size`, `spawn` (the right to call `SYS_PROC_CREATE`) |
 | `arg=` | One number that travels in `CAPABILITY_GRANTED` (the block device of `fat` and `ext`) |
 | `ipc=` | Names of the programs this one may connect to (send, call, share memory), up to eight; `rs` sends them to the name server, which checks them when the program connects and gives a handle on the server then |
+| `owner=` | Name of the program that owns this one; `rs` sends the name server an `OWNER` for it |
+| `mode=` | Who may connect to this program: two characters, `x` or `-`, for its owner and for every other program (`xx` is the default); the name server refuses a refused class with `DENIED` |
 | `repeat=` | Run the program that many times in a row, 1 to 32 |
 | `restart=` | Start the program again when it ends, at most that many times in one window, 1 to 16; needs `path=` and no `repeat=` |
 | `parent=` | `init` is the only value: `init`, not `rs`, starts the program, through `pm`; needs `path=`, one copy and no `restart=`. `rs` still defines it in the name server and tells `pm` that `init` may create it |
@@ -96,11 +98,11 @@ make run-headless
 bash scripts/qemu_userland_test.sh
 ```
 
-On a machine without the cross compiler add `HOST_TOOLCHAIN=1`. The end to end script boots with the test initrd and requires these lines on the serial log: `rs: initrd is boot module`, `names: ready`, `rs: manifest has 39 entries`, `rs: started pm`, `pm: ready`, `rs: configured vga_driver`, `rs: started <name>` for each program, `rs: started init`, `init: ready`, `rs: started sh for init`, `init: started sh`, `rs: fsclient exit notices 10/10`, `pmclient: ok`, `rs: restarted phoenix 2 of 5` and `rs: crasher gave up after 3 restarts`. The manifest parser has host tests in `test/host/test_manifest.cpp` (`bash scripts/host_test.sh`).
+On a machine without the cross compiler add `HOST_TOOLCHAIN=1`. The end to end script boots with the test initrd and requires these lines on the serial log: `rs: initrd is boot module`, `names: ready`, `rs: manifest has 42 entries`, `rs: started pm`, `pm: ready`, `rs: configured vga_driver`, `rs: started <name>` for each program, `rs: started init`, `init: ready`, `rs: started sh for init`, `init: started sh`, `rs: fsclient exit notices 10/10`, `pmclient: ok`, `rs: restarted phoenix 2 of 5` and `rs: crasher gave up after 3 restarts`. The manifest parser has host tests in `test/host/test_manifest.cpp` (`bash scripts/host_test.sh`).
 
 ## Limits and known gaps
 
-- A program image is at most `abi::pm::MAX_IMAGE_BYTES` (2 MiB less a page) and must fit the quota of `pm`; the manifest is at most 4096 bytes and 40 entries.
+- A program image is at most `abi::pm::MAX_IMAGE_BYTES` (2 MiB less a page) and must fit the quota of `pm`; the manifest is at most 4096 bytes and 48 entries.
 - The capability policy is a text file read from the initrd: the right to talk to a program is given by the name server when a program connects, and there is no DMA policy yet (stage 9 of the roadmap). The kernel can revoke a grant (`SYS_CAP_REVOKE`), but `rs` does not use it.
 - Entries run in file order and a `repeat=` entry blocks the rest until its runs end.
 - `console`, `ata`, `rtc`, `fat`, `vfs`, `kbd` and `ext` have `restart=3` in `initrd/manifest.conf`. `ramfs` has none (`rs` itself reads files through it and gives it the `initrd`), `vga_driver` is a boot module, and `sh` is not a server. Restarting `vga_driver` or `ramfs` is not done.

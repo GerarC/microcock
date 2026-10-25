@@ -15,8 +15,10 @@
  * the message.
  *
  * A name that starts with `/` is a path; any other name is short for `/run/<name>`. `CONNECT` is the only
- * operation a program uses. The other four are sent by the root server (`ROOT_PID`) while it starts the
+ * operation a program uses. The other five are sent by the root server (`ROOT_PID`) while it starts the
  * system and when `pm` tells it that a process forked, and the name server refuses them from anyone else.
+ * A `CONNECT` is allowed when the `ipc=` policy lists one program for the other and the owner and mode of the
+ * server (`OWNER`, from the `owner=` and `mode=` keys of the manifest) let the caller in.
  */
 #ifndef COCK_ABI_NAMES_HPP
 #define COCK_ABI_NAMES_HPP
@@ -39,6 +41,8 @@ enum class Op : uint32_t {
 	BIND = 4,
 	/** Root only: the process with the id in word 1 is a copy of the process with the id in word 2 (a `fork`), which runs a service or is itself a copy. The copy may connect to what the service may connect to and to nothing else; it runs no service and has no label. A request of the copy that the name server kept waiting is answered now. */
 	FORKED = 5,
+	/** Root only: the service with the label of the header is owned by the service with the label in word 1 (`NO_SERVICE` for none) and has the mode in word 2 (`MODE_OWNER` and `MODE_OTHER` bits). `CONNECT` then lets the owner in only with `MODE_OWNER` and every other program only with `MODE_OTHER`. */
+	OWNER = 6,
 };
 
 /** Status in word 0 of a reply. */
@@ -77,6 +81,10 @@ constexpr size_t LABEL_WORD = 2;
 constexpr size_t ENDPOINT_WORD = 2;
 /** Index of the process id of the parent in a `FORKED` request. */
 constexpr size_t PARENT_WORD = 2;
+/** Index of the label of the owner in an `OWNER` request. */
+constexpr size_t OWNER_WORD = 1;
+/** Index of the mode in an `OWNER` request. */
+constexpr size_t MODE_WORD = 2;
 /** Index of the handle in a reply to `CONNECT`. */
 constexpr size_t HANDLE_WORD = 3;
 /** Bytes in one word. */

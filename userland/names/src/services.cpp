@@ -21,6 +21,8 @@ Service *defineService(uint32_t label, const char *name) {
 		memcpy(service.name, name, strlen(name) + 1);
 		service.pid = NOT_RUNNING;
 		service.endpoint = abi::endpoint::NO_ENDPOINT;
+		service.owner = abi::service::NO_SERVICE;
+		service.mode = abi::service::MODE_ALL;
 		return &service;
 	}
 	return nullptr;
@@ -50,6 +52,14 @@ bool lists(const Service &from, uint32_t label) {
 	for (size_t index = 0; index < from.allowedCount; index++)
 		if (from.allowed[index] == label) return true;
 	return false;
+}
+
+bool setOwner(Service &service, uint32_t owner, uint32_t mode) {
+	if ((mode & ~abi::service::MODE_ALL) != 0) return false;
+	if (owner != abi::service::NO_SERVICE && findByLabel(owner) == nullptr) return false;
+	service.owner = owner;
+	service.mode = mode;
+	return true;
 }
 
 bool allowTalk(Service &from, uint32_t label) {

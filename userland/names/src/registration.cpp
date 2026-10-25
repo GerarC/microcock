@@ -18,6 +18,12 @@ Status allow(uint32_t label, uint32_t other) {
 	return allowTalk(*from, other) ? Status::OK : Status::BAD_REQUEST;
 }
 
+Status owner(uint32_t label, uint32_t ownerLabel, uint32_t mode) {
+	Service *service = findByLabel(label);
+	if (service == nullptr) return Status::BAD_REQUEST;
+	return setOwner(*service, ownerLabel, mode) ? Status::OK : Status::BAD_REQUEST;
+}
+
 Status bind(uint32_t label, uint32_t pid, uint32_t endpoint) {
 	Service *service = findByLabel(label);
 	if (service == nullptr || !cock::user::process_alive(pid)) return Status::BAD_REQUEST;
@@ -43,6 +49,8 @@ Status registerService(uint32_t process, const uint32_t (&words)[abi::names::CAL
 	switch (abi::names::opOf(header)) {
 	case static_cast<uint32_t>(Op::ALLOW):
 		return allow(label, words[abi::names::PID_WORD]);
+	case static_cast<uint32_t>(Op::OWNER):
+		return owner(label, words[abi::names::OWNER_WORD], words[abi::names::MODE_WORD]);
 	case static_cast<uint32_t>(Op::BIND):
 		return bind(label, words[abi::names::PID_WORD], words[abi::names::ENDPOINT_WORD]);
 	case static_cast<uint32_t>(Op::FORKED):

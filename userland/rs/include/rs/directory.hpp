@@ -26,11 +26,13 @@ namespace cock::rs {
 bool startNames();
 
 /**
- * @brief Registers every program of the manifest and the policy of its `ipc=` list.
+ * @brief Registers every program of the manifest, the policy of its `ipc=` list and its owner and mode.
  *
  * Sends the name server one `DEFINE` per entry (a program whose name is longer than the wire allows
- * is registered with no name and cannot be reached with `connect`) and one `ALLOW` per name in each
- * `ipc=` list. A name in a list that matches no entry prints `rs: <program> cannot talk to <name>`.
+ * is registered with no name and cannot be reached with `connect`), one `ALLOW` per name in each
+ * `ipc=` list and one `OWNER` per entry with an `owner=` or a `mode=`. A name in a list that matches no
+ * entry prints `rs: <program> cannot talk to <name>`; an owner that matches no entry prints
+ * `rs: <program> cannot be owned by <name>`.
  *
  * @return True when the name server accepted everything.
  */

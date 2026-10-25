@@ -10,7 +10,7 @@ The kernel must enforce a capability, but it does not have to know which program
 ## How a program connects
 1. The program calls `cock::user::names::connect("console")` (`userland/lib/include/cock/user/names.hpp`). The name goes in synchronous calls of four words through the **initial handle** of the program, the handle on the endpoint of the name server that the kernel gave it when it started (`cock::user::initialHandle()`, see [endpoints](../core/endpoints.md#the-handle-a-program-is-born-with)), 12 bytes of the name in each, so a short name is one call and a path such as `/run/console` is one or two. Calls never touch the inbox of the caller, so it is safe in the middle of a server loop.
 2. The badge of that handle is the process id of the caller, written by the kernel, so the name server knows who asks without trusting the message. It finds that process among the ones `rs` registered, or among the copies made by `fork` that `rs` told it about (`Op::FORKED`, `names/forked.hpp`): a copy has the policy of the service it copies, so it may connect to what its parent may, and to nothing else. If `rs` has not registered it yet (a program that was just started can run before `rs` reaches the next instruction), the answer is `UNKNOWN_CLIENT` and the client library asks again a few times.
-3. It puts the name together, adds `/run/` to a name that does not start with a slash, finds the server by that path and applies the policy: the connection is allowed when the `ipc=` list of the caller names the server, or the `ipc=` list of the server names the caller.
+3. It puts the name together, adds `/run/` to a name that does not start with a slash, finds the server by that path and applies the policy: the connection is allowed when the `ipc=` list of the caller names the server, or the `ipc=` list of the server names the caller, **and** the owner and mode of the server let the caller in (`names/policy.hpp`, `permits`). The owner is the program in the `owner=` key of the manifest line of the server, and every other program is "other", as in the permission bits of a Unix file: the owner needs the first character of `mode=` to be `x`, any other program the second. A line with no `mode=` allows both (`xx`), so a manifest without the new keys behaves as before. A copy made by `fork` counts as the program it copies.
 4. It gives the caller a **handle** on the endpoint of the server (`rs` makes one per program and binds it to the running process), with `SYS_CAP_GRANT` and the process id of the caller as the badge (names holds the mint right over every endpoint, delegated by `rs`). The handle is kept with the grant, so asking again returns the same one and uses no new slot of the capability table and no new node of the derivation tree, and it keeps working when the server restarts.
 5. It answers with the process id of the server, its label and the handle (word 3 of the reply). A client sends and calls through the handle (`ep_call`, `ep_send`); the process id only tells it whether the server is alive.
 
@@ -26,24 +26,25 @@ A name that starts with `/` is a path; any other name is short for `/run/<name>`
 | `CONNECT` | Any registered program | Ask for the right to talk to the server with the name in the parts |
 | `DEFINE` | `rs` | A program exists: label in the header, name in the parts (empty when it cannot be reached by name) |
 | `ALLOW` | `rs` | The program with the label of the header may talk to the label in word 1 (one line of an `ipc=` list) |
+| `OWNER` | `rs` | The program with the label of the header is owned by the label in word 1 (`NO_SERVICE` for none) and has the mode in word 2 (`MODE_OWNER` and `MODE_OTHER` bits); `rs` sends it for every entry with `owner=` or `mode=` |
 | `BIND` | `rs` | The process id in word 1 now runs the program with the label of the header, and receives on the endpoint in word 2; `rs` sends it after every start, including a restart |
 
 | Status | Meaning |
 |--------|---------|
 | `OK` | Done |
 | `NOT_FOUND` | No program has that name, or it is not running |
-| `DENIED` | The policy does not let the caller talk to it |
+| `DENIED` | The policy does not let the caller talk to it: the `ipc=` lists name neither program, or the owner and mode of the server refuse the caller |
 | `UNKNOWN_CLIENT` | The caller is not a process `rs` registered. A program that has just started is not refused: the server keeps its call until `rs` registers it (`names/parked.hpp`, up to 8 calls, answered when the `BIND` arrives) and the client library waits at most `CONNECT_WAIT_MS`, so the refusal comes only from a program `rs` never registers |
 | `NO_ROOM` | The handle could not be given: the table of the caller or the derivation tree is full |
 | `BAD_REQUEST` | Unknown operation, empty or too long name, parts out of order, a label out of range, a duplicate, or a full table |
 | `NOT_ROOT` | A registration came from a process other than `rs` |
 | `MORE` | A part of a name was kept; send the next |
 
-A program whose manifest name is longer than 60 bytes is registered without a name: `rs` prints `rs: <name> cannot be reached by name` and it can still connect to others. An owner and a mode per name come with the descriptor layer of the C library.
+A program whose manifest name is longer than 60 bytes is registered without a name: `rs` prints `rs: <name> cannot be reached by name` and it can still connect to others. The owner and the mode are per program and only gate `connect`: a handle that was given stays valid, and the kernel compares no owner.
 
 ## What `rs` does
 1. Finds the boot module `names` (`SYS_MODULE_PROCESS`), gives it the label `NAMES_SERVICE` and an `ENDPOINT` capability over every endpoint with the right to mint (`SYS_CAP_GRANT` with `GRANT_DELEGATE` and `GRANT_MINT`), binds it to its endpoint, makes the handle `rs` calls it through, sends it `CAPABILITY_GRANTED` and registers `ramfs`, which has no manifest entry. The name server has no fixed process id: it is found by its module name and reached by its endpoint, so a restarted name server would receive on the same one.
-2. After reading the manifest, sends one `DEFINE` per entry and one `ALLOW` per name of each `ipc=` list.
+2. After reading the manifest, sends one `DEFINE` per entry, one `ALLOW` per name of each `ipc=` list and one `OWNER` per entry with `owner=` or a `mode=` other than `xx` (`rs: <program> cannot be owned by <name>` when the owner is no entry).
 3. Starts every program with a handle on the endpoint of the name server as its initial handle (`SpawnRights::initialEndpoint`), so the program can connect from its first instruction.
 4. Sends a `BIND` after each start, so the name server knows which process runs each program.
 

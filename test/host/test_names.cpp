@@ -45,6 +45,10 @@ constexpr uint32_t VFS_LABEL = 17;
 constexpr uint32_t SHELL_LABEL = 18;
 constexpr uint32_t OUTSIDER_LABEL = 19;
 constexpr uint32_t UNKNOWN_LABEL = 99;
+constexpr uint32_t VAULT_LABEL = 30;
+constexpr uint32_t KEEPER_LABEL = 31;
+constexpr uint32_t GUEST_LABEL = 32;
+constexpr uint32_t UNKNOWN_MODE_BIT = 0x4;
 constexpr uint32_t SHELL_PID = 7;
 constexpr uint32_t OTHER_PID = 8;
 constexpr uint32_t COPY_PID = 200;
@@ -241,6 +245,55 @@ void checkPolicy() {
 	CHECK_FALSE(allowTalk(*outsider, VFS_LABEL));
 }
 
+void checkOwnerAndMode() {
+	using cock::abi::service::MODE_ALL;
+	using cock::abi::service::MODE_OTHER;
+	using cock::abi::service::MODE_OWNER;
+	using cock::abi::service::NO_SERVICE;
+	using cock::names::permits;
+	using cock::names::setOwner;
+
+	Service *vault = defineService(VAULT_LABEL, "/run/vault");
+	Service *keeper = defineService(KEEPER_LABEL, "/run/keeper");
+	Service *guest = defineService(GUEST_LABEL, "/run/guest");
+	CHECK_TRUE(vault != nullptr && keeper != nullptr && guest != nullptr);
+	if (vault == nullptr || keeper == nullptr || guest == nullptr) return;
+
+	CHECK_EQ(NO_SERVICE, vault->owner);
+	CHECK_EQ(MODE_ALL, vault->mode);
+	CHECK_TRUE(allowTalk(*keeper, VAULT_LABEL));
+	CHECK_TRUE(allowTalk(*guest, VAULT_LABEL));
+	CHECK_TRUE(mayConnect(*keeper, *vault));
+	CHECK_TRUE(mayConnect(*guest, *vault));
+
+	CHECK_FALSE(setOwner(*vault, UNKNOWN_LABEL, MODE_ALL));
+	CHECK_FALSE(setOwner(*vault, KEEPER_LABEL, MODE_ALL | UNKNOWN_MODE_BIT));
+	CHECK_EQ(NO_SERVICE, vault->owner);
+	CHECK_EQ(MODE_ALL, vault->mode);
+
+	CHECK_TRUE(setOwner(*vault, KEEPER_LABEL, MODE_OWNER));
+	CHECK_TRUE(permits(*keeper, *vault));
+	CHECK_FALSE(permits(*guest, *vault));
+	CHECK_TRUE(mayConnect(*keeper, *vault));
+	CHECK_FALSE(mayConnect(*guest, *vault));
+
+	CHECK_TRUE(setOwner(*vault, KEEPER_LABEL, MODE_OTHER));
+	CHECK_FALSE(mayConnect(*keeper, *vault));
+	CHECK_TRUE(mayConnect(*guest, *vault));
+
+	CHECK_TRUE(setOwner(*vault, NO_SERVICE, MODE_OWNER));
+	CHECK_FALSE(mayConnect(*keeper, *vault));
+	CHECK_FALSE(mayConnect(*guest, *vault));
+
+	CHECK_TRUE(setOwner(*vault, KEEPER_LABEL, MODE_ALL));
+	CHECK_TRUE(mayConnect(*keeper, *vault));
+	CHECK_TRUE(mayConnect(*guest, *vault));
+
+	CHECK_TRUE(setOwner(*vault, KEEPER_LABEL, MODE_OWNER));
+	CHECK_FALSE(permits(*guest, *vault));
+	CHECK_TRUE(permits(*guest, *guest));
+}
+
 void checkForked() {
 	Service *console = findByLabel(CONSOLE_LABEL);
 	CHECK_TRUE(console != nullptr);
@@ -280,6 +333,7 @@ void testNames() {
 	checkPaths();
 	checkServices();
 	checkPolicy();
+	checkOwnerAndMode();
 	checkForked();
 }
 

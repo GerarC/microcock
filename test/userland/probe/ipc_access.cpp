@@ -83,6 +83,7 @@ bool connectGivesTheRightToTalk() {
 bool registrationIsRootOnly() {
 	constexpr cock::abi::names::Op OPERATIONS[] = {cock::abi::names::Op::DEFINE,
 												   cock::abi::names::Op::ALLOW,
+												   cock::abi::names::Op::OWNER,
 												   cock::abi::names::Op::BIND};
 	for (cock::abi::names::Op operation : OPERATIONS) {
 		const uint32_t words[CALL_WORDS] = {cock::abi::names::pack(operation, FORGED_LABEL),

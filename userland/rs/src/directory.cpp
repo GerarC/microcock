@@ -65,6 +65,11 @@ bool allow(uint32_t from, uint32_t to) {
 	return ask(words);
 }
 
+bool own(uint32_t service, uint32_t owner, uint32_t mode) {
+	uint32_t words[CALL_WORDS] = {cock::abi::names::pack(Op::OWNER, service), owner, mode};
+	return ask(words);
+}
+
 } // namespace
 
 namespace cock::rs {
@@ -116,6 +121,18 @@ bool describeSystem() {
 				printf("rs: %s cannot talk to %s\n", entry.name, entry.ipc[peer]);
 				accepted = false;
 			}
+		}
+	}
+
+	for (size_t index = 0; index < manifest.count; index++) {
+		const Entry &entry = manifest.entries[index];
+		if (!entry.hasOwnership()) continue;
+
+		uint32_t owner = entry.owner[0] == '\0' ? NO_SERVICE : labelOfName(entry.owner);
+		if ((entry.owner[0] != '\0' && owner == NO_SERVICE) ||
+			!own(labelOf(entry), owner, entry.mode)) {
+			printf("rs: %s cannot be owned by %s\n", entry.name, entry.owner);
+			accepted = false;
 		}
 	}
 	return accepted;
