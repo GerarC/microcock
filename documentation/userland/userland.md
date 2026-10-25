@@ -103,7 +103,7 @@ When an entry has grants or an argument, `rs` sends the process `CAPABILITY_GRAN
 | `proc_exec(handle, entry, pid, initial)` | `SYS_PROC_EXEC`; only `pm` holds the capability |
 | `proc_fork(pid, reply)` | `SYS_PROC_FORK`; only `pm` holds the capability. Programs use `pm::Client::fork` |
 | `exec(process, files, path, argv, argc)` (`exec.hpp`) | Replaces the image of the program with a file: reads it through the file server into an object of `pm` and sends `EXEC`; returns only when it failed (`ExecFailure`) |
-| `argumentCount()`, `argument(index)` (`crt0.hpp`) | The arguments of a program that `exec` started, from the page at `abi::exec::ARGS_ADDRESS`; none for a program that `spawn` started |
+| `argumentCount()`, `argument(index)` (`crt0.hpp`) | The arguments of a program that `exec` started, from the page at `abi::exec::ARGS_ADDRESS`; none for a program that `spawn` started. `_start` also passes them to `main`: a program may define `extern "C" int main(int argc, char **argv)` (`argv[argc]` is null) or `main()`, which ignores them |
 | `ipc_try_recv(message)` | `SYS_IPC_TRY_RECV`; `Received::MESSAGE`, `EMPTY` or `FAILED` |
 | `ipc_recv_timeout(message, milliseconds)` | `SYS_IPC_RECV_TIMEOUT`; the same results, `EMPTY` when the time ran out; like `ipc_try_recv` it reads only the kernel inbox |
 | `sleep_ms(milliseconds)` | `SYS_SLEEP`; true when it slept (resolution 10 ms) |

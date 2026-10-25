@@ -5,11 +5,19 @@
 #include <cock/user/crt0.hpp>
 
 extern "C" void __descriptors_import(const cock::abi::exec::ArgsBlock *block) __attribute__((weak));
+extern "C" int main(int argc, char **argv);
 
 namespace {
 
 uint32_t initialHandleValue = 0;
 const cock::abi::exec::ArgsBlock *arguments = nullptr;
+char *argumentVector[cock::abi::exec::MAX_ARGS + 1] = {};
+
+void fillVector(const cock::abi::exec::ArgsBlock &block) {
+	for (uint32_t index = 0; index < block.count; index++)
+		argumentVector[index] = const_cast<char *>(cock::exec::argument(block, index));
+	argumentVector[block.count] = nullptr;
+}
 
 bool takeArguments(uint32_t value) {
 	if (value != cock::abi::exec::ARGS_ADDRESS) return false;
@@ -20,6 +28,7 @@ bool takeArguments(uint32_t value) {
 
 	arguments = block;
 	initialHandleValue = block->initialHandle;
+	fillVector(*block);
 	if (__descriptors_import != nullptr) __descriptors_import(block);
 	return true;
 }
@@ -41,7 +50,8 @@ const char *argument(uint32_t index) {
 extern "C" [[noreturn]] void startProgram(uint32_t handle) {
 	if (!takeArguments(handle)) initialHandleValue = handle;
 	cock::user::runConstructors();
-	cock::user::exit_process(static_cast<uintptr_t>(main()));
+	int count = static_cast<int>(cock::user::argumentCount());
+	cock::user::exit_process(static_cast<uintptr_t>(main(count, argumentVector)));
 }
 
 extern "C" [[noreturn, gnu::naked]] void _start() {

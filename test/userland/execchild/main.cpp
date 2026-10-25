@@ -32,11 +32,12 @@ bool parse(const char *text, uint32_t &value) {
 	return true;
 }
 
-bool argumentsArrived() {
+bool argumentsArrived(int argc, char **argv) {
 	using cock::user::argument;
-	return cock::user::argumentCount() == EXPECTED_ARGS && strcmp(argument(NAME_INDEX), EXPECTED_NAME) == 0 &&
-		   strcmp(argument(FIRST_INDEX), EXPECTED_FIRST) == 0 &&
-		   strcmp(argument(SECOND_INDEX), EXPECTED_SECOND) == 0;
+	bool same = static_cast<uint32_t>(argc) == EXPECTED_ARGS && argv[argc] == nullptr;
+	for (uint32_t index = 0; same && index < EXPECTED_ARGS; index++) same = argv[index] == argument(index);
+	return same && cock::user::argumentCount() == EXPECTED_ARGS && strcmp(argv[NAME_INDEX], EXPECTED_NAME) == 0 &&
+		   strcmp(argv[FIRST_INDEX], EXPECTED_FIRST) == 0 && strcmp(argv[SECOND_INDEX], EXPECTED_SECOND) == 0;
 }
 
 bool sameProcess() {
@@ -51,8 +52,8 @@ bool otherThreadsGone() {
 
 } // namespace
 
-extern "C" int main() {
-	bool arguments = argumentsArrived();
+extern "C" int main(int argc, char **argv) {
+	bool arguments = argumentsArrived(argc, argv);
 	bool same = sameProcess();
 	bool handle = cock::user::initialHandle() != NO_HANDLE;
 	bool alone = otherThreadsGone();

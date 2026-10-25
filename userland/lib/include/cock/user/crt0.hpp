@@ -4,21 +4,18 @@
 #include <stdint.h>
 
 /**
- * @brief The program's own entry, defined by every program as `extern "C" int main()`.
- *
- * It takes no arguments: the kernel gives a program nothing on its stack. Its return
- * value is the exit status that `_start` passes to `exit_process`. A server that never
- * leaves its loop never returns.
- */
-extern "C" int main();
-
-/**
  * @brief The entry point of every program (`ENTRY(_start)` in `userland/linker.ld`).
  *
  * Saves the value the kernel left in `EAX` (the initial handle, see below), runs the static
- * constructors (`cock::user::runConstructors`), calls `main` and ends the process with
+ * constructors (`cock::user::runConstructors`), calls the program's own `main` and ends the process with
  * `exit_process` and the value `main` returned. It is linked into every program by
  * `userland/common.mk` and never returns.
+ *
+ * A program defines its entry as `extern "C" int main()` or as `extern "C" int main(int argc, char **argv)`;
+ * this header does not declare `main`, so both forms compile. `argc` and `argv` are `argumentCount()` and
+ * the arguments `exec` handed over, and `argv[argc]` is null; a program that `spawn` started gets `argc` 0 and
+ * an `argv` that holds only the null. The calling convention lets a `main()` ignore them. Its return value is
+ * the exit status. A server that never leaves its loop never returns.
  */
 extern "C" [[noreturn]] void _start();
 
