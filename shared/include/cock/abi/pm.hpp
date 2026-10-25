@@ -13,7 +13,8 @@
  * Who is served: the root server for every operation; the process that runs as `init` (the row with `INIT_PID`)
  * for `ALLOCATE` and `SPAWN`, with a label the root server permitted and with the rights `pm` chooses (no IPC
  * labels, the initial handle on the name server), so `init` can start the programs the manifest gives it and
- * nothing it could use to pass for a server; anyone with a handle for `LIST`. When `init` asks for a process,
+ * nothing it could use to pass for a server; anyone with a handle for `LIST` and for `WAIT`, which only
+ * reaches the children of the caller. When `init` asks for a process,
  * `pm` tells the root server with a `PM_SPAWNED` message, so it can register the process with the name server
  * and equip it.
  *
@@ -46,6 +47,8 @@ enum class Op : uint32_t {
 	LIST = 4,
 	/** Root only: the process that runs as `init` may create processes with the service label of word 1. A label is given once; the list holds `MAX_PERMITTED_LABELS`. */
 	PERMIT = 5,
+	/** Collect the status of a child: word 1 is its process id of the table or `ANY_CHILD`. A child that exited and was not collected answers at once; otherwise the call waits, with the caller blocked, until a matching child exits. The reply carries the process id of the child in word 1 and its exit status in word 2. `NOT_FOUND` means the caller has no such child, collected or not. The root server has none to collect: `pm` collects its children itself. */
+	WAIT = 6,
 };
 
 /** Status in the low byte of word 0 of a reply. */
@@ -60,7 +63,7 @@ enum class Status : uint32_t {
 	FAILED = 3,
 	/** The table, the list of objects or the memory of `pm` is full. */
 	NO_ROOM = 4,
-	/** `LIST` past the last row, or `REGISTER` of a parent that is not in the table. */
+	/** `LIST` past the last row, `REGISTER` of a parent that is not in the table, or `WAIT` with no child to wait for. */
 	NOT_FOUND = 5,
 };
 
@@ -77,13 +80,13 @@ enum class State : uint32_t {
 	FREE = 0,
 	/** `R`: at least one live thread is ready or running; also what `LIST` reports for a live process whose threads the kernel cannot read. */
 	RUNNING = 1,
-	/** `X`: the exit notice arrived; the row stays until another process needs the room. */
+	/** `X`: gone. The exit notice arrived and nobody has to collect the status (the parent collected it, the parent is the root server or the parent exited first); the row stays until another process needs the room. */
 	EXITED = 2,
 	/** `S`: every live thread waits for a message, a timer, a futex, a call or a reply, a wait that a signal will be able to end. */
 	SLEEPING = 3,
 	/** `T`: stopped by a signal. Reserved for `kill` and signals (L3); nothing produces it yet. */
 	STOPPED = 4,
-	/** `Z`: every thread exited and the parent did not collect the status. Reserved for `wait` (L1); nothing produces it yet. */
+	/** `Z`: every thread exited and the parent, which lives, did not collect the status with `WAIT` yet. The row keeps the process id and the status and is not reused; collecting it, or the exit of the parent, turns it into `EXITED`. */
 	ZOMBIE = 5,
 	/** `D`: a thread waits in a call that a signal must not end. Reserved: the first wait of this kind sets it and says so in its header; nothing produces it yet. */
 	UNINTERRUPTIBLE = 6,
@@ -113,6 +116,8 @@ constexpr uint32_t NO_PID = 0;
 constexpr uint32_t INIT_PID = 1;
 /** Number of labels of programs, from `service::PROGRAM_SERVICE_BASE`: the labels `pm` may give a new process. */
 constexpr uint32_t PROGRAM_LABEL_COUNT = manifest::MAX_ENTRIES;
+/** Process id in a `WAIT` request that stands for any child. */
+constexpr uint32_t ANY_CHILD = 0xFFFFFFFF;
 /** First process id of the table given to any other process. */
 constexpr uint32_t FIRST_FREE_PID = 2;
 

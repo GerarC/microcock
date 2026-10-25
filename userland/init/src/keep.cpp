@@ -29,6 +29,7 @@ bool stillOnTheLoose() {
 void look(cock::user::fs::Client &files, cock::user::pm::Client &process, Kept &program) {
 	if (program.gaveUp) return;
 	if (program.pid != NO_PROCESS && cock::user::process_alive(program.pid)) return;
+	if (program.pid != NO_PROCESS) process.wait();
 
 	const cock::abi::manifest::Entry &entry = cock::init::manifest.entries[program.index];
 	if (program.attempts > cock::init::MAX_RESTARTS) {

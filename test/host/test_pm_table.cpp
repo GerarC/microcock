@@ -125,6 +125,89 @@ void checkExit() {
 	CHECK_EQ(TWO_ROWS, table.count());
 }
 
+void checkZombies() {
+	Table table;
+	Row *root = table.add(ROOT_KERNEL_ID, NO_PID, false);
+	CHECK_TRUE(root != nullptr);
+	if (root == nullptr) return;
+	table.setReaper(root->pid);
+	Row *parent = table.add(FIRST_KERNEL_ID, root->pid, false);
+	CHECK_TRUE(parent != nullptr);
+	if (parent == nullptr) return;
+	Row *first = table.add(SECOND_KERNEL_ID, parent->pid, false);
+	Row *second = table.add(THIRD_KERNEL_ID, parent->pid, false);
+	CHECK_TRUE(first != nullptr && second != nullptr);
+	if (first == nullptr || second == nullptr) return;
+
+	CHECK_TRUE(table.hasChild(parent->pid, cock::abi::pm::ANY_CHILD));
+	CHECK_TRUE(table.hasChild(parent->pid, first->pid));
+	CHECK_TRUE(!table.hasChild(parent->pid, parent->pid));
+	CHECK_TRUE(!table.hasChild(root->pid, cock::abi::pm::ANY_CHILD));
+	CHECK_TRUE(table.findZombie(parent->pid, cock::abi::pm::ANY_CHILD) == nullptr);
+
+	table.markExited(THIRD_KERNEL_ID, SOME_STATUS);
+	CHECK_TRUE(first->state == State::RUNNING);
+	CHECK_TRUE(second->state == State::ZOMBIE);
+	CHECK_EQ(SOME_STATUS, second->status);
+	CHECK_TRUE(table.findZombie(parent->pid, first->pid) == nullptr);
+	CHECK_TRUE(table.findZombie(parent->pid, cock::abi::pm::ANY_CHILD) == second);
+	CHECK_TRUE(table.findZombie(root->pid, cock::abi::pm::ANY_CHILD) == nullptr);
+
+	table.collect(*second);
+	CHECK_TRUE(second->state == State::EXITED);
+	CHECK_TRUE(table.findZombie(parent->pid, cock::abi::pm::ANY_CHILD) == nullptr);
+	CHECK_TRUE(!table.hasChild(parent->pid, second->pid));
+	CHECK_TRUE(table.hasChild(parent->pid, cock::abi::pm::ANY_CHILD));
+
+	Row *third = table.add(UNKNOWN_KERNEL_ID, parent->pid, false);
+	CHECK_TRUE(third != nullptr);
+	if (third == nullptr) return;
+	table.markExited(UNKNOWN_KERNEL_ID, SOME_STATUS);
+	CHECK_TRUE(third->state == State::ZOMBIE);
+	CHECK_TRUE(table.markExited(UNKNOWN_KERNEL_ID, SOME_STATUS) == nullptr);
+
+	table.markExited(SECOND_KERNEL_ID, SOME_STATUS);
+	CHECK_TRUE(first->state == State::ZOMBIE);
+	CHECK_TRUE(table.findZombie(parent->pid, first->pid) == first);
+}
+
+void checkAdoption() {
+	Table table;
+	Row *root = table.add(ROOT_KERNEL_ID, NO_PID, false);
+	CHECK_TRUE(root != nullptr);
+	if (root == nullptr) return;
+	table.setReaper(root->pid);
+	Row *parent = table.add(FIRST_KERNEL_ID, root->pid, false);
+	CHECK_TRUE(parent != nullptr);
+	if (parent == nullptr) return;
+	Row *dead = table.add(SECOND_KERNEL_ID, parent->pid, false);
+	Row *alive = table.add(THIRD_KERNEL_ID, parent->pid, false);
+	CHECK_TRUE(dead != nullptr && alive != nullptr);
+	if (dead == nullptr || alive == nullptr) return;
+
+	table.markExited(SECOND_KERNEL_ID, SOME_STATUS);
+	CHECK_TRUE(dead->state == State::ZOMBIE);
+
+	Row *gone = table.markExited(FIRST_KERNEL_ID, SOME_STATUS);
+	CHECK_TRUE(gone == parent);
+	CHECK_TRUE(parent->state == State::EXITED);
+	CHECK_TRUE(dead->state == State::EXITED);
+	CHECK_EQ(root->pid, dead->parent);
+	CHECK_EQ(root->pid, alive->parent);
+	CHECK_TRUE(alive->state == State::RUNNING);
+
+	table.markExited(THIRD_KERNEL_ID, SOME_STATUS);
+	CHECK_TRUE(alive->state == State::EXITED);
+	CHECK_TRUE(table.findZombie(root->pid, cock::abi::pm::ANY_CHILD) == nullptr);
+
+	Row *waiter = table.add(UNKNOWN_KERNEL_ID, root->pid, false);
+	CHECK_TRUE(waiter != nullptr);
+	if (waiter == nullptr) return;
+	waiter->waiting = true;
+	table.markExited(UNKNOWN_KERNEL_ID, SOME_STATUS);
+	CHECK_TRUE(!waiter->waiting);
+}
+
 void checkFull() {
 	Table table;
 	for (size_t index = 0; index < MAX_PROCESSES; index++)
@@ -205,6 +288,8 @@ void testPmTable() {
 	checkInitPid();
 	checkAnnounce();
 	checkExit();
+	checkZombies();
+	checkAdoption();
 	checkFull();
 	checkAt();
 	checkHeaders();

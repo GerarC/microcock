@@ -1,7 +1,7 @@
 /**
  * @file pm.hpp
  * @brief Client of the process manager: asks it to create a process from an image in memory, to record a
- * process that already exists, and to list its table.
+ * process that already exists, to list its table, and to collect the status of a child.
  *
  * The caller holds a handle on the endpoint of `pm` (the root server makes it when it starts `pm`). A program
  * image goes in a shared memory object that `pm` makes and sizes: `begin` asks for it and maps it, the caller
@@ -34,6 +34,19 @@ struct Listing {
 	uint32_t pid;
 	/** Id in the table of the parent, or `abi::pm::NO_PID`. */
 	uint32_t parent;
+};
+
+/** Exit status of a `Waited` that holds none. */
+constexpr uint32_t NO_EXIT_STATUS = 0;
+
+/** What `wait` returns. */
+struct Waited {
+	/** Result of the call; `NOT_FOUND` means there is no such child. The other fields are valid only for `OK`. */
+	abi::pm::Status status;
+	/** Id in the table of the child that was collected. */
+	uint32_t pid;
+	/** Status the child exited with. */
+	uint32_t exitStatus;
 };
 
 /** Calls to `pm` through one handle. It holds at most one object at a time. */
@@ -180,6 +193,25 @@ public:
 		listing.pid = result.words[abi::pm::SECOND_WORD];
 		listing.parent = result.words[abi::pm::THIRD_WORD];
 		return listing;
+	}
+
+	/**
+	 * @brief Collects the status of a child of the caller. Blocks while the children it matches still run.
+	 * @param pid Id in the table of the child, or `abi::pm::ANY_CHILD`.
+	 * @return The child and its status; `status` is `NOT_FOUND` when the caller has no such child and
+	 * `BAD_REQUEST` when the call failed.
+	 */
+	Waited wait(uint32_t pid = abi::pm::ANY_CHILD) {
+		Waited waited = {abi::pm::Status::BAD_REQUEST, abi::pm::NO_PID, NO_EXIT_STATUS};
+		uint32_t words[abi::pm::CALL_WORDS] = {abi::pm::pack(abi::pm::Op::WAIT), pid};
+		CallResult result = ep_call(handle, words);
+		if (!result.ok) return waited;
+
+		waited.status = abi::pm::statusOf(result.words[abi::pm::HEADER_WORD]);
+		if (waited.status != abi::pm::Status::OK) return waited;
+		waited.pid = result.words[abi::pm::FIRST_WORD];
+		waited.exitStatus = result.words[abi::pm::SECOND_WORD];
+		return waited;
 	}
 
 private:

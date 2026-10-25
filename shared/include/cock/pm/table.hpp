@@ -6,7 +6,8 @@
  * The process id of the table is not the kernel one. The kernel numbers processes with a generation counter, so
  * an id is never reused soon; the table numbers them from `FIRST_FREE_PID` in the order they arrive and keeps
  * `INIT_PID` for `init`. Nothing here allocates: the rows are an array, and a row of a process that has exited
- * is reused only when no row is free.
+ * and was collected is reused only when no row is free; a zombie, which a parent has not collected, is never
+ * reused.
  */
 #ifndef COCK_PM_TABLE_HPP
 #define COCK_PM_TABLE_HPP
@@ -22,6 +23,8 @@ namespace cock::pm {
 constexpr size_t MAX_PROCESSES = 128;
 /** Kernel process id of a row that holds none. */
 constexpr uint32_t NO_KERNEL_ID = 0xFFFFFFFF;
+/** Value of `Row::waitTicket` and `Row::waitTarget` while the process is not waiting. */
+constexpr uint32_t NO_WAIT = 0;
 
 /** One process. */
 struct Row {
@@ -43,6 +46,12 @@ struct Row {
 	uint32_t label;
 	/** True when the root server was not yet told that the process exists. */
 	bool announcePending;
+	/** True while the process waits in a `WAIT` call that `pm` detached. */
+	bool waiting;
+	/** Ticket of the detached call; valid while `waiting`. */
+	uint32_t waitTicket;
+	/** Process id of the child the process waits for, or `abi::pm::ANY_CHILD`; valid while `waiting`. */
+	uint32_t waitTarget;
 };
 
 /** The rows and the counter of process ids. */
@@ -51,11 +60,12 @@ public:
 	Table() { clear(); }
 
 	/**
-	 * @brief Empties the table; the next process id is `FIRST_FREE_PID`.
+	 * @brief Empties the table; the next process id is `FIRST_FREE_PID` and there is no reaper.
 	 */
 	void clear() {
 		for (Row &row : rows) release(row);
 		nextPid = abi::pm::FIRST_FREE_PID;
+		reaper = abi::pm::NO_PID;
 		used = 0;
 	}
 
@@ -98,9 +108,18 @@ public:
 				   forward,
 				   false,
 				   announceLabel,
-				   announceLabel != abi::service::NO_SERVICE};
+				   announceLabel != abi::service::NO_SERVICE,
+					   false,
+					   NO_WAIT,
+					   NO_WAIT};
 		return row;
 	}
+
+	/**
+	 * @brief Says which process adopts the children of a process that exits, and whose children nobody collects.
+	 * @param pid Process id of the root server in the table.
+	 */
+	void setReaper(uint32_t pid) { reaper = pid; }
 
 	/**
 	 * @brief Tells whether `add` would find a row for a new process.
@@ -132,17 +151,60 @@ public:
 
 	/**
 	 * @brief Records that a process exited.
+	 *
+	 * The row becomes `ZOMBIE` when its parent lives and is not the reaper, so the parent can collect the
+	 * status; otherwise it becomes `EXITED` at once. The children of the process pass to the reaper, and those
+	 * of them that were zombies become `EXITED`, since the reaper collects them.
+	 *
 	 * @param kernelId Id in the kernel.
 	 * @param status Exit status from the notice.
 	 * @return The row, or null when the process is not in the table or was already marked.
 	 */
 	Row *markExited(uint32_t kernelId, uint32_t status) {
 		Row *row = findKernel(kernelId);
-		if (row == nullptr || row->state == abi::pm::State::EXITED) return nullptr;
-		row->state = abi::pm::State::EXITED;
+		if (row == nullptr || row->state == abi::pm::State::EXITED || row->state == abi::pm::State::ZOMBIE)
+			return nullptr;
+		row->state = hasCollector(row->parent) ? abi::pm::State::ZOMBIE : abi::pm::State::EXITED;
 		row->status = status;
 		row->forwardPending = row->forward;
+		row->waiting = false;
+		adoptChildren(row->pid);
 		return row;
+	}
+
+	/**
+	 * @brief Finds a child of a process that exited and was not collected.
+	 * @param parent Process id of the parent in the table.
+	 * @param target Process id of the child, or `abi::pm::ANY_CHILD`.
+	 * @return The zombie row, or null.
+	 */
+	Row *findZombie(uint32_t parent, uint32_t target) {
+		for (Row &row : rows)
+			if (row.state == abi::pm::State::ZOMBIE && row.parent == parent && matches(row, target)) return &row;
+		return nullptr;
+	}
+
+	/**
+	 * @brief Tells whether a process has a child it could still collect: a live one or a zombie.
+	 * @param parent Process id of the parent in the table.
+	 * @param target Process id of the child, or `abi::pm::ANY_CHILD`.
+	 * @return True when one exists; always false for the reaper, whose children nobody collects.
+	 */
+	bool hasChild(uint32_t parent, uint32_t target) {
+		if (parent == abi::pm::NO_PID || parent == reaper) return false;
+		for (Row &row : rows)
+			if (row.state != abi::pm::State::FREE && row.state != abi::pm::State::EXITED &&
+				row.parent == parent && matches(row, target))
+				return true;
+		return false;
+	}
+
+	/**
+	 * @brief Collects a zombie: its status was handed to the parent, so the row is gone.
+	 * @param row A row of the table; one that is not a zombie is left as it is.
+	 */
+	void collect(Row &row) {
+		if (row.state == abi::pm::State::ZOMBIE) row.state = abi::pm::State::EXITED;
 	}
 
 	/**
@@ -189,7 +251,25 @@ private:
 	static void release(Row &row) {
 		row = Row{NO_KERNEL_ID, abi::pm::NO_PID, abi::pm::NO_PID, abi::pm::State::FREE,
 				  0,            false,           false,           abi::service::NO_SERVICE,
-				  false};
+				  false,        false,           NO_WAIT,         NO_WAIT};
+	}
+
+	static bool matches(const Row &row, uint32_t target) {
+		return target == abi::pm::ANY_CHILD || row.pid == target;
+	}
+
+	bool hasCollector(uint32_t parent) {
+		if (parent == abi::pm::NO_PID || parent == reaper) return false;
+		Row *row = find(parent);
+		return row != nullptr && row->state != abi::pm::State::EXITED && row->state != abi::pm::State::ZOMBIE;
+	}
+
+	void adoptChildren(uint32_t pid) {
+		for (Row &row : rows) {
+			if (row.state == abi::pm::State::FREE || row.parent != pid) continue;
+			row.parent = reaper;
+			collect(row);
+		}
 	}
 
 	Row *freeRow() {
@@ -204,6 +284,7 @@ private:
 	}
 
 	Row rows[MAX_PROCESSES];
+	uint32_t reaper = abi::pm::NO_PID;
 	uint32_t nextPid;
 	size_t used;
 };

@@ -38,9 +38,10 @@ extern "C" int main() {
 		if (result.status == CallStatus::MESSAGE_PENDING) takeMessages();
 		if (result.ok) {
 			uint32_t reply[cock::user::CALL_WORDS] = {};
-			cock::pm::serve(result.peer, result.words, reply);
+			bool answered = cock::pm::serve(result.peer, result.words, reply);
 			pending = cock::pm::flushNotices();
-			result = cock::user::ipc_reply_wait(reply, waitLimit(pending));
+			result = answered ? cock::user::ipc_reply_wait(reply, waitLimit(pending))
+							  : cock::user::ipc_accept(waitLimit(pending));
 			continue;
 		}
 		pending = cock::pm::flushNotices();

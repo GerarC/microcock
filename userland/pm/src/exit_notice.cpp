@@ -1,6 +1,7 @@
 #include <cock/user/api.hpp>
 #include <pm/exit_notice.hpp>
 #include <pm/state.hpp>
+#include <pm/wait.hpp>
 
 using cock::ipc::Message;
 using cock::ipc::MessageType;
@@ -30,7 +31,9 @@ namespace cock::pm {
 void takeMessage(const Message &message) {
 	if (message.type != MessageType::PROCESS_EXITED) return;
 	Row *row = table.markExited(message.payload.args.arg0, message.payload.args.arg1);
-	if (row != nullptr && row->forward && sendExit(*row)) row->forwardPending = false;
+	if (row == nullptr) return;
+	if (row->forward && sendExit(*row)) row->forwardPending = false;
+	answerWaiter(*row);
 }
 
 bool flushNotices() {

@@ -19,6 +19,7 @@ constexpr size_t FIRST_PROCESSES = 5;
 constexpr size_t NO_ROWS = 0;
 constexpr size_t SOME_IMAGE_BYTES = 0x1000;
 constexpr uint32_t SOME_PROCESS = 1;
+constexpr uint32_t SOME_CHILD = 2;
 constexpr uintptr_t EXIT_PASSED = 0;
 constexpr uintptr_t EXIT_FAILED = 1;
 
@@ -66,6 +67,12 @@ bool refusesStrangers(cock::user::pm::Client &client) {
 	return !registered && !room;
 }
 
+bool hasNoChildren(cock::user::pm::Client &client) {
+	cock::user::pm::Waited any = client.wait();
+	cock::user::pm::Waited one = client.wait(SOME_CHILD);
+	return any.status == Status::NOT_FOUND && one.status == Status::NOT_FOUND;
+}
+
 } // namespace
 
 extern "C" int main() {
@@ -79,7 +86,7 @@ extern "C" int main() {
 	Census census = count(client);
 	bool ok = census.rows >= FIRST_PROCESSES && census.rootFirst && census.selfSleeping &&
 			  census.selfChildOfRoot && census.exited != NO_ROWS && census.other == NO_ROWS &&
-			  refusesStrangers(client);
+			  refusesStrangers(client) && hasNoChildren(client);
 
 	puts(ok ? "pmclient: ok" : "pmclient: wrong table");
 	return ok ? EXIT_PASSED : EXIT_FAILED;

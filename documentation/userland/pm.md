@@ -36,12 +36,19 @@ Synchronous calls of four words, `shared/include/cock/abi/pm.hpp`, through a han
 | `REGISTER kernel parent wanted` | `rs` | Records a process that already runs |
 | `PERMIT label` | `rs` | `init` may create processes with that label |
 | `LIST index` | anyone with a handle | One row of the table, with the state in bits 8 to 15 of the reply header |
+| `WAIT pid` | anyone with a handle | Collects the status of a child (`pid` of the table, or `ANY_CHILD`): the reply carries the pid and the exit status. Blocks until a matching child exits; `NOT_FOUND` when there is none |
 
 ## Process states
 
 The states are those of `ps` in Linux (`abi::pm::State`). The table stores only two of them, `RUNNING` for a process that lives and `EXITED` (`X`) for one whose exit notice arrived. `LIST` does not report the stored `RUNNING` as it is: it asks the kernel for the states of the live threads (`SYS_PROC_STATE`) and `cock::pm::classify` (`shared/include/cock/pm/classify.hpp`) turns the mask into `R` when a thread is ready or running and into `S` when every live thread waits (timer, futex, message, accept or reply). Nothing is reported by the scheduler and nothing is stored, so the thread path of the kernel has no extra work, and the answer is the state at the moment of the call. When the kernel cannot read the threads, for example because the first thread of the process was already reaped while another thread lives, `LIST` answers `R`.
 
-`T` (stopped), `Z` (zombie) and `D` (uninterruptible sleep) have a value in `State` and a letter in `ps`, and nothing produces them: `Z` comes with `wait` (L1), `T` with signals (L3), and `D` with the first wait that a signal must not end, which sets it and says so in its header.
+`Z` (zombie) is stored: a process that exits while its parent lives, and is not the root server, stays `Z` with its id and its status until the parent collects it with `WAIT`; then it is `X`. `T` (stopped) and `D` (uninterruptible sleep) have a value in `State` and a letter in `ps`, and nothing produces them: `T` comes with signals (L3), and `D` with the first wait that a signal must not end, which sets it and says so in its header.
+
+### Wait and adoption
+
+`WAIT` is a synchronous call that reaches only the children of the caller. When a child is a zombie the reply is immediate and the row becomes `X`. When the children still run, `pm` detaches the call (`ipc_defer`), keeps its ticket in the row of the caller and goes on serving; when the exit notice of a matching child arrives, `pm` answers with `ipc_reply_to` and collects it. A caller blocked in `WAIT` that dies is dropped by the kernel; its row loses the wait when its own exit notice arrives. The kernel does not change: the exit notice, the freeing of memory and threads, and the deferred reply already existed.
+
+When a process exits, its children pass to the root server (the reaper, `rs`, set when `rs` registers itself), and those that were zombies become `X`, since `rs` collects them. The children of `rs` are never zombies: `rs` already learns about them through `PM_EXITED`, so `pm` collects for it and `WAIT` from `rs` answers `NOT_FOUND`. `init` collects with `wait` each program of the manifest that it started and that ended, so no zombie stays.
 
 The size of the object is `pm`'s own, so a caller cannot make `pm` read past it. `pm` checks that the name ends, the flags are known (`FORWARD_EXIT`, `AS_INIT`), the image fits the object, the label is a program label and there are at most eight IPC labels. A process created for `init` gets no IPC label and an initial handle on the name server.
 
@@ -56,14 +63,14 @@ A notice that finds the inbox of `rs` full is tried again every 50 ms.
 
 ## The table
 
-The id in the table is not the kernel one. It counts from 2 in the order processes arrive; id 1 is `init`, and a restarted `init` takes it again. The parent is the id in the table of whoever asked for the process: `rs` for the servers, `init` for the shell. A row has the kernel id, the id, the parent, the state (running or exited) and the exit status; the row of a process that exited stays until no row is free. The table is a header (`shared/include/cock/pm/table.hpp`) with host tests.
+The id in the table is not the kernel one. It counts from 2 in the order processes arrive; id 1 is `init`, and a restarted `init` takes it again. The parent is the id in the table of whoever asked for the process: `rs` for the servers, `init` for the shell. A row has the kernel id, the id, the parent, the state (running, zombie or exited) and the exit status; the row of a process that exited and was collected stays until no row is free, and a zombie row is never reused. The table is a header (`shared/include/cock/pm/table.hpp`) with host tests.
 
 ## Limits
 
-- No `wait`, `exec`, signals or `fork` yet, and no zombie that anyone collects.
+- No `exec`, signals or `fork` yet. A parent that never calls `WAIT` leaves zombies that fill the table (as in Linux) until it exits; `WAIT` has no non-blocking flag and no timeout.
 - If `pm` dies the table and the notices of its children are lost, because their parent disappears. `rs` could start another one but not rebuild the table. Minix has the same limit.
 - The boot modules are in the table but are never marked as exited: the kernel sends no notice for them.
 - A process may have at most `MAX_NOTIFIED_CHILDREN` (64) children with a pending exit notice, and `pm` has 128 rows.
-- `init` polls `process_alive` every 250 ms to keep the shell; `wait` will replace that.
+- `init` still polls `process_alive` every 250 ms to keep the shell, and calls `wait` once for each program it finds ended; a loop that blocks in `wait` instead of polling needs a way to wait for a child and a timer at once.
 
 See also the READMEs of [`pm`](../../userland/pm/README.md), [`rs`](../../userland/rs/README.md) and [`init`](../../userland/init/README.md), [capabilities](../core/capabilities.md) and [the name server](names.md).
