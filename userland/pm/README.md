@@ -32,7 +32,7 @@ Synchronous calls of four words through a handle on the endpoint of `pm`; the ba
 | `LIST index` | anyone with a handle | One row: kernel id, id in the table, parent, state |
 | `WAIT pid` | anyone with a handle | Collects the status of a child (`ANY_CHILD` for any); blocks, with the call detached, until one exits; `NOT_FOUND` when there is none |
 
-The size of the object is `pm`'s own, so a caller cannot make `pm` read past it by lying about the image size. `pm` checks that the name ends, the flags are known, the image fits the object, the label is a program label and there are at most eight IPC labels; the kernel checks the rights again against what `pm` holds.
+The size of the object is `pm`'s own, so a caller cannot make `pm` read past it by lying about the image size. `pm` checks that the name ends, the flags are known, the image fits the object, the label is a program label and there are at most sixteen IPC labels; the kernel checks the rights again against what `pm` holds.
 
 `init` gets less than `rs`: only labels that `rs` permitted (the manifest entries with `parent=init`), no IPC labels, no flags, and the initial handle is always the one on the name server. After it creates a process, `pm` sends `rs` a `PM_SPAWNED` message so `rs` can register the process with the name server and equip it.
 

@@ -35,7 +35,7 @@ The manifest grammar (`shared/include/cock/abi/manifest.hpp`) has these keys aft
 | `path=` | File of the initrd to spawn; without it the entry is a boot module that is only configured |
 | `caps=` | Up to four grants: `io:first+count`, `irq:line`, `mem:first+size`, `spawn` (the right to call `SYS_PROC_CREATE`) |
 | `arg=` | One number that travels in `CAPABILITY_GRANTED` (the block device of `fat` and `ext`) |
-| `ipc=` | Names of the programs this one may connect to (send, call, share memory), up to eight; `rs` sends them to the name server, which checks them when the program connects and gives a handle on the server then |
+| `ipc=` | Names of the programs this one may connect to (send, call, share memory), up to sixteen; `rs` sends them to the name server, which checks them when the program connects and gives a handle on the server then |
 | `owner=` | Name of the program that owns this one; `rs` sends the name server an `OWNER` for it |
 | `mode=` | Who may connect to this program: two characters, `x` or `-`, for its owner and for every other program (`xx` is the default); the name server refuses a refused class with `DENIED` |
 | `repeat=` | Run the program that many times in a row, 1 to 32 |

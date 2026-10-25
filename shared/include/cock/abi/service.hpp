@@ -43,7 +43,7 @@ constexpr uint64_t SERVICE_LABEL_COUNT = uint64_t(1) << 32;
 /** Largest count of labels one `SYS_CAP_GRANT` can name, since its arguments have 32 bits: every label except the last. */
 constexpr uint32_t GRANTABLE_LABEL_COUNT = UINT32_MAX;
 /** Most IPC labels that one `SYS_PROC_CREATE` can give to the new process. */
-constexpr size_t MAX_SPAWN_IPC = 8;
+constexpr size_t MAX_SPAWN_IPC = 16;
 /** Bit of the mode of a service: the owner of the service may connect to it. */
 constexpr uint32_t MODE_OWNER = 0x1;
 /** Bit of the mode of a service: a program that is not the owner may connect to it. */

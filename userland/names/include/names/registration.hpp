@@ -17,7 +17,7 @@ namespace cock::names {
  * @param process Process id of the caller, from the badge of its handle.
  * @param words The request words.
  * @return `OK` when the table changed; `NOT_ROOT` for a caller that is not `ROOT_PID`; `BAD_REQUEST` for an unknown
- *         label, a service that already lists eight labels, an owner that is not defined or a mode with unknown bits,
+ *         label, a service that already lists sixteen labels, an owner that is not defined or a mode with unknown bits,
  *         a process id that is not alive or already runs another service, or an operation that is not one of the four.
  */
 abi::names::Status registerService(uint32_t process,
