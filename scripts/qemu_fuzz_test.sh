@@ -5,11 +5,14 @@ FUZZ_MODE="${FUZZ:-user}"
 FUZZ_SEED_VALUE="${SEED:-1}"
 FUZZ_ROUNDS_VALUE="${ROUNDS:-2000}"
 TIMEOUT_SECONDS="${FUZZ_TIMEOUT:-90}"
+FUZZ_DISK="${FUZZ_DISK:-}"
 POLL_SECONDS=1
 SERIAL_FILE="${SERIAL_FILE:-build/fuzz_serial.txt}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
 DONE_TEXT="fuzz: done seed $FUZZ_SEED_VALUE"
 SANITY_TEXT="fuzz: sanity ok"
+STRUCTURED_TEXT="fuzz: fz1 ok"
+EXIT_STRUCTURED=7
 PANIC_TEXT="cock panic"
 EXIT_PANIC=1
 EXIT_MAIN_KILLED=2
@@ -23,7 +26,12 @@ make iso TEST_INITRD=1 FUZZ="$FUZZ_MODE" FUZZ_SEED="$FUZZ_SEED_VALUE" FUZZ_ROUND
 mkdir -p "$(dirname "$SERIAL_FILE")"
 rm -f "$SERIAL_FILE"
 
-"$QEMU_BIN" -cdrom build/cock.iso -boot d -display none -no-reboot -serial "file:$SERIAL_FILE" &
+DISK_ARGS=()
+if [ -n "$FUZZ_DISK" ]; then
+	DISK_ARGS=(-drive "file=$FUZZ_DISK,format=raw,if=ide,index=0,media=disk")
+fi
+
+"$QEMU_BIN" "${DISK_ARGS[@]}" -cdrom build/cock.iso -boot d -display none -no-reboot -serial "file:$SERIAL_FILE" &
 qemu_pid=$!
 
 waited=0
@@ -61,6 +69,10 @@ if ! grep -qF "$DONE_TEXT" "$SERIAL_FILE"; then
 	fi
 	echo "[qemu_fuzz_test] the run did not finish in $TIMEOUT_SECONDS seconds (hang); last checkpoint: ${last_checkpoint:-none}"
 	exit "$EXIT_HANG"
+fi
+if ! grep -qF "$STRUCTURED_TEXT" "$SERIAL_FILE"; then
+	echo "[qemu_fuzz_test] the structured phases (FZ1) did not end well: $(grep 'fuzz: fz1' "$SERIAL_FILE" | tr '\n' ';')"
+	exit "$EXIT_STRUCTURED"
 fi
 if ! grep -qF "$SANITY_TEXT" "$SERIAL_FILE"; then
 	echo "[qemu_fuzz_test] the kernel did not pass the sanity check after the run"

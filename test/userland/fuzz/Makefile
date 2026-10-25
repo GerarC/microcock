@@ -1,5 +1,5 @@
 NAME = fuzz
-SRCS = main.cpp scenarios.cpp
+SRCS = main.cpp scenarios.cpp elf_mutator.cpp file_fuzz.cpp loader_fuzz.cpp structured.cpp
 CONSOLE_CLIENT = no
 LIBC_SRCS = string/memcpy.cpp string/memset.cpp string/strlen.cpp string/strcmp.cpp stdio/printf.cpp stdio/putchar.cpp stdio/puts.cpp unistd/write.cpp sys/mman/mmap.cpp sys/mman/munmap.cpp
 

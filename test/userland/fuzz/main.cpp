@@ -1,6 +1,7 @@
 #include "prng.hpp"
 #include "scenarios.hpp"
 #include "specs.hpp"
+#include "structured.hpp"
 #include <cock/abi/process.hpp>
 #include <cock/abi/service.hpp>
 #include <cock/ipc/message.hpp>
@@ -32,8 +33,10 @@ constexpr uint32_t ROUNDS = 2000;
 
 #ifdef FUZZ_ROOT
 constexpr const char MODE_NAME[] = "root";
+constexpr bool ROOT_MODE = true;
 #else
 constexpr const char MODE_NAME[] = "user";
+constexpr bool ROOT_MODE = false;
 #endif
 
 #ifdef FUZZ_TRACE
@@ -601,8 +604,9 @@ extern "C" int main() {
 	}
 
 	releaseResources();
+	bool structured = fuzz::runStructuredPhases(SEED, ROOT_MODE);
 	printStatistics();
-	bool healthy = sanityCheck();
+	bool healthy = sanityCheck() && structured;
 	printf(healthy ? "fuzz: sanity ok\n" : "fuzz: sanity FAILED\n");
 	printf("fuzz: done seed %u\n", SEED);
 	cock::user::exit_process(healthy ? EXIT_OK : EXIT_BROKEN);
