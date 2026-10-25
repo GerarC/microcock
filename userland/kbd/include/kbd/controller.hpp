@@ -12,7 +12,7 @@ namespace cock::kbd {
 /**
  * @brief Takes the data port and binds the keyboard interrupt line.
  *
- * Needs the port and interrupt capabilities that `init` grants, so it must run after
+ * Needs the port and interrupt capabilities that `rs` grants, so it must run after
  * `CAPABILITY_GRANTED`.
  *
  * @return True when both succeed, false when a capability is missing or the line is taken.

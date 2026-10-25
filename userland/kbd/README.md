@@ -14,13 +14,13 @@ keyboard controller --IRQ--> kernel --IRQ_NOTIFICATION--> kbd --CONSOLE_KEY--> c
 | `IRQ` | `irq:1` |
 | Console | `ipc=console`: the driver connects to the console server through the name server and sends it the characters |
 
-The manifest line is `kbd path=bin/kbd.elf` with those grants. `init` grants them and then sends `CAPABILITY_GRANTED`; The message carries nothing the driver needs. The test manifest adds nothing for `kbd`. The program opts out of the console client (`CONSOLE_CLIENT = no`): the input path must not depend on the server it feeds.
+The manifest line is `kbd path=bin/kbd.elf` with those grants. `rs` grants them and then sends `CAPABILITY_GRANTED`; The message carries nothing the driver needs. The test manifest adds nothing for `kbd`. The program opts out of the console client (`CONSOLE_CLIENT = no`): the input path must not depend on the server it feeds.
 
 ## Protocol
 
 | Message | Direction | Content |
 |---------|-----------|---------|
-| `CAPABILITY_GRANTED` | `init` to `kbd` | `arg0` is the display (console) pid; the first one received is taken |
+| `CAPABILITY_GRANTED` | `rs` to `kbd` | `arg0` is the display (console) pid; the first one received is taken |
 | `IRQ_NOTIFICATION` | kernel to `kbd` | The line fired; only the kernel can produce this type, so the type is the whole check |
 | `CONSOLE_KEY` | `kbd` to `console` | `arg0` is the typed character |
 

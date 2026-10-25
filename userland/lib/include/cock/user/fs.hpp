@@ -303,6 +303,26 @@ class Client {
 	}
 
 	/**
+	 * @brief Reads the first bytes of a file into a buffer, window by window.
+	 * @param handle Open handle of a regular file.
+	 * @param buffer Destination of at least `length` bytes.
+	 * @param length Exact number of bytes wanted.
+	 * @return true when `length` bytes arrived; false when a read failed or the file ended first.
+	 */
+	bool readAll(uint32_t handle, void *buffer, size_t length) {
+		constexpr size_t NOTHING_COPIED = 0;
+		constexpr long MORE_TO_READ = 1;
+		size_t copied = NOTHING_COPIED;
+		long step = MORE_TO_READ;
+		while (copied < length && step > 0) {
+			step = read(handle, static_cast<uint32_t>(copied), static_cast<uint8_t *>(buffer) + copied,
+						length - copied);
+			if (step > 0) copied += static_cast<size_t>(step);
+		}
+		return copied == length;
+	}
+
+	/**
 	 * @brief Reads one entry name of a directory (`FS_READDIR`). Blocks for the reply.
 	 * @param handle Open handle of a directory.
 	 * @param index Entry index, starting at zero.

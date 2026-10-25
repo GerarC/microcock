@@ -3,7 +3,7 @@
 `fat` is a Ring 3 server that reads a FAT32 volume of the disk and answers the same protocol as `ramfs` (see [file system](filesystem.md)), so a client reaches it through the `vfs` as `/fat/...` with the same client library. It talks to the disk through the block protocol of [block storage](block_storage.md), as any other client of `ata`, and has no capability of its own. It reads and writes (see [Writing](#writing)).
 
 ## Mounting
-`fat` waits for the message `init` sends it, whose first argument is the block device to serve: the manifest line is `fat path=bin/fat.elf arg=2` (device 0 is the whole disk, the partitions follow). It connects to `ata`, reads the first sector of that device and parses it as a FAT32 boot sector. If the device does not exist or is not FAT32 it prints `fat: device N is not a FAT32 volume` and exits. A line without `arg=` leaves the server waiting for it.
+`fat` waits for the message `rs` sends it, whose first argument is the block device to serve: the manifest line is `fat path=bin/fat.elf arg=2` (device 0 is the whole disk, the partitions follow). It connects to `ata`, reads the first sector of that device and parses it as a FAT32 boot sector. If the device does not exist or is not FAT32 it prints `fat: device N is not a FAT32 volume` and exits. A line without `arg=` leaves the server waiting for it.
 
 The boot sector (`shared/include/cock/abi/fat32.hpp`, `parseBpb`, covered by the host tests) is accepted when:
 - the signature `0x55 0xAA` is at byte 510 and a sector is 512 bytes (other sector sizes are refused);

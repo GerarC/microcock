@@ -1,7 +1,7 @@
 /** @file
- * @brief Connect calls of programs `init` has not registered yet, kept until it does.
+ * @brief Connect calls of programs `rs` has not registered yet, kept until it does.
  *
- * `init` starts a program and registers it afterwards, so the first call of a new program can reach the name
+ * `rs` starts a program and registers it afterwards, so the first call of a new program can reach the name
  * server before the registration. Answering `UNKNOWN_CLIENT` would make the program retry and sometimes lose
  * the race. The call is detached instead, and answered when the registration arrives.
  */

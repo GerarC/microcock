@@ -5,10 +5,10 @@ The one file system name clients use. It reads a mount table, picks the server t
 ## Where it sits
 
 ```text
-sh, init clients, test programs --FS_*--> vfs --FS_*--> ramfs, fat, ext, mute
+sh, rs clients, test programs --FS_*--> vfs --FS_*--> ramfs, fat, ext, mute
 ```
 
-- It is spawned from the initrd by `init` (`vfs path=bin/vfs.elf` in `initrd/manifest.conf`). It needs no capabilities and receives no `CAPABILITY_GRANTED`.
+- It is spawned from the initrd by `rs` (`vfs path=bin/vfs.elf` in `initrd/manifest.conf`). It needs no capabilities and receives no `CAPABILITY_GRANTED`.
 - At start it connects to `ramfs` by name, reads `mounts.conf` from the initrd and prints `vfs: <n> mounts`. A missing or bad file prints `vfs: cannot read mounts.conf` or the line and error and exits with status 1.
 - The mount table of the system is `/ ramfs`, `/fat fat` and `/ext ext` (`initrd/mounts.conf`). The test initrd appends `/mute mute` (`test/initrd/mounts.conf`), so the test boot prints `vfs: 4 mounts`.
 - The block device each server uses is the `arg=` of its manifest line, not part of the mount.

@@ -447,7 +447,7 @@ inline bool cap_revoke(uint32_t node) {
 /**
  * @brief Finds the process the kernel started from a boot module (`SYS_MODULE_PROCESS`).
  *
- * Only a process with grant authority may call it; `init` uses it to find the programs the kernel
+ * Only a process with grant authority may call it; `rs` uses it to find the programs the kernel
  * starts before it runs, such as the name server. Every other program finds a server through the
  * name server (`names.hpp`).
  * @param name NUL terminated boot module name; its length is measured here.
@@ -534,7 +534,7 @@ inline uint32_t module_open(const char *name) {
 /**
  * @brief Gives the index of a data boot module (`SYS_MODULE_INDEX`).
  *
- * Only a process with grant authority may call it; `init` uses it to grant the
+ * Only a process with grant authority may call it; `rs` uses it to grant the
  * `BOOT_MODULE` capability for one module.
  * @param name NUL terminated module name; its length is measured here.
  * @return The module index, or `NO_MODULE` when unknown or not allowed.

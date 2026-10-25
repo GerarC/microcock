@@ -1,11 +1,12 @@
 # Userland
 
-Programs that run in Ring 3 under `userland/` and `test/userland/`. Only `init` is born with authority; every other program gets its capabilities from the manifest. Each program has a `README.md` next to its sources.
+Programs that run in Ring 3 under `userland/` and `test/userland/`. Only `rs` is born with authority; every other program gets its capabilities from the manifest. Each program has a `README.md` next to its sources.
 
 | Page | Topic | Program README |
 |------|-------|----------------|
-| [userland.md](userland.md) | Boot modules, the system call ABI, the manifest, the user library | [lib](../../userland/lib/README.md), [init](../../userland/init/README.md) |
-| [init_contract.md](init_contract.md) | What the first program receives and must do, and how to replace `init` | [init](../../userland/init/README.md) |
+| [userland.md](userland.md) | Boot modules, the system call ABI, the manifest, the user library | [lib](../../userland/lib/README.md), [rs](../../userland/rs/README.md) |
+| [init_contract.md](init_contract.md) | What the first program receives and must do, and how to replace `rs` | [rs](../../userland/rs/README.md) |
+| [pm.md](pm.md) | The process manager, `rs` and `init`: who creates processes and who keeps the table | [pm](../../userland/pm/README.md), [rs](../../userland/rs/README.md), [init](../../userland/init/README.md) |
 | [names.md](names.md) | The name server: connecting to a server by name, with the `ipc=` policy checked then | [names](../../userland/names/README.md) |
 | [keyboard.md](keyboard.md) | The PS/2 driver and how an interrupt reaches it | [kbd](../../userland/kbd/README.md) |
 | [vga.md](vga.md) | The kernel console and the display server | [vga_driver](../../userland/vga_driver/README.md) |

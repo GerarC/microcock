@@ -11,7 +11,7 @@ namespace cock::console {
 /**
  * @brief Takes the ports of the first serial line.
  *
- * Needs the port capability that `init` grants, so it must run after `CAPABILITY_GRANTED`.
+ * Needs the port capability that `rs` grants, so it must run after `CAPABILITY_GRANTED`.
  *
  * @return True when the ports are granted, false when the capability is missing.
  */

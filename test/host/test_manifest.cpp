@@ -253,6 +253,20 @@ void checkRestartRules() {
 	CHECK_TRUE(errorOf("server path=x repeat=2 restart=1\n") == Error::BAD_VALUE);
 }
 
+void checkParentRules() {
+	Manifest manifest;
+	CHECK_TRUE(parses("shell path=bin/sh.elf parent=init\n", manifest));
+	CHECK_TRUE(manifest.entries[0].startedByInit);
+	CHECK_TRUE(parses("shell path=bin/sh.elf\n", manifest));
+	CHECK_FALSE(manifest.entries[0].startedByInit);
+	CHECK_TRUE(errorOf("shell path=x parent=rs\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("shell path=x parent=\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("shell path=x parent=init parent=init\n") == Error::DUPLICATE_KEY);
+	CHECK_TRUE(errorOf("module parent=init\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("shell path=x repeat=2 parent=init\n") == Error::BAD_VALUE);
+	CHECK_TRUE(errorOf("shell path=x restart=2 parent=init\n") == Error::BAD_VALUE);
+}
+
 void checkIpcRules() {
 	Manifest manifest;
 	CHECK_TRUE(parses("sh path=bin/sh.elf ipc=console,vfs\n", manifest));
@@ -339,6 +353,7 @@ void testManifest() {
 	checkKeyRules();
 	checkRepeatBounds();
 	checkRestartRules();
+	checkParentRules();
 	checkIpcRules();
 	checkNames();
 	checkErrorLines();

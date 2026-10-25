@@ -20,7 +20,7 @@ constexpr size_t MAX_ALLOWED = abi::service::MAX_SPAWN_IPC;
 /** Process id of a service that is not running. */
 constexpr uint32_t NOT_RUNNING = 0xFFFFFFFF;
 
-/** One program of the system, as `init` described it. */
+/** One program of the system, as `rs` described it. */
 struct Service {
 	/** True for a used slot. */
 	bool defined;
@@ -30,7 +30,7 @@ struct Service {
 	char name[MAX_PATH_BYTES + 1];
 	/** Process id of the running program, or `NOT_RUNNING`. */
 	uint32_t pid;
-	/** Endpoint the running program receives on, which `connect` gives clients a handle on; `NO_ENDPOINT` when `init` bound none. */
+	/** Endpoint the running program receives on, which `connect` gives clients a handle on; `NO_ENDPOINT` when `rs` bound none. */
 	uint32_t endpoint;
 	/** Labels this program may talk to (its `ipc=` list). */
 	uint32_t allowed[MAX_ALLOWED];

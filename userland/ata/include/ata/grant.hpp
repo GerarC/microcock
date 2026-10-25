@@ -1,5 +1,5 @@
 /** @file
- * @brief Waiting for the capabilities `init` grants to the block server.
+ * @brief Waiting for the capabilities `rs` grants to the block server.
  */
 #ifndef ATA_GRANT_HPP
 #define ATA_GRANT_HPP

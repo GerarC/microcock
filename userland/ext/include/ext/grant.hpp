@@ -1,5 +1,5 @@
 /** @file
- * @brief Waiting for the grant `init` sends to the ext2 server.
+ * @brief Waiting for the grant `rs` sends to the ext2 server.
  */
 #ifndef EXT_GRANT_HPP
 #define EXT_GRANT_HPP

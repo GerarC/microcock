@@ -1,0 +1,66 @@
+# pm
+
+The process manager. It creates the processes of the system after boot, is their parent in the kernel, and keeps the table of them: process id, parent, state. It is the first of the Linux-like process model (see the roadmap, stage L): `wait`, `exec`, signals and `fork` will be requests to it, and the kernel will only gain small primitives.
+
+## Where it sits
+
+```text
+rs   --ALLOCATE, SPAWN, REGISTER, PERMIT--> pm --SYS_PROC_CREATE .. START--> kernel
+init --ALLOCATE, SPAWN-------------------> pm
+any  --LIST------------------------------> pm
+kernel --PROCESS_EXITED--> pm --PM_EXITED, PM_SPAWNED--> rs
+```
+
+- It is not a boot module. `rs` reads `bin/pm.elf` from the initrd and creates it itself (`spawnDirect`), because nothing can create it for `rs`. Every other program of the manifest is created by `pm` on request of `rs` or of `init`.
+- It holds the right to create processes (`caps=spawn` in the manifest), an `IPC` capability over the labels of the programs (`PROGRAM_SERVICE_BASE` on, `PROGRAM_LABEL_COUNT` of them, grantable), an `ENDPOINT` capability on the endpoint of the name server (so the processes it creates can be given their initial handle) and a handle on the endpoint of `rs`. **No port, interrupt line or device memory**: `rs` keeps granting those after the process exists.
+- A program is its kernel child, so the kernel sends `pm` the exit notice of each one (`MAX_NOTIFIED_CHILDREN`, 64). `pm` marks the row and, for the processes `rs` asked about, sends `rs` a `PM_EXITED` message with the same numbers.
+- The kernel does not know `pm`. If it dies, the table and the notices of its children are lost, because their parent disappears; `rs` could start another one but not rebuild the table. Minix has the same limit.
+
+## Protocol
+
+Synchronous calls of four words through a handle on the endpoint of `pm`; the badge of the handle is the process id of the caller. The words are in `shared/include/cock/abi/pm.hpp`.
+
+| Operation | Who | What |
+|-----------|-----|------|
+| `ALLOCATE bytes` | `rs`, `init` | `pm` makes a shared object of that size, shares it with the caller for writing and returns its id. One object per caller |
+| `SPAWN object` | `rs`, `init` | The first page of the object holds a `SpawnRequest` (name, rights, flags, image size) and the image starts at `IMAGE_OFFSET`. `pm` copies the request, checks it and creates the process; the reply carries the kernel process id and the id in the table |
+| `REGISTER kernel parent wanted` | `rs` | Adds a process that already runs (the boot modules, `pm` itself) |
+| `PERMIT label` | `rs` | `init` may create processes with that label |
+| `LIST index` | anyone with a handle | One row: kernel id, id in the table, parent, state |
+
+The size of the object is `pm`'s own, so a caller cannot make `pm` read past it by lying about the image size. `pm` checks that the name ends, the flags are known, the image fits the object, the label is a program label and there are at most eight IPC labels; the kernel checks the rights again against what `pm` holds.
+
+`init` gets less than `rs`: only labels that `rs` permitted (the manifest entries with `parent=init`), no IPC labels, no flags, and the initial handle is always the one on the name server. After it creates a process, `pm` sends `rs` a `PM_SPAWNED` message so `rs` can register the process with the name server and equip it.
+
+## Process ids
+
+The id in the table is not the kernel one. The table numbers processes from 2 in the order they arrive and keeps 1 for `init`, the first process of the system as Linux sees it. A restarted `init` takes id 1 again. The parent of a process is the id in the table of whoever asked for it.
+
+## Limits and known gaps
+
+- 128 rows. A row of a process that exited stays (it is the zombie of the future `wait`) and is reused only when no row is free; a row whose notice to `rs` is still pending is not reused.
+- No `wait`, no `exec`, no signals, no `fork` yet; the state is only running or exited, without a zombie that anyone collects.
+- A notice that `rs` has no room for is tried again every 50 ms; the inbox of `rs` holds what the kernel allows.
+- The boot modules are registered but never marked as exited: their parent is the kernel, which sends no notice.
+- `pm` trusts `rs` completely, and trusts the label it is given: it can give a process any program label, so a flaw in `pm` is a flaw in the name server policy. That is the price of keeping it away from hardware.
+
+## Source layout
+
+| File | Holds |
+|------|-------|
+| `src/main.cpp` | `main`: the grant, then the accept loop that serves calls, takes messages and delivers pending notices |
+| `src/grant.cpp`, `include/pm/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED`; returns the handle on `rs` and the endpoint of the name server |
+| `src/state.cpp`, `include/pm/state.hpp` | The table, the handle on `rs`, who is `ROOT`, `INIT` or `OTHER` (`callerOf`), the labels permitted to `init` |
+| `src/objects.cpp`, `include/pm/objects.hpp` | The shared objects `pm` makes for callers |
+| `src/spawn.cpp`, `include/pm/spawn.hpp` | `spawnFromObject`: checks the request and creates the process with `cock::user::spawn` |
+| `src/requests.cpp`, `include/pm/requests.hpp` | `serve`: one call, who may make it |
+| `src/exit_notice.cpp`, `include/pm/exit_notice.hpp` | `takeMessage` (`PROCESS_EXITED`) and `flushNotices` (`PM_EXITED`, `PM_SPAWNED`) |
+| `Makefile` | `NAME = pm`, `CONSOLE_CLIENT = no` (it prints before `console` exists), a minimal `LIBC_SRCS` |
+
+The table itself is in `shared/include/cock/pm/table.hpp` (host tests in `test/host/test_pm_table.cpp`) and the client in `userland/lib/include/cock/user/pm.hpp`. The test program `pmclient` checks the table and the refusals.
+
+## Documentation
+
+- [pm](../../documentation/userland/pm.md)
+- [rs](../rs/README.md)
+- [init](../init/README.md)

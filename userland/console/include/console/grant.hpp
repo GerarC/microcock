@@ -1,5 +1,5 @@
 /** @file
- * @brief Waiting for the capabilities `init` grants to the console server.
+ * @brief Waiting for the capabilities `rs` grants to the console server.
  */
 #ifndef CONSOLE_GRANT_HPP
 #define CONSOLE_GRANT_HPP

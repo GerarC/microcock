@@ -1,5 +1,5 @@
 /** @file
- * @brief Waiting for the capabilities `init` grants to the clock server.
+ * @brief Waiting for the capabilities `rs` grants to the clock server.
  */
 #ifndef RTC_GRANT_HPP
 #define RTC_GRANT_HPP

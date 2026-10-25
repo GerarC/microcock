@@ -125,13 +125,13 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 
 ## Stage 8: your first program
 
-**Read:** [userland](userland/userland.md), then the README of the [user library](../userland/lib/README.md) and of [init](../userland/init/README.md).
+**Read:** [userland](userland/userland.md), then the README of the [user library](../userland/lib/README.md) and of [rs](../userland/rs/README.md).
 
 **Open:**
 1. `userland/linker.ld` and `userland/common.mk`: how every program is linked.
 2. `userland/lib/include/cock/user/api.hpp`: the C++ wrappers of the system calls.
 3. `libc/include/sys/syscalls.h`: the raw system call and why it must not address memory through `EBP`.
-4. `userland/init/main.cpp`: the root server and its policy.
+4. `userland/rs/src/main.cpp`: the root server and its policy.
 
 **Look for:** every program defines `main` and `userland/lib/src/crt0.cpp` is the entry that calls it. Most programs end with `exit_process`; servers such as `sh` and `vga_driver` loop forever on their input instead.
 

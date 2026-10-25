@@ -70,7 +70,7 @@ OBJ_CORE    = $(OBJ_CPP) $(OBJ_ASM)
 OBJ            = $(OBJ_CORE) $(CRTBEGIN_OBJ) $(CRTEND_OBJ)
 LINKER_I686 = cock/arch/x86/linker.ld
 
-USERLAND_BOOT_ORDER = init names ramfs vga_driver
+USERLAND_BOOT_ORDER = rs names ramfs vga_driver
 INITRD_STAGE = $(BUILD)/initrd_root
 INITRD_PROGRAMS = bin
 INITRD_DIR = initrd
@@ -161,7 +161,7 @@ $(BUILD)/$(PROJECT).iso: $(BUILD)/$(PROJECT).bin userland $(INITRD_IMAGE)
 	@if ls build/userland/*.elf 1> /dev/null 2>&1; then \
 		for name in $(USERLAND_BOOT_ORDER); do \
 			source=$$name; \
-			if [ "$(FUZZ)" = root ] && [ "$$name" = init ]; then source=fuzz; fi; \
+			if [ "$(FUZZ)" = root ] && [ "$$name" = rs ]; then source=fuzz; fi; \
 			if [ -f build/userland/$$source.elf ]; then \
 				cp build/userland/$$source.elf build/isodir/boot/$$name.elf; \
 				echo "    module /boot/$$name.elf \"$$name\"" >> build/isodir/boot/grub/grub.cfg; \

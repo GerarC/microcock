@@ -39,7 +39,7 @@ A length of 0 or more than 12 is `BAD_REQUEST`. `BUSY` answers a `READ` when the
 | `console` | It would call itself |
 | `vga_driver` | The server draws on it |
 | `kbd` | The input path does not depend on the server it feeds |
-| `init` | It prints before the server has its capabilities, and a call to a server that waits for its grant would block both |
+| `rs` | It prints before the server has its capabilities, and a call to a server that waits for its grant would block both |
 | `ramfs` | It starts before the server |
 
 ## Limits

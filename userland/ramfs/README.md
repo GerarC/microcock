@@ -1,17 +1,17 @@
 # ramfs
 
-The file server of the initial ramdisk. It maps the `initrd`, a ustar archive loaded as a data boot module, and answers the common file protocol read only. It is the first file server to exist: `init` reads `manifest.conf` through it, and `vfs` reads `mounts.conf` through it.
+The file server of the initial ramdisk. It maps the `initrd`, a ustar archive loaded as a data boot module, and answers the common file protocol read only. It is the first file server to exist: `rs` reads `manifest.conf` through it, and `vfs` reads `mounts.conf` through it.
 
 ## Where it sits
 
 ```text
-init, vfs --FS_*--> ramfs --maps--> initrd boot module (ustar archive)
+rs, vfs --FS_*--> ramfs --maps--> initrd boot module (ustar archive)
 ```
 
 - It is a Multiboot module (`ramfs` is in `USERLAND_BOOT_ORDER`), not a file of the initrd, and it has no line in either manifest.
-- Capability: `BOOT_MODULE` for the single module `initrd`, granted by `init` in its own code (`SYS_CAP_GRANT`), followed by `CAPABILITY_GRANTED`. That is the only policy hard written in `init`.
+- Capability: `BOOT_MODULE` for the single module `initrd`, granted by `rs` in its own code (`SYS_CAP_GRANT`), followed by `CAPABILITY_GRANTED`. That is the only policy hard written in `rs`.
 - Until the grant arrives, requests are kept (up to 16) and answered afterwards. After it, the server calls `SYS_MODULE_OPEN`, maps the module read only and builds the index. If either step fails it exits with status 1.
-- `vfs` mounts it on `/` through `mounts.conf` (`/ ramfs`). Programs reach it by the path `/...` through `vfs`; only `init` and `vfs` talk to it directly.
+- `vfs` mounts it on `/` through `mounts.conf` (`/ ramfs`). Programs reach it by the path `/...` through `vfs`; only `rs` and `vfs` talk to it directly.
 - It opts out of the console client (`CONSOLE_CLIENT = no`) because it starts before the console server.
 
 ## Protocol
@@ -59,7 +59,7 @@ make run-headless
 bash scripts/qemu_userland_test.sh
 ```
 
-Add `HOST_TOOLCHAIN=1` without the cross compiler. The archive is made by the `Makefile` (`build/initrd.tar`; the `iso` rule also adds the test files with `TEST_INITRD=1`). The end to end script requires `init: initrd is boot module`, the manifest parse, ten `fsclient: ok` lines (dead sessions are released) and the file checks of `probe` (`initrdFileReads`, `fileServerListsDirectories`, `fileServerRefusesBadRequests`).
+Add `HOST_TOOLCHAIN=1` without the cross compiler. The archive is made by the `Makefile` (`build/initrd.tar`; the `iso` rule also adds the test files with `TEST_INITRD=1`). The end to end script requires `rs: initrd is boot module`, the manifest parse, ten `fsclient: ok` lines (dead sessions are released) and the file checks of `probe` (`initrdFileReads`, `fileServerListsDirectories`, `fileServerRefusesBadRequests`).
 
 ## Limits and known gaps
 

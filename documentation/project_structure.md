@@ -40,7 +40,9 @@ The codebase strictly separates the architecture-dependent code, the kernel core
 │   ├── common.mk                   # Shared build rules
 │   ├── linker.ld                   # Link address of every program
 │   ├── lib/include/cock/user/      # `cock::user` API
-│   ├── init/                       # Root server
+│   ├── rs/                         # Root server (reincarnation server): grants, starts servers through `pm`, restarts them
+│   ├── pm/                         # Process manager: creates processes, parent in the kernel, table
+│   ├── init/                       # First process (id 1) without authority: starts the shell
 │   ├── names/                      # Name server (connect by name, `ipc=` policy)
 │   ├── console/                    # Console server (input line, serial and screen output)
 │   ├── kbd/                        # Keyboard driver

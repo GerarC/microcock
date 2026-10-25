@@ -9,7 +9,7 @@ fat, ext, blkclient --BLK_*--> ata --port I/O--> primary channel, master drive
 ```
 
 - Capabilities, from `initrd/manifest.conf`: `io:0x1F0+8` (command ports) and `io:0x3F6+1` (control port). Nothing else. The manifest line is `ata path=bin/ata.elf` with those grants; the test manifest adds only `blkclient`, which has no capabilities.
-- `init` starts it before `fat` and `ext` and sends `CAPABILITY_GRANTED`. Requests that arrive before the grant are kept (up to 16) and answered after the drive is ready.
+- `rs` starts it before `fat` and `ext` and sends `CAPABILITY_GRANTED`. Requests that arrive before the grant are kept (up to 16) and answered after the drive is ready.
 - It talks only to the master of the primary channel. Under QEMU the ISO is the master of the secondary channel, so the two do not clash.
 
 ## Protocol
@@ -49,7 +49,7 @@ On `BLK_CONNECT` the server creates a one page shared memory object, shares it w
 | `src/requests.cpp`, `include/ata/requests.hpp` | `answerInfo`, `answerRead`, `answerWrite` |
 | `src/pending.cpp`, `include/ata/pending.hpp` | `keepPending` and `handlePending`: requests that arrive before the grant |
 | `src/reply.cpp`, `include/ata/reply.hpp` | `reply`: sends `BLK_REPLY` |
-| `include/ata/drive.hpp` | `cock::ata::Drive`: port registers, `init`, `read`, `write`, status polling; header only |
+| `include/ata/drive.hpp` | `cock::ata::Drive`: port registers, `rs`, `read`, `write`, status polling; header only |
 | `Makefile` | `NAME = ata`, `SRCS` under `src/` and the small `LIBC_SRCS` list |
 
 ## Build, run, test

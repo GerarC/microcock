@@ -1,5 +1,5 @@
 /** @file
- * @brief Waiting for the grant `init` sends to the FAT32 server.
+ * @brief Waiting for the grant `rs` sends to the FAT32 server.
  */
 #ifndef FAT_GRANT_HPP
 #define FAT_GRANT_HPP

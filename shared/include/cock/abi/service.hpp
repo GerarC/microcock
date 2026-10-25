@@ -3,7 +3,7 @@
  * @brief Service labels: the stable names under which the name server applies its policy and the `IPC`
  * capability decides which labels a spawner may give.
  *
- * A label belongs to a program, not to a running process, so it survives a restart: `init` gives the
+ * A label belongs to a program, not to a running process, so it survives a restart: `rs` gives the
  * same label to the new process that replaces a dead server, and the endpoint bound to that label
  * keeps working for its clients. The kernel compares no label when a message is sent: the handle is
  * the permission. A process has no label until `SYS_SERVICE_SET` gives it one, and the label
@@ -19,16 +19,25 @@ namespace cock::abi::service {
 
 /** Label of a process that has none. No capability covers it except the root one. */
 constexpr uint32_t NO_SERVICE = 0;
-/** Label that the kernel gives to the first program, `init`. */
+/** Label that the kernel gives to the first program, `rs`. */
 constexpr uint32_t ROOT_SERVICE = 1;
-/** Label that `init` gives to the `ramfs` boot module, which has no line in the manifest. */
+/** Label that `rs` gives to the `ramfs` boot module, which has no line in the manifest. */
 constexpr uint32_t RAMFS_SERVICE = 2;
-/** Label that `init` gives to the name server, the second boot module. */
+/** Label that `rs` gives to the name server, the second boot module. */
 constexpr uint32_t NAMES_SERVICE = 3;
-/** Process id of `init`: the kernel starts it first, and the idle thread has id 0. */
+/** Process id of `rs`: the kernel starts it first, and the idle thread has id 0. */
 constexpr uint32_t ROOT_PID = 1;
 /** Label of the first program of the manifest; the program at index `n` gets `PROGRAM_SERVICE_BASE + n`. */
 constexpr uint32_t PROGRAM_SERVICE_BASE = 16;
+
+/**
+ * @brief Label of the manifest entry at a position.
+ * @param index Position of the entry in `manifest.conf`, from 0.
+ * @return `PROGRAM_SERVICE_BASE + index`, the same for every process started from that entry and for the one that replaces it after a restart.
+ */
+constexpr uint32_t programLabel(size_t index) {
+	return PROGRAM_SERVICE_BASE + static_cast<uint32_t>(index);
+}
 /** Number of labels that the root IPC capability covers, from `NO_SERVICE` on: all of them. */
 constexpr uint64_t SERVICE_LABEL_COUNT = uint64_t(1) << 32;
 /** Largest count of labels one `SYS_CAP_GRANT` can name, since its arguments have 32 bits: every label except the last. */

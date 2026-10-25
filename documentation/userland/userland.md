@@ -8,21 +8,24 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 
 | Program | Role |
 |---------|------|
-| `init` | Root server. The only process born with authority; it grants `ramfs` the `initrd`, reads `manifest.conf` through `ramfs` and does what each line says (starts programs with `cock::user::spawn`, grants capabilities), then exits |
-| `names` | Name server, the second boot module. `init` describes the system to it; a program asks it, through the handle it was born with, for a handle on a server; see [names](names.md) |
+| `rs` | Root server. The only process born with authority; it grants `ramfs` the `initrd`, reads `manifest.conf` through `ramfs` and does what each line says (asks `pm` to start the programs, grants capabilities) and then serves the notices of `pm` for ever, starting the servers again when they end; see [pm](pm.md) |
+| `pm` | Process manager. `rs` creates it from the initrd and it creates every other process after it; it is their parent in the kernel and keeps the table; see [pm](pm.md) |
+| `init` | The first process as Linux sees it (id 1), without authority: starts the programs of the manifest that carry `parent=init` (the shell) and starts them again; see [pm](pm.md) |
+| `pmclient` | Test program: lists the table of `pm`, checks the first rows, its own row and that a caller that is not `rs` is refused; the end to end test requires `pmclient: ok` |
+| `names` | Name server, the second boot module. `rs` describes the system to it; a program asks it, through the handle it was born with, for a handle on a server; see [names](names.md) |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
-| `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `init` can read the manifest) |
+| `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `rs` can read the manifest) |
 | `console` | Console server: owns the serial port `0x3F8+8` and the input line; serves `CON_WRITE` and `CON_READ` as synchronous calls, echoes typed keys on the display server; see [console](console.md) |
-| `fuzz` | Syscall fuzzer, only started with `FUZZ=user` (from the manifest) or `FUZZ=root` (as the module `init`); see [fuzzer](fuzzer.md) |
+| `fuzz` | Syscall fuzzer, only started with `FUZZ=user` (from the manifest) or `FUZZ=root` (as the module `rs`); see [fuzzer](fuzzer.md) |
 | `contruncated` | Test program: sends a text to `console` without the closing chunk and exits, to check that the server shows what a dead program had sent |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the console server |
 | `sh` | The shell: prompt, a line read from `console`, and the built-in commands `help`, `version`, `echo`, `ls`, `cat`, `write`, `mkdir`, `rmdir`, `rm`, `mv`, `sleep` and `clear`; files go through the `vfs` client; see [shell](shell.md). Started last by the system manifest |
 | `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp`, `files.cpp` and `threads.cpp`, `thread_library.cpp`, `sync.cpp` and `startup.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 54/54 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
-| `fsclient` | Reads a file from the `initrd` and exits; `init` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |
+| `fsclient` | Reads a file from the `initrd` and exits; `rs` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |
 | `aborter` | Calls `abort()` so the end to end test sees its message and the process being reaped |
 | `rtc` | Clock server, the only owner of the CMOS ports `0x70+2` (granted by the manifest); answers `RTC_READ` with the date and time read twice until two reads agree, so two servers can never interleave on the index port; started before `fat` and `ext` |
-| `ata` | Block server for the first IDE disk: PIO reads, MBR and GPT partitions; started by `init` with the ports `0x1F0+8` and `0x3F6+1`; see [block storage](block_storage.md) |
+| `ata` | Block server for the first IDE disk: PIO reads, MBR and GPT partitions; started by `rs` with the ports `0x1F0+8` and `0x3F6+1`; see [block storage](block_storage.md) |
 | `fat` | FAT32 server over the block protocol; see [FAT32](fat32.md) |
 | `vfs` | The file server clients talk to: mount table of `/` (`ramfs`) and `/fat` (`fat`); see [file system](filesystem.md#the-vfs-server) |
 | `fatclient` | Reads files, a long name, a nested file, a multi-cluster file and a listing from `/fat`, and checks the refusals; the end to end test requires its output |
@@ -33,16 +36,16 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `muteclient` | Checks that requests to a dead server fail instead of hanging, through `vfs` and directly |
 | `blkclient` | Lists the devices of `ata` and reads the first sector of the first partition; the end to end test checks its output |
 
-The processes see each other through the name server: a program calls `cock::user::names::connect("kbd")` and gets the process id of the server and, if the manifest allows it, the right to talk to it. The kernel finds a process by name only for `init`, and only among the boot modules (`SYS_MODULE_PROCESS`). See [names](names.md).
+The processes see each other through the name server: a program calls `cock::user::names::connect("kbd")` and gets the process id of the server and, if the manifest allows it, the right to talk to it. The kernel finds a process by name only for `rs`, and only among the boot modules (`SYS_MODULE_PROCESS`). See [names](names.md).
 
 ## How the system starts the userland
 1. The Makefile builds every `userland/*/Makefile` into `build/userland/<name>.elf`. With `TEST_INITRD=1` it also builds `test/userland/*/Makefile`.
-2. It packs the files of the `initrd/` folder and, under `bin/`, every program of those folders that is not a boot module into `build/initrd.tar` (ustar). With `TEST_INITRD=1` the files of `test/initrd/` are added, and the `manifest.conf` and `mounts.conf` of the two folders are joined (system lines first), so a normal `make iso` boots the system with no test program and `make iso TEST_INITRD=1` boots the same system plus the tests. It writes a `grub.cfg` with one `module` line for each program of `USERLAND_BOOT_ORDER` (`init`, `names`, `ramfs`, `vga_driver`), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](../core/memory_management.md)), so it never becomes a process.
-3. The kernel loads each module as a process (`init`, `names`, `ramfs`, `vga_driver`) and gives the root capabilities to the first one, `init`.
-4. `init` labels `names` and gives it the right to pass on `IPC` capabilities, registers `ramfs`, grants `ramfs` the `initrd` and sends it `CAPABILITY_GRANTED`; this is the only policy written in its code. It then reads `manifest.conf` through `ramfs`, parses it, sends the programs and the `ipc=` policy to the name server, and runs each line in order (see below). A spawned process is born with no capabilities, so the grants of its line are what it gets. `vga_driver` maps the screen, and `kbd` enables the port and binds the interrupt.
+2. It packs the files of the `initrd/` folder and, under `bin/`, every program of those folders that is not a boot module into `build/initrd.tar` (ustar). With `TEST_INITRD=1` the files of `test/initrd/` are added, and the `manifest.conf` and `mounts.conf` of the two folders are joined (system lines first), so a normal `make iso` boots the system with no test program and `make iso TEST_INITRD=1` boots the same system plus the tests. It writes a `grub.cfg` with one `module` line for each program of `USERLAND_BOOT_ORDER` (`rs`, `names`, `ramfs`, `vga_driver`), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](../core/memory_management.md)), so it never becomes a process.
+3. The kernel loads each module as a process (`rs`, `names`, `ramfs`, `vga_driver`) and gives the root capabilities to the first one, `rs`. `rs` creates the process manager `pm` itself and every other program through it; `init` starts the programs marked `parent=init` (see [pm](pm.md)).
+4. `rs` labels `names` and gives it the right to pass on `IPC` capabilities, registers `ramfs`, grants `ramfs` the `initrd` and sends it `CAPABILITY_GRANTED`; this is the only policy written in its code. It then reads `manifest.conf` through `ramfs`, parses it, sends the programs and the `ipc=` policy to the name server, and runs each line in order (see below). A spawned process is born with no capabilities, so the grants of its line are what it gets. `vga_driver` maps the screen, and `kbd` enables the port and binds the interrupt.
 5. A key press travels: keyboard controller, IRQ 1, kernel (`IRQ_NOTIFICATION`), `kbd` reads the scan code and acknowledges the line, `kbd` sends `CONSOLE_KEY` to `console`, `console` edits the line and sends the echo to `vga_driver`, which draws it.
 
-A driver that needs a new capability needs a new `cap_grant` in `userland/init/main.cpp`; see [capabilities](../core/capabilities.md). The display server is described in [VGA](vga.md) and the keyboard driver in [keyboard](keyboard.md).
+A driver that needs a new capability needs a new `cap_grant` in `userland/rs/src/main.cpp`; see [capabilities](../core/capabilities.md). The display server is described in [VGA](vga.md) and the keyboard driver in [keyboard](keyboard.md).
 
 ## The manifest
 `manifest.conf` in the initrd says which programs run and what authority each one gets. It is plain text, one entry per line; empty lines and lines that start with `#` are ignored. The parser is `shared/include/cock/abi/manifest.hpp`, which the host tests cover.
@@ -56,14 +59,15 @@ kbd path=bin/kbd.elf caps=io:0x60+1,irq:1 ipc=console
 | Part | Meaning |
 |------|---------|
 | first word | The name of the entry. It is the process name; names are unique and at most 31 bytes |
-| `path=` | A file of the initrd that `init` reads and spawns. Without it the entry is a boot module that already runs, and `init` only grants it what the line says |
+| `path=` | A file of the initrd that `rs` reads and spawns. Without it the entry is a boot module that already runs, and `rs` only grants it what the line says |
 | `caps=` | Comma separated grants: `io:first+count` (ports), `irq:line` and `mem:first+size` (physical memory) and `spawn` (the right to call `SYS_PROC_CREATE`, with no range). A final `*` (`io:0x2F8+8*`) lets the program pass the capability on, to another program or in a `CAPABILITY_TRANSFER` message; without it the grant cannot be passed on. Numbers are decimal or `0x` hexadecimal. The count of `io` and `irq` defaults to 1, `mem` needs it. At most 4 grants |
-| `arg=` | A number (decimal or `0x`) that travels in the first argument of the `CAPABILITY_GRANTED` message, for a server that needs one value (the device of `fat`). It makes `init` send the message even when the line has no grants |
+| `arg=` | A number (decimal or `0x`) that travels in the first argument of the `CAPABILITY_GRANTED` message, for a server that needs one value (the device of `fat`). It makes `rs` send the message even when the line has no grants |
 | `ipc=` | Comma separated names of the programs this one may talk to: send messages, make synchronous calls and share memory. Up to 8 names, no repeats. It is the policy the name server checks when the program connects to one of them (`names::connect`): the caller gets an `IPC` capability for the service label of the server then, not at start. The policy is symmetric: it allows the connection when either program lists the other. The label of an entry is `PROGRAM_SERVICE_BASE` plus its position in the manifest (and `ramfs`, which has no entry, has `RAMFS_SERVICE`), so it is the same after a restart. The right works in both directions: when `sh` may talk to `console`, `console` may answer `sh` |
 | `repeat=` | Run the program that many times (1 to 32), one after the other, waiting for each to exit. Only for entries with `path=` |
-| `restart=` | After the manifest is done, `init` starts the program again each time it ends, at most that many times (1 to 16) in a window of 60 seconds of its own waiting time; past the limit it gives up. Only for entries with `path=` and no `repeat=`. See `userland/init/README.md` |
+| `restart=` | After the manifest is done, `rs` starts the program again each time it ends, at most that many times (1 to 16) in a window of 60 seconds of its own waiting time; past the limit it gives up. Only for entries with `path=` and no `repeat=`. See `userland/rs/README.md` |
+| `parent=` | Only `init`: `init`, not `rs`, starts the program, through `pm`. Needs `path=`, one copy and no `restart=`. See [pm](pm.md) |
 
-When an entry has grants or an argument, `init` sends the process `CAPABILITY_GRANTED` after granting. The kernel still checks every grant against what `init` holds, so a line cannot give more than `init` has. The parser rejects the whole file at the first bad line (unknown key, repeated key, bad number, range that wraps the address space, too many entries or grants, repeated name) and `init` then starts nothing and exits; the serial log shows the line number and the error. The file is at most 4096 bytes and 32 entries. Adding a driver means adding a line here, not editing `init`.
+When an entry has grants or an argument, `rs` sends the process `CAPABILITY_GRANTED` after granting. The kernel still checks every grant against what `rs` holds, so a line cannot give more than `rs` has. The parser rejects the whole file at the first bad line (unknown key, repeated key, bad number, range that wraps the address space, too many entries or grants, repeated name) and `rs` then starts nothing and exits; the serial log shows the line number and the error. The file is at most 4096 bytes and 32 entries. Adding a driver means adding a line here, not editing `rs`.
 
 ## The `cock::user` API
 `userland/lib/include/cock/user/api.hpp` wraps the system calls for the programs written in C++:

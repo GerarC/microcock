@@ -9,7 +9,7 @@ vfs --FS_*--> ext --BLK_*--> ata
                 \--RTC_READ--> rtc
 ```
 
-- It is spawned from the initrd by `init`: `ext path=bin/ext.elf arg=3` in `initrd/manifest.conf`. It has no capabilities; `arg=` is the block device it serves.
+- It is spawned from the initrd by `rs`: `ext path=bin/ext.elf arg=3` in `initrd/manifest.conf`. It has no capabilities; `arg=` is the block device it serves.
 - The test manifest starts the same program a second time as `ext4probe` with `arg=4`, the ext4 volume of the test disk, to show that it is refused. The test boot therefore prints `ext: device 4: unsupported feature extents`.
 - `vfs` mounts it with the line `/ext ext` of `initrd/mounts.conf`.
 - It is a client of `ata` and of `rtc` and a server of the file protocol through `cock::user::FileServer<Ext>`, like `fat`. On success it prints `ext: device <n>, <blocks> blocks of <bytes> bytes, <inodes> inodes`; each failure prints why and the server exits with status 1.

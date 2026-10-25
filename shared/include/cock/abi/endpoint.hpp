@@ -3,7 +3,7 @@
  * @brief Endpoints and handles: the destination of a message is an endpoint the sender holds a handle on, not a process id.
  *
  * An endpoint is a numbered mailbox in the kernel. One process at a time is bound to it and receives what is sent to it;
- * `init` can bind another process after the first one dies, and the handles that clients hold keep working. The messages
+ * `rs` can bind another process after the first one dies, and the handles that clients hold keep working. The messages
  * and the synchronous calls sent to the endpoint wait in a queue that belongs to the endpoint, so the process bound next
  * receives what was sent while nobody was bound. A handle is an
  * `ENDPOINT` capability: `SYS_EP_SEND` and `SYS_EP_CALL` take the number of its node of the derivation tree. Every handle

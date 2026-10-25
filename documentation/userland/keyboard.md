@@ -10,7 +10,7 @@ A process starts with no access to the hardware, so `kbd` depends on what the ro
 | `IO_PORTS`, port `0x60` | Read the scan code from the keyboard controller |
 | `IRQ`, line 1 | Receive the keyboard interrupt |
 
-`init` grants both and then sends `CAPABILITY_GRANTED` to `kbd`. The argument of that message is the process id of the display server, which is where the characters will go.
+`rs` grants both and then sends `CAPABILITY_GRANTED` to `kbd`. The argument of that message is the process id of the display server, which is where the characters will go.
 
 ## Start-up
 ```cpp
@@ -28,7 +28,7 @@ extern "C" int main() {
 ```
 
 1. It blocks on `ipc_recv` until a `CAPABILITY_GRANTED` message arrives, and takes the first one it receives. The kernel only lets a process that holds grant authority send that type, so the message can only come from the root server.
-2. It enables port `0x60` in its permission bitmap (`SYS_REQUEST_RESOURCE`) and binds IRQ 1 (`SYS_IRQ_BIND`). Either one is denied if `init` did not grant it, and then the driver prints `kbd: cannot bind the keyboard` and exits.
+2. It enables port `0x60` in its permission bitmap (`SYS_REQUEST_RESOURCE`) and binds IRQ 1 (`SYS_IRQ_BIND`). Either one is denied if `rs` did not grant it, and then the driver prints `kbd: cannot bind the keyboard` and exits.
 3. It prints `kbd: ready`. The end to end test waits for that line on the serial log.
 
 ## Main loop

@@ -1,5 +1,5 @@
 /** @file
- * @brief Waiting for the capabilities `init` grants to the `ramfs` server.
+ * @brief Waiting for the capabilities `rs` grants to the `ramfs` server.
  */
 #ifndef RAMFS_GRANT_HPP
 #define RAMFS_GRANT_HPP

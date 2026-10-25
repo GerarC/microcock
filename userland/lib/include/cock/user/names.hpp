@@ -29,9 +29,9 @@
 namespace cock::user::names {
 
 /**
- * Longest wait, in milliseconds, for the answer of the name server. `init` registers a program after it
- * starts running, so the name server keeps the call of an unregistered program until `init` registers it
- * (`names/parked.hpp`); this limit only ends the wait of a program that `init` never registers.
+ * Longest wait, in milliseconds, for the answer of the name server. `rs` registers a program after it
+ * starts running, so the name server keeps the call of an unregistered program until `rs` registers it
+ * (`names/parked.hpp`); this limit only ends the wait of a program that `rs` never registers.
  */
 constexpr uint32_t CONNECT_WAIT_MS = 2000;
 
@@ -84,13 +84,13 @@ inline bool sendParts(const char *name, size_t length, Connection &connection) {
 /**
  * @brief Asks the name server for a handle on a server.
  *
- * Blocks until the name server answers. Right after a program starts, `init` may not have registered it yet;
+ * Blocks until the name server answers. Right after a program starts, `rs` may not have registered it yet;
  * the name server then holds the call until it does, for at most `CONNECT_WAIT_MS`, and answers `UNKNOWN_CLIENT` if the time runs out.
  * @param name NUL terminated name of the server, 1 to `abi::names::MAX_NAME_BYTES` bytes. A name that starts
  *        with `/` is a path; any other is short for `/run/<name>`.
  * @return `OK` with the process id, the label and the handle; `NOT_FOUND` when no running program has the name;
  *         `DENIED` when the manifest does not let the caller talk to it; `UNKNOWN_CLIENT` when the caller is not
- *         a process `init` registered; `NO_ROOM` when the capability could not be given; `BAD_REQUEST` for an
+ *         a process `rs` registered; `NO_ROOM` when the capability could not be given; `BAD_REQUEST` for an
  *         empty or too long name or when the name server could not be called. In every other case than `OK` the
  *         process id is `NO_PROCESS`.
  */

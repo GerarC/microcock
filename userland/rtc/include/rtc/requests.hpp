@@ -11,7 +11,7 @@ namespace cock::rtc {
 /**
  * @brief Opens the CMOS clock registers.
  *
- * Needs the port capability the server receives from `init`, so it must run after
+ * Needs the port capability the server receives from `rs`, so it must run after
  * `CAPABILITY_GRANTED`.
  *
  * @return True when the registers can be read, false when the ports are not granted.

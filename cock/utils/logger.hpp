@@ -32,7 +32,7 @@ enum class LogLevel {
  * * Formats and dispatches log messages based on their severity level.
  * Output goes through printf to the kernel console, one line per message
  * with a level prefix and a trailing newline. Two filters apply: the compile
- * time level removes calls entirely, the run time level set by init drops the
+ * time level removes calls entirely, the run time level set by rs drops the
  * rest. Not safe for concurrent use from several CPUs.
  */
 class Logger {
@@ -138,7 +138,7 @@ class Logger {
 	}
 
   private:
-	static LogLevel minLevel; /**< Run time threshold set by init. */
+	static LogLevel minLevel; /**< Run time threshold set by rs. */
 
 	/**
 	 * @brief Variadic entry the inline helpers call after the compile time

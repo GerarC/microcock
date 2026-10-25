@@ -21,7 +21,7 @@ constexpr uint32_t FAULT_STATUS = 0xFFFFFFFF;
 /** Flag of `SYS_PROC_CREATE`: send the creator a `PROCESS_EXITED` message when the child ends. */
 constexpr uintptr_t SPAWN_NOTIFY_EXIT = 1;
 /** Most children with `SPAWN_NOTIFY_EXIT` a process may have at once, running or exited and not yet read; `SYS_PROC_START` fails past it, so no exit notice is ever dropped. */
-constexpr size_t MAX_NOTIFIED_CHILDREN = 16;
+constexpr size_t MAX_NOTIFIED_CHILDREN = 64;
 /** Handle returned by wrappers when `SYS_PROC_CREATE` failed. */
 constexpr uint32_t NO_PENDING_PROCESS = 0xFFFFFFFF;
 /** Most processes that exist between `SYS_PROC_CREATE` and `SYS_PROC_START` at once, in the whole system. */

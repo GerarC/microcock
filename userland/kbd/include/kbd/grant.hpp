@@ -1,5 +1,5 @@
 /** @file
- * @brief Waiting for the capabilities `init` grants to the keyboard driver.
+ * @brief Waiting for the capabilities `rs` grants to the keyboard driver.
  */
 #ifndef KBD_GRANT_HPP
 #define KBD_GRANT_HPP

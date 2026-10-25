@@ -167,7 +167,7 @@ bool connectGivesTheRightToTalk();
 bool connectAcceptsPathsAndLongNames();
 /** A second thread of the probe connects to the console server and learns the same process id as the first thread. */
 bool connectWorksFromAnotherThread();
-/** `DEFINE`, `ALLOW` and `BIND` sent to the name server by the probe are refused with `NOT_ROOT`: only `init` describes the system. */
+/** `DEFINE`, `ALLOW` and `BIND` sent to the name server by the probe are refused with `NOT_ROOT`: only `rs` describes the system. */
 bool registrationIsRootOnly();
 /** Connecting to the same server forty times, more than the capability table holds, still succeeds: the name server gives the capability once. */
 bool connectingTwiceUsesNoNewCapability();

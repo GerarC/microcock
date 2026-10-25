@@ -6,11 +6,11 @@ The name server. A program asks it for a server; it checks the `ipc=` policy of 
 
 ```text
 program --CONNECT (call through its initial handle)--> names --SYS_CAP_GRANT--> handle on the endpoint of the server
-init    --DEFINE, ALLOW, BIND--> names
+rs      --DEFINE, ALLOW, BIND--> names
 ```
 
-- It is the second boot module (`names` in `USERLAND_BOOT_ORDER`, between `init` and `ramfs`). It has no fixed process id: `init` finds it by its module name, binds it to an endpoint and reaches it through a handle, and every program `init` starts gets a handle on that endpoint as its initial handle (`cock::user::initialHandle()`), whose badge is the process id of the program. `init` prints `init: no name server` and exits if the module is missing.
-- `init` gives it the label `NAMES_SERVICE`, an `ENDPOINT` capability over every endpoint with the right to mint (`SYS_CAP_GRANT` with `GRANT_DELEGATE` and `GRANT_MINT`) and `CAPABILITY_GRANTED`. The server waits for that message (the badge of the message must be `ROOT_PID`) before it serves, then prints `names: ready`. Calls that arrive earlier wait in the kernel queue.
+- It is the second boot module (`names` in `USERLAND_BOOT_ORDER`, between `rs` and `ramfs`). It has no fixed process id: `rs` finds it by its module name, binds it to an endpoint and reaches it through a handle, and every program `rs` starts gets a handle on that endpoint as its initial handle (`cock::user::initialHandle()`), whose badge is the process id of the program. `rs` prints `rs: no name server` and exits if the module is missing.
+- `rs` gives it the label `NAMES_SERVICE`, an `ENDPOINT` capability over every endpoint with the right to mint (`SYS_CAP_GRANT` with `GRANT_DELEGATE` and `GRANT_MINT`) and `CAPABILITY_GRANTED`. The server waits for that message (the badge of the message must be `ROOT_PID`) before it serves, then prints `names: ready`. Calls that arrive earlier wait in the kernel queue.
 - The C library console client is switched off (`CONSOLE_CLIENT = no`): the console client connects through this server, so the server prints through the kernel.
 - It holds no port, interrupt or memory capability, and `holdsGrantAuthority` ignores the `ENDPOINT` entry, so it cannot label processes, read boot modules or send `CAPABILITY_GRANTED`.
 
@@ -25,7 +25,7 @@ The client side is `cock::user::names::connect` (`userland/lib/include/cock/user
 | File | Holds |
 |------|-------|
 | `src/main.cpp` | `main`: `waitForCapabilities`, then the accept and reply loop |
-| `src/grant.cpp`, `include/names/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED` from `init` |
+| `src/grant.cpp`, `include/names/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED` from `rs` |
 | `src/paths.cpp`, `include/names/paths.hpp` | `normalize`: a short name becomes `/run/<name>` |
 | `src/assembly.cpp`, `include/names/assembly.hpp` | `addPart`: puts a name together from its parts, per caller (host tested) |
 | `src/services.cpp`, `include/names/services.hpp` | The table of services: name, label, running process, allowed labels |
@@ -34,7 +34,7 @@ The client side is `cock::user::names::connect` (`userland/lib/include/cock/user
 | `src/connect.cpp`, `include/names/connect.hpp` | `connect`: client, server, policy, handle |
 | `src/registration.cpp`, `include/names/registration.hpp` | `registerService` (`ALLOW`, `BIND`, which also records the endpoint) and `defineProgram` (`DEFINE`), root only |
 | `src/requests.cpp`, `include/names/requests.hpp` | `serve`: dispatch of one call |
-| `src/parked.cpp`, `include/names/parked.hpp` | `park`, `answerParked`: keeps the connect call of a program `init` has not registered yet and answers it on `BIND` |
+| `src/parked.cpp`, `include/names/parked.hpp` | `park`, `answerParked`: keeps the connect call of a program `rs` has not registered yet and answers it on `BIND` |
 | `Makefile` | `NAME = names`, `SRCS`, a small `LIBC_SRCS` list, `CONSOLE_CLIENT = no` |
 
 ## Build, run, test
@@ -52,7 +52,7 @@ Use `HOST_TOOLCHAIN=1` without the cross compiler. The end to end script runs `p
 ## Limits and known gaps
 
 - It is a boot module, so nobody restarts it; if it ends, no program can connect again.
-- Only a process that `init` registered can connect, and only one that was started with an initial handle. The badge of the handle is the process id, so two threads of one program that connect at the same moment share the slot of the name being put together.
+- Only a process that `rs` registered can connect, and only one that was started with an initial handle. The badge of the handle is the process id, so two threads of one program that connect at the same moment share the slot of the name being put together.
 - Names are at most 60 bytes and eight are put together at a time; 48 programs and 128 granted pairs.
 - The policy is the `ipc=` list: no owner or mode per name yet.
 
@@ -60,4 +60,4 @@ Use `HOST_TOOLCHAIN=1` without the cross compiler. The end to end script runs `p
 
 - [The name server](../../documentation/userland/names.md)
 - [Capabilities](../../documentation/core/capabilities.md)
-- [init](../init/README.md)
+- [rs](../rs/README.md)

@@ -35,7 +35,7 @@ namespace cock::user {
  * @brief The handle the process was born with: the number of an `ENDPOINT` capability that the
  * kernel derived from the spawner when it started the first thread (`SpawnRights::initialEndpoint`).
  *
- * `init` makes it a handle on the name server whose badge is the process id of the program, so a
+ * `rs` makes it a handle on the name server whose badge is the process id of the program, so a
  * program can call `names::connect` from its first instruction, with no message to wait for.
  * @return The handle, or `abi::NO_CAPABILITY_NODE` (0) for a process that was started with none,
  * such as the boot modules.

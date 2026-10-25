@@ -31,7 +31,7 @@ Paths are absolute: there is no current directory. A failure prints `sh: command
 The console server edits the line (echo and Backspace) and delivers it whole, with its newline, when Enter is pressed. `sh` calls `read(0)` in a loop, 12 bytes at a time, until it sees the newline. The call blocks in the kernel until a line is ready (see [console](console.md#what-the-server-does)). A line holds at most 127 characters and 8 words (`cock/shell/words.hpp`, tested on the host in `test/host/test_shell.cpp`).
 
 ## Limits
-* No `spawn`: the shell cannot run other programs yet. That needs a capability to call `spawn` (stage 9) or a request to `init`.
+* No `spawn`: the shell cannot run other programs yet. That needs a capability to call `spawn` (stage 9) or a request to `rs`.
 * No quoting, pipes, redirection, history, tab completion or Ctrl+C.
 * No current directory and no `..`.
 * `/` is the `initrd` and is read only, so `write`, `mkdir`, `rm` and `mv` only work under `/fat` and `/ext` and need a disk. A writable `/tmp` in memory is noted in the roadmap (`tmpfs`).

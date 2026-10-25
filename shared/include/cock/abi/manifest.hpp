@@ -1,17 +1,18 @@
 /**
  * @file manifest.hpp
- * @brief Parser of `manifest.conf`, the list of programs that `init` starts and the capabilities each one gets.
+ * @brief Parser of `manifest.conf`, the list of programs that `rs` starts and the capabilities each one gets.
  *
  * The file is text, one entry per line: `name key=value ...`. Blank lines and lines that start with `#` are
  * ignored, and tokens are separated by spaces or tabs. Keys:
- * `path=<file>` (ELF in the initrd; no path means a boot module that is only configured), `repeat=<1..32>` (copies to start; 1 for boot modules), `restart=<1..16>` (times `init` starts the program
+ * `path=<file>` (ELF in the initrd; no path means a boot module that is only configured), `repeat=<1..32>` (copies to start; 1 for boot modules), `restart=<1..16>` (times `rs` starts the program
  * again after it ends, within one restart window; needs a path and `repeat` of 1), `arg=<number>` (one
  * numeric argument) and `caps=<grant>,<grant>...` with grants `io:<first>[+count]`, `irq:<line>[+count]` and
  * `mem:<first>+<bytes>` plus the bare `spawn` (the right to call `SYS_PROC_CREATE`), each of them with a final `*` when the program may pass the capability on, and `ipc=<name>,<name>...` (programs this one may exchange messages with, calls
  * and shared memory with; the name server checks the list when the program connects to one of them and gives it
- * a handle on the endpoint of that program then).
+ * a handle on the endpoint of that program then) and `parent=init` (`init`, not `rs`, starts the program, through
+ * `pm`; it needs a path, one copy and no `restart=`).
  * Numbers are decimal or `0x` hexadecimal and must fit in 32 bits. The parser has no
- * dependencies and is covered by host tests; init reads the file, the kernel never does.
+ * dependencies and is covered by host tests; rs reads the file, the kernel never does.
  */
 #ifndef SHARED_COCK_ABI_MANIFEST_HPP
 #define SHARED_COCK_ABI_MANIFEST_HPP
@@ -25,10 +26,10 @@ namespace cock::abi::manifest {
 
 /** Path of the manifest inside the initrd. */
 constexpr const char *FILE_PATH = "manifest.conf";
-/** Largest manifest file `init` reads, in bytes. */
+/** Largest manifest file `rs` reads, in bytes. */
 constexpr size_t MAX_FILE_BYTES = 4096;
 /** Most entries in the manifest; one more is `TOO_MANY_ENTRIES`. */
-constexpr size_t MAX_ENTRIES = 32;
+constexpr size_t MAX_ENTRIES = 40;
 /** Longest process name including the terminator; longer names are rejected. */
 constexpr size_t MAX_NAME_BYTES = 32;
 /** Longest program path including the terminator. */
@@ -41,7 +42,7 @@ constexpr size_t MAX_IPC_PEERS = service::MAX_SPAWN_IPC;
 constexpr uint32_t DEFAULT_REPEAT = 1;
 /** Largest accepted value of `repeat`. */
 constexpr uint32_t MAX_REPEAT = 32;
-/** Value of `restarts` for a program that `init` does not start again. */
+/** Value of `restarts` for a program that `rs` does not start again. */
 constexpr uint32_t NO_RESTARTS = 0;
 /** Largest accepted value of `restart`. */
 constexpr uint32_t MAX_RESTARTS = 16;
@@ -74,10 +75,12 @@ struct Entry {
 	size_t ipcCount;
 	/** Copies to start, 1 to `MAX_REPEAT`. */
 	uint32_t repeat;
-	/** Restarts `init` may make within one restart window, or `NO_RESTARTS` when the program is not supervised. */
+	/** Restarts `rs` may make within one restart window, or `NO_RESTARTS` when the program is not supervised. */
 	uint32_t restarts;
 	/** Numeric argument; valid only when `hasArgument` is true. */
 	uint32_t argument;
+	/** True when the line had `parent=init`: `init` starts the program, `rs` does not. */
+	bool startedByInit;
 	/** True when the line had `arg=`. */
 	bool hasArgument;
 
@@ -175,6 +178,10 @@ constexpr const char *KEY_CAPS = "caps";
 constexpr const char *KEY_ARGUMENT = "arg";
 /** Key of the list of programs this one may talk to. */
 constexpr const char *KEY_IPC = "ipc";
+/** Key of the program that starts this one. */
+constexpr const char *KEY_PARENT = "parent";
+/** The only value of `parent`: the program is started by `init` and not by `rs`. */
+constexpr const char *PARENT_INIT = "init";
 /** Grant type for `IO_PORTS`. */
 constexpr const char *TYPE_IO = "io";
 /** Grant type for `IRQ`. */
@@ -443,6 +450,7 @@ inline Error parseLine(Slice line, Entry &entry) {
 	bool seenCaps = false;
 	bool seenArgument = false;
 	bool seenIpc = false;
+	bool seenParent = false;
 
 	for (Slice token = nextToken(rest); !token.empty(); token = nextToken(rest)) {
 		Slice key;
@@ -475,6 +483,11 @@ inline Error parseLine(Slice line, Entry &entry) {
 			seenIpc = true;
 			Error error = parseIpcNames(value, entry);
 			if (error != Error::NONE) return error;
+		} else if (key.equals(KEY_PARENT)) {
+			if (seenParent) return Error::DUPLICATE_KEY;
+			seenParent = true;
+			if (!value.equals(PARENT_INIT)) return Error::BAD_VALUE;
+			entry.startedByInit = true;
 		} else if (key.equals(KEY_CAPS)) {
 			if (seenCaps) return Error::DUPLICATE_KEY;
 			seenCaps = true;
@@ -486,6 +499,8 @@ inline Error parseLine(Slice line, Entry &entry) {
 	}
 
 	if (entry.isBootModule() && entry.repeat != DEFAULT_REPEAT) return Error::BAD_VALUE;
+	if (entry.startedByInit && (entry.isBootModule() || entry.repeat != DEFAULT_REPEAT || entry.restarts != NO_RESTARTS))
+		return Error::BAD_VALUE;
 	if (entry.restarts != NO_RESTARTS && (entry.isBootModule() || entry.repeat != DEFAULT_REPEAT))
 		return Error::BAD_VALUE;
 	return Error::NONE;
