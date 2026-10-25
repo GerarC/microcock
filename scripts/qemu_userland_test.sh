@@ -9,7 +9,7 @@ CLIENTS_DONE_TEXT=("fatclient: ok" "extclient: ok" "cfile: ok" "spawner: ok" "ca
 SERIAL_FILE="${SERIAL_FILE:-build/userland_serial.txt}"
 SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
-SHELL_COMMANDS="echo hello shell|version|ls /|cat /mounts.conf|ls /ext|write /ext/scratch/sh.txt written by sh|cat /ext/scratch/sh.txt|mv /ext/scratch/sh.txt /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|rm /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|sleep 1|clear|echo after clear"
+SHELL_COMMANDS="echo hello shell|version|ps|ls /|cat /mounts.conf|ls /ext|write /ext/scratch/sh.txt written by sh|cat /ext/scratch/sh.txt|mv /ext/scratch/sh.txt /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|rm /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|sleep 1|clear|echo after clear"
 SHELL_OUTPUT_COPIES=2
 FILE_CLIENT_RUNS=10
 CLOCK_FALLBACK_YEAR=2001
@@ -17,7 +17,7 @@ DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
 EXPECTED_SCREEN_TEXT="cock> echo after clear|after clear"
 PROJECT_VERSION="$(sed -n "s/^VERSION_MAJOR := //p" Makefile).$(sed -n "s/^VERSION_MINOR := //p" Makefile).$(sed -n "s/^VERSION_PATCH := //p" Makefile)"
-EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 63/63 checks passed|microcock v${PROJECT_VERSION} shell, type help|hello shell|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|sh: cat: /ext/scratch/moved.txt: not found|abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|rs: initrd is boot module|Boot memory released|rs: manifest has 34 entries|rs: restarted phoenix 2 of 5|contruncated: cut|rs: configured vga_driver|rs: started console|console: ready|rs: started kbd|pm: ready|rs: started pm|rs: started init|init: ready|rs: started sh for init|init: started sh|rs: started ata|rs: started rtc|rtc: ready|rs: started fat|rs: started vfs|vfs: 4 mounts|rs: fsclient exit notices 10/10|pmclient: ok|rs: started probe|kbd: ready|Screen mapped by PID|reaped"
+EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 63/63 checks passed|microcock v${PROJECT_VERSION} shell, type help|hello shell|PID PPID STAT|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|sh: cat: /ext/scratch/moved.txt: not found|abort()|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|rs: initrd is boot module|Boot memory released|rs: manifest has 34 entries|rs: restarted phoenix 2 of 5|contruncated: cut|rs: configured vga_driver|rs: started console|console: ready|rs: started kbd|pm: ready|rs: started pm|rs: started init|init: ready|rs: started sh for init|init: started sh|rs: started ata|rs: started rtc|rtc: ready|rs: started fat|rs: started vfs|vfs: 4 mounts|rs: fsclient exit notices 10/10|pmclient: ok|rs: started probe|kbd: ready|Screen mapped by PID|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"
 case "$DISK_SCHEME" in

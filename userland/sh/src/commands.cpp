@@ -3,6 +3,7 @@
 #include <sh/builtins.hpp>
 #include <sh/commands.hpp>
 #include <sh/file_commands.hpp>
+#include <sh/process_commands.hpp>
 #include <stddef.h>
 #include <stdio.h>
 
@@ -33,6 +34,7 @@ constexpr Command COMMANDS[] = {
 	{"rmdir", "rmdir path: remove an empty directory", removeDirectoryCommand},
 	{"rm", "rm path: delete a file", removeCommand},
 	{"mv", "mv from to: rename or move", moveCommand},
+	{"ps", "list the processes of pm", processListCommand},
 	{"sleep", "sleep seconds: wait", sleepCommand},
 	{"clear", "clear the screen", clearCommand},
 };

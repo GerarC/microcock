@@ -22,6 +22,7 @@ Type on the keyboard of the QEMU window. Without a disk only `/` exists (the `in
 | `mkdir path`, `rmdir path` | Makes a directory, removes an empty one |
 | `rm path` | Deletes a file |
 | `mv from to` | Renames or moves; both paths must be on the same volume |
+| `ps` | Prints the table of the [process manager](pm.md), one line per process: `PID PPID STAT`. `STAT` is `R` (runs, as far as `pm` knows) or `X` (its exit notice arrived); a process with no parent shows `-`. It reads the rows with the `LIST` operation through a handle on `pm` (the manifest line of `sh` has `ipc=pm`). No name and no other states yet: those come with the process states and the process table items of the roadmap |
 | `sleep seconds` | Waits, up to 3600 seconds |
 | `clear` | Clears the screen (the `CLEAR` operation of the console protocol) |
 
@@ -38,4 +39,4 @@ The console server edits the line (echo and Backspace) and delivers it whole, wi
 * `cat` writes the bytes as they are, so a binary file prints garbage on the screen.
 
 ## Testing
-`scripts/qemu_userland_test.sh` types fourteen commands through the QEMU monitor: `echo`, `version`, `ls /`, `cat /mounts.conf`, `ls /ext`, `write` to `/ext/scratch/sh.txt`, `cat`, `mv`, `cat`, `rm`, a `cat` that fails, `sleep 1`, `clear` and a last `echo`. It requires the output of each on the serial log (the file written appears twice, and the failure message once), the last prompt and output on the screen after `clear`, and the usual `e2fsck` of the ext2 volume at the end.
+`scripts/qemu_userland_test.sh` types fifteen commands through the QEMU monitor: `echo`, `version`, `ps`, `ls /`, `cat /mounts.conf`, `ls /ext`, `write` to `/ext/scratch/sh.txt`, `cat`, `mv`, `cat`, `rm`, a `cat` that fails, `sleep 1`, `clear` and a last `echo`. It requires the output of each on the serial log (the file written appears twice, and the failure message once), the last prompt and output on the screen after `clear`, and the usual `e2fsck` of the ext2 volume at the end.

@@ -30,6 +30,7 @@ The shell serves nothing. It uses the console protocol (`shared/include/cock/abi
 | `mkdir path`, `rmdir path` | Make a directory, remove an empty one |
 | `rm path` | Delete a file |
 | `mv from to` | Rename or move inside one volume |
+| `ps` | List the processes of `pm`: `PID PPID STAT` (`R` runs, `X` exited) |
 | `sleep seconds` | Wait, up to 3600 seconds |
 | `clear` | Clear the screen |
 
@@ -44,6 +45,7 @@ Paths are absolute. An unknown command prints `sh: <name>: command not found`; m
 | `src/commands.cpp`, `include/sh/commands.hpp` | The command table, `help`, `run` (split a line and call a command) and `usage` |
 | `src/builtins.cpp`, `include/sh/builtins.hpp` | `version`, `echo`, `sleep` and `clear` (the console client lives here) |
 | `src/file_commands.cpp`, `include/sh/file_commands.hpp` | `ls`, `cat`, `write`, `mkdir`, `rmdir`, `rm`, `mv`, the file client and `statusText` |
+| `src/process_commands.cpp`, `include/sh/process_commands.hpp` | `ps` and the client of `pm` |
 | `include/sh/arguments.hpp` | Positions of the words of a line and the sizes shared by the modules |
 | `include/sh/version.hpp` | The version printed by the shell, from the `SH_VERSION_*` flags |
 | `Makefile` | `NAME = sh`, the `SRCS` under `src/`, the `LIBC_SRCS` list and the version flags |
@@ -60,7 +62,7 @@ bash scripts/qemu_userland_test.sh
 bash scripts/host_test.sh
 ```
 
-Add `HOST_TOOLCHAIN=1` without the cross compiler. Type in the QEMU window; without `DISK` only `/` (the initrd, read only) exists. The userland script types fourteen commands through the QEMU monitor (`echo`, `version`, `ls`, `cat`, `write`, `mv`, `rm`, a failing `cat`, `sleep`, `clear` and a last `echo`) and requires their output on the serial log, the last prompt on the screen and a clean `e2fsck` afterwards.
+Add `HOST_TOOLCHAIN=1` without the cross compiler. Type in the QEMU window; without `DISK` only `/` (the initrd, read only) exists. The userland script types fifteen commands through the QEMU monitor (`echo`, `version`, `ps`, `ls`, `cat`, `write`, `mv`, `rm`, a failing `cat`, `sleep`, `clear` and a last `echo`) and requires their output on the serial log, the last prompt on the screen and a clean `e2fsck` afterwards.
 
 ## Limits and known gaps
 

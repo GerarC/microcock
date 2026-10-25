@@ -142,7 +142,7 @@ make run DISK=build/disk.img
 ```
 `DISK_SCHEME=gpt` builds the GPT variant. The guest writes into the image file, so run `make disk` again to get the original contents back.
 
-The system ends in a shell (`cock>`): type `help` for the commands (`ls`, `cat`, `write`, `mkdir`, `rm`, `mv`, `sleep`, `clear`, ...). See [the shell](documentation/userland/shell.md).
+The system ends in a shell (`cock>`): type `help` for the commands (`ls`, `cat`, `write`, `mkdir`, `rm`, `mv`, `ps`, `sleep`, `clear`, ...). See [the shell](documentation/userland/shell.md).
 
 Clean the build directory:
 ```bash
