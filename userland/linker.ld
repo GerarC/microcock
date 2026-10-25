@@ -20,5 +20,10 @@ SECTIONS {
         KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*) .init_array))
         __init_array_end = .;
     } :data
+    .ctors : {
+        __ctors_start = .;
+        KEEP(*(SORT_BY_INIT_PRIORITY(.ctors.*) .ctors))
+        __ctors_end = .;
+    } :data
     .bss  : { *(.bss*) *(COMMON) } :data
 }
