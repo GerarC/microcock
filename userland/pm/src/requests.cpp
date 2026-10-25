@@ -1,6 +1,7 @@
 #include <cock/pm/classify.hpp>
 #include <cock/user/api.hpp>
 #include <pm/exec.hpp>
+#include <pm/fork.hpp>
 #include <pm/objects.hpp>
 #include <pm/requests.hpp>
 #include <pm/spawn.hpp>
@@ -34,6 +35,13 @@ Status spawnProcess(const uint32_t (&words)[CALL_WORDS], uint32_t caller, uint32
 
 Status execProcess(const uint32_t (&words)[CALL_WORDS], uint32_t caller, bool &replaced) {
 	return cock::pm::execFromObject(caller, words[FIRST_WORD], replaced);
+}
+
+Status forkCaller(uint32_t caller, uint32_t (&reply)[CALL_WORDS]) {
+	uint32_t pid = NO_PID;
+	Status status = cock::pm::forkProcess(caller, pid);
+	reply[FIRST_WORD] = pid;
+	return status;
 }
 
 Status registerProcess(const uint32_t (&words)[CALL_WORDS], uint32_t (&reply)[CALL_WORDS]) {
@@ -81,6 +89,7 @@ bool allowed(Op op, Caller who) {
 	case Op::WAIT:
 	case Op::ALLOCATE:
 	case Op::EXEC:
+	case Op::FORK:
 		return true;
 	case Op::SPAWN:
 		return who == Caller::ROOT || who == Caller::INIT;
@@ -92,7 +101,7 @@ bool allowed(Op op, Caller who) {
 }
 
 bool knownOp(uint32_t op) {
-	return op >= static_cast<uint32_t>(Op::ALLOCATE) && op <= static_cast<uint32_t>(Op::EXEC);
+	return op >= static_cast<uint32_t>(Op::ALLOCATE) && op <= static_cast<uint32_t>(Op::FORK);
 }
 
 } // namespace
@@ -133,6 +142,9 @@ bool serve(uint32_t caller, const uint32_t (&words)[CALL_WORDS], uint32_t (&repl
 				break;
 			case Op::EXEC:
 				status = execProcess(words, caller, replaced);
+				break;
+			case Op::FORK:
+				status = forkCaller(caller, reply);
 				break;
 			}
 		}

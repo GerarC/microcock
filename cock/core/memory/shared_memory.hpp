@@ -104,6 +104,29 @@ class SharedMemory {
 	static void dropProcess(task::Process &process);
 
 	/**
+	 * @brief Tells whether `inherit` will succeed for an object.
+	 * @param id Object id.
+	 * @param from_pid Process that holds the object, the parent of a fork.
+	 * @return True when the object is unknown, the process does not hold it (so
+	 * there is nothing to copy), or a holder slot is free. False when the object is
+	 * held and its holder table is full.
+	 */
+	static bool canInherit(uint32_t id, uint32_t from_pid);
+	/**
+	 * @brief Makes a new process a holder of an object with the access of its
+	 * parent, as `fork` does for the regions the child inherits.
+	 * @param id Object id.
+	 * @param from_pid Process that holds the object.
+	 * @param to_pid The new process.
+	 * @return True when the child holds the object now with the same write access,
+	 * or when the parent holds nothing to copy. False when the holder table is
+	 * full; nothing changes then.
+	 * @note The count of mappings is not touched: `Process::copyImageFrom` counts
+	 * each inherited region.
+	 */
+	static bool inherit(uint32_t id, uint32_t from_pid, uint32_t to_pid);
+
+	/**
 	 * @brief Tells whether a process may map an object.
 	 * @param id Object id.
 	 * @param pid Process asking.

@@ -146,11 +146,42 @@ class VirtualMemoryManager {
 	 */
 	static PhysAddr createAddressSpace();
 	/**
-	 * @brief Tears down a user address space and frees the frames it owns.
-	 * @param address_space Root returned by createAddressSpace, not the one in
-	 * use.
+	 * @brief Tears down a user address space and drops its hold on the frames it
+	 * owns.
+	 * @param address_space Root returned by createAddressSpace or
+	 * cloneAddressSpace, not the one in use.
+	 * @note A frame shared copy on write goes back to the allocator with its
+	 * last holder.
 	 */
 	static void destroyAddressSpace(PhysAddr address_space);
+
+	/**
+	 * @brief Copies a user address space without copying its pages: both spaces
+	 * map the same frames, and a page that was writable becomes copy on write in
+	 * both, so the first write on either side gets a private frame
+	 * (resolveCopyOnWrite). Pages of shared memory and devices stay shared as
+	 * they are.
+	 * @param source Root of a user address space that is not the one in use.
+	 * @return The root of the copy, or a null address when the source is not a
+	 * user address space or is the active one, free frames would fall below the
+	 * kernel reserve, or a frame has too many references. Nothing stays allocated
+	 * after a failure.
+	 * @note Only the directory and the page tables take frames now; the frames
+	 * for the copies are taken one by one at the writes, and a write that finds
+	 * none free ends the thread as a fault.
+	 */
+	static PhysAddr cloneAddressSpace(PhysAddr source);
+
+	/**
+	 * @brief Gives the active address space a private writable frame for a copy
+	 * on write page. Called by the fault handler for a write to a present page.
+	 * @param virt Faulting address, untrusted.
+	 * @return True when the page is writable now and the access can be repeated.
+	 * False when the address is not a user address, the page is not present or
+	 * was never copy on write (a real protection violation), or no frame is
+	 * free.
+	 */
+	static bool resolveCopyOnWrite(VirtAddr virt);
 
 	/** @return The root of the kernel address space. */
 	static PhysAddr getKernelDirectory();

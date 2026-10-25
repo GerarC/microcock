@@ -12,6 +12,9 @@ using core::events::SyscallRequest;
 static constexpr uint32_t PAGE_FAULT = 14;
 static constexpr uint32_t RING_MASK = 0x3;
 static constexpr uint32_t USER_RING = 0x3;
+static constexpr uint32_t FAULT_PRESENT = 1u << 0;
+static constexpr uint32_t FAULT_WRITE = 1u << 1;
+static constexpr uint32_t WRITE_TO_PRESENT_PAGE = FAULT_PRESENT | FAULT_WRITE;
 
 constexpr const char *EXCEPTION_MESSAGES[ISR_NUM] = {
 	"Division by Zero",
@@ -67,6 +70,8 @@ static uintptr_t handle_exception(InterruptRegisters *regs,
 						  regs->int_no == PAGE_FAULT,
 						  regs->eip,
 						  (regs->cs & RING_MASK) == USER_RING,
+						  regs->int_no == PAGE_FAULT &&
+							  (regs->err_code & WRITE_TO_PRESENT_PAGE) == WRITE_TO_PRESENT_PAGE,
 						  EXCEPTION_MESSAGES[regs->int_no]};
 	return core::events::on_exception(info, current_esp);
 }

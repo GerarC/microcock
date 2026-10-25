@@ -19,6 +19,9 @@ constexpr uint32_t VGA_TEXT_BUFFER = 0xB8000;
 constexpr uint32_t LOCAL_APIC_BASE = 0xFEE00000;
 constexpr uint32_t RESERVED_LOW_FRAME = 0x9F000;
 constexpr uint32_t KERNEL_IMAGE_FRAME = 0x100000;
+constexpr uint32_t NO_REFERENCES = 0;
+constexpr uint32_t ONE_REFERENCE = 1;
+constexpr uint32_t TWO_REFERENCES = 2;
 
 void checkAllocateAndFree() {
 	size_t before = PhysicalMemoryManager::freeFrameCount();
@@ -109,6 +112,42 @@ void checkIsRam() {
 	EXPECT_FALSE(PhysicalMemoryManager::isRam(PhysAddr(LOCAL_APIC_BASE)));
 }
 
+void checkSharedFrame() {
+	size_t before = PhysicalMemoryManager::freeFrameCount();
+	PhysAddr frame = PhysicalMemoryManager::allocFrame();
+	EXPECT_FALSE(frame.isNull());
+	EXPECT_EQ(ONE_REFERENCE, PhysicalMemoryManager::frameReferences(frame));
+
+	EXPECT_TRUE(PhysicalMemoryManager::shareFrame(frame));
+	EXPECT_EQ(TWO_REFERENCES, PhysicalMemoryManager::frameReferences(frame));
+
+	PhysicalMemoryManager::freeFrame(frame);
+	EXPECT_EQ(ONE_REFERENCE, PhysicalMemoryManager::frameReferences(frame));
+	EXPECT_EQ(before - 1, PhysicalMemoryManager::freeFrameCount());
+
+	PhysicalMemoryManager::freeFrame(frame);
+	EXPECT_EQ(NO_REFERENCES, PhysicalMemoryManager::frameReferences(frame));
+	EXPECT_EQ(before, PhysicalMemoryManager::freeFrameCount());
+	EXPECT_FALSE(PhysicalMemoryManager::shareFrame(frame));
+}
+
+void checkReferenceLimit() {
+	size_t before = PhysicalMemoryManager::freeFrameCount();
+	PhysAddr frame = PhysicalMemoryManager::allocFrame();
+	EXPECT_FALSE(frame.isNull());
+
+	for (uint32_t count = ONE_REFERENCE; count < cock::arch::x86::MAX_FRAME_REFERENCES; count++)
+		EXPECT_TRUE(PhysicalMemoryManager::shareFrame(frame));
+	EXPECT_EQ(cock::arch::x86::MAX_FRAME_REFERENCES, PhysicalMemoryManager::frameReferences(frame));
+	EXPECT_FALSE(PhysicalMemoryManager::shareFrame(frame));
+	EXPECT_EQ(cock::arch::x86::MAX_FRAME_REFERENCES, PhysicalMemoryManager::frameReferences(frame));
+
+	for (uint32_t count = NO_REFERENCES; count < cock::arch::x86::MAX_FRAME_REFERENCES; count++)
+		PhysicalMemoryManager::freeFrame(frame);
+	EXPECT_EQ(NO_REFERENCES, PhysicalMemoryManager::frameReferences(frame));
+	EXPECT_EQ(before, PhysicalMemoryManager::freeFrameCount());
+}
+
 } // namespace
 
 void test_pmm() {
@@ -121,6 +160,8 @@ void test_pmm() {
 	checkFreeOutOfRange();
 	checkFreeReservedFrame();
 	checkIsRam();
+	checkSharedFrame();
+	checkReferenceLimit();
 	TestRunner::end_suite();
 }
 

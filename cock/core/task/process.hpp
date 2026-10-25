@@ -132,6 +132,21 @@ class Process {
 	 */
 	void swapImage(Process &other);
 
+	/**
+	 * @brief Takes the memory bookkeeping of a parent, as the child of a `fork` does.
+	 *
+	 * Copies the name, the region table, the page quota in use and the capability types
+	 * a message may give. Every region that maps a shared object counts one more mapping
+	 * of it, so the object lives until the child unmaps it or ends. The address space
+	 * must be a copy of the parent's (`VirtualMemoryManager::cloneAddressSpace`), so the
+	 * table describes what is mapped.
+	 *
+	 * @param source The parent, a user process.
+	 * @note Only for a process with no region yet. Capabilities, id, parent and service
+	 * label are not copied.
+	 */
+	void copyImageFrom(const Process &source);
+
 	/** @return Number of threads attached and not yet reaped. */
 	size_t getThreadCount() const { return threadCount; }
 	/**

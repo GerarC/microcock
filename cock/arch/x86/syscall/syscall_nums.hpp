@@ -474,6 +474,7 @@ enum SyscallNum : uint32_t {
     SYS_THREAD_CREATE            = 0x207, /**< Create a thread in the calling process. */
     SYS_THREAD_PROCESS           = 0x208, /**< Give the process a thread belongs to, so a server that sees the id of the calling thread knows whose it is. */
     SYS_PROC_EXEC                = 0x20A, /**< Replace the program image of a process that waits for the reply of a call the caller is serving with the pending process the caller built, keeping its id, capabilities and endpoints; the other threads of the process end (needs a SPAWN capability). */
+    SYS_PROC_FORK                = 0x20B, /**< Make a copy of a process that waits for the reply of a call the caller is serving: a new child of the caller with the address space shared copy on write, the inheritable capabilities, and one thread that resumes inside the same call with the answer the caller supplies (needs a SPAWN capability). */
     SYS_PROC_STATE               = 0x209,/**< Tell in which states the live threads of a process are, as a mask of bits; the process manager turns it into the state `R` or `S`. */
 
     SYS_SLEEP                    = 0x210, /**< Sleep for a number of milliseconds (0 only yields). */

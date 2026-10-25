@@ -19,6 +19,10 @@
 
 namespace cock::arch::x86 {
 
+/** @brief Most references one frame can have: the width of its counter. A frame
+ * that reached it cannot be shared again. */
+constexpr uint32_t MAX_FRAME_REFERENCES = 0xFF;
+
 /** @brief Static facade over the frame bitmaps. */
 class PhysicalMemoryManager {
   public:
@@ -49,8 +53,10 @@ class PhysicalMemoryManager {
 	static core::memory::PhysAddr allocFrame();
 
 	/**
-	 * @brief Returns a frame obtained from allocFrame().
+	 * @brief Drops one reference to a frame obtained from allocFrame().
 	 *
+	 * A frame starts with one reference and gains one for every shareFrame().
+	 * The frame goes back to the free pool when the last reference is dropped.
 	 * Frames that were not handed out by allocFrame() (for example kernel or
 	 * boot frames) and out of range addresses are ignored, so a double free is
 	 * harmless.
@@ -58,6 +64,25 @@ class PhysicalMemoryManager {
 	 * @param frame Physical address of the frame.
 	 */
 	static void freeFrame(core::memory::PhysAddr frame);
+
+	/**
+	 * @brief Adds one reference to a frame that allocFrame() handed out, as
+	 * copy on write does when two address spaces map it.
+	 *
+	 * @param frame Physical address of the frame.
+	 * @return True when the reference was added. False for a frame that is not
+	 * allocated, out of range, or already at MAX_FRAME_REFERENCES; nothing
+	 * changes then.
+	 */
+	static bool shareFrame(core::memory::PhysAddr frame);
+
+	/**
+	 * @brief Reads how many references a frame has.
+	 * @param frame Physical address of the frame.
+	 * @return The count, or zero for a frame that is not allocated or out of
+	 * range.
+	 */
+	static uint32_t frameReferences(core::memory::PhysAddr frame);
 
 	/**
 	 * @brief Recycles a frame that was reserved at boot (for example a

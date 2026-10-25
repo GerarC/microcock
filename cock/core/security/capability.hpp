@@ -43,6 +43,7 @@ struct Capability {
 	uint64_t first = 0; /**< First resource of the range. */
 	uint64_t count = 0; /**< Number of resources in the range. */
 	uint32_t badge = 0; /**< `ENDPOINT` only: the value the kernel stamps on every message sent through this handle. */
+	uint32_t handle = NO_CAPABILITY_NODE; /**< `ENDPOINT` only: the number a program passes to name this entry. `add` sets it to `node` when it is left as `NO_CAPABILITY_NODE`; a copy that `fork` makes keeps the number of the entry it came from, which the program may have stored. */
 
 	/** @return First value past the range. Callers ensure it does not
 	 * overflow, which add and find check. */
@@ -64,7 +65,8 @@ class CapabilitySet {
 
 	/**
 	 * @brief Stores a capability in the first free slot.
-	 * @param capability Capability to add.
+	 * @param capability Capability to add. When its `handle` is `NO_CAPABILITY_NODE`
+	 * the stored entry gets its `node` as handle.
 	 * @return True when stored. False when the type is none, the count is zero,
 	 * the range wraps around or the table is full.
 	 */
@@ -76,9 +78,21 @@ class CapabilitySet {
 		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++) {
 			if (entries[idx].type != CapabilityType::NONE) continue;
 			entries[idx] = capability;
+			if (entries[idx].handle == NO_CAPABILITY_NODE) entries[idx].handle = capability.node;
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * @brief Calls a function for every entry that is in use.
+	 * @param visit Callable taking a `const Capability &`; it must not change the set.
+	 */
+	template <typename Visitor>
+	void forEach(Visitor visit) const {
+		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++) {
+			if (entries[idx].type != CapabilityType::NONE) visit(entries[idx]);
+		}
 	}
 
 	/**
@@ -170,15 +184,17 @@ class CapabilitySet {
 
 	/**
 	 * @brief Finds the endpoint handle that a number names.
-	 * @param handle Number of the node of the derivation tree, as a program passes it.
-	 * @return The entry of type `ENDPOINT` whose node is `handle`, or null for
+	 * @param handle Number of the handle, as a program passes it: the node of the
+	 * derivation tree for a capability the process was given, or the number it had in
+	 * the parent for one that `fork` copied.
+	 * @return The entry of type `ENDPOINT` whose `handle` is that number, or null for
 	 * NO_CAPABILITY_NODE and for a number that names no endpoint capability of this
 	 * set. The pointer is valid until the table changes.
 	 */
 	const Capability *endpointHandle(uint32_t handle) const {
 		if (handle == NO_CAPABILITY_NODE) return nullptr;
 		for (size_t idx = 0; idx < MAX_CAPABILITIES; idx++) {
-			if (entries[idx].type == CapabilityType::ENDPOINT && entries[idx].node == handle)
+			if (entries[idx].type == CapabilityType::ENDPOINT && entries[idx].handle == handle)
 				return &entries[idx];
 		}
 		return nullptr;

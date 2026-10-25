@@ -8,7 +8,7 @@ MicroCOCK keeps the process model out of the kernel, as Minix 3 does. Three prog
 | `pm` | Creates the processes of the system after boot, is their parent in the kernel and keeps the table | The right to create processes and the program labels; no hardware |
 | `init` | The first process as Linux sees it (id 1); starts the shell and starts it again | None |
 
-The kernel only offers primitives (`SYS_PROC_CREATE` and its five companions). Stage L of the roadmap adds `wait`, `exec`, signals and `fork` as requests to `pm`, with small primitives in the kernel; this page describes the first step.
+The kernel only offers primitives (`SYS_PROC_CREATE` and its five companions, `SYS_PROC_EXEC`, `SYS_PROC_FORK`). Stage L of the roadmap adds `wait`, `exec`, signals and `fork` as requests to `pm`, with small primitives in the kernel; `wait`, `exec` and `fork` are done, signals come next.
 
 ## Boot
 
@@ -33,6 +33,7 @@ Synchronous calls of four words, `shared/include/cock/abi/pm.hpp`, through a han
 |-----------|------------|---------|
 | `ALLOCATE bytes` | any process in the table | `pm` makes a shared object of that size, shares it with the caller for writing and returns its id; one per caller. Only `rs` and `init` can use it for `SPAWN`; any process can use it for `EXEC` |
 | `EXEC object` | any process in the table | The first page of the object holds an `ExecRequest` (name, image size, arguments and the initial handle) and the image starts at `IMAGE_OFFSET`. `pm` checks it, builds the new image, writes the argument page and asks the kernel to swap it in (`SYS_PROC_EXEC`). On success the call never returns |
+| `FORK` | any process in the table | Makes a copy of the caller. `pm` asks the kernel for it (`SYS_PROC_FORK`) while the caller waits for this very reply, which is the consent the kernel asks for, and adds the row of the child with the caller as its parent. The reply to the caller carries the id in the table of the child; the child, which resumes inside the same call, gets the same reply with id `NO_PID`. See "Fork" below |
 | `SPAWN object` | `rs`, `init` | The first page holds a `SpawnRequest` (name, `SpawnRights`, flags, image size), the image starts at `IMAGE_OFFSET`; `pm` copies the request, checks it and creates the process |
 | `REGISTER kernel parent wanted` | `rs` | Records a process that already runs |
 | `PERMIT label` | `rs` | `init` may create processes with that label |
@@ -51,6 +52,12 @@ The states are those of `ps` in Linux (`abi::pm::State`). The table stores only 
 
 When a process exits, its children pass to the root server (the reaper, `rs`, set when `rs` registers itself), and those that were zombies become `X`, since `rs` collects them. The children of `rs` are never zombies: `rs` already learns about them through `PM_EXITED`, so `pm` collects for it and `WAIT` from `rs` answers `NOT_FOUND`. `init` collects with `wait` each program of the manifest that it started and that ended, so no zombie stays.
 
+### Fork
+
+`Client::fork()` (`userland/lib/include/cock/user/pm.hpp`) sends `FORK` and returns a `Forked`: in the parent `OK` and the id in the table of the child, in the child `OK` and `NO_PID` (`isChild`). The two sides share their memory copy on write ([memory management](../core/memory_management.md#copy-on-write)), so each sees its own values after a write; the child has one thread, the one that called. It keeps the `IPC` and endpoint capabilities of the parent with the same handle numbers, so the `Client` it copied still reaches `pm`, and a handle whose badge is the parent's id carries the child's ([capabilities](../core/capabilities.md#inheritance-by-fork)); servers therefore see two callers and keep separate sessions, which means **a forked child opens its own files**: the descriptors the parent had in its library are not valid for the child. Hardware capabilities and `SPAWN` stay with the parent, and the child has no service label.
+
+`pm` refuses `FORK` for a caller with no live row (`NOT_FOUND`), when the table is full (`NO_ROOM`, before the kernel is asked) and when the kernel refuses (`FAILED`: no process id, no memory for the page tables, too many children with a pending exit notice, a shared object with no holder slot, no room in the derivation tree). The child is a child of `pm` in the kernel, so its exit notice reaches `pm`, and a child of the caller in the table, so the caller collects it with `WAIT`; when the parent exits first the child passes to `rs` like any other. The name server does not know a forked child, so the child cannot connect to services it was not already connected to (E4 and E5).
+
 The size of the object is `pm`'s own, so a caller cannot make `pm` read past it. `pm` checks that the name ends, the flags are known (`FORWARD_EXIT`, `AS_INIT`), the image fits the object, the label is a program label and there are at most eight IPC labels. A process created for `init` gets no IPC label and an initial handle on the name server.
 
 Two notices travel the other way, as ordinary messages through a handle that `rs` gave `pm`; the kernel stamps the badge, which is the process id of `pm`, and `rs` ignores any other:
@@ -68,7 +75,7 @@ The id in the table is not the kernel one. It counts from 2 in the order process
 
 ## Limits
 
-- No signals or `fork` yet. Any process can fill the 8 object slots of `pm` with `ALLOCATE` and starve `spawn` until a permission model exists (E5). A parent that never calls `WAIT` leaves zombies that fill the table (as in Linux) until it exits; `WAIT` has no non-blocking flag and no timeout.
+- No signals yet. Any process can fill the 8 object slots of `pm` with `ALLOCATE` and starve `spawn` until a permission model exists (E5). A parent that never calls `WAIT` leaves zombies that fill the table (as in Linux) until it exits; `WAIT` has no non-blocking flag and no timeout.
 - If `pm` dies the table and the notices of its children are lost, because their parent disappears. `rs` could start another one but not rebuild the table. Minix has the same limit.
 - The boot modules are in the table but are never marked as exited: the kernel sends no notice for them.
 - A process may have at most `MAX_NOTIFIED_CHILDREN` (64) children with a pending exit notice, and `pm` has 128 rows.

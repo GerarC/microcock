@@ -52,6 +52,8 @@ enum class Op : uint32_t {
 	WAIT = 6,
 	/** Replace the program image of the caller with the one in the object of word 1, whose first page holds an `ExecRequest`; the caller got the object with `ALLOCATE`. On success the call never returns: the caller starts again in the new image, with the same process id, parent, capabilities and endpoints, and its other threads end. On failure the reply carries the status and the old image runs on. */
 	EXEC = 7,
+	/** Make a copy of the caller: a new process with the address space of the caller shared copy on write, the `IPC` and endpoint capabilities of the caller (with the handle numbers they had, so the numbers the program stored still work; a handle whose badge is the id of the caller gets the id of the child, so a server tells the two apart and keeps its own session for each), no service label, and the caller as its parent in the table. Both continue inside this call. The reply to the caller carries the process id of the table of the child in word 1; the child gets the same reply with word 1 equal to `NO_PID`. The child has no session in any server: it opens its own. The name server does not know the child, so the child cannot ask it for new handles. The caller needs a row in the table. `FAILED` when the kernel refused (no process id, no memory for the page tables, too many children with an exit notice, a shared object with no holder slot, a derivation tree with no room). */
+	FORK = 8,
 };
 
 /** Status in the low byte of word 0 of a reply. */

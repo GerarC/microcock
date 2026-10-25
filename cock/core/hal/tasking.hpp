@@ -53,6 +53,21 @@ uintptr_t prepare_user_thread_stack(void *kernel_stack_base,
 									void *user_arg);
 
 /**
+ * @brief Copies the saved context of a user thread that is not running onto the
+ * kernel stack of another thread, so the other one resumes at the same point with
+ * the same registers.
+ * @param source_context Saved context of the thread to copy, which is inside a
+ * system call and not running.
+ * @param kernel_stack_base Bottom of the kernel stack of the new thread.
+ * @param kernel_stack_size Size of that kernel stack.
+ * @return Saved context of the new thread, ready to be resumed, which runs in
+ * Ring 3 as the source did.
+ * @note Pointers are not validated here, the caller owns both stacks.
+ */
+uintptr_t clone_thread_context(uintptr_t source_context, void *kernel_stack_base,
+							   size_t kernel_stack_size);
+
+/**
  * @brief Tells the CPU which kernel stack to use on the next entry from
  * Ring 3 (the TSS esp0 on x86).
  * @param stack_top Top of the kernel stack of the thread about to run.

@@ -105,6 +105,18 @@ void Process::swapImage(Process &other) {
 	}
 }
 
+void Process::copyImageFrom(const Process &source) {
+	setName(source.name);
+	acceptedCapabilityTypes = source.acceptedCapabilityTypes;
+	for (size_t idx = 0; idx < source.regionCount; idx++) {
+		regions[idx] = source.regions[idx];
+		if (regions[idx].shared_object != NO_SHARED_OBJECT)
+			SharedMemory::mapped(regions[idx].shared_object);
+	}
+	regionCount = source.regionCount;
+	ownedPages = source.ownedPages;
+}
+
 void Process::setName(const char *new_name) {
 	size_t length = 0;
 	while (new_name != nullptr && new_name[length] != '\0' &&

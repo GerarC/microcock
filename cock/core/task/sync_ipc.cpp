@@ -225,10 +225,15 @@ bool SyncIpc::unlink(Thread *&head, Thread &thread) {
 	return true;
 }
 
+void SyncIpc::writeReply(uintptr_t context, uint32_t server_id,
+						 const uint32_t (&words)[abi::call::WORD_COUNT]) {
+	SyscallFrame frame = frameWith(abi::call::SUCCESS, server_id, words);
+	hal::write_syscall_frame(context, frame);
+}
+
 void SyncIpc::deliver(Thread &server, Thread &caller,
 					  const uint32_t (&words)[abi::call::WORD_COUNT], bool handoff) {
-	SyscallFrame frame = frameWith(abi::call::SUCCESS, server.getId(), words);
-	hal::write_syscall_frame(caller.getStackPointer(), frame);
+	writeReply(caller.getStackPointer(), server.getId(), words);
 	caller.callTarget = nullptr;
 	Timeouts::cancel(&caller);
 	caller.setState(ThreadState::READY);

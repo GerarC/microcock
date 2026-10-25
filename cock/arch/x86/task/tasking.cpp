@@ -83,6 +83,16 @@ uintptr_t prepare_user_thread_stack(void *kernel_stack_base,
 	return context_ptr;
 }
 
+uintptr_t clone_thread_context(uintptr_t source_context, void *kernel_stack_base,
+							   size_t kernel_stack_size) {
+	uintptr_t kernel_stack_top =
+		reinterpret_cast<uintptr_t>(kernel_stack_base) + kernel_stack_size;
+	uintptr_t context_ptr = kernel_stack_top - sizeof(InterruptRegisters);
+	memcpy(reinterpret_cast<void *>(context_ptr),
+		   reinterpret_cast<const void *>(source_context), sizeof(InterruptRegisters));
+	return context_ptr;
+}
+
 void set_kernel_stack(uintptr_t stack_top) { GDT::setKernelStack(stack_top); }
 
 void read_syscall_frame(uintptr_t context_ptr, SyscallFrame &frame) {

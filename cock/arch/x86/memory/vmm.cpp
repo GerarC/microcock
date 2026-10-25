@@ -166,6 +166,14 @@ void VirtualMemoryManager::destroyAddressSpace(PhysAddr address_space) {
 	Paging::destroyAddressSpace(address_space);
 }
 
+PhysAddr VirtualMemoryManager::cloneAddressSpace(PhysAddr source) {
+	return Paging::cloneAddressSpace(source, KERNEL_RESERVED_FRAMES);
+}
+
+bool VirtualMemoryManager::resolveCopyOnWrite(VirtAddr virt) {
+	return Paging::resolveCopyOnWrite(virt);
+}
+
 PhysAddr VirtualMemoryManager::getKernelDirectory() {
 	return Paging::kernelDirectory();
 }
@@ -208,6 +216,10 @@ VirtAddr VirtualMemoryManager::mapPagesAt(VirtAddr vaddr, size_t num_pages,
 		uint32_t existing = Paging::getPageFlags(virt);
 
 		if (existing != 0) {
+			if ((existing & PageFlag::COPY_ON_WRITE) && (flags & PageFlag::WRITEABLE)) {
+				if (!Paging::resolveCopyOnWrite(virt)) return VirtAddr();
+				existing = Paging::getPageFlags(virt);
+			}
 			uint32_t merged = existing | flags;
 			if (merged != existing && !Paging::updatePageFlags(virt, merged))
 				return VirtAddr();

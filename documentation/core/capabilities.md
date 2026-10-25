@@ -21,7 +21,7 @@ struct Capability {
 | `BOOT_MODULE` | First module index and number of modules | `SYS_MODULE_OPEN` |
 | `IPC` | First service label and number of labels | `SYS_IPC_SEND`, `SYS_IPC_CALL`, `SYS_SHM_SHARE` (see below) |
 | `SPAWN` | `SPAWN_FIRST` (0) and `SPAWN_COUNT` (1): the right has no range | `SYS_PROC_CREATE` |
-| `ENDPOINT` | The endpoint id and a count of one; the node id is the handle | `SYS_EP_SEND`, `SYS_EP_CALL`, `SYS_EP_BIND` (see [endpoints](endpoints.md)) |
+| `ENDPOINT` | The endpoint id and a count of one; the handle is the node id, or the number the entry had in the parent when `fork` copied it | `SYS_EP_SEND`, `SYS_EP_CALL`, `SYS_EP_BIND` (see [endpoints](endpoints.md)) |
 
 Except for the `initrd` grant to `ramfs`, which `rs` makes itself, the grants of the boot are data: they come from `manifest.conf` (see [userland](../userland/userland.md#the-manifest)).
 
@@ -116,6 +116,16 @@ It gives a program a **service label**, the stable name under which the name ser
 * **What it is not.** The child starts with an empty capability table, as before, except for the initial handle when the spawner holds a grantable `ENDPOINT` capability with the mint right (`rs` does, and `pm`, which `rs` gives one for the name server) and asks for one. A holder of `SPAWN` has no hardware capability to give, so the child can do nothing the spawner could not.
 * **Checked by** the `spawner` test program (manifest `caps=spawn`), which starts a copy of `hello` and is refused when it asks for a label, and by `probe`, which holds no `SPAWN` and is refused.
 * **Not changed.** `SYS_MODULE_INDEX`, `SYS_SERVICE_SET` and the `CAPABILITY_GRANTED` message still require grant authority: they are the root server's job, not a program's.
+
+## Inheritance by fork
+`SYS_PROC_FORK` gives the child a copy of some capabilities of the parent (`inherit_capabilities` in `cock/core/security/capability_inherit.cpp`); the rule is that the child never holds more than the parent and cannot give any of it away.
+
+* **Which.** `IPC` capabilities and `ENDPOINT` handles. Hardware capabilities (ports, interrupt lines, device memory, boot modules) stay with the parent, because two processes must not share a device, and so does `SPAWN`, so a child cannot create processes or label them. The owner entry of an endpoint, the one with the bind right, stays too: the child does not become the server of its parent.
+* **Each copy is a node of the derivation tree**, a child of the node of the entry it comes from, so whoever may revoke the parent's capability may revoke the copy. The copy has no flags: it cannot be granted, minted or bound.
+* **Handle numbers.** A handle is the number a program passes to a call, and the program stores it in its memory, which the child has a copy of. So the copy keeps the number of its source (`Capability::handle`, which `CapabilitySet::add` sets to the node for every other entry) while its node is new. The child receives new handles later with a number that is a node id, which the kernel never gives to two nodes at once.
+* **Badges.** A handle whose badge is the id of the parent, which is the identity servers know a program by (the initial handle carries it), gets the id of the child, so a server tells the two apart and keeps a session for each: a forked child opens its own files. A handle with any other badge keeps it.
+* **What it does not do.** The name server does not know the child, so the child cannot ask it for handles it did not inherit; it parks the request until a process manager registers the child, which is the next step of the path to Unix style descriptors (E4 and E5 in the roadmap). The child has no service label: a copy of a server must not receive what the clients of the server send.
+* **Checked by** the in-kernel suite `Capability inheritance` (the copies and their nodes, the hardware and owner entries that stay, an entry with no node blocking the copy, a full table leaving nothing behind, the badge of the child, the copy outliving the parent) and by the test program `forkprobe`, whose child and grandchild call `pm` through inherited handles.
 
 ## What each check does
 * **Ports** (`SYS_REQUEST_RESOURCE`): the capability must cover the range. Then the kernel refuses the ports of the PIC (`0x20`, `0x21`, `0xA0`, `0xA1`) and the timer (`0x40` to `0x43`), which are the kernel's. Only then are the bits turned on in the permission bitmap of the process, which the CPU enforces from there on (see [GDT](../arch/gdt.md)).

@@ -68,7 +68,9 @@ PhysAddr PhysicalMemoryManager::allocFrame() {
 }
 ```
 
-`allocFrame` returns a null address when memory runs out and `freeFrame` only releases frames that `allocFrame` handed out (a separate bitmap records them), so a double free, a reserved frame of the kernel or of the boot structures, or an address outside RAM is ignored, and the callers decide what an out of memory condition means. `isRam` answers whether a physical address belongs to RAM; the VMM uses it to tell devices from memory. `freeFrameCount` returns the number of free frames, kept as a counter, so a caller can check before starting a large mapping.
+`allocFrame` returns a null address when memory runs out and `freeFrame` only releases frames that `allocFrame` handed out (a separate bitmap records them), so a double free, a reserved frame of the kernel or of the boot structures, or an address outside RAM is ignored, and the callers decide what an out of memory condition means.
+
+Every frame has a **reference count**, one byte per frame (1 MiB of `.bss` for the 4 GiB range). `allocFrame` sets it to 1, `shareFrame` adds a reference and `freeFrame` drops one: the frame goes back to the pool only with its last reference. `shareFrame` fails for a frame that is not allocated and for one that already has `MAX_FRAME_REFERENCES` (255), and `frameReferences` reads the count. Only copy on write shares frames, so a frame that is not part of a forked address space always has exactly one reference. `isRam` answers whether a physical address belongs to RAM; the VMM uses it to tell devices from memory. `freeFrameCount` returns the number of free frames, kept as a counter, so a caller can check before starting a large mapping.
 
 ## Paging
 `Paging` (`cock/arch/x86/memory/paging.cpp`) is the only code that writes page tables. It uses the recursive mapping in the last directory entry, so every table of the current address space is reachable at a fixed virtual address.
@@ -76,8 +78,9 @@ PhysAddr PhysicalMemoryManager::allocFrame() {
 * **Kernel half shared by all address spaces.** `Paging::init()` allocates every page table of the kernel half (directory entries 768 to 1022) at boot. From then on those entries never change, so `createAddressSpace` copies them once and a new process can never miss a kernel mapping.
 * **Global pages.** When the CPU supports it, `CR4.PGE` is enabled and the kernel pages are marked `GLOBAL`, so they survive a change of `CR3`.
 * **`NOT_OWNED`.** A page-table entry bit reserved for the OS. Device mappings carry it, and destroying an address space or unmapping a range does not return those frames to the PMM.
-* **`destroyAddressSpace`** walks the user half of a directory, frees every owned frame and every table, and finally the directory itself.
-* **`isRangeAccessible`** checks that every page in a range is present, readable by user mode when asked, and writable when asked. System calls use it before touching a user pointer.
+* **`COPY_ON_WRITE`.** Another page-table entry bit reserved for the OS (bit 10): the page was writable and its frame is shared with another address space, so the entry is read only until the first write. See "Copy on write" below.
+* **`destroyAddressSpace`** walks the user half of a directory, drops the reference of every owned frame (the frame is freed with its last reference) and frees every table, and finally the directory itself.
+* **`isRangeAccessible`** checks that every page in a range is present, readable by user mode when asked, and writable when asked. System calls use it before touching a user pointer. A user range checked for writing may hold copy on write pages: each one gets its own frame first, because the kernel writes with `CR0.WP` set and would fault on a read only page.
 
 The address space is switched only when it actually changes between two threads, and the switch is an inline write to `CR3`.
 
@@ -85,6 +88,15 @@ The address space is switched only when it actually changes between two threads,
 The boot code maps the first 4 MiB writable. At the end of `Paging::init()`, `protectKernelImage` clears the write bit of every page of `.text` and of `.rodata` (the linker script exports `_text_start`, `_text_end`, `_rodata_start` and `_rodata_end`) and then turns on `CR0.WP`, so the kernel itself obeys the read-only bit. A stray write through a bad pointer faults instead of silently changing code or constants. The linker also checks, with an `ASSERT`, that the image fits in the 4 MiB that the boot code maps.
 
 Because the kernel obeys the write bit of user pages as well, nothing in the kernel writes to a user page that is read only. The ELF loader maps every segment writable, copies it, and only then makes the read-only segments read only; a page shared with a writable segment stays writable.
+
+### Copy on write
+`fork` copies a process without copying its memory. The kernel part is one primitive, `SYS_PROC_FORK` (see [task management](task_management.md#fork)), which asks the VMM for `cloneAddressSpace` of the parent. It lives in the kernel because only the kernel writes page tables; the policy (who may fork, the table of processes) is in `pm`.
+
+* **The copy.** `Paging::cloneAddressSpace` allocates a new directory, which shares the kernel half as in `createAddressSpace`, and a page table for every user page table of the source. For each present entry of a page the source owns it adds a reference to the frame (`shareFrame`); if the page was writable it clears `WRITEABLE` and sets `COPY_ON_WRITE` in **both** tables. Read only pages (the code of the program) stay as they are, shared for good. Pages marked `NOT_OWNED` (shared memory and devices) are copied as they are and stay shared and writable, which is what a shared mapping means. Only the directory and the tables take frames now; the source must not run, so its stale TLB entries die with the next switch to it. The copy uses temporary slots of the kernel (`0xE0000000` and up) to edit the two address spaces, and it stops when the free frames would fall under the reserve the kernel keeps (`KERNEL_RESERVED_FRAMES`). A failure destroys the copy, which returns every table and every reference it took; the source may keep entries marked copy on write, which resolve by themselves.
+* **The first write.** It raises a page fault (present, write, from Ring 3). `core::events::on_exception` asks `VirtualMemoryManager::resolveCopyOnWrite` before it logs anything. When the frame has other references, a new frame takes a copy of the page, replaces the old one in the table with `WRITEABLE` and without `COPY_ON_WRITE`, and the old frame loses a reference; when this mapping is the last one, the entry just becomes writable. The instruction then runs again. A write to a page that is read only for any other reason, or an address that is not mapped, is not copy on write and still kills the thread as before.
+* **Writes by the kernel.** The kernel writes to a user buffer only after `isUserRangeValid(..., write = true)`, which resolves the copy on write pages of the range. `mapPagesAt` does the same before it merges write permission into a page that is already mapped.
+* **No frame at the write.** The copy takes a frame from the allocator without the kernel reserve. If none is free, `resolveCopyOnWrite` fails and the thread is killed by the fault, as when an address is not mapped; a system call that needs a copy returns its failure. `fork` does not reserve the frames for the copies (the same bet as Linux): it only checks that the tables fit.
+* **Limit.** A frame can have 255 references. A `fork` that would pass it fails and leaves nothing behind.
 
 ## Virtual Memory Manager (VMM)
 The VMM is the policy on top of `Paging` and the PMM. It never writes a page table directly.
@@ -102,6 +114,8 @@ class VirtualMemoryManager {
 	static bool isUserRangeValid(VirtAddr ptr, size_t length, bool write,
 								 VirtAddr user_limit);
 	static bool protectPage(VirtAddr virt, VMMPermission permission);
+	static PhysAddr cloneAddressSpace(PhysAddr source);
+	static bool resolveCopyOnWrite(VirtAddr virt);
 	static bool isRangeUnmapped(VirtAddr start, size_t page_count);
 	static bool isDeviceMemory(PhysAddr phys, size_t length);
 };
@@ -112,7 +126,8 @@ class VirtualMemoryManager {
 * The kernel virtual range (`0xD0000000` to `0xE0000000`) is managed by a `RangePool` (`shared/include/cock/data_structure/range_pool.hpp`): a bump cursor plus a sorted table of up to 128 free ranges. `allocPages` and `allocStack` take the first free range that fits (or move the cursor), `freePages` and `freeStack` give the range back (a stack with its guard page), neighbours are merged, and a range that touches the cursor moves it back. When the table is full a release that cannot be merged is dropped, so that range is lost. A `freePages` of an address outside the range (a user mapping) only unmaps.
 * `mapPagesAt` receives the user limit of the process: a request above it, or above the architecture limit, fails. Before mapping anything it counts the frames the request needs (the new pages, plus a margin for page tables) and fails at once if the PMM does not have them. For a user mapping it also leaves `KERNEL_RESERVED_FRAMES` frames untouched, so a program cannot take the memory the kernel needs for stacks, page tables and its heap. If a mapping of fresh pages fails half way, the pages it had just mapped are released.
 * `protectPage` replaces the permissions of one already mapped page.
-* `isUserRangeValid` is the check behind every pointer a program hands to the kernel.
+* `isUserRangeValid` is the check behind every pointer a program hands to the kernel. For a range the kernel is going to write it also gives private frames to the copy on write pages in it.
+* `cloneAddressSpace` and `resolveCopyOnWrite` are the two halves of copy on write, described above.
 * `isDeviceMemory` is true only when no frame of the range is RAM. Mapping physical memory into a process requires both that and a capability (see [capabilities](capabilities.md)).
 
 ## Per-process limits

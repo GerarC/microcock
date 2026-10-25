@@ -28,10 +28,13 @@ constexpr uint32_t MMAP_SIZE_FIELD = 4;
 constexpr uint32_t MMAP_MIN_ENTRY_SIZE = 20;
 constexpr uint32_t KIBIBYTE = 0x400;
 constexpr unsigned HIGH_WORD_SHIFT = 32;
+constexpr uint8_t NO_REFERENCES = 0;
+constexpr uint8_t FIRST_REFERENCE = 1;
 
 uint32_t frameBitmap[BITMAP_WORDS];
 uint32_t ramBitmap[BITMAP_WORDS];
 uint32_t allocatedBitmap[BITMAP_WORDS];
+uint8_t referenceCounts[MAX_PHYSICAL_FRAMES];
 uint32_t frameLimit = 0;
 uint32_t searchHint = 0;
 uint32_t usedFrames = 0;
@@ -176,6 +179,7 @@ void PhysicalMemoryManager::init(const MBInfo *boot_info, PhysAddr boot_info_phy
 	memset(frameBitmap, 0xFF, sizeof(frameBitmap));
 	memset(ramBitmap, 0, sizeof(ramBitmap));
 	memset(allocatedBitmap, 0, sizeof(allocatedBitmap));
+	memset(referenceCounts, NO_REFERENCES, sizeof(referenceCounts));
 	frameLimit = 0;
 	searchHint = 0;
 	usedFrames = 0;
@@ -213,9 +217,29 @@ PhysAddr PhysicalMemoryManager::allocFrame() {
 
 	setFrame(frame);
 	setAllocated(frame);
+	referenceCounts[frame] = FIRST_REFERENCE;
 	usedFrames++;
 	freeFrames--;
 	return PhysAddr(frame * PAGE_SIZE);
+}
+
+bool PhysicalMemoryManager::shareFrame(PhysAddr address) {
+	InterruptGuard guard;
+
+	uint32_t frame = static_cast<uint32_t>(address.frameNumber());
+	if (frame >= frameLimit || !testAllocated(frame)) return false;
+	if (referenceCounts[frame] >= MAX_FRAME_REFERENCES) return false;
+
+	referenceCounts[frame]++;
+	return true;
+}
+
+uint32_t PhysicalMemoryManager::frameReferences(PhysAddr address) {
+	InterruptGuard guard;
+
+	uint32_t frame = static_cast<uint32_t>(address.frameNumber());
+	if (frame >= frameLimit || !testAllocated(frame)) return NO_REFERENCES;
+	return referenceCounts[frame];
 }
 
 void PhysicalMemoryManager::freeFrame(PhysAddr address) {
@@ -223,7 +247,12 @@ void PhysicalMemoryManager::freeFrame(PhysAddr address) {
 
 	uint32_t frame = static_cast<uint32_t>(address.frameNumber());
 	if (frame >= frameLimit || !testAllocated(frame)) return;
+	if (referenceCounts[frame] > FIRST_REFERENCE) {
+		referenceCounts[frame]--;
+		return;
+	}
 
+	referenceCounts[frame] = NO_REFERENCES;
 	clearAllocated(frame);
 	clearFrame(frame);
 	freeFrames++;

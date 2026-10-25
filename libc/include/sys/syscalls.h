@@ -54,6 +54,8 @@
     #define SYS_PROC_STATE       0x209
     /** Replaces the program image of a process that waits for the reply of a call the caller is serving, with the pending process the caller built; the process keeps its id, capabilities and endpoints, and its other threads end. a1: handle, a2: entry point (inside a mapped page), a3: id of the process to replace, a4: the one number the new image receives in EAX at its entry. Returns 0 and invalidates the handle, or all ones (the old image is untouched). The caller needs a SPAWN capability. */
     #define SYS_PROC_EXEC        0x20A
+    /** Makes a copy of a process that waits for the reply of a call the caller serves: a new child of the caller with the address space shared copy on write, the IPC and endpoint capabilities of the original, and one thread that resumes inside the same call with an answer the caller supplies. a1: id of the process to copy, a2: pointer to four 32 bit words, the answer the copy finds. Returns the id of the new process, or all ones (nothing is created). The caller needs a SPAWN capability. */
+    #define SYS_PROC_FORK        0x20B
 
     /** Sleeps; messages that arrive meanwhile do not wake the thread. a1: milliseconds (at most 0x7FFFFFFF; 0 only yields). Returns 0, or all ones when the time is too large. */
     #define SYS_SLEEP            0x210

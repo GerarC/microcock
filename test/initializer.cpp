@@ -28,12 +28,14 @@ extern void test_io_permissions();
 extern void test_paging();
 extern void test_pmm();
 extern void test_frames();
+extern void test_copy_on_write();
 } // namespace cock::test::arch
 
 namespace cock::test::security {
 extern void test_capabilities();
 extern void test_revocation();
 extern void test_capability_transfer();
+extern void test_capability_inherit();
 extern void test_ipc_access();
 extern void test_endpoint();
 } // namespace cock::test::security
@@ -53,9 +55,11 @@ void run_all_tests() {
 	arch::test_pmm();
 	arch::test_frames();
 	arch::test_paging();
+	arch::test_copy_on_write();
 	security::test_capabilities();
 	security::test_revocation();
 	security::test_capability_transfer();
+	security::test_capability_inherit();
 	security::test_ipc_access();
 	security::test_endpoint();
 	task::test_scheduler();

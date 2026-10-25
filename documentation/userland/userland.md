@@ -12,6 +12,7 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `pm` | Process manager. `rs` creates it from the initrd and it creates every other process after it; it is their parent in the kernel and keeps the table; see [pm](pm.md) |
 | `init` | The first process as Linux sees it (id 1), without authority: starts the programs of the manifest that carry `parent=init` (the shell) and starts them again; see [pm](pm.md) |
 | `pmclient` | Test program: lists the table of `pm`, checks the first rows, its own row and that a caller that is not `rs` is refused; the end to end test requires `pmclient: ok` |
+| `forkprobe` | Test program: forks through `pm`, changes a global and a stack variable on each side and checks that each keeps its own value, forks again inside the child (which only works through the handle it inherited), and collects both with `wait`; the end to end test requires `forkprobe: ok` |
 | `names` | Name server, the second boot module. `rs` describes the system to it; a program asks it, through the handle it was born with, for a handle on a server; see [names](names.md) |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `rs` can read the manifest) |
@@ -92,6 +93,7 @@ When an entry has grants or an argument, `rs` sends the process `CAPABILITY_GRAN
 | `process_alive(pid)` | `SYS_PROC_ALIVE` |
 | `process_state_mask(pid)` | `SYS_PROC_STATE` |
 | `proc_exec(handle, entry, pid, initial)` | `SYS_PROC_EXEC`; only `pm` holds the capability |
+| `proc_fork(pid, reply)` | `SYS_PROC_FORK`; only `pm` holds the capability. Programs use `pm::Client::fork` |
 | `exec(process, files, path, argv, argc)` (`exec.hpp`) | Replaces the image of the program with a file: reads it through the file server into an object of `pm` and sends `EXEC`; returns only when it failed (`ExecFailure`) |
 | `argumentCount()`, `argument(index)` (`crt0.hpp`) | The arguments of a program that `exec` started, from the page at `abi::exec::ARGS_ADDRESS`; none for a program that `spawn` started |
 | `ipc_try_recv(message)` | `SYS_IPC_TRY_RECV`; `Received::MESSAGE`, `EMPTY` or `FAILED` |

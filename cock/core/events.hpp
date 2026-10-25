@@ -46,6 +46,9 @@ struct ExceptionInfo {
 	bool has_fault_address; /**< True for page faults and similar. */
 	uintptr_t instruction; /**< Instruction pointer at the time of the fault. */
 	bool from_user; /**< True when the fault happened in Ring 3. */
+	bool write_to_present_page; /**< True for a page fault caused by a write to a
+								   page that is mapped, which is what a copy on
+								   write page raises. */
 	const char *name; /**< Human readable name of the exception. */
 };
 
@@ -68,7 +71,10 @@ SyscallOutcome on_syscall(const SyscallRequest &request,
 /**
  * @brief Handles a CPU exception.
  *
- * Logs the exception. A fault in Ring 0, or without a current thread, panics.
+ * A write from Ring 3 to a page that is mapped read only because it is shared
+ * copy on write is not an error: the page gets a private frame and the
+ * instruction runs again, with nothing logged. Otherwise the exception is
+ * logged. A fault in Ring 0, or without a current thread, panics.
  * A fault in Ring 3 kills the faulting thread, sets the process exit status to
  * the fault status and schedules another thread.
  *

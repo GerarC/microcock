@@ -112,6 +112,22 @@ Thread::Thread(Process &owner, VirtAddr entry_point, VirtAddr user_stack_base,
 	TaskManager::registerThread(this);
 }
 
+Thread::Thread(Process &owner, const Thread &source, void *kernel_stack) {
+	initBase(source.priority, ThreadType::USER, &owner, kernel_stack);
+	this->userStackBase = source.userStackBase;
+	this->stackPointer =
+		hal::clone_thread_context(source.stackPointer, stackBase, THREAD_STACK_SIZE);
+	TaskManager::registerThread(this);
+}
+
+Thread *Thread::createClone(Process &owner, const Thread &source) {
+	if (owner.isKernel() || !TaskManager::hasFreePid()) return nullptr;
+
+	void *kernel_stack = VirtualMemoryManager::allocStack(KERNEL_STACK_PAGES);
+	if (kernel_stack == nullptr) return nullptr;
+	return new Thread(owner, source, kernel_stack);
+}
+
 Thread *Thread::createUser(Process &owner, VirtAddr entry_point,
 						   VirtAddr user_stack_base, size_t user_stack_size,
 						   ThreadPriority priority) {

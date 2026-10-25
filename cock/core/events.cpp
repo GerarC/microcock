@@ -2,6 +2,7 @@
 #include <cock/core/events.hpp>
 #include <cock/core/hal/tasking.hpp>
 #include <cock/core/irq/irq_routing.hpp>
+#include <cock/core/memory/vmm.hpp>
 #include <cock/core/syscall/syscall_manager.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/scheduler.hpp>
@@ -13,6 +14,8 @@ namespace cock::core::events {
 
 using core::syscall::SyscallManager;
 using core::syscall::SystemCall;
+using core::memory::VirtAddr;
+using core::memory::VirtualMemoryManager;
 using core::task::Scheduler;
 using utils::Logger;
 
@@ -41,6 +44,10 @@ SyscallOutcome on_syscall(const SyscallRequest &request,
 }
 
 uintptr_t on_exception(const ExceptionInfo &info, uintptr_t stack_pointer) {
+	if (info.from_user && info.write_to_present_page && Scheduler::getCurrentThread() &&
+		VirtualMemoryManager::resolveCopyOnWrite(VirtAddr(info.fault_address)))
+		return stack_pointer;
+
 	Logger::error("Exception{ .idx: %u, .type: %s, .ring: %u}", info.vector,
 				  info.name, info.from_user ? 3u : 0u);
 	Logger::error("  -> EIP: 0x%x  Error Code: 0x%x",

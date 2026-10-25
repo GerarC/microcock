@@ -180,6 +180,13 @@ class Thread {
 	Thread(Process &owner, memory::VirtAddr entry_point,
 		   memory::VirtAddr user_stack_base, size_t user_stack_size,
 		   void *kernel_stack, ThreadPriority priority);
+	/**
+	 * @brief Builds the first thread of a forked process as a copy of another thread.
+	 * @param owner The new process, with no thread.
+	 * @param source The thread that forks, not running.
+	 * @param kernel_stack Kernel stack already allocated.
+	 */
+	Thread(Process &owner, const Thread &source, void *kernel_stack);
 
   public:
 	Thread *link = nullptr; /**< Ready queue link. */
@@ -212,6 +219,25 @@ class Thread {
 	static Thread *createUser(Process &owner, memory::VirtAddr entry_point,
 							  memory::VirtAddr user_stack_base,
 							  size_t user_stack_size, ThreadPriority priority);
+
+	/**
+	 * @brief Creates the first thread of a forked process as a copy of the thread that forks.
+	 *
+	 * The new thread has its own kernel stack and the saved context of the source: it
+	 * resumes at the same instruction, in the user stack of the same address, with the
+	 * same registers, inside the same system call. The caller writes the result of that
+	 * call into its context (`SyncIpc::writeReply`) before it schedules it. Priority and
+	 * user stack bounds are the source's. Nothing else of the source is copied: no
+	 * message, no futex wait, no pending call, no interrupt line.
+	 *
+	 * @param owner The new user process, with an address space that copies the source's
+	 * and no thread yet.
+	 * @param source A thread of the parent that waits inside a system call and is not
+	 * running, so its saved context is complete.
+	 * @return The thread, not yet scheduled, or nullptr when the process is the kernel
+	 * one, no pid is free or no kernel stack is available.
+	 */
+	static Thread *createClone(Process &owner, const Thread &source);
 
 	/** @return The word the thread waits on, or the no address value. */
 	uintptr_t getFutexAddress() const { return futexAddress; }

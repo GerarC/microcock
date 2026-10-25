@@ -11,6 +11,7 @@
 #ifndef COCK_USER_API_HPP
 #define COCK_USER_API_HPP
 
+#include <cock/abi/call.hpp>
 #include <cock/abi/capability.hpp>
 #include <cock/abi/endpoint.hpp>
 #include <cock/abi/process.hpp>
@@ -634,6 +635,25 @@ inline uint32_t proc_start(uint32_t handle, uintptr_t entry) {
  */
 inline bool proc_exec(uint32_t handle, uintptr_t entry, uint32_t pid, uintptr_t initial) {
 	return syscall(SYS_PROC_EXEC, handle, entry, pid, initial, 0, 0) == SUCCESS;
+}
+
+/**
+ * @brief Makes a copy of a process that waits for the reply of a call the caller serves (`SYS_PROC_FORK`).
+ *
+ * Only a process that holds a `SPAWN` capability may call it; the process manager is the one that does. The
+ * target must be waiting for the reply of a call the caller is serving. The new process is a child of the
+ * caller, with the address space of the target shared copy on write, its `IPC` and endpoint capabilities, and a
+ * thread that resumes inside the same call with `reply` as the answer of the server. The target goes on
+ * waiting; the caller answers it as it sees fit.
+ * @param pid Process id of the target.
+ * @param reply The four words the new process finds as the answer to its call.
+ * @return The process id of the new process, or `NO_PROCESS` when the caller may not, the target is not
+ * waiting for a reply the caller serves, or no process id, memory or room in the tables is left. Nothing is
+ * created after a failure.
+ */
+inline uint32_t proc_fork(uint32_t pid, const uint32_t (&reply)[abi::call::WORD_COUNT]) {
+	uintptr_t result = syscall(SYS_PROC_FORK, pid, reinterpret_cast<uintptr_t>(reply), 0, 0, 0, 0);
+	return result == FAILURE ? NO_PROCESS : static_cast<uint32_t>(result);
 }
 
 /**

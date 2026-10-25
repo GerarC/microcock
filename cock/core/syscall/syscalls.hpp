@@ -541,6 +541,34 @@ uintptr_t sys_proc_state(uintptr_t pid, uintptr_t, uintptr_t, uintptr_t, uintptr
 uintptr_t sys_proc_exec(uintptr_t handle, uintptr_t entry_point, uintptr_t pid, uintptr_t initial,
 						uintptr_t, uintptr_t);
 
+/**
+ * @brief Makes a copy of a process, as `fork` does: a new process with a copy of the address space
+ * (shared copy on write), one thread that resumes where the target waits, and the `IPC` and `ENDPOINT`
+ * capabilities of the target.
+ *
+ * The caller must hold a `SPAWN` capability, and the target must be the main thread of a user process
+ * other than the caller's, waiting for the reply of a call that the caller serves (accepted, or
+ * detached with `ipc_defer`): that is the consent of the target, and it is not running, so its address
+ * space and its saved context are complete. Everything that can fail is done before anything is
+ * created: the caller can take one more exit notice, a process id is free, the derivation tree has room
+ * for the copies, the shared objects the target holds have a free holder slot, and the page tables fit
+ * in memory above the kernel reserve (no page is copied now; the writes copy them). The new process
+ * is a child of the caller, which gets its exit notice, with the name, the memory regions, the page
+ * quota in use and the accepted capability types of the target, and no service label. Its thread
+ * resumes inside the call the target made, with the four words of `reply_ptr` as the answer of the
+ * server, the same registers and the same user stack address. Hardware capabilities, `SPAWN`, the
+ * owner of an endpoint and the flags that let a capability be passed on are not copied. The target
+ * stays as it was, still waiting for the reply of the caller.
+ *
+ * @param pid Process id of the target.
+ * @param reply_ptr User pointer to four 32 bit words, the answer the new thread finds, validated as
+ * readable.
+ * @return The process id of the new process (the id of its first thread), or all ones with nothing
+ * created.
+ */
+uintptr_t sys_proc_fork(uintptr_t pid, uintptr_t reply_ptr, uintptr_t, uintptr_t, uintptr_t,
+						uintptr_t);
+
 /** @brief Largest finite timeout in milliseconds accepted by the timed calls. */
 constexpr uintptr_t MAX_TIMEOUT_MILLISECONDS = 0x7FFFFFFF;
 

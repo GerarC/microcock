@@ -25,6 +25,10 @@ namespace {
 constexpr uint32_t PAGE_FLAGS_MASK = PAGE_MASK;
 constexpr uint32_t TEMP_DIRECTORY_SLOT = TEMP_MAP_BASE;
 constexpr uint32_t TEMP_TABLE_SLOT = TEMP_MAP_BASE + PAGE_SIZE;
+constexpr uint32_t TEMP_SOURCE_DIRECTORY_SLOT = TEMP_TABLE_SLOT + PAGE_SIZE;
+constexpr uint32_t TEMP_SOURCE_TABLE_SLOT = TEMP_SOURCE_DIRECTORY_SLOT + PAGE_SIZE;
+constexpr uint32_t TEMP_COPY_SLOT = TEMP_SOURCE_TABLE_SLOT + PAGE_SIZE;
+constexpr uint32_t SOLE_REFERENCE = 1;
 constexpr uint32_t TABLE_ACCESS = PRESENT | WRITEABLE;
 constexpr uint64_t LAST_ADDRESS = 0xFFFFFFFFull;
 
@@ -51,6 +55,24 @@ inline uint32_t globalFlagFor(VirtAddr virt, uint32_t flags) {
 	if (!globalPagesActive || virt.raw() < KERNEL_BASE || (flags & USER))
 		return 0;
 	return GLOBAL;
+}
+
+bool shareTable(uint32_t *source, uint32_t *copy) {
+	for (uint32_t pt_idx = 0; pt_idx < ENTRIES_PER_TABLE; pt_idx++) {
+		uint32_t entry = source[pt_idx];
+		if (!(entry & PRESENT)) continue;
+
+		if (!(entry & NOT_OWNED)) {
+			if (!PhysicalMemoryManager::shareFrame(PhysAddr(entry & ~PAGE_MASK)))
+				return false;
+			if (entry & WRITEABLE) {
+				entry = (entry & ~WRITEABLE) | COPY_ON_WRITE;
+				source[pt_idx] = entry;
+			}
+		}
+		copy[pt_idx] = entry;
+	}
+	return true;
 }
 
 } // namespace
@@ -216,7 +238,9 @@ bool Paging::isRangeAccessible(VirtAddr virt, size_t length, bool user,
 		uint32_t pte = tableEntries(pd_idx)[tableIndex(current)];
 		if (!(pte & PRESENT)) return false;
 		if (user && !(pte & USER)) return false;
-		if (write && !(pte & WRITEABLE)) return false;
+		if (write && !(pte & WRITEABLE) &&
+			!(user && (pte & COPY_ON_WRITE) && resolveCopyOnWrite(current)))
+			return false;
 
 		if (page == last_page) break;
 	}
@@ -249,6 +273,102 @@ PhysAddr Paging::createAddressSpace() {
 
 	unmapPage(slot);
 	return directory_phys;
+}
+
+PhysAddr Paging::cloneAddressSpace(PhysAddr source, size_t reserved_frames) {
+	if (source.isNull() || source == kernelDirectory()) return PhysAddr();
+	if (source.raw() == core::hal::read_page_table_root()) return PhysAddr();
+
+	InterruptGuard guard;
+	if (PhysicalMemoryManager::freeFrameCount() <= reserved_frames) return PhysAddr();
+
+	PhysAddr child = createAddressSpace();
+	if (child.isNull()) return PhysAddr();
+
+	VirtAddr source_directory_slot(TEMP_SOURCE_DIRECTORY_SLOT);
+	VirtAddr child_directory_slot(TEMP_DIRECTORY_SLOT);
+	VirtAddr source_table_slot(TEMP_SOURCE_TABLE_SLOT);
+	VirtAddr child_table_slot(TEMP_TABLE_SLOT);
+
+	if (!mapPage(source, source_directory_slot, TABLE_ACCESS)) {
+		destroyAddressSpace(child);
+		return PhysAddr();
+	}
+	if (!mapPage(child, child_directory_slot, TABLE_ACCESS)) {
+		unmapPage(source_directory_slot);
+		destroyAddressSpace(child);
+		return PhysAddr();
+	}
+	const uint32_t *source_directory = source_directory_slot.as<const uint32_t>();
+	uint32_t *child_directory = child_directory_slot.as<uint32_t>();
+
+	bool copied = true;
+	for (uint32_t pd_idx = 0; pd_idx < FIRST_KERNEL_PDE && copied; pd_idx++) {
+		uint32_t source_entry = source_directory[pd_idx];
+		if (!(source_entry & PRESENT)) continue;
+
+		copied = false;
+		if (PhysicalMemoryManager::freeFrameCount() <= reserved_frames) break;
+		PhysAddr child_table = PhysicalMemoryManager::allocFrame();
+		if (child_table.isNull()) break;
+		if (!mapPage(child_table, child_table_slot, TABLE_ACCESS)) {
+			PhysicalMemoryManager::freeFrame(child_table);
+			break;
+		}
+		memset(child_table_slot.as<void>(), 0, PAGE_SIZE);
+		child_directory[pd_idx] = child_table.raw() | TABLE_ACCESS | (source_entry & USER);
+
+		PhysAddr source_table(source_entry & ~PAGE_MASK);
+		if (mapPage(source_table, source_table_slot, TABLE_ACCESS)) {
+			copied = shareTable(source_table_slot.as<uint32_t>(),
+								child_table_slot.as<uint32_t>());
+			unmapPage(source_table_slot);
+		}
+		unmapPage(child_table_slot);
+	}
+
+	unmapPage(child_directory_slot);
+	unmapPage(source_directory_slot);
+	if (!copied) {
+		destroyAddressSpace(child);
+		return PhysAddr();
+	}
+	return child;
+}
+
+bool Paging::resolveCopyOnWrite(VirtAddr virt) {
+	if (virt.raw() >= USER_TOP) return false;
+
+	InterruptGuard guard;
+	uint32_t pd_idx = directoryIndex(virt);
+	if (!(directoryEntries()[pd_idx] & PRESENT)) return false;
+
+	uint32_t *entry = &tableEntries(pd_idx)[tableIndex(virt)];
+	uint32_t current = *entry;
+	if (!(current & PRESENT) || !(current & COPY_ON_WRITE)) return false;
+
+	PhysAddr old_frame(current & ~PAGE_MASK);
+	uint32_t flags = (current & PAGE_FLAGS_MASK & ~COPY_ON_WRITE) | WRITEABLE;
+	if (PhysicalMemoryManager::frameReferences(old_frame) <= SOLE_REFERENCE) {
+		*entry = old_frame.raw() | flags;
+		invalidate(virt);
+		return true;
+	}
+
+	PhysAddr copy = PhysicalMemoryManager::allocFrame();
+	if (copy.isNull()) return false;
+	VirtAddr slot(TEMP_COPY_SLOT);
+	if (!mapPage(copy, slot, TABLE_ACCESS)) {
+		PhysicalMemoryManager::freeFrame(copy);
+		return false;
+	}
+	memcpy(slot.as<void>(), virt.pageBase().as<const void>(), PAGE_SIZE);
+	unmapPage(slot);
+
+	*entry = copy.raw() | flags;
+	invalidate(virt);
+	PhysicalMemoryManager::freeFrame(old_frame);
+	return true;
 }
 
 void Paging::destroyAddressSpace(PhysAddr directory_phys) {

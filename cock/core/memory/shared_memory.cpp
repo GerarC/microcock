@@ -149,6 +149,40 @@ bool SharedMemory::share(uint32_t id, uint32_t from_pid, uint32_t target_pid,
 	return false;
 }
 
+bool SharedMemory::canInherit(uint32_t id, uint32_t from_pid) {
+	InterruptGuard guard;
+	Object *object = lookup(id);
+	if (object == nullptr || findHolder(*object, from_pid) == nullptr) return true;
+
+	for (size_t idx = 0; idx < MAX_HOLDERS; idx++) {
+		if (!object->holders[idx].used) return true;
+	}
+	return false;
+}
+
+bool SharedMemory::inherit(uint32_t id, uint32_t from_pid, uint32_t to_pid) {
+	InterruptGuard guard;
+	Object *object = lookup(id);
+	if (object == nullptr) return true;
+
+	Holder *giver = findHolder(*object, from_pid);
+	if (giver == nullptr) return true;
+
+	Holder *existing = findHolder(*object, to_pid);
+	if (existing != nullptr) {
+		existing->writable = existing->writable || giver->writable;
+		return true;
+	}
+
+	bool writable = giver->writable;
+	for (size_t idx = 0; idx < MAX_HOLDERS; idx++) {
+		if (object->holders[idx].used) continue;
+		object->holders[idx] = {true, writable, to_pid};
+		return true;
+	}
+	return false;
+}
+
 bool SharedMemory::release(uint32_t id, uint32_t pid) {
 	InterruptGuard guard;
 	Object *object = lookup(id);

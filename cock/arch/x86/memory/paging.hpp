@@ -47,6 +47,11 @@ enum PageFlag : uintptr_t {
 	NOT_OWNED = 1 << 9, /**< Software bit (ignored by the CPU): the frame
 						   belongs to someone else (shared memory, device), so
 						   destroyAddressSpace() must not free it. */
+	COPY_ON_WRITE = 1 << 10, /**< Software bit (ignored by the CPU): the page was
+								writable before cloneAddressSpace() shared its
+								frame, so the first write must give the writer a
+								copy (resolveCopyOnWrite()). Never set together
+								with WRITEABLE. */
 };
 
 /** @brief A page table entry: frame address plus PageFlag bits. */
@@ -147,13 +152,19 @@ class Paging {
 	 * at both the directory and the table level. A zero length range is
 	 * accepted.
 	 *
+	 * A user range checked for writing may hold copy on write pages: each one
+	 * is given its own frame first (resolveCopyOnWrite()), because the kernel
+	 * writes with CR0.WP set and would fault on a read only page. This is why
+	 * every system call that writes to a user buffer checks it with `write`.
+	 *
 	 * @param virt First byte of the range.
 	 * @param length Number of bytes.
 	 * @param user True to require Ring 3 access (also rejects ranges reaching
 	 * the kernel half).
 	 * @param write True to require write permission.
 	 * @return True if every page satisfies the checks and the range does not
-	 * wrap around 4 GiB.
+	 * wrap around 4 GiB. False also when a copy on write page needed a frame and
+	 * none was free.
 	 */
 	static bool isRangeAccessible(core::memory::VirtAddr virt, size_t length,
 								  bool user, bool write);
@@ -177,13 +188,62 @@ class Paging {
 	static core::memory::PhysAddr createAddressSpace();
 
 	/**
+	 * @brief Creates a copy of a user address space whose pages are shared
+	 * copy on write, as `fork` needs.
+	 *
+	 * Every user page table of the source is copied. A page the source owns
+	 * gains one reference on its frame (PhysicalMemoryManager::shareFrame()); if
+	 * it was writable it loses WRITEABLE and gains COPY_ON_WRITE in both
+	 * address spaces, so the first write on either side gets a private frame.
+	 * Read only pages stay as they are and are shared for good. Pages marked
+	 * NOT_OWNED (shared memory, devices) are copied as they are and stay shared
+	 * and writable. The kernel half is shared as in createAddressSpace().
+	 *
+	 * Frames are taken for the directory and the page tables only; no page is
+	 * copied. The source must not run while this works, so its TLB entries are
+	 * dropped by the next switch to it. Uses the temporary kernel mapping slots
+	 * and runs with interrupts disabled.
+	 *
+	 * @param source Physical address of the directory to copy, not the kernel
+	 * directory and not the one loaded in CR3.
+	 * @param reserved_frames Free frames that must stay free for the kernel: the
+	 * copy stops when fewer would remain.
+	 * @return Physical address of the new directory, or a null PhysAddr when the
+	 * source is not valid, memory ran out or a frame already had
+	 * MAX_FRAME_REFERENCES. Nothing stays allocated after a failure; the source
+	 * may keep pages marked COPY_ON_WRITE, which resolve by themselves when
+	 * written.
+	 */
+	static core::memory::PhysAddr cloneAddressSpace(core::memory::PhysAddr source,
+													size_t reserved_frames);
+
+	/**
+	 * @brief Gives the active address space a private writable frame for a copy
+	 * on write page.
+	 *
+	 * When the frame of the page has other references, a new frame takes a copy
+	 * of the contents, replaces the old one in the page table and the old one
+	 * loses one reference. When this mapping is the only one left, the page just
+	 * becomes writable again. Works on the user half of the active address space.
+	 *
+	 * @param virt Any address inside the page.
+	 * @return True when the page is writable now. False when the address is in
+	 * the kernel half, the page is not present or not marked COPY_ON_WRITE (so
+	 * the fault was a plain protection violation), or no frame was free.
+	 */
+	static bool resolveCopyOnWrite(core::memory::VirtAddr virt);
+
+	/**
 	 * @brief Releases an address space.
 	 *
-	 * Frees every user page frame (except those marked NOT_OWNED), every user
-	 * page table and the directory. Ignores a null address, the kernel
-	 * directory and the directory loaded in CR3. Runs with interrupts disabled.
+	 * Drops the reference of every user page frame (except those marked
+	 * NOT_OWNED); a frame goes back to the pool with its last reference. Frees
+	 * every user page table and the directory. Ignores a null address, the
+	 * kernel directory and the directory loaded in CR3. Runs with interrupts
+	 * disabled.
 	 *
-	 * @param directory Physical address returned by createAddressSpace().
+	 * @param directory Physical address returned by createAddressSpace() or
+	 * cloneAddressSpace().
 	 */
 	static void destroyAddressSpace(core::memory::PhysAddr directory);
 

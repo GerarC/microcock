@@ -51,6 +51,17 @@ struct Waited {
 	uint32_t exitStatus;
 };
 
+/** What `fork` returns, in the parent and in the child. */
+struct Forked {
+	/** Result of the call; `pid` is valid only for `OK`. */
+	abi::pm::Status status;
+	/** In the parent, the id in the table of the child; in the child, `abi::pm::NO_PID`. */
+	uint32_t pid;
+
+	/** @return true when this is the child: the call worked and `pid` is `abi::pm::NO_PID`. */
+	bool isChild() const { return status == abi::pm::Status::OK && pid == abi::pm::NO_PID; }
+};
+
 /** Calls to `pm` through one handle. It holds at most one object at a time. */
 class Client {
 public:
@@ -164,6 +175,31 @@ public:
 		release();
 		return status = result.ok ? abi::pm::statusOf(result.words[abi::pm::HEADER_WORD])
 								  : abi::pm::Status::BAD_REQUEST;
+	}
+
+	/**
+	 * @brief Makes a copy of the calling process, which goes on from the return of this call.
+	 *
+	 * The copy shares the memory of the caller copy on write: each side sees its own values after a
+	 * write. It has the `IPC` and endpoint capabilities of the caller, with the same handle numbers, and no
+	 * other; a server tells the copy from the caller by the id the badge of the handle carries, so what it
+	 * keeps per caller, such as a file session, is not shared: the copy opens its own. The name server does
+	 * not know the copy, so the copy cannot ask it for new handles. Only the calling thread exists in the
+	 * copy. The caller collects its status with `wait`.
+	 *
+	 * @return In the parent `OK` and the id in the table of the child; in the child `OK` and
+	 * `abi::pm::NO_PID` (`isChild`). On failure only the parent returns, with `NOT_FOUND` (no row), `NO_ROOM`
+	 * (the table is full), `FAILED` (the kernel refused) or `BAD_REQUEST` (the call itself failed).
+	 */
+	Forked fork() {
+		Forked forked = {abi::pm::Status::BAD_REQUEST, abi::pm::NO_PID};
+		uint32_t words[abi::pm::CALL_WORDS] = {abi::pm::pack(abi::pm::Op::FORK)};
+		CallResult result = ep_call(handle, words);
+		if (!result.ok) return forked;
+
+		forked.status = abi::pm::statusOf(result.words[abi::pm::HEADER_WORD]);
+		if (forked.status == abi::pm::Status::OK) forked.pid = result.words[abi::pm::FIRST_WORD];
+		return forked;
 	}
 
 	/**

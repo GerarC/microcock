@@ -4,6 +4,7 @@
 #include <cock/core/memory/shared_memory.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <cock/core/syscall/proc/pending_image.hpp>
+#include <cock/core/syscall/proc/served_target.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/pending_process.hpp>
 #include <cock/core/task/process.hpp>
@@ -30,20 +31,6 @@ using utils::Logger;
 
 namespace {
 
-bool is_served_by(const Thread &server, const Thread &caller) {
-	if (server.serving == &caller) return true;
-	for (const Thread *waiting = server.deferred; waiting != nullptr; waiting = waiting->callLink)
-		if (waiting == &caller) return true;
-	return false;
-}
-
-bool may_replace(const Thread &server, const Thread *target) {
-	if (target == nullptr || !target->isMainThread()) return false;
-	Process *process = target->getProcess();
-	if (process->isKernel() || process == server.getProcess()) return false;
-	return target->getState() == ThreadState::WAITING_REPLY && is_served_by(server, *target);
-}
-
 bool entry_is_mapped(const Process &process, uintptr_t entry) {
 	if (!image_range_fits(process, entry, 1)) return false;
 	PendingSpaceScope scope(process);
@@ -67,7 +54,7 @@ uintptr_t sys_proc_exec(uintptr_t handle, uintptr_t entry_point, uintptr_t pid, 
 	if (entry->hasRights || entry->notify) return PROC_FAILURE;
 
 	Thread *target = TaskManager::getThreadByPID(static_cast<uint32_t>(pid));
-	if (!may_replace(*current, target) || !entry_is_mapped(*entry->process, entry_point))
+	if (!serves_main_thread(*current, target) || !entry_is_mapped(*entry->process, entry_point))
 		return PROC_FAILURE;
 
 	Process *fresh = entry->process;

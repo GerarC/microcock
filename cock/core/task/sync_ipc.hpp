@@ -104,6 +104,18 @@ class SyncIpc {
 	static bool reply(Thread &server, const uint32_t (&words)[abi::call::WORD_COUNT],
 					  bool handoff);
 	/**
+	 * @brief Writes a successful reply into a saved context, as the registers the call returns in.
+	 *
+	 * Neither queue nor state changes and nothing is woken. Used for the copy of a caller that
+	 * `fork` makes, which resumes inside the same call as the original and finds its own answer.
+	 *
+	 * @param context Saved context of a thread that is inside a call and not running.
+	 * @param server_id Thread id the caller finds as the server that answered.
+	 * @param words Four reply words.
+	 */
+	static void writeReply(uintptr_t context, uint32_t server_id,
+						   const uint32_t (&words)[abi::call::WORD_COUNT]);
+	/**
 	 * @brief Detaches the call being served so it can be answered later.
 	 * @param server Thread serving.
 	 * @return The caller, whose id is the ticket, or nullptr when no call is
