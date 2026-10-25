@@ -1,5 +1,5 @@
 /** @file
- * @brief The connection of the shell to the process manager (`pm`), shared by `ps` and the commands that run programs.
+ * @brief The connection of the shell to the process manager (`pm`), used to run programs.
  */
 #ifndef SH_MANAGER_HPP
 #define SH_MANAGER_HPP

@@ -9,7 +9,7 @@ CLIENTS_DONE_TEXT=("fatclient: ok" "extclient: ok" "cfile: ok" "pipeclient: ok" 
 SERIAL_FILE="${SERIAL_FILE:-build/userland_serial.txt}"
 SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
-SHELL_COMMANDS="echo hello shell|version|ps|ls /|cat /mounts.conf|ls /ext|write /ext/scratch/sh.txt written by sh|cat /ext/scratch/sh.txt|mv /ext/scratch/sh.txt /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|rm /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|cd /ext/scratch|pwd|write rel.txt relative ok|cat rel.txt|cat ../scratch/./rel.txt|rm rel.txt|cd ..|pwd|cd /nowhere|cd /mounts.conf|cd|pwd|exitwith 7|nosuchprogram|/bin/exitwith 0|cd /bin|./exitwith 5|cd|sleep 1|clear|echo after clear"
+SHELL_COMMANDS="echo hello shell|uname|ps|ls /|cat /mounts.conf|ls /ext|write /ext/scratch/sh.txt written by sh|cat /ext/scratch/sh.txt|mv /ext/scratch/sh.txt /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|rm /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|mkdir /ext/scratch/made|ls /ext/scratch|rmdir /ext/scratch/made|rmdir /ext/scratch/made|cd /ext/scratch|pwd|write rel.txt relative ok|cat rel.txt|cat ../scratch/./rel.txt|rm rel.txt|cd ..|pwd|cd /nowhere|cd /mounts.conf|cd|pwd|exitwith 7|nosuchprogram|/bin/exitwith 0|cd /bin|./exitwith 5|cd|sleep 1|clear|echo after clear"
 SHELL_OUTPUT_COPIES=2
 FILE_CLIENT_RUNS=10
 CLOCK_FALLBACK_YEAR=2001
@@ -17,7 +17,7 @@ DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
 EXPECTED_SCREEN_TEXT="cock> echo after clear|after clear"
 PROJECT_VERSION="$(sed -n "s/^VERSION_MAJOR := //p" Makefile).$(sed -n "s/^VERSION_MINOR := //p" Makefile).$(sed -n "s/^VERSION_PATCH := //p" Makefile)"
-EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 64/64 checks passed|microcock v${PROJECT_VERSION} shell, type help|hello shell|PID PPID STAT|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|sh: cat: /ext/scratch/moved.txt: not found|cock> /ext/scratch|relative ok|sh: cd: /nowhere: not found|sh: cd: /mounts.conf: not a directory|exitwith: 2 arguments, first exitwith|sh: exitwith: exit status 7|sh: nosuchprogram: command not found|exitwith: 2 arguments, first /bin/exitwith|exitwith: 2 arguments, first ./exitwith|sh: ./exitwith: exit status 5|abort()|pipeclient: ok|modeprobe: ok|descprobe: ok|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|rs: initrd is boot module|Boot memory released|rs: manifest has 43 entries|rs: restarted phoenix 2 of 5|contruncated: cut|rs: configured vga_driver|rs: started console|console: ready|rs: started kbd|pm: ready|rs: started pm|rs: started init|init: ready|rs: started sh for init|init: started sh|rs: started ata|rs: started rtc|rtc: ready|rs: started fat|rs: started vfs|vfs: 4 mounts|rs: fsclient exit notices 10/10|pmclient: ok|forkprobe: ok|sigprobe: ok|execprobe: bad exec refused, image intact|execchild: ok|rs: started probe|kbd: ready|Screen mapped by PID|reaped"
+EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 64/64 checks passed|microcock v${PROJECT_VERSION} shell, type help|hello shell|PID PPID STAT|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|cat: /ext/scratch/moved.txt: not found|made/|rmdir: /ext/scratch/made: not found|cock> /ext/scratch|relative ok|sh: cd: /nowhere: not found|sh: cd: /mounts.conf: not a directory|exitwith: 2 arguments, first exitwith|sh: exitwith: exit status 7|sh: nosuchprogram: command not found|exitwith: 2 arguments, first /bin/exitwith|exitwith: 2 arguments, first ./exitwith|sh: ./exitwith: exit status 5|abort()|pipeclient: ok|modeprobe: ok|descprobe: ok|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|rs: initrd is boot module|Boot memory released|rs: manifest has 43 entries|rs: restarted phoenix 2 of 5|contruncated: cut|rs: configured vga_driver|rs: started console|console: ready|rs: started kbd|pm: ready|rs: started pm|rs: started init|init: ready|rs: started sh for init|init: started sh|rs: started ata|rs: started rtc|rtc: ready|rs: started fat|rs: started vfs|vfs: 4 mounts|rs: fsclient exit notices 10/10|pmclient: ok|forkprobe: ok|sigprobe: ok|execprobe: bad exec refused, image intact|execchild: ok|rs: started probe|kbd: ready|Screen mapped by PID|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"
 case "$DISK_SCHEME" in
@@ -135,7 +135,7 @@ for expected in "${serial_checks[@]}"; do
 	fi
 done
 if ! grep -qE "microcock v${PROJECT_VERSION//./\\.}[[:space:]]*\$" "$SERIAL_FILE"; then
-	echo "[qemu_userland_test] the shell command version printed nothing"
+	echo "[qemu_userland_test] the program uname printed nothing"
 	status=1
 fi
 shell_copies=$(grep -c "written by sh" "$SERIAL_FILE")

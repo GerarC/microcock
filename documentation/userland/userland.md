@@ -21,7 +21,19 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `fuzz` | Syscall fuzzer, only started with `FUZZ=user` (from the manifest) or `FUZZ=root` (as the module `rs`); see [fuzzer](fuzzer.md) |
 | `contruncated` | Test program: sends a text to `console` without the closing chunk and exits, to check that the server shows what a dead program had sent |
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the console server |
-| `sh` | The shell: prompt, a line read from `console`, and the built-in commands `help`, `version`, `echo`, `ls`, `cat`, `write`, `mkdir`, `rmdir`, `rm`, `mv`, `sleep` and `clear`; files go through the `vfs` client; see [shell](shell.md). Started last by the system manifest |
+| `sh` | The shell: prompt, a line read from `console`, and the built-in commands `help`, `cd`, `pwd` and `exit`; every other command is a program of `/bin` that it runs with `fork`, `exec` and `wait`; see [shell](shell.md). Started last by the system manifest |
+| `uname` | Prints `microcock vMAJOR.MINOR.PATCH`. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
+| `echo` | Prints its arguments. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
+| `ls` | Lists a directory, through the `vfs` client. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
+| `cat` | Prints files. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
+| `write` | Temporary: replaces a file with a line of text. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
+| `mkdir` | Makes directories. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
+| `rmdir` | Removes empty directories. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
+| `rm` | Deletes files. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
+| `mv` | Renames or moves inside one volume. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
+| `ps` | Lists the processes of `pm`. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
+| `sleep` | Waits a number of seconds. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
+| `clear` | Clears the screen through `console`. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
 | `probe` | Security probe, split by topic in `security.cpp`, `memory.cpp`, `ipc.cpp`, `output.cpp`, `heap.cpp`, `shared_memory.cpp`, `files.cpp` and `threads.cpp`, `thread_library.cpp`, `sync.cpp` and `startup.cpp`, with the shared constants in `probe.hpp`. Checks from Ring 3 that the kernel denies what it must, and prints `probe: 54/54 checks passed` |
 | `hello` | Assembly program that writes a line and exits |
 | `fsclient` | Reads a file from the `initrd` and exits; `rs` starts it ten times, one after the other, so the server has to release the sessions of the ones that died |

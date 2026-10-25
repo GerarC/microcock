@@ -1,5 +1,5 @@
 /** @file
- * @brief Paths typed at the prompt: turning them into absolute ones against the working directory.
+ * @brief A program path typed at the prompt: turning it into an absolute one against the working directory.
  */
 #ifndef SH_PATHS_HPP
 #define SH_PATHS_HPP
@@ -15,7 +15,7 @@ constexpr size_t PATH_BYTES = cock::abi::fs::MAX_PATH_BYTES;
 /**
  * @brief Resolves a path of a command against the working directory of the shell.
  *
- * The file servers see absolute paths only, so every command that takes a path calls this first. The directory is the
+ * The file servers see absolute paths only, so a path that names a program is resolved first. The directory is the
  * one `cd` last set (`getcwd`).
  *
  * @param command Name of the command, for the message.

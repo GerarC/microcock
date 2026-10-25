@@ -1,10 +1,8 @@
 #include <cock/shell/words.hpp>
 #include <sh/arguments.hpp>
-#include <sh/builtins.hpp>
 #include <sh/commands.hpp>
 #include <sh/directory_commands.hpp>
-#include <sh/file_commands.hpp>
-#include <sh/process_commands.hpp>
+#include <sh/exit_command.hpp>
 #include <sh/program_commands.hpp>
 #include <stddef.h>
 #include <stdio.h>
@@ -16,6 +14,7 @@ namespace cock::sh {
 namespace {
 
 constexpr size_t NO_WORDS = 0;
+constexpr char PROGRAM_NAMES[] = "ls cat write mkdir rmdir rm mv echo ps sleep clear uname";
 
 void helpCommand(const Words &);
 
@@ -27,20 +26,9 @@ struct Command {
 
 constexpr Command COMMANDS[] = {
 	{"help", "list the commands", helpCommand},
-	{"version", "print the version", versionCommand},
-	{"echo", "echo text...: print the text", echoCommand},
 	{"cd", "cd [path]: change the directory", changeDirectoryCommand},
 	{"pwd", "print the directory", printDirectoryCommand},
-	{"ls", "ls [path]: list a directory", listCommand},
-	{"cat", "cat path: print a file", catCommand},
-	{"write", "write path text...: replace a file with the text", writeCommand},
-	{"mkdir", "mkdir path: make a directory", makeDirectoryCommand},
-	{"rmdir", "rmdir path: remove an empty directory", removeDirectoryCommand},
-	{"rm", "rm path: delete a file", removeCommand},
-	{"mv", "mv from to: rename or move", moveCommand},
-	{"ps", "list the processes of pm", processListCommand},
-	{"sleep", "sleep seconds: wait", sleepCommand},
-	{"clear", "clear the screen", clearCommand},
+	{"exit", "exit [status]: end the shell", exitCommand},
 };
 
 constexpr size_t COMMAND_COUNT = sizeof(COMMANDS) / sizeof(COMMANDS[0]);
@@ -48,6 +36,7 @@ constexpr size_t COMMAND_COUNT = sizeof(COMMANDS) / sizeof(COMMANDS[0]);
 void helpCommand(const Words &) {
 	for (size_t index = 0; index < COMMAND_COUNT; index++)
 		printf("  %s: %s\n", COMMANDS[index].name, COMMANDS[index].summary);
+	printf("programs of /bin: %s\n", PROGRAM_NAMES);
 	printf("paths are absolute or relative to the directory of cd, for example /fat or /ext\n");
 }
 
