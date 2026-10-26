@@ -184,6 +184,7 @@ public:
 			release();
 			return status = abi::pm::Status::BAD_REQUEST;
 		}
+		if (__stdout_flush != nullptr) __stdout_flush();
 		if (__descriptors_export != nullptr) __descriptors_export(&request->args);
 		if (__cwd_export != nullptr) __cwd_export(&request->args);
 		if (__console_export != nullptr) __console_export(&request->args);
@@ -219,6 +220,7 @@ public:
 	 */
 	Forked fork() {
 		Forked forked = {abi::pm::Status::BAD_REQUEST, abi::pm::NO_PID};
+		if (__stdout_flush != nullptr) __stdout_flush();
 		uint32_t words[abi::pm::CALL_WORDS] = {abi::pm::pack(abi::pm::Op::FORK)};
 		CallResult result = ep_call(handle, words);
 		if (!result.ok) return forked;

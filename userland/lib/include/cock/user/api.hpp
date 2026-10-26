@@ -22,6 +22,14 @@
 #include <stdint.h>
 #include <sys/syscalls.h>
 
+/**
+ * @brief Writes out the text a program printed and the C library still holds (`libc/unistd/stdout.hpp`).
+ *
+ * Absent in a program that did not link `unistd/stdout.cpp`; the callers check for it. `exit_process`, `fork` and `exec`
+ * call it so the text is out before the process ends, is copied or is replaced.
+ */
+extern "C" void __stdout_flush() __attribute__((weak));
+
 namespace cock::user {
 
 /** Raw system call result that means failure (`-1`). */
@@ -822,6 +830,7 @@ inline long write_text(const char *text, size_t length) {
  * @param status Exit status; a spawner that asked for it gets it in `PROCESS_EXITED`.
  */
 [[noreturn]] inline void exit_process(uintptr_t status) {
+	if (__stdout_flush != nullptr) __stdout_flush();
 	syscall(SYS_EXIT, status, 0, 0, 0, 0, 0);
 	for (;;) {
 	}

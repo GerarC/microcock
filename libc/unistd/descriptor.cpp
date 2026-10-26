@@ -1,4 +1,5 @@
 #include "descriptor.hpp"
+#include "stdout.hpp"
 #include <errno.h>
 #include <stdint.h>
 #include <sys/syscalls.h>
@@ -165,8 +166,14 @@ ssize_t __descriptor_write(int fd, const void *buf, size_t count) {
 	return description->operations->write(*description, buf, count);
 }
 
+bool __descriptor_is_terminal(int fd) {
+	Description *description = describe(fd);
+	return description != nullptr && description->operations->kind == cock::abi::exec::KIND_CONSOLE;
+}
+
 int close(int fd) {
 	if (describe(fd) == nullptr) return failWith(EBADF);
+	if (fd == STDOUT_DESCRIPTOR && __stdout_flush != nullptr) __stdout_flush();
 	int code = closeDescriptor(fd);
 	return code == CLOSED ? CLOSED : failWith(code);
 }
@@ -193,6 +200,7 @@ int dup2(int fd, int target) {
 	if (description == nullptr || target < 0 || target >= MAX_DESCRIPTORS) return failWith(EBADF);
 	if (fd == target) return target;
 
+	if (target == STDOUT_DESCRIPTOR && __stdout_flush != nullptr) __stdout_flush();
 	if (slots[target].used) closeDescriptor(target);
 	slots[target] = {true, slots[fd].description};
 	description->references++;

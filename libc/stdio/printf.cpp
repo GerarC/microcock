@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #if !defined(__is_libk)
+#include "../unistd/stdout.hpp"
 #include <unistd.h>
 #endif
 
@@ -61,6 +62,7 @@ static int print(const char *data) {
 	}
 	return (length);
 #else
+	if (__stdout_put != nullptr) return (int)__stdout_put(data, length);
 	size_t written = 0;
 	while (written < length) {
 		ssize_t count = write(STDOUT_DESCRIPTOR, data + written, length - written);

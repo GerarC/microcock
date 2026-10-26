@@ -4,7 +4,10 @@
  *
  * Deviation from ISO C: there is no `FILE`, `stdout`, `fprintf` or input
  * function. Output goes through `write(1, ...)`, which reaches the console
- * server (or the kernel debug console as fallback).
+ * server (or the kernel debug console as fallback). In a user program the text
+ * goes through a buffer of standard output, written out at a newline when
+ * standard output is a terminal, when it fills, and before a read, a write, a
+ * `fork`, an `exec` and the end of the process.
  */
 #ifndef STDIO_H
 #define STDIO_H
