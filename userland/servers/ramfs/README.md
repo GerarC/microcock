@@ -48,7 +48,7 @@ On start the server walks the tar headers once and keeps up to 128 entries (name
 | `src/reply.cpp`, `include/ramfs/reply.hpp` | `reply`: sends `FS_REPLY` |
 | `Makefile` | `NAME = ramfs`, `SRCS` under `src/`, `CONSOLE_CLIENT = no` and a small `LIBC_SRCS` list |
 | `../../lib/include/cock/user/session.hpp` | Session helpers shared with `vfs`, `fat`, `ext` and `ata` |
-| `../../../initrd/` | The files packed into the archive (`manifest.conf`, `mounts.conf`) |
+| `../../../initrd/` | The files packed into the archive (`etc/manifest.conf`, `etc/mounts.conf`) |
 
 ## Build, run, test
 

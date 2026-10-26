@@ -8,7 +8,7 @@ The block server. It drives the first IDE disk with programmed I/O and serves se
 fat, ext, blkclient --BLK_*--> ata --port I/O--> primary channel, master drive
 ```
 
-- Capabilities, from `initrd/manifest.conf`: `io:0x1F0+8` (command ports) and `io:0x3F6+1` (control port). Nothing else. The manifest line is `ata path=drivers/ata` with those grants; the test manifest adds only `blkclient`, which has no capabilities.
+- Capabilities, from `initrd/etc/manifest.conf`: `io:0x1F0+8` (command ports) and `io:0x3F6+1` (control port). Nothing else. The manifest line is `ata path=drivers/ata` with those grants; the test manifest adds only `blkclient`, which has no capabilities.
 - `rs` starts it before `fat` and `ext` and sends `CAPABILITY_GRANTED`. Requests that arrive before the grant are kept (up to 16) and answered after the drive is ready.
 - It talks only to the master of the primary channel. Under QEMU the ISO is the master of the secondary channel, so the two do not clash.
 

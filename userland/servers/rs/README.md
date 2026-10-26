@@ -53,19 +53,19 @@ The file client of `rs` takes in the notices that arrive while it waits for a fi
 
 | Entry | Source | Grants and arguments |
 |-------|--------|----------------------|
-| `vga_driver` | `initrd/manifest.conf` | `mem:0xA0000+0x20000`, boot module |
-| `console` | `initrd/manifest.conf` | `io:0x3F8+8` |
-| `ata` | `initrd/manifest.conf` | `io:0x1F0+8`, `io:0x3F6+1` |
-| `rtc` | `initrd/manifest.conf` | `io:0x70+2` |
-| `fat`, `ext` | `initrd/manifest.conf` | `arg=2`, `arg=3`, no capabilities |
-| `vfs` | `initrd/manifest.conf` | none |
-| `pm` | `initrd/manifest.conf` | `spawn`; `rs` adds in the code an `IPC` capability for the program labels and an `ENDPOINT` capability on the name server |
-| `init` | `initrd/manifest.conf` | none, `restart=3` |
-| `sh` | `initrd/manifest.conf` | none, `parent=init` |
-| `kbd` | `initrd/manifest.conf` | `io:0x60+1`, `irq:1` |
+| `vga_driver` | `initrd/etc/manifest.conf` | `mem:0xA0000+0x20000`, boot module |
+| `console` | `initrd/etc/manifest.conf` | `io:0x3F8+8` |
+| `ata` | `initrd/etc/manifest.conf` | `io:0x1F0+8`, `io:0x3F6+1` |
+| `rtc` | `initrd/etc/manifest.conf` | `io:0x70+2` |
+| `fat`, `ext` | `initrd/etc/manifest.conf` | `arg=2`, `arg=3`, no capabilities |
+| `vfs` | `initrd/etc/manifest.conf` | none |
+| `pm` | `initrd/etc/manifest.conf` | `spawn`; `rs` adds in the code an `IPC` capability for the program labels and an `ENDPOINT` capability on the name server |
+| `init` | `initrd/etc/manifest.conf` | none, `restart=3` |
+| `sh` | `initrd/etc/manifest.conf` | none, `parent=init` |
+| `kbd` | `initrd/etc/manifest.conf` | `io:0x60+1`, `irq:1` |
 
 All of these except `pm`, `vga_driver`, `init` (it has its own `restart=3`) and `sh` also have `restart=3`.
-| `fsclient`, `probe`, `ext4probe` and the other test programs | `test/initrd/manifest.conf` | none (`ext4probe` is `ext` with `arg=4`); only with `TEST_INITRD=1` |
+| `fsclient`, `probe`, `ext4probe` and the other test programs | `test/initrd/etc/manifest.conf` | none (`ext4probe` is `ext` with `arg=4`); only with `TEST_INITRD=1` |
 
 The kernel still checks every grant against what `rs` holds, so a manifest line cannot give more than `rs` has.
 
@@ -105,7 +105,7 @@ On a machine without the cross compiler add `HOST_TOOLCHAIN=1`. The end to end s
 - A program image is at most `abi::pm::MAX_IMAGE_BYTES` (2 MiB less a page) and must fit the quota of `pm`; the manifest is at most 4096 bytes and 48 entries.
 - The capability policy is a text file read from the initrd: the right to talk to a program is given by the name server when a program connects, and there is no DMA policy yet (stage 9 of the roadmap). The kernel can revoke a grant (`SYS_CAP_REVOKE`), but `rs` does not use it.
 - Entries run in file order and a `repeat=` entry blocks the rest until its runs end.
-- `console`, `ata`, `rtc`, `fat`, `vfs`, `kbd` and `ext` have `restart=3` in `initrd/manifest.conf`. `ramfs` has none (`rs` itself reads files through it and gives it the `initrd`), `vga_driver` is a boot module, and `sh` is not a server. Restarting `vga_driver` or `ramfs` is not done.
+- `console`, `ata`, `rtc`, `fat`, `vfs`, `kbd` and `ext` have `restart=3` in `initrd/etc/manifest.conf`. `ramfs` has none (`rs` itself reads files through it and gives it the `initrd`), `vga_driver` is a boot module, and `sh` is not a server. Restarting `vga_driver` or `ramfs` is not done.
 - Each holder of a server's process id finds the new one by name: `vfs` reconnects a mount the next time it is used, the C library and the shell reconnect to `vfs` after a `NOT_CONNECTED` failure (their open files are forgotten), `kbd` connects to `console` again when a send fails, the console client of the C library connects again when the known server is gone, and the block and clock clients used by `fat` and `ext` connect again on the next call after the server was found gone (`attached()` in `block.hpp`, `lost` in `clock.hpp`). A client reconnect does not release the old shared window.
 - None of these reconnections has been exercised by killing a real server: the restart loop is tested with `phoenix` and `crasher`, and the boot with the new `restart=` lines passes.
 - A restarted program gets its grants again, but anything it kept in memory (open sessions, mounts) is lost.

@@ -9,9 +9,9 @@ vfs --FS_*--> fat --BLK_*--> ata
                 \--RTC_READ--> rtc
 ```
 
-- It is spawned from the initrd by `rs`: `fat path=servers/fat arg=2` in `initrd/manifest.conf`. It has no capabilities; the grant message only carries the block device in its first argument (device 0 is the whole disk, partitions follow). The test disk has its FAT32 volume on device 2.
+- It is spawned from the initrd by `rs`: `fat path=servers/fat arg=2` in `initrd/etc/manifest.conf`. It has no capabilities; the grant message only carries the block device in its first argument (device 0 is the whole disk, partitions follow). The test disk has its FAT32 volume on device 2.
 - It is a client of `ata` (`cock::user::block::Client`) and of `rtc` (`cock::user::Clock`) and a server of the file protocol (`cock::user::FileServer<Fat>`). Messages that arrive while it waits for one of those replies are queued by `Server::defer`.
-- `vfs` mounts it with the line `/fat fat` of `initrd/mounts.conf`.
+- `vfs` mounts it with the line `/fat fat` of `initrd/etc/mounts.conf`.
 - It waits for the grant message first. A manifest line without `arg=` leaves it waiting. On success it prints `fat: device <n>, <clusters> clusters of <sectors> sectors`; on failure `fat: device <n> is not a FAT32 volume` and exit status 1.
 
 ## Protocol

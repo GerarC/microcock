@@ -8,7 +8,7 @@ The PS/2 keyboard driver. It runs in Ring 3, takes the interrupt of the keyboard
 keyboard controller --IRQ--> kernel --IRQ_NOTIFICATION--> kbd --CONSOLE_KEY--> tty
 ```
 
-| Need | Value in `initrd/manifest.conf` |
+| Need | Value in `initrd/etc/manifest.conf` |
 |------|---------------------------------|
 | `IO_PORTS` | `io:0x60+1`, the data port of the controller |
 | `IRQ` | `irq:1` |

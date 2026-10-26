@@ -1,6 +1,6 @@
 # Console driver
 
-`console` is a Ring 3 driver that owns the output of the programs that use it: the serial port and, through `vga_driver`, the screen. It needs nothing from the kernel that a program cannot have: the serial port is a capability (`io:0x3F8+8` in `initrd/manifest.conf`) and the screen belongs to `vga_driver`. The kernel keeps `SYS_WRITE` as the debug and fallback channel (early boot, the programs that start before the driver, and the kernel logger). Typed input is not here: it belongs to the [tty server](tty.md), which draws its echo through this driver.
+`console` is a Ring 3 driver that owns the output of the programs that use it: the serial port and, through `vga_driver`, the screen. It needs nothing from the kernel that a program cannot have: the serial port is a capability (`io:0x3F8+8` in `initrd/etc/manifest.conf`) and the screen belongs to `vga_driver`. The kernel keeps `SYS_WRITE` as the debug and fallback channel (early boot, the programs that start before the driver, and the kernel logger). Typed input is not here: it belongs to the [tty server](tty.md), which draws its echo through this driver.
 
 ## Pieces
 | Piece | File |

@@ -119,7 +119,7 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 1. `core/loader/elf.cpp`, `elf_loader.hpp` and `elf32.hpp`: the loader.
 2. `userland/lib/include/cock/user/spawn.hpp`, `shared/include/cock/elf/image.hpp` and `core/syscall/proc/sys_proc_*.cpp`: how a program is created from an image, the loader in user space and the primitives of the kernel.
 3. `core/syscall/mm/sys_module_open.cpp`: data boot modules such as the initrd.
-4. `initrd/manifest.conf`: who gets which capabilities.
+4. `initrd/etc/manifest.conf`: who gets which capabilities.
 
 **Exercise:** read the manifest, pick a program and list what the kernel has to do, in order, for it to appear.
 

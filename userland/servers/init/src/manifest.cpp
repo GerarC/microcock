@@ -7,7 +7,7 @@ using cock::user::fs::FileInfo;
 
 namespace {
 
-constexpr char MANIFEST_PATH[] = "/manifest.conf";
+constexpr char MANIFEST_PATH[] = "/etc/manifest.conf";
 constexpr size_t NO_BYTES = 0;
 
 char manifestText[cock::abi::manifest::MAX_FILE_BYTES];

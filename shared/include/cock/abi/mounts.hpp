@@ -16,8 +16,8 @@
 
 namespace cock::abi::mounts {
 
-/** Path of the mount table inside the initrd. */
-constexpr const char *FILE_PATH = "mounts.conf";
+/** Path of the mount table inside the initrd, in its `etc` directory. */
+constexpr const char *FILE_PATH = "etc/mounts.conf";
 /** Largest file the `vfs` reads, in bytes. */
 constexpr size_t MAX_FILE_BYTES = 512;
 /** Most mounts in the table. */

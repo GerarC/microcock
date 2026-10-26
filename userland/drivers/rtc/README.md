@@ -8,7 +8,7 @@ The clock server. It is the only holder of the CMOS ports, reads the real time c
 fat, ext --RTC_READ (handle, reply token)--> rtc --port I/O--> CMOS index and data ports
 ```
 
-- Capability, from `initrd/manifest.conf`: `io:0x70+2`, the index and data ports of the CMOS (`rtc path=drivers/rtc`). The test manifest adds nothing for it.
+- Capability, from `initrd/etc/manifest.conf`: `io:0x70+2`, the index and data ports of the CMOS (`rtc path=drivers/rtc`). The test manifest adds nothing for it.
 - `rs` starts it and sends `CAPABILITY_GRANTED`. Requests that arrive before the grant are kept (up to 16) and answered once the ports are open. If the grant is missing it prints `rtc: no clock ports` and exits; otherwise it prints `rtc: ready`.
 - Clients are `fat` and `ext` (through `cock::user::Clock`, `userland/lib/include/cock/user/clock.hpp`). They connect to the server through the name server by the name `rtc` (`cock::abi::rtc::SERVER_NAME`) and fall back to a fixed date when it is missing or gives a bad value.
 

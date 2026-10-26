@@ -9,7 +9,7 @@ sh, other programs --WRITE, CLEAR--> console --VIDEO_WRITE_*--> vga_driver
 tty ---------------------ECHO---------^
 ```
 
-- Capability: `io:0x3F8+8` (the serial port), granted by `rs` in `initrd/manifest.conf`, which also lists `ipc=vga_driver`. The test manifest adds nothing for it.
+- Capability: `io:0x3F8+8` (the serial port), granted by `rs` in `initrd/etc/manifest.conf`, which also lists `ipc=vga_driver`. The test manifest adds nothing for it.
 - `rs` sends `CAPABILITY_GRANTED`. The driver waits for that message before it opens the serial port, connects to the display server (`cock::abi::console::DISPLAY_NAME`) through the name server and prints `console: ready`; without a display it prints `console: no display server` and keeps the serial output.
 - It asks the name server for `tty` (`cock::abi::console::TTY_NAME`) and accepts `ECHO` only from that process, so a program cannot draw as if it were typing.
 - It opts out of the console client of the C library (`CONSOLE_CLIENT = no`), because it would call itself.

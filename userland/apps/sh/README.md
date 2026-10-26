@@ -10,7 +10,7 @@ keyboard --> kbd --> console --read(0)--> sh --FS_*--> vfs --> ramfs, fat, ext
                        +-----printf-------+
 ```
 
-- It is spawned last from the initrd (`sh path=bin/sh` in `initrd/manifest.conf`), after `vfs`, `ext` and `kbd`. It has no grants and no argument, so `rs` sends it nothing.
+- It is spawned last from the initrd (`sh path=bin/sh` in `initrd/etc/manifest.conf`), after `vfs`, `ext` and `kbd`. It has no grants and no argument, so `rs` sends it nothing.
 - Terminal I/O uses the C library: descriptor 0 reads a line from `console` and descriptor 1 prints through it (`libc/unistd/console.cpp`). - The shell reaches the file server only through `chdir` (the C library). The programs of `/bin` do the file work.
 - The version comes from `VERSION_MAJOR`, `VERSION_MINOR` and `VERSION_PATCH` of the root `Makefile`, passed as `SH_VERSION_*`. At boot it prints `microcock v<major>.<minor>.<patch> shell, type help` and the prompt `cock:<directory>> ` (`sh/prompt.hpp`), with the name in bright green and the directory in bright cyan through ANSI color sequences.
 

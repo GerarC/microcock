@@ -66,7 +66,7 @@ The processes see each other through the name server: a program calls `cock::use
 A driver that needs a new capability needs a new `cap_grant` in `userland/servers/rs/src/main.cpp`; see [capabilities](../core/capabilities.md). The display server is described in [VGA](vga.md) and the keyboard driver in [keyboard](keyboard.md).
 
 ## The manifest
-`manifest.conf` in the initrd says which programs run and what authority each one gets. It is plain text, one entry per line; empty lines and lines that start with `#` are ignored. The parser is `shared/include/cock/abi/manifest.hpp`, which the host tests cover.
+`etc/manifest.conf` in the initrd (`/etc/manifest.conf` through `vfs`) says which programs run and what authority each one gets. It is plain text, one entry per line; empty lines and lines that start with `#` are ignored. The parser is `shared/include/cock/abi/manifest.hpp`, which the host tests cover.
 
 ```
 vga_driver caps=mem:0xA0000+0x20000

@@ -29,8 +29,8 @@
 
 namespace cock::abi::manifest {
 
-/** Path of the manifest inside the initrd. */
-constexpr const char *FILE_PATH = "manifest.conf";
+/** Path of the manifest inside the initrd, in its `etc` directory. */
+constexpr const char *FILE_PATH = "etc/manifest.conf";
 /** Largest manifest file `rs` reads, in bytes. */
 constexpr size_t MAX_FILE_BYTES = 4096;
 /** Most entries in the manifest; one more is `TOO_MANY_ENTRIES`. */

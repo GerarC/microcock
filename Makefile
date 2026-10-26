@@ -139,12 +139,12 @@ $(INITRD_IMAGE): $(INITRD_FILES) userland | $(BUILD)
 	@cp -r $(INITRD_DIR)/. $(INITRD_STAGE)/
 	@if [ -n "$(TEST_INITRD)" ]; then \
 		cp -r $(TEST_INITRD_DIR)/. $(INITRD_STAGE)/; \
-		for file in manifest.conf mounts.conf; do \
+		for file in etc/manifest.conf etc/mounts.conf; do \
 			cat $(INITRD_DIR)/$$file $(TEST_INITRD_DIR)/$$file > $(INITRD_STAGE)/$$file; \
 		done; \
 	fi
 	@if [ "$(FUZZ)" = user ]; then \
-		echo "fuzz path=bin/fuzz ipc=vga_driver,console,ata,rtc,fat,vfs,ext,ramfs,pm" >> $(INITRD_STAGE)/manifest.conf; \
+		echo "fuzz path=bin/fuzz ipc=vga_driver,console,ata,rtc,fat,vfs,ext,ramfs,pm" >> $(INITRD_STAGE)/etc/manifest.conf; \
 	fi
 	@for name in $(USERLAND_PROGRAMS); do \
 		case " $(USERLAND_BOOT_ORDER) " in \

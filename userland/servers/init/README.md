@@ -9,13 +9,13 @@ It is not the program the kernel starts first; that is `rs`, which holds the roo
 ```text
 rs   --SPAWN (flag AS_INIT)--> pm --> init
 init --connect "pm", "vfs"--> names
-init --read /manifest.conf, /drivers, /servers or /bin/<program>--> vfs
+init --read /etc/manifest.conf, /drivers, /servers or /bin/<program>--> vfs
 init --ALLOCATE, SPAWN--> pm --> shell
 pm   --PM_SPAWNED--> rs --BIND, equip--> names
 ```
 
 - The manifest line is `init path=servers/init restart=3 ipc=pm,vfs,console`. `rs` restarts `init` if it dies, and `pm` gives the new one id 1 again.
-- `init` reads `/manifest.conf` through `vfs`, parses it with the shared parser and starts, in file order, every entry with `parent=init`. The label of an entry is `abi::service::programLabel(index)`, the same `rs` computes.
+- `init` reads `/etc/manifest.conf` through `vfs`, parses it with the shared parser and starts, in file order, every entry with `parent=init`. The label of an entry is `abi::service::programLabel(index)`, the same `rs` computes.
 - `pm` serves `init` only for labels that `rs` permitted, with no IPC labels and the initial handle on the name server; `init` cannot name anything else. A compromised `init` can start the programs the manifest gives it and nothing it could use to pass for a server.
 - `rs` finishes the start of each process `init` asks for (registers it with the name server and equips it); until then the name server holds the first `connect` of the new program for up to two seconds.
 
@@ -34,7 +34,7 @@ Every 250 ms `init` looks at each program with `process_alive` and starts it aga
 | File | Holds |
 |------|-------|
 | `src/main.cpp` | `main`: connects to `pm` and `vfs`, loads the manifest, starts the programs |
-| `src/manifest.cpp`, `include/init/manifest.hpp` | `loadManifest`: reads and parses `/manifest.conf` |
+| `src/manifest.cpp`, `include/init/manifest.hpp` | `loadManifest`: reads and parses `/etc/manifest.conf` |
 | `src/launch.cpp`, `include/init/launch.hpp` | `launch`: reads the image into an object `pm` made and asks for the process |
 | `src/keep.cpp`, `include/init/keep.hpp` | `keepRunning`: starts the programs and starts them again |
 | `Makefile` | `NAME = init`, a minimal `LIBC_SRCS`; the console client stays on |
