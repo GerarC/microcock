@@ -12,7 +12,7 @@ Exit status 0 on success, 1 when it tried and failed, 2 for the wrong arguments 
 
 ## Where it sits
 
-It needs the `console` server (`CLEAR`). Its descriptors and working directory come from the shell through `exec`; it has no capabilities and no manifest line, because it is packed into the initrd under `bin/clear` and nobody starts it but the shell.
+It needs the `console` server (`CLEAR`). Its descriptors and working directory come from the shell through `exec`; it has no capabilities and no manifest line, because it is packed into the initrd under `bin/clear` and nobody starts it but the shell. It clears the terminal it inherited, not always the first one (the C library keeps the terminal and `__console_clear` uses it).
 
 ## Source layout
 

@@ -36,6 +36,13 @@
  */
 extern "C" bool __console_attach();
 
+/**
+ * @brief Clears the terminal of the calling program, the one that descriptors 0 to 2 use; the C library keeps the client.
+ *
+ * @return true when the console driver cleared it; false when it cannot be reached.
+ */
+extern "C" bool __console_clear();
+
 namespace cock::user::console {
 
 /** Pause between polls of `read` while no input is available. */

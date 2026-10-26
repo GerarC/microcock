@@ -11,7 +11,7 @@ SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
 SHELL_COMMANDS="echo hello shell|uname|ps|ls /|cat /mounts.conf|ls /ext|write /ext/scratch/sh.txt written by sh|cat /ext/scratch/sh.txt|mv /ext/scratch/sh.txt /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|rm /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|mkdir /ext/scratch/made|ls /ext/scratch|rmdir /ext/scratch/made|rmdir /ext/scratch/made|cd /ext/scratch|pwd|write rel.txt relative ok|cat rel.txt|cat ../scratch/./rel.txt|rm rel.txt|cd ..|pwd|cd /nowhere|cd /mounts.conf|cd|pwd|echo 'single   quoted'|echo \"double   quoted\" end|echo 'open|exitwith 7|nosuchprogram|/bin/exitwith 0|cd /bin|./exitwith 5|echo st=\$?|echo in \$PWD|cd|NAME=\"a  b\"|echo var:\$NAME|unset NAME|echo gone:\$NAME:|sleep 1|clear|echo after clear"
 SHELL_OUTPUT_COPIES=2
-SECOND_COMMAND="echo on second"
+SECOND_COMMAND="echo wiped away|clear|echo on second"
 TERMINAL_MARK="=====SECOND TERMINAL====="
 SECOND_SCREEN_TEXT="cock> echo on second|on second"
 FILE_CLIENT_RUNS=10
@@ -59,7 +59,7 @@ import sys
 import time
 
 socket_path, commands, key_seconds = sys.argv[1], sys.argv[2].split("|"), float(sys.argv[3])
-second_command, terminal_mark = sys.argv[4], sys.argv[5]
+second_commands, terminal_mark = sys.argv[4].split("|"), sys.argv[5]
 KEY_NAMES = {" ": "spc", "/": "slash", ".": "dot", "-": "minus", "'": "apostrophe", "\"": "shift-apostrophe", "$": "shift-4", "?": "shift-slash", "=": "equal", ":": "shift-semicolon"}
 KEY_HOLD_MS = 20
 KEY_WAIT = 0.07
@@ -120,11 +120,12 @@ def screen_text():
 
 command("sendkey alt-f2 %d" % KEY_HOLD_MS, ENTER_WAIT)
 time.sleep(key_seconds)
-for character in second_command:
-    key = KEY_NAMES.get(character, "shift-" + character.lower() if character.isupper() else character)
-    command("sendkey %s %d" % (key, KEY_HOLD_MS), KEY_WAIT)
-command("sendkey ret %d" % KEY_HOLD_MS, ENTER_WAIT)
-time.sleep(key_seconds)
+for second_command in second_commands:
+    for character in second_command:
+        key = KEY_NAMES.get(character, "shift-" + character.lower() if character.isupper() else character)
+        command("sendkey %s %d" % (key, KEY_HOLD_MS), KEY_WAIT)
+    command("sendkey ret %d" % KEY_HOLD_MS, ENTER_WAIT)
+    time.sleep(key_seconds)
 second = screen_text()
 command("sendkey alt-f1 %d" % KEY_HOLD_MS, ENTER_WAIT)
 time.sleep(key_seconds)
@@ -161,6 +162,10 @@ for expected in "${second_checks[@]}"; do
 done
 if echo "$screen" | grep -qF "on second"; then
 	echo "[qemu_userland_test] the first terminal shows what was typed on the second"
+	status=1
+fi
+if echo "$second_screen" | grep -qF "wiped away"; then
+	echo "[qemu_userland_test] clear on the second terminal left the old text"
 	status=1
 fi
 if echo "$second_screen" | grep -qF "after clear"; then

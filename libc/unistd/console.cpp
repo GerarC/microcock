@@ -26,6 +26,11 @@ extern "C" bool __console_attach() {
 	return client.attach();
 }
 
+extern "C" bool __console_clear() {
+	if (!client.connect()) return false;
+	return client.clear();
+}
+
 extern "C" void __console_export(cock::abi::exec::ArgsBlock *block) {
 	block->terminal = client.terminal;
 }
