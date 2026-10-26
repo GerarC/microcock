@@ -1,3 +1,4 @@
+#include <cock/user/api.hpp>
 #include <vga_driver/vga.hpp>
 #include <sys/mman.h>
 #include <string.h>
@@ -9,6 +10,7 @@ size_t VgaServer::target = 0;
 size_t VgaServer::active = 0;
 uint8_t VgaServer::current_color = (DEFAULT_BG << 4) | (DEFAULT_FG & 0x0F);
 volatile uint16_t* VgaServer::buffer = nullptr;
+bool VgaServer::cursorReady = false;
 
 bool VgaServer::init() {
     void* mapped = mmap((void*)VGA_VIRTUAL_TARGET, PAGE_SIZE,
@@ -27,6 +29,22 @@ bool VgaServer::init() {
     return true;
 }
 
+bool VgaServer::initCursor() {
+    if (!cursorReady) cursorReady = cock::user::request_ports(CRTC_INDEX_PORT, CRTC_PORT_COUNT);
+    if (cursorReady) moveCursor();
+    return cursorReady;
+}
+
+void VgaServer::moveCursor() {
+    if (!cursorReady) return;
+    const Screen& screen = screens[active];
+    uint16_t position = static_cast<uint16_t>(screen.row * VGA_WIDTH + screen.column);
+    cock::user::port_out8(CRTC_INDEX_PORT, CURSOR_LOCATION_HIGH);
+    cock::user::port_out8(CRTC_DATA_PORT, static_cast<uint8_t>((position >> BYTE_BITS) & BYTE_MASK));
+    cock::user::port_out8(CRTC_INDEX_PORT, CURSOR_LOCATION_LOW);
+    cock::user::port_out8(CRTC_DATA_PORT, static_cast<uint8_t>(position & BYTE_MASK));
+}
+
 void VgaServer::selectTarget(size_t terminal) {
     if (terminal < TERMINAL_COUNT) target = terminal;
 }
@@ -35,6 +53,7 @@ void VgaServer::show(size_t terminal) {
     if (terminal >= TERMINAL_COUNT) return;
     active = terminal;
     redraw();
+    moveCursor();
 }
 
 void VgaServer::store(size_t index, uint16_t entry) {
@@ -51,6 +70,11 @@ void VgaServer::setColor(VGAColor fg, VGAColor bg) {
 }
 
 void VgaServer::putChar(char c) {
+    place(c);
+    moveCursor();
+}
+
+void VgaServer::place(char c) {
     Screen& screen = screens[target];
     if (c == CHAR_NEWLINE) {
         newline();
@@ -71,7 +95,8 @@ void VgaServer::putChar(char c) {
 }
 
 void VgaServer::write(const char* data, size_t size) {
-    for (size_t i = 0; i < size; i++) putChar(data[i]);
+    for (size_t i = 0; i < size; i++) place(data[i]);
+    moveCursor();
 }
 
 void VgaServer::clear() {
@@ -79,6 +104,7 @@ void VgaServer::clear() {
     for (size_t i = 0; i < CELL_COUNT; i++) store(i, vga_entry(CHAR_EMPTY, current_color));
     screen.row = 0;
     screen.column = 0;
+    moveCursor();
 }
 
 void VgaServer::newline() {

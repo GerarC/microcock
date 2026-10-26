@@ -5,7 +5,7 @@ The display server. It maps the VGA text buffer into its own address space and d
 ## Where it sits
 
 - It is a Multiboot module (`vga_driver` is in `USERLAND_BOOT_ORDER`) and not a file of the initrd, so it already runs when `init` starts. The kernel does not know it by name: when it maps the screen the kernel logs `Screen mapped by PID` and detaches its own console; `SYS_WRITE` text of the kernel and of programs without the console client is forwarded to it.
-- Capability: physical memory `mem:0xA0000+0x20000` (the video window), granted by `init` through the manifest line `vga_driver caps=mem:0xA0000+0x20000`, which has no `path=`. The test manifest adds nothing for it.
+- Capabilities: physical memory `mem:0xA0000+0x20000` (the video window) and the CRT controller ports `io:0x3D4+2` (the hardware cursor), granted by `init` through the manifest line `vga_driver caps=mem:0xA0000+0x20000,io:0x3D4+2`, which has no `path=`. After every output call and every `show` the driver writes the cursor position of the terminal on the screen to the CRT controller (registers `0x0E` and `0x0F`), so the blinking cursor follows the text. The test manifest adds nothing for it.
 - Its clients are `console` (all text, the echo and the clear request) and the kernel (the `SYS_WRITE` path, in chunks of 20 bytes).
 - It opts out of the console client (`CONSOLE_CLIENT = no`): the server draws the console output.
 

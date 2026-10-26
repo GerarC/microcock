@@ -21,6 +21,7 @@ extern "C" int main() {
 		switch (msg.type) {
 			case MessageType::CAPABILITY_GRANTED:
 				if (!ready) ready = VgaServer::init();
+				VgaServer::initCursor();
 				break;
 			case MessageType::OUTPUT_WRITE_CHAR:
 				if (ready) VgaServer::putChar(static_cast<char>(msg.payload.args.arg0));

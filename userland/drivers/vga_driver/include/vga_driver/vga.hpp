@@ -32,6 +32,21 @@ static constexpr size_t    PAGE_SIZE            = 4096;
 static constexpr size_t    TERMINAL_COUNT       = cock::abi::console::TERMINAL_COUNT;
 static constexpr size_t    CELL_COUNT           = VGA_WIDTH * VGA_HEIGHT;
 
+/** First port of the CRT controller (color mode): the index register. */
+static constexpr uint16_t  CRTC_INDEX_PORT      = 0x3D4;
+/** Data register of the CRT controller. */
+static constexpr uint16_t  CRTC_DATA_PORT       = 0x3D5;
+/** Number of ports the driver needs from the CRT controller. */
+static constexpr uint32_t  CRTC_PORT_COUNT      = 2;
+/** CRT controller register that holds the high byte of the cursor position. */
+static constexpr uint8_t   CURSOR_LOCATION_HIGH = 0x0E;
+/** CRT controller register that holds the low byte of the cursor position. */
+static constexpr uint8_t   CURSOR_LOCATION_LOW  = 0x0F;
+/** Bits in a byte. */
+static constexpr unsigned  BYTE_BITS            = 8;
+/** Mask of one byte. */
+static constexpr uint16_t  BYTE_MASK            = 0xFF;
+
 /** Character that fills blank cells. */
 static constexpr char      CHAR_EMPTY           = ' ';
 /** Character that moves to the start of the next line. */
@@ -83,6 +98,13 @@ public:
      */
     static bool init();
     /**
+     * @brief Asks for the CRT controller ports and puts the hardware cursor where the terminal on the screen has its
+     *        cursor; from then on every output call and `show` keep it there.
+     * @return true when the ports are held; false when the kernel refused (no `io` capability yet): the cursor then stays
+     *         where it was and the call may be repeated when a capability arrives.
+     */
+    static bool initCursor();
+    /**
      * @brief Chooses the terminal that the next `putChar`, `write` and `clear` are for.
      * @param terminal Terminal number; one that is out of range is ignored.
      */
@@ -98,7 +120,7 @@ public:
      * A newline moves to the start of the next line; a backspace erases the previous
      * cell of the line (nothing at column zero); any other byte is shown as a cell and
      * wraps at the end of the line. The screen scrolls up one line after the last row.
-     * Requires a successful `init`.
+     * The hardware cursor follows. Requires a successful `init`.
      * @param c Character to write.
      */
     static void putChar(char c);
@@ -120,6 +142,13 @@ public:
 private:
     /** @brief Moves the cursor to the start of the next line, scrolling at the bottom. */
     static void newline();
+    /**
+     * @brief Writes one character at the cursor of the target image, as `putChar` does, without moving the hardware cursor.
+     * @param c Character to write.
+     */
+    static void place(char c);
+    /** @brief Puts the hardware cursor at the cursor of the terminal on the screen; nothing before `initCursor` succeeded. */
+    static void moveCursor();
     /** @brief Moves every line of the target image up by one and blanks the last line. */
     static void scroll();
     /**
@@ -148,6 +177,8 @@ private:
     static uint8_t current_color;
     /** Mapped text buffer, null before `init`. */
     static volatile uint16_t* buffer;
+    /** True once the CRT controller ports were obtained. */
+    static bool cursorReady;
 };
 
 } // namespace cock::vga
