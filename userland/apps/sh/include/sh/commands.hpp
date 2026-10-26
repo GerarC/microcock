@@ -19,7 +19,7 @@ void usage(const char *command, const char *arguments);
  * name (`runProgram`).
  *
  * An empty line does nothing. A line with more words than a command line holds prints
- * `sh: too many words`; a program that ends with a status other than 0 and the three the shell reports itself prints
+ * `sh: too many words`, and a line with a quote that is never closed prints `sh: unterminated quote`; a program that ends with a status other than 0 and the three the shell reports itself prints
  * `sh: <name>: exit status <n>`.
  *
  * @param line Line of input, terminated by zero. The split writes terminators into it.

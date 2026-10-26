@@ -10,8 +10,8 @@
 
 namespace cock::shell {
 
-/** Most words in one command line; a longer line is rejected by `split`. */
-constexpr size_t MAX_WORDS = 8;
+/** Most words in one command line, as many as `exec` accepts arguments; a longer line is rejected by `split`. */
+constexpr size_t MAX_WORDS = 16;
 /** Longest command line in bytes, matching the console line capacity. */
 constexpr size_t MAX_LINE_BYTES = 128;
 /** Word separator. */
@@ -24,10 +24,28 @@ constexpr char TERMINATOR = '\0';
 constexpr char FIRST_DIGIT = '0';
 /** Highest decimal digit character. */
 constexpr char LAST_DIGIT = '9';
+/** Opens and closes a quoted part in which nothing is special; no escapes. */
+constexpr char SINGLE_QUOTE = '\'';
+/** Opens and closes a quoted part in which only `\"` and `\\` are escapes. */
+constexpr char DOUBLE_QUOTE = '"';
+/** Escape character: outside quotes it makes the next character literal. */
+constexpr char BACKSLASH = '\\';
+/** Value of the quote state while the parser is outside any quote. */
+constexpr char NO_QUOTE = TERMINATOR;
 /** Base of the numbers accepted by `parseNumber`. */
 constexpr uint32_t DECIMAL_BASE = 10;
 /** Largest value that `parseNumber` accepts. */
 constexpr uint32_t MAX_UINT32 = 0xFFFFFFFF;
+
+/** Outcome of `split`. */
+enum class SplitResult {
+	/** The line was split. */
+	OK,
+	/** The line has more than `MAX_WORDS` words. */
+	TOO_MANY_WORDS,
+	/** A single or double quote was opened and never closed. */
+	UNTERMINATED_QUOTE,
+};
 
 /** Result of `split`: pointers into the original line. */
 struct Words {
@@ -49,26 +67,53 @@ inline bool isSeparator(char character) {
 /**
  * @brief Splits a line into words in place.
  *
- * Separators are overwritten with terminators, so the words point into `line`, which must outlive them.
+ * Words are separated by spaces and tabs. Single quotes keep everything between them literally; double quotes keep
+ * it too except that `\"` and `\\` stand for `"` and `\`; outside quotes a backslash makes the next character literal
+ * (a backslash at the end of the line stays). Quotes join with the text next to them (`a"b c"d` is one word) and
+ * `""` is an empty word. Quotes and escapes are removed in place: the result is never longer than the line, so the
+ * words point into `line`, which must outlive them.
  * @param line Writable null terminated line.
  * @param words Receives the words; `count` is reset to 0 first.
- * @return True on success; false when the line has more than `MAX_WORDS` words (the first words are still filled in).
+ * @return `OK`, or `TOO_MANY_WORDS` when the line has more than `MAX_WORDS` words (the first words are still
+ *         filled in), or `UNTERMINATED_QUOTE` when a quote is never closed (`words` is then unusable).
  */
-inline bool split(char *line, Words &words) {
+inline SplitResult split(char *line, Words &words) {
 	words.count = 0;
-	size_t index = 0;
+	size_t read = 0;
+	size_t write = 0;
 
-	while (line[index] != TERMINATOR) {
-		while (isSeparator(line[index]))
-			line[index++] = TERMINATOR;
-		if (line[index] == TERMINATOR) break;
+	while (true) {
+		while (isSeparator(line[read]))
+			read++;
+		if (line[read] == TERMINATOR) return SplitResult::OK;
+		if (words.count == MAX_WORDS) return SplitResult::TOO_MANY_WORDS;
+		words.items[words.count++] = &line[write];
 
-		if (words.count == MAX_WORDS) return false;
-		words.items[words.count++] = &line[index];
-		while (line[index] != TERMINATOR && !isSeparator(line[index]))
-			index++;
+		char quote = NO_QUOTE;
+		while (line[read] != TERMINATOR && (quote != NO_QUOTE || !isSeparator(line[read]))) {
+			char character = line[read++];
+			if (quote == NO_QUOTE) {
+				if (character == SINGLE_QUOTE || character == DOUBLE_QUOTE) {
+					quote = character;
+					continue;
+				}
+				if (character == BACKSLASH && line[read] != TERMINATOR) character = line[read++];
+			} else if (character == quote) {
+				quote = NO_QUOTE;
+				continue;
+			} else if (quote == DOUBLE_QUOTE && character == BACKSLASH &&
+					   (line[read] == DOUBLE_QUOTE || line[read] == BACKSLASH)) {
+				character = line[read++];
+			}
+			line[write++] = character;
+		}
+		if (quote != NO_QUOTE) return SplitResult::UNTERMINATED_QUOTE;
+
+		bool atEnd = line[read] == TERMINATOR;
+		line[write++] = TERMINATOR;
+		if (atEnd) return SplitResult::OK;
+		read++;
 	}
-	return true;
 }
 
 /**

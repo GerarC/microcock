@@ -1,3 +1,4 @@
+#include <cock/abi/exec.hpp>
 #include <cock/abi/fs.hpp>
 #include <cock/abi/pm.hpp>
 #include <cock/user/exec.hpp>
@@ -26,6 +27,8 @@ constexpr char PROGRAM_DIRECTORY[] = "/bin/";
 constexpr size_t PROGRAM_DIRECTORY_BYTES = sizeof(PROGRAM_DIRECTORY) - sizeof(char);
 constexpr char PATH_SEPARATOR = '/';
 constexpr char RUN_LABEL[] = "run";
+
+static_assert(cock::shell::MAX_WORDS <= cock::abi::exec::MAX_ARGS, "every word of a line must fit the arguments of exec");
 
 int lastExitStatus = STATUS_OK;
 

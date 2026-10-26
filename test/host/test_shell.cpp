@@ -18,6 +18,9 @@ constexpr size_t THREE_WORDS = 3;
 constexpr size_t FIRST = 0;
 constexpr size_t SECOND = 1;
 constexpr size_t THIRD = 2;
+constexpr size_t FOURTH = 3;
+constexpr size_t FIFTH = 4;
+constexpr size_t FIVE_WORDS = 5;
 constexpr size_t FROM_SECOND = 1;
 constexpr uint32_t BIGGEST = 4294967295u;
 constexpr uint32_t SAMPLE_NUMBER = 120;
@@ -29,7 +32,7 @@ bool sameText(const char *left, const char *right) {
 void checkSplit() {
 	char line[] = "echo  hello\tworld";
 	Words words = {};
-	CHECK_TRUE(split(line, words));
+	CHECK_TRUE(split(line, words) == SplitResult::OK);
 	CHECK_EQ(THREE_WORDS, words.count);
 	CHECK_TRUE(sameText(words.items[FIRST], "echo"));
 	CHECK_TRUE(sameText(words.items[SECOND], "hello"));
@@ -42,23 +45,53 @@ void checkSplitEdges() {
 	char single[] = "  ls ";
 	Words words = {};
 
-	CHECK_TRUE(split(empty, words));
+	CHECK_TRUE(split(empty, words) == SplitResult::OK);
 	CHECK_EQ(NO_WORDS, words.count);
-	CHECK_TRUE(split(blanks, words));
+	CHECK_TRUE(split(blanks, words) == SplitResult::OK);
 	CHECK_EQ(NO_WORDS, words.count);
-	CHECK_TRUE(split(single, words));
+	CHECK_TRUE(split(single, words) == SplitResult::OK);
 	CHECK_EQ(ONE_WORD, words.count);
 	CHECK_TRUE(sameText(words.items[FIRST], "ls"));
 }
 
 void checkTooManyWords() {
-	char line[] = "a b c d e f g h i";
+	char line[] = "a b c d e f g h i j k l m n o p q";
 	Words words = {};
-	CHECK_FALSE(split(line, words));
+	CHECK_TRUE(split(line, words) == SplitResult::TOO_MANY_WORDS);
 
-	char exact[] = "a b c d e f g h";
-	CHECK_TRUE(split(exact, words));
+	char exact[] = "a b c d e f g h i j k l m n o p";
+	CHECK_TRUE(split(exact, words) == SplitResult::OK);
 	CHECK_EQ(MAX_WORDS, words.count);
+}
+
+void checkQuotes() {
+	char line[] = "echo 'a  b' \"c d\" e\"f g\"h ''";
+	Words words = {};
+	CHECK_TRUE(split(line, words) == SplitResult::OK);
+	CHECK_EQ(FIVE_WORDS, words.count);
+	CHECK_TRUE(sameText(words.items[SECOND], "a  b"));
+	CHECK_TRUE(sameText(words.items[THIRD], "c d"));
+	CHECK_TRUE(sameText(words.items[FOURTH], "ef gh"));
+	CHECK_TRUE(sameText(words.items[FIFTH], ""));
+}
+
+void checkEscapes() {
+	char line[] = "a\\ b \"x\\\"y\\\\z\\q\" 'k\\n' tail\\";
+	Words words = {};
+	CHECK_TRUE(split(line, words) == SplitResult::OK);
+	CHECK_EQ(FIVE_WORDS - ONE_WORD, words.count);
+	CHECK_TRUE(sameText(words.items[FIRST], "a b"));
+	CHECK_TRUE(sameText(words.items[SECOND], "x\"y\\z\\q"));
+	CHECK_TRUE(sameText(words.items[THIRD], "k\\n"));
+	CHECK_TRUE(sameText(words.items[FOURTH], "tail\\"));
+}
+
+void checkUnterminatedQuote() {
+	char single[] = "echo 'abc";
+	char twice[] = "echo \"abc'";
+	Words words = {};
+	CHECK_TRUE(split(single, words) == SplitResult::UNTERMINATED_QUOTE);
+	CHECK_TRUE(split(twice, words) == SplitResult::UNTERMINATED_QUOTE);
 }
 
 void checkParseNumber() {
@@ -79,7 +112,7 @@ void checkJoin() {
 	char buffer[BUFFER_BYTES] = {};
 	size_t length = 0;
 
-	CHECK_TRUE(split(line, words));
+	CHECK_TRUE(split(line, words) == SplitResult::OK);
 	CHECK_TRUE(join(words, TWO_WORDS, buffer, sizeof(buffer), length));
 	CHECK_TRUE(sameText(buffer, "one two"));
 	CHECK_EQ(strlen(buffer), length);
@@ -97,7 +130,7 @@ void checkJoinLimit() {
 	char buffer[SMALL_BUFFER_BYTES] = {};
 	size_t length = 0;
 
-	CHECK_TRUE(split(line, words));
+	CHECK_TRUE(split(line, words) == SplitResult::OK);
 	CHECK_FALSE(join(words, FIRST, buffer, sizeof(buffer), length));
 }
 
@@ -107,6 +140,9 @@ void testShell() {
 	checkSplit();
 	checkSplitEdges();
 	checkTooManyWords();
+	checkQuotes();
+	checkEscapes();
+	checkUnterminatedQuote();
 	checkParseNumber();
 	checkJoin();
 	checkJoinLimit();

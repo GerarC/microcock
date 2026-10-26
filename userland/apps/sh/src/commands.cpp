@@ -55,8 +55,13 @@ void usage(const char *command, const char *arguments) {
 
 void run(char *line) {
 	Words words = {};
-	if (!cock::shell::split(line, words)) {
+	cock::shell::SplitResult split = cock::shell::split(line, words);
+	if (split == cock::shell::SplitResult::TOO_MANY_WORDS) {
 		printf("sh: too many words\n");
+		return;
+	}
+	if (split == cock::shell::SplitResult::UNTERMINATED_QUOTE) {
+		printf("sh: unterminated quote\n");
 		return;
 	}
 	if (words.count == NO_WORDS) return;

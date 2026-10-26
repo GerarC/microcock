@@ -27,7 +27,7 @@ The shell serves nothing. It uses the console protocol (`shared/include/cock/abi
 
 The other commands are programs of `/bin`, each in `userland/apps/<name>`: `ls`, `cat`, `write`, `mkdir`, `rmdir`, `rm`, `mv`, `echo`, `ps`, `sleep`, `clear` and `uname` (the former `version`).
 
-A path may be relative to the current directory, with `.` and `..`. A word that is not a built-in names a program: without a `/` it is `/bin/<name>`, with one it is a path. The shell makes a copy of itself with `fork`, the copy does `exec` and the shell does `wait`. An unknown program prints `sh: <name>: command not found` (status 127), a file that is not a program `sh: <name>: cannot execute` (126), and a status other than 0 prints `sh: <name>: exit status <n>`. More than 8 words print `sh: too many words`. A program that fails prints its own message (`cat: /x: not found`) and ends with 1, so the shell adds `sh: cat: exit status 1`.
+A path may be relative to the current directory, with `.` and `..`. A word that is not a built-in names a program: without a `/` it is `/bin/<name>`, with one it is a path. The shell makes a copy of itself with `fork`, the copy does `exec` and the shell does `wait`. An unknown program prints `sh: <name>: command not found` (status 127), a file that is not a program `sh: <name>: cannot execute` (126), and a status other than 0 prints `sh: <name>: exit status <n>`. More than 16 words print `sh: too many words`. Single and double quotes and a backslash keep spaces inside a word (`echo 'a  b'`), and a quote never closed prints `sh: unterminated quote`. A program that fails prints its own message (`cat: /x: not found`) and ends with 1, so the shell adds `sh: cat: exit status 1`.
 
 ## Source layout
 
@@ -62,7 +62,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler. Type in the QEMU window; with
 ## Limits and known gaps
 
 - Only `help`, `cd`, `pwd` and `exit` are built in; there is no `PATH` and no `$?` yet.
-- No quoting, pipes, redirection, history, tab completion or Ctrl+C.
+- No pipes, redirection, history, tab completion or Ctrl+C.
 - `..` is resolved on the text of the path, so a link in the path is not followed first.
 - A line holds at most 127 characters.
 - `/` is the initrd and read only, so `write`, `mkdir`, `rm` and `mv` need a disk under `/fat` or `/ext`.
