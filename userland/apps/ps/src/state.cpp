@@ -1,3 +1,4 @@
+#include <ps/palette.hpp>
 #include <ps/state.hpp>
 
 using cock::abi::pm::State;
@@ -34,6 +35,25 @@ char stateLetter(State state) {
 		return STATE_UNKNOWN;
 	}
 	return STATE_UNKNOWN;
+}
+
+const char *stateColor(State state) {
+	switch (state) {
+	case State::RUNNING:
+		return RUNNING;
+	case State::SLEEPING:
+		return SLEEPING;
+	case State::STOPPED:
+		return STOPPED;
+	case State::ZOMBIE:
+		return ZOMBIE;
+	case State::EXITED:
+		return MUTED;
+	case State::UNINTERRUPTIBLE:
+	case State::FREE:
+		return OTHER;
+	}
+	return OTHER;
 }
 
 } // namespace cock::ps

@@ -46,9 +46,10 @@ cock::user::pm::Client &pmClient();
 /**
  * @brief Records a process that already runs in the table of `pm`, with `rs` as its parent.
  * @param pid Kernel process id, such as a boot module.
+ * @param name Name `ps` shows for it; a failure to store it does not undo the record.
  * @return True when `pm` recorded it.
  */
-bool registerProcess(uint32_t pid);
+bool registerProcess(uint32_t pid, const char *name);
 
 /** Name of the manifest entry that is `init`, the first process of the system as Linux sees it. */
 constexpr char INIT_PROGRAM_NAME[] = "init";

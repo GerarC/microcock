@@ -39,6 +39,8 @@ Synchronous calls of four words, `shared/include/cock/abi/pm.hpp`, through a han
 | `REGISTER kernel parent wanted` | `rs` | Records a process that already runs |
 | `PERMIT label` | `rs` | `init` may create processes with that label |
 | `LIST index` | anyone with a handle | One row of the table, with the state in bits 8 to 15 of the reply header |
+| `SNAPSHOT object` | any process in the table | Writes the whole table at once in the object the caller got with `ALLOCATE` (at least `sizeof(Snapshot)` bytes, two pages): the number of rows and, for each, kernel id, id in the table, parent, state, exit status and name. `pm` maps the object, writes, unmaps and gives its own share back; the caller maps it for reading and releases it. `ps` uses it |
+| `SET_NAME kernel chunk bytes` | `rs` | Gives a process that is in the table its name, 8 bytes per request (the chunk number is in bits 8 to 15 of word 0), as many requests as the name and its terminator need. `rs` uses it for the processes it registers, which `pm` did not create |
 | `WAIT pid` | anyone with a handle | Collects the status of a child (`pid` of the table, or `ANY_CHILD`): the reply carries the pid and the exit status. Blocks until a matching child exits; `NOT_FOUND` when there is none |
 
 ## Process states

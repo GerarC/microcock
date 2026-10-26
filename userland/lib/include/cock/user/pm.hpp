@@ -50,6 +50,9 @@ struct Listing {
 	uint32_t parent;
 };
 
+/** Chunks a name needs beyond the ones its characters fill: the one that holds the terminator. */
+constexpr size_t ONE_CHUNK = 1;
+
 /** Exit status of a `Waited` that holds none. */
 constexpr uint32_t NO_EXIT_STATUS = 0;
 
@@ -294,6 +297,72 @@ public:
 		listing.pid = result.words[abi::pm::SECOND_WORD];
 		listing.parent = result.words[abi::pm::THIRD_WORD];
 		return listing;
+	}
+
+	/**
+	 * @brief Reads the whole table of `pm` at one moment, with the names.
+	 *
+	 * Asks for a shared object (`ALLOCATE`), has `pm` write the table in it (`SNAPSHOT`) and maps it for reading. The
+	 * rows stay valid until `release` or the next call that asks `pm` for an object (`begin` or this one); the caller does
+	 * not write them.
+	 *
+	 * @return The snapshot, or null when `pm` has no room, refused (`lastStatus` tells which) or the mapping failed.
+	 */
+	const abi::pm::Snapshot *snapshot() {
+		release();
+		uint32_t allocate[abi::pm::CALL_WORDS] = {abi::pm::pack(abi::pm::Op::ALLOCATE),
+												  static_cast<uint32_t>(sizeof(abi::pm::Snapshot))};
+		CallResult granted = ep_call(handle, allocate);
+		status = granted.ok ? abi::pm::statusOf(granted.words[abi::pm::HEADER_WORD]) : abi::pm::Status::BAD_REQUEST;
+		if (status != abi::pm::Status::OK) return nullptr;
+		object = granted.words[abi::pm::FIRST_WORD];
+		mapped = pageRound(sizeof(abi::pm::Snapshot));
+
+		uint32_t take[abi::pm::CALL_WORDS] = {abi::pm::pack(abi::pm::Op::SNAPSHOT), object};
+		CallResult written = ep_call(handle, take);
+		status = written.ok ? abi::pm::statusOf(written.words[abi::pm::HEADER_WORD]) : abi::pm::Status::BAD_REQUEST;
+		if (status != abi::pm::Status::OK) {
+			release();
+			return nullptr;
+		}
+
+		base = shm_map(object, false);
+		if (base == nullptr) {
+			release();
+			return nullptr;
+		}
+		return static_cast<const abi::pm::Snapshot *>(base);
+	}
+
+	/**
+	 * @brief Gives a process of the table its name. Root only.
+	 *
+	 * Sends the name in chunks of `abi::pm::NAME_CHUNK_BYTES` bytes, as many as the name and its terminator need.
+	 *
+	 * @param kernelId Kernel process id of a process that is in the table.
+	 * @param name Zero ended name of at most `abi::pm::NAME_BYTES` - 1 characters.
+	 * @return true when `pm` stored every chunk; false for a name that is too long, a process `pm` does not know or a
+	 * caller that is not the root server.
+	 */
+	bool setName(uint32_t kernelId, const char *name) {
+		size_t length = strlen(name);
+		if (length >= abi::pm::NAME_BYTES) return false;
+
+		size_t chunks = length / abi::pm::NAME_CHUNK_BYTES + ONE_CHUNK;
+		for (size_t chunk = 0; chunk < chunks; chunk++) {
+			size_t offset = chunk * abi::pm::NAME_CHUNK_BYTES;
+			size_t available = length > offset ? length - offset : 0;
+			size_t count = available < abi::pm::NAME_CHUNK_BYTES ? available : abi::pm::NAME_CHUNK_BYTES;
+
+			char bytes[abi::pm::NAME_CHUNK_BYTES] = {};
+			memcpy(bytes, name + offset, count);
+			uint32_t words[abi::pm::CALL_WORDS] = {abi::pm::packNameChunk(static_cast<uint32_t>(chunk)), kernelId};
+			memcpy(&words[abi::pm::SECOND_WORD], bytes, sizeof(bytes));
+			CallResult result = ep_call(handle, words);
+			if (!result.ok || abi::pm::statusOf(result.words[abi::pm::HEADER_WORD]) != abi::pm::Status::OK)
+				return false;
+		}
+		return true;
 	}
 
 	/**

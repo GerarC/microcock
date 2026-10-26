@@ -20,7 +20,11 @@
 namespace cock::pm {
 
 /** Most rows of the table, live and exited. */
-constexpr size_t MAX_PROCESSES = 128;
+constexpr size_t MAX_PROCESSES = abi::pm::MAX_PROCESSES;
+/** Bytes of a name that the terminator takes. */
+constexpr size_t TERMINATOR_BYTES = 1;
+/** Byte that ends a name. */
+constexpr char NAME_END = '\0';
 /** Kernel process id of a row that holds none. */
 constexpr uint32_t NO_KERNEL_ID = 0xFFFFFFFF;
 /** Value of `Row::waitTicket` and `Row::waitTarget` while the process is not waiting. */
@@ -64,7 +68,22 @@ struct Row {
 	uint32_t settleChild;
 	/** Number of times the wait for the root server timed out; valid while `settling`. */
 	uint32_t settleAge;
+	/** Name of the process, ending with a zero byte; empty when it has none. */
+	char name[abi::pm::NAME_BYTES];
 };
+
+/**
+ * @brief Copies a name into a row, cutting what does not fit and always ending it with a zero byte.
+ * @param destination The name of a row; the bytes after the copy are zeroed.
+ * @param source Zero ended name, or null for an empty one.
+ */
+inline void copyName(char (&destination)[abi::pm::NAME_BYTES], const char *source) {
+	size_t index = 0;
+	if (source != nullptr)
+		for (; source[index] != NAME_END && index + TERMINATOR_BYTES < abi::pm::NAME_BYTES; index++)
+			destination[index] = source[index];
+	for (; index < abi::pm::NAME_BYTES; index++) destination[index] = NAME_END;
+}
 
 /** The rows and the counter of process ids. */
 class Table {
@@ -94,11 +113,12 @@ public:
 	 *        wanted id that a running process holds is refused; one that a process that has exited holds is
 	 *        taken over, so a restarted `init` is `INIT_PID` again.
 	 * @param announceLabel A service label to tell the root server about, or `NO_SERVICE` for none.
+	 * @param name Name of the process, cut to `NAME_BYTES` - 1 characters; null for none.
 	 * @return The row, or null when the table is full of live processes, the kernel id is known or the
 	 *         wanted id is taken.
 	 */
 	Row *add(uint32_t kernelId, uint32_t parent, bool forward, uint32_t wantedPid = abi::pm::NO_PID,
-			 uint32_t announceLabel = abi::service::NO_SERVICE) {
+			 uint32_t announceLabel = abi::service::NO_SERVICE, const char *name = nullptr) {
 		if (kernelId == NO_KERNEL_ID || findKernel(kernelId) != nullptr) return nullptr;
 		if (wantedPid != abi::pm::NO_PID) {
 			Row *holder = find(wantedPid);
@@ -128,7 +148,9 @@ public:
 					   false,
 					   NO_WAIT,
 					   abi::pm::NO_PID,
-					   NO_AGE};
+					   NO_AGE,
+					   {}};
+		copyName(row->name, name);
 		return row;
 	}
 
@@ -365,7 +387,7 @@ private:
 				  0,            false,           false,           abi::service::NO_SERVICE,
 				  false,        false,           NO_WAIT,         NO_WAIT,
 				  false,        false,           NO_WAIT,         abi::pm::NO_PID,
-				  NO_AGE};
+				  NO_AGE,       {}};
 	}
 
 	static bool matches(const Row &row, uint32_t target) {

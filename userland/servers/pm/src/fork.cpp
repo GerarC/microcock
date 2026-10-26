@@ -19,7 +19,7 @@ Status forkProcess(uint32_t caller, uint32_t &pid) {
 	uint32_t created = cock::user::proc_fork(caller, childReply);
 	if (created == cock::user::NO_PROCESS) return Status::FAILED;
 
-	Row *row = table.add(created, parent->pid, false);
+	Row *row = table.add(created, parent->pid, false, NO_PID, cock::abi::service::NO_SERVICE, parent->name);
 	if (row == nullptr) return Status::FAILED;
 	row->forkPending = true;
 	pid = row->pid;

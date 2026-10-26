@@ -23,6 +23,7 @@ using cock::user::NO_PROCESS;
 namespace {
 
 constexpr char NAMES_MODULE[] = "names";
+constexpr char ROOT_NAME[] = "rs";
 constexpr uint32_t NO_FLAGS = 0;
 
 const Entry *entry = nullptr;
@@ -59,9 +60,11 @@ bool equipPm(const Entry &manifestEntry) {
 	return true;
 }
 
-bool recordParent(uint32_t pid, uint32_t parent) {
+bool recordParent(uint32_t pid, uint32_t parent, const char *name) {
 	uint32_t pidInTable = cock::abi::pm::NO_PID;
-	return client.registerProcess(pid, parent, cock::abi::pm::NO_PID, pidInTable);
+	if (!client.registerProcess(pid, parent, cock::abi::pm::NO_PID, pidInTable)) return false;
+	client.setName(pid, name);
+	return true;
 }
 
 } // namespace
@@ -82,8 +85,9 @@ bool startPm(cock::user::fs::Client &files, uint32_t ramfs) {
 
 	uint32_t self = cock::user::self();
 	uint32_t names = cock::user::module_process(NAMES_MODULE);
-	bool recorded = recordParent(self, cock::abi::pm::NO_PARENT) && recordParent(process, self) &&
-					recordParent(names, self) && recordParent(ramfs, self);
+	bool recorded = recordParent(self, cock::abi::pm::NO_PARENT, ROOT_NAME) &&
+					recordParent(process, self, entry->name) && recordParent(names, self, NAMES_MODULE) &&
+					recordParent(ramfs, self, cock::abi::fs::RAMFS_SERVER_NAME);
 	if (!recorded) {
 		printf("rs: pm did not record the first processes\n");
 		return false;
@@ -126,8 +130,8 @@ cock::user::pm::Client &pmClient() {
 	return client;
 }
 
-bool registerProcess(uint32_t pid) {
-	return recordParent(pid, cock::user::self());
+bool registerProcess(uint32_t pid, const char *name) {
+	return recordParent(pid, cock::user::self(), name);
 }
 
 bool isExitNotice(const cock::ipc::Message &message) {

@@ -1,10 +1,12 @@
 #include <cock/abi/pm.hpp>
 #include <cock/abi/process.hpp>
 #include <cock/pm/classify.hpp>
+#include <cock/abi/service.hpp>
 #include <cock/pm/table.hpp>
 #include <test/host/check.hpp>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 namespace host_test {
 
@@ -34,6 +36,11 @@ constexpr uint32_t HEADER_STATE_SHIFT = cock::abi::pm::BYTE_BITS;
 constexpr uint32_t NO_BITS = 0;
 constexpr uint32_t UNKNOWN_BIT = 0x80;
 constexpr uint32_t AGE_LIMIT = 3;
+constexpr char SOME_NAME[] = "vga_driver";
+constexpr size_t NO_CHARACTERS = 0;
+constexpr size_t LONG_NAME_BYTES = cock::abi::pm::NAME_BYTES + cock::abi::pm::NAME_BYTES;
+constexpr char LONG_NAME_FILL = 'x';
+constexpr char NAME_END = cock::pm::NAME_END;
 
 void checkAdd() {
 	Table table;
@@ -396,8 +403,34 @@ void checkClassify() {
 
 } // namespace
 
+void checkNames() {
+	Table table;
+	Row *named = table.add(FIRST_KERNEL_ID, NO_PID, false, NO_PID, cock::abi::service::NO_SERVICE, SOME_NAME);
+	CHECK_TRUE(named != nullptr);
+	if (named == nullptr) return;
+	CHECK_TRUE(strcmp(named->name, SOME_NAME) == 0);
+
+	Row *unnamed = table.add(SECOND_KERNEL_ID, NO_PID, false);
+	CHECK_TRUE(unnamed != nullptr);
+	if (unnamed == nullptr) return;
+	CHECK_EQ(NO_CHARACTERS, strlen(unnamed->name));
+
+	char long_name[LONG_NAME_BYTES];
+	memset(long_name, LONG_NAME_FILL, sizeof(long_name));
+	long_name[sizeof(long_name) - cock::pm::TERMINATOR_BYTES] = NAME_END;
+	Row *cut = table.add(THIRD_KERNEL_ID, NO_PID, false, NO_PID, cock::abi::service::NO_SERVICE, long_name);
+	CHECK_TRUE(cut != nullptr);
+	if (cut == nullptr) return;
+	CHECK_EQ(cock::abi::pm::NAME_BYTES - cock::pm::TERMINATOR_BYTES, strlen(cut->name));
+	CHECK_EQ(static_cast<char>(NAME_END), cut->name[cock::abi::pm::NAME_BYTES - cock::pm::TERMINATOR_BYTES]);
+
+	cock::pm::copyName(named->name, nullptr);
+	CHECK_EQ(NO_CHARACTERS, strlen(named->name));
+}
+
 void testPmTable() {
 	checkAdd();
+	checkNames();
 	checkInitPid();
 	checkAnnounce();
 	checkForkNotice();

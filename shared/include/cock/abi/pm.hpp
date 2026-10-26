@@ -56,6 +56,10 @@ enum class Op : uint32_t {
 	FORK = 8,
 	/** Send a signal to a process: word 1 is its process id of the table, word 2 the signal (`abi::process::SIGNAL_INTERRUPT`, `SIGNAL_TERMINATE` or `SIGNAL_KILL`). Interrupt and terminate reach the main thread of the process as a `SIGNAL` message, which the program may ignore or answer by ending; kill ends the process at once, whatever it does, and its parent collects the status `abi::process::KILLED_STATUS`. The root server may signal any process; any other caller only its own descendants (its children, theirs, and so on), never itself. `DENIED` for any other target, `NOT_FOUND` for a process that is not in the table or already ended, `BAD_REQUEST` for an unknown signal, `FAILED` when the kernel refused (the inbox of the target is full, or the target is the caller). */
 	KILL = 9,
+	/** Write the whole table in the object of word 1, which the caller got with `ALLOCATE` for at least `sizeof(Snapshot)` bytes: the object starts with a `Snapshot`. The reply carries the number of rows in word 1. `pm` gives its own share of the object back after writing, so the caller maps it, reads it and releases it; a new `ALLOCATE` is needed for the next one. The state of each row is the one `LIST` reports at that moment. `BAD_REQUEST` for an object the caller does not hold or one too small. */
+	SNAPSHOT = 10,
+	/** Root only: give a process that is in the table a name. Bits 8 to 15 of word 0 are the chunk number, word 1 is the kernel process id, words 2 and 3 are the `NAME_CHUNK_BYTES` bytes of that chunk of the name, which ends with a zero byte within `NAME_BYTES`; the chunks of a name are sent in order from 0, and the last one the name needs is the one that holds the zero byte. `NOT_FOUND` for a process that is not in the table, `BAD_REQUEST` for a chunk past `NAME_CHUNKS`. */
+	SET_NAME = 11,
 };
 
 /** Status in the low byte of word 0 of a reply. */
@@ -132,6 +136,15 @@ constexpr char FORK_SETTLE_NAME[] = "/run/forked";
 
 /** Longest process name in a `SpawnRequest`, with the terminator. */
 constexpr size_t NAME_BYTES = 32;
+/** Words of a `SET_NAME` request that carry the name, the last two. */
+constexpr size_t NAME_CHUNK_WORDS = 2;
+/** Bytes of a name that one `SET_NAME` request carries. */
+constexpr size_t NAME_CHUNK_BYTES = NAME_CHUNK_WORDS * sizeof(uint32_t);
+/** Number of chunks of a name of `NAME_BYTES` bytes. */
+constexpr size_t NAME_CHUNKS = NAME_BYTES / NAME_CHUNK_BYTES;
+static_assert(NAME_CHUNKS * NAME_CHUNK_BYTES == NAME_BYTES, "a name must be a whole number of chunks");
+/** Most rows the table of `pm` holds, live and exited; also the most rows of a `Snapshot`. */
+constexpr size_t MAX_PROCESSES = 128;
 /** Flag of `SpawnRequest::flags`: `pm` sends the root server a `PM_EXITED` message when the process ends. */
 constexpr uint32_t FORWARD_EXIT = 1;
 /** Flag of `SpawnRequest::flags`, root only: the new process is `init` and takes `INIT_PID`; refused while another `init` runs. */
@@ -173,6 +186,32 @@ struct ExecRequest {
 
 static_assert(sizeof(ExecRequest) <= IMAGE_OFFSET, "the request must fit in the first page");
 
+/** One row of a `Snapshot`: what `LIST` gives for a process, with its name and exit status. */
+struct ProcessRecord {
+	/** Id of the process in the kernel. */
+	uint32_t kernelId;
+	/** Id of the process in the table of `pm`. */
+	uint32_t pid;
+	/** Id in the table of the parent, or `NO_PID`. */
+	uint32_t parent;
+	/** State as `LIST` reports it. */
+	State state;
+	/** Status the process exited with; valid when `state` is `EXITED` or `ZOMBIE`. */
+	uint32_t exitStatus;
+	/** Name the process was created with, or the one `SET_NAME` gave; ends with a zero byte, empty when it has none. */
+	char name[NAME_BYTES];
+};
+
+/** What `SNAPSHOT` writes at the start of the object: the number of rows and the rows, in the order of `LIST`. */
+struct Snapshot {
+	/** Rows in use, from 0 to `MAX_PROCESSES`. */
+	uint32_t count;
+	/** The first `count` entries are valid. */
+	ProcessRecord records[MAX_PROCESSES];
+};
+
+static_assert(sizeof(Snapshot) <= shm::MAX_OBJECT_BYTES, "a snapshot must fit in one shared object");
+
 /**
  * @brief Builds the header word of a request.
  * @param op The operation.
@@ -189,6 +228,24 @@ inline uint32_t pack(Op op) {
  */
 inline uint32_t opOf(uint32_t header) {
 	return header & BYTE_MASK;
+}
+
+/**
+ * @brief Builds the header word of a `SET_NAME` request.
+ * @param chunk Number of the chunk of the name, from 0 to `NAME_CHUNKS` - 1.
+ * @return The operation in bits 0 to 7 and the chunk in bits 8 to 15.
+ */
+inline uint32_t packNameChunk(uint32_t chunk) {
+	return pack(Op::SET_NAME) | ((chunk & BYTE_MASK) << BYTE_BITS);
+}
+
+/**
+ * @brief Extracts the chunk number of a request header.
+ * @param header Word 0 of a request.
+ * @return Bits 8 to 15, not validated: compare it with `NAME_CHUNKS`.
+ */
+inline uint32_t chunkOf(uint32_t header) {
+	return (header >> BYTE_BITS) & BYTE_MASK;
 }
 
 /**

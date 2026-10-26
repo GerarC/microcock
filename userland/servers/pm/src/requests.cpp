@@ -3,8 +3,10 @@
 #include <pm/exec.hpp>
 #include <pm/fork.hpp>
 #include <pm/objects.hpp>
+#include <pm/process_name.hpp>
 #include <pm/requests.hpp>
 #include <pm/signal.hpp>
+#include <pm/snapshot.hpp>
 #include <pm/spawn.hpp>
 #include <pm/state.hpp>
 #include <pm/wait.hpp>
@@ -73,12 +75,20 @@ Status list(const uint32_t (&words)[CALL_WORDS], uint32_t (&reply)[CALL_WORDS], 
 	reply[FIRST_WORD] = row->kernelId;
 	reply[SECOND_WORD] = row->pid;
 	reply[THIRD_WORD] = row->parent;
-	state = row->state;
-	if (state == State::RUNNING) {
-		State seen = cock::pm::classify(cock::user::process_state_mask(row->kernelId));
-		if (seen != State::FREE) state = seen;
-	}
+	state = cock::pm::visibleState(*row);
 	return Status::OK;
+}
+
+Status snapshot(const uint32_t (&words)[CALL_WORDS], uint32_t caller, uint32_t (&reply)[CALL_WORDS]) {
+	uint32_t count = NO_VALUE;
+	Status status = cock::pm::takeSnapshot(caller, words[FIRST_WORD], count);
+	reply[FIRST_WORD] = count;
+	return status;
+}
+
+Status nameProcess(const uint32_t (&words)[CALL_WORDS]) {
+	return cock::pm::setProcessName(words[FIRST_WORD], chunkOf(words[HEADER_WORD]), words[SECOND_WORD],
+									words[THIRD_WORD]);
 }
 
 Status permitLabel(const uint32_t (&words)[CALL_WORDS]) {
@@ -93,18 +103,20 @@ bool allowed(Op op, Caller who) {
 	case Op::EXEC:
 	case Op::FORK:
 	case Op::KILL:
+	case Op::SNAPSHOT:
 		return true;
 	case Op::SPAWN:
 		return who == Caller::ROOT || who == Caller::INIT;
 	case Op::REGISTER:
 	case Op::PERMIT:
+	case Op::SET_NAME:
 		return who == Caller::ROOT;
 	}
 	return false;
 }
 
 bool knownOp(uint32_t op) {
-	return op >= static_cast<uint32_t>(Op::ALLOCATE) && op <= static_cast<uint32_t>(Op::KILL);
+	return op >= static_cast<uint32_t>(Op::ALLOCATE) && op <= static_cast<uint32_t>(Op::SET_NAME);
 }
 
 } // namespace
@@ -151,6 +163,12 @@ bool serve(uint32_t caller, const uint32_t (&words)[CALL_WORDS], uint32_t (&repl
 				break;
 			case Op::KILL:
 				status = signalProcess(caller, words[FIRST_WORD], words[SECOND_WORD]);
+				break;
+			case Op::SNAPSHOT:
+				status = snapshot(words, caller, reply);
+				break;
+			case Op::SET_NAME:
+				status = nameProcess(words);
 				break;
 			}
 		}

@@ -7,7 +7,11 @@
 namespace cock::ps {
 
 /**
- * @brief Prints `PID PPID STAT` and one row per process; a process with no parent prints `-` as its parent.
+ * @brief Prints `PID PPID STAT COMMAND` and one row per process, in color; a process with no parent prints `-` as its
+ * parent.
+ *
+ * It asks `pm` for the whole table at once (`SNAPSHOT`, in a shared memory object), so the rows are consistent with each
+ * other and the names are complete. The colors are escape sequences that the screen shows and the serial line drops.
  *
  * @param argc Count of `argv`, the program name included.
  * @param argv Name and arguments; the arguments are ignored.

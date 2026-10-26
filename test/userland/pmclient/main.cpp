@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 using cock::abi::pm::State;
 using cock::abi::pm::Status;
@@ -14,6 +15,8 @@ using cock::user::pm::Listing;
 namespace {
 
 constexpr char SERVER_NAME[] = "pm";
+constexpr char ROOT_NAME[] = "rs";
+constexpr char SELF_NAME[] = "pmclient";
 constexpr uint32_t FIRST_ROW = 0;
 constexpr size_t FIRST_PROCESSES = 5;
 constexpr size_t NO_ROWS = 0;
@@ -71,6 +74,27 @@ bool refusesStrangers(cock::user::pm::Client &client) {
 	return !registered && room && spawned == NO_KERNEL_PROCESS && denied;
 }
 
+bool snapshotIsNamed(cock::user::pm::Client &client) {
+	const cock::abi::pm::Snapshot *snapshot = client.snapshot();
+	if (snapshot == nullptr || snapshot->count < FIRST_PROCESSES || snapshot->count > cock::abi::pm::MAX_PROCESSES) {
+		client.release();
+		return false;
+	}
+
+	uint32_t self = cock::user::self();
+	bool rootNamed = false;
+	bool selfNamed = false;
+	bool allLive = true;
+	for (uint32_t index = FIRST_ROW; index < snapshot->count; index++) {
+		const cock::abi::pm::ProcessRecord &record = snapshot->records[index];
+		if (record.state == State::FREE) allLive = false;
+		if (record.kernelId == cock::abi::service::ROOT_PID) rootNamed = strcmp(record.name, ROOT_NAME) == 0;
+		if (record.kernelId == self) selfNamed = strcmp(record.name, SELF_NAME) == 0;
+	}
+	client.release();
+	return rootNamed && selfNamed && allLive;
+}
+
 bool hasNoChildren(cock::user::pm::Client &client) {
 	cock::user::pm::Waited any = client.wait();
 	cock::user::pm::Waited one = client.wait(SOME_CHILD);
@@ -90,7 +114,7 @@ extern "C" int main() {
 	Census census = count(client);
 	bool ok = census.rows >= FIRST_PROCESSES && census.rootFirst && census.selfSleeping &&
 			  census.selfChildOfRoot && census.other == NO_ROWS &&
-			  refusesStrangers(client) && hasNoChildren(client);
+			  snapshotIsNamed(client) && refusesStrangers(client) && hasNoChildren(client);
 
 	puts(ok ? "pmclient: ok" : "pmclient: wrong table");
 	return ok ? EXIT_PASSED : EXIT_FAILED;

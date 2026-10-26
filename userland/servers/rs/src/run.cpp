@@ -29,7 +29,7 @@ void runEntry(Client &client, const Entry &entry) {
 		}
 		labelBootModule(entry, pid);
 		equip(entry, pid);
-		registerProcess(pid);
+		registerProcess(pid, entry.name);
 		printf("rs: configured %s\n", entry.name);
 		return;
 	}

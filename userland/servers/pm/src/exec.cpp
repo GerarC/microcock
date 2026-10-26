@@ -74,6 +74,8 @@ Status execFromObject(uint32_t caller, uint32_t id, bool &replaced) {
 				cock::user::proc_exec(handle, parsed.entry, caller, cock::abi::exec::ARGS_ADDRESS)) {
 				replaced = true;
 				status = Status::OK;
+				Row *row = table.findKernel(caller);
+				if (row != nullptr) copyName(row->name, request.name);
 			} else {
 				cock::user::proc_discard(handle);
 			}

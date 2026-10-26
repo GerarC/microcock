@@ -104,7 +104,7 @@ Status spawnFromObject(uint32_t caller, uint32_t id, uint32_t &kernelId, uint32_
 									  : cock::abi::pm::NO_PID;
 				uint32_t announce = who == Caller::INIT ? request.rights.label : cock::abi::service::NO_SERVICE;
 				Row *row = table.add(created, parent == nullptr ? cock::abi::pm::NO_PID : parent->pid, forward,
-									 wanted, announce);
+									 wanted, announce, request.name);
 				kernelId = created;
 				pid = row->pid;
 				status = Status::OK;

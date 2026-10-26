@@ -30,6 +30,8 @@ Synchronous calls of four words through a handle on the endpoint of `pm`; the ba
 | `REGISTER kernel parent wanted` | `rs` | Adds a process that already runs (the boot modules, `pm` itself) |
 | `PERMIT label` | `rs` | `init` may create processes with that label |
 | `LIST index` | anyone with a handle | One row: kernel id, id in the table, parent, state |
+| `SNAPSHOT object` | any process in the table | The whole table at once, with names, written in the object the caller got with `ALLOCATE` (`src/snapshot.cpp`) |
+| `SET_NAME kernel chunk bytes` | `rs` | The name of a process `pm` did not create, 8 bytes per request (`src/process_name.cpp`) |
 | `WAIT pid` | anyone with a handle | Collects the status of a child (`ANY_CHILD` for any); blocks, with the call detached, until one exits; `NOT_FOUND` when there is none |
 
 The size of the object is `pm`'s own, so a caller cannot make `pm` read past it by lying about the image size. `pm` checks that the name ends, the flags are known, the image fits the object, the label is a program label and there are at most sixteen IPC labels; the kernel checks the rights again against what `pm` holds.
@@ -65,6 +67,8 @@ The id in the table is not the kernel one. The table numbers processes from 2 in
 | `src/wait.cpp`, `include/pm/wait.hpp` | `waitForChild` (collects a zombie or detaches the call) and `answerWaiter` (answers it when the child exits) |
 | `src/exit_notice.cpp`, `include/pm/exit_notice.hpp` | `takeMessage` (`PROCESS_EXITED`, and `PM_FORK_SETTLED` from `rs`) and `flushNotices` (`PM_EXITED`, `PM_SPAWNED`, `PM_FORKED`) |
 | `src/signal.cpp`, `include/pm/signal.hpp` | `signalProcess`: who may signal whom, then `SYS_PROC_SIGNAL` |
+| `src/snapshot.cpp`, `include/pm/snapshot.hpp` | `visibleState` (the state `LIST` and `SNAPSHOT` report) and `takeSnapshot` (the table in a shared object) |
+| `src/process_name.cpp`, `include/pm/process_name.hpp` | `setProcessName`: the chunks of `SET_NAME` |
 | `Makefile` | `NAME = pm`, `CONSOLE_CLIENT = no` (it prints before `console` exists), a minimal `LIBC_SRCS` |
 
 The table itself is in `shared/include/cock/pm/table.hpp` (host tests in `test/host/test_pm_table.cpp`) and the client in `userland/lib/include/cock/user/pm.hpp`. The test programs `pmclient` (the table and the refusals) and `forkprobe` (a fork, a fork inside the child, each side with its own values, and `wait` for both) check it.

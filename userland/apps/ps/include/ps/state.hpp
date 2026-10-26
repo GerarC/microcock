@@ -16,6 +16,15 @@ namespace cock::ps {
  */
 char stateLetter(cock::abi::pm::State state);
 
+/**
+ * @brief Gives the color `ps` prints the letter of a state with.
+ *
+ * @param state State as `pm` reports it.
+ * @return An escape sequence of `ps/palette.hpp`: green for `R`, cyan for `S`, yellow for `T`, red for `Z`, gray for `X`
+ * and magenta for `D` and for anything else.
+ */
+const char *stateColor(cock::abi::pm::State state);
+
 } // namespace cock::ps
 
 #endif // !PS_STATE_HPP

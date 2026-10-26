@@ -1,13 +1,12 @@
 #include <cock/abi/pm.hpp>
 #include <cock/user/pm.hpp>
 #include <cock/user/tool.hpp>
+#include <ps/columns.hpp>
 #include <ps/command.hpp>
 #include <ps/manager.hpp>
-#include <ps/state.hpp>
 #include <stdint.h>
 #include <stdio.h>
 
-using cock::abi::pm::Status;
 using namespace cock::user::tool;
 
 namespace cock::ps {
@@ -27,17 +26,15 @@ int run(int, char **argv) {
 	cock::user::pm::Client client;
 	if (!connectManager(client)) return unreachable(argv[0]);
 
-	printf("PID PPID STAT\n");
-	for (uint32_t index = FIRST_ROW;; index++) {
-		cock::user::pm::Listing row = client.list(index);
-		if (row.status == Status::NOT_FOUND) return STATUS_OK;
-		if (row.status != Status::OK) return unreachable(argv[0]);
+	const cock::abi::pm::Snapshot *snapshot = client.snapshot();
+	if (snapshot == nullptr) return unreachable(argv[0]);
 
-		if (row.parent == cock::abi::pm::NO_PID)
-			printf("%u - %c\n", row.pid, stateLetter(row.state));
-		else
-			printf("%u %u %c\n", row.pid, row.parent, stateLetter(row.state));
-	}
+	printHeader();
+	uint32_t count = snapshot->count < cock::abi::pm::MAX_PROCESSES ? snapshot->count : cock::abi::pm::MAX_PROCESSES;
+	for (uint32_t index = FIRST_ROW; index < count; index++) printRow(snapshot->records[index]);
+
+	client.release();
+	return STATUS_OK;
 }
 
 } // namespace cock::ps
