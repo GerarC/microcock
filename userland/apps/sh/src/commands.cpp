@@ -19,7 +19,7 @@ namespace cock::sh {
 namespace {
 
 constexpr size_t NO_WORDS = 0;
-constexpr char PROGRAM_NAMES[] = "ls cat mkdir rmdir rm mv echo ps sleep clear uname";
+constexpr char PROGRAM_NAMES[] = "ls cat mkdir rmdir rm mv echo ps sleep clear uname true false date";
 
 void helpCommand(const Words &);
 

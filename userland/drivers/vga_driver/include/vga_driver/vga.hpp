@@ -13,6 +13,7 @@
 #ifndef VGA_SERVER_HPP
 #define VGA_SERVER_HPP
 
+#include <cock/abi/ansi.hpp>
 #include <cock/abi/console.hpp>
 #include <stddef.h>
 #include <stdint.h>
@@ -58,6 +59,19 @@ static constexpr uint8_t   DEFAULT_FG           = 9;
 /** Default background color (black). */
 static constexpr uint8_t   DEFAULT_BG           = 0;
 
+/** Bits to shift the background into the high nibble of an attribute byte. */
+static constexpr unsigned  BACKGROUND_SHIFT     = 4;
+/** Mask of the foreground color in an attribute byte. */
+static constexpr uint8_t   FOREGROUND_MASK      = 0x0F;
+/** Attribute byte of a cell with the default colors: background in the high nibble, foreground in the low. */
+static constexpr uint8_t   DEFAULT_ATTRIBUTE    = static_cast<uint8_t>((DEFAULT_BG << BACKGROUND_SHIFT) | (DEFAULT_FG & FOREGROUND_MASK));
+/** Mask of the colors a background can have (the high bit blinks, so it is never used). */
+static constexpr uint8_t   BACKGROUND_MASK      = 0x07;
+/** Added to a normal color to make it bright. */
+static constexpr uint8_t   BRIGHT_BIT           = 0x08;
+/** VGA code of each ANSI color number 0 to 7 (black, red, green, yellow, blue, magenta, cyan, white). */
+static constexpr uint8_t   ANSI_TO_VGA[cock::abi::ansi::NORMAL_COLOR_COUNT] = {0, 4, 2, 6, 1, 5, 3, 7};
+
 /** The 16 colors of the VGA text palette; the value is the 4 bit hardware code. */
 enum class VGAColor : uint8_t {
 	BLACK = 0,
@@ -86,6 +100,10 @@ struct Screen {
     size_t row;
     /** Cursor column. */
     size_t column;
+    /** Reader of the color sequences in the text written to this terminal. */
+    cock::abi::ansi::SgrParser sgr;
+    /** Attribute byte of the cells written next on this terminal. */
+    uint8_t color = DEFAULT_ATTRIBUTE;
 };
 
 /** Text screen writer with a cursor, scrolling and a current color, for each terminal. */
@@ -120,7 +138,8 @@ public:
      * A newline moves to the start of the next line; a backspace erases the previous
      * cell of the line (nothing at column zero); any other byte is shown as a cell and
      * wraps at the end of the line. The screen scrolls up one line after the last row.
-     * The hardware cursor follows. Requires a successful `init`.
+     * The hardware cursor follows. A color sequence (`ESC [ ... m`) changes the color of the target terminal and shows
+     * nothing; see `cock/abi/ansi.hpp`. Requires a successful `init`.
      * @param c Character to write.
      */
     static void putChar(char c);
@@ -130,10 +149,10 @@ public:
      * @param size Number of characters.
      */
     static void write(const char* data, size_t size);
-    /** @brief Fills the screen with blanks in the current color and moves the cursor to the top left. */
+    /** @brief Fills the screen with blanks in the current color of the target terminal and moves the cursor to the top left. */
     static void clear();
     /**
-     * @brief Sets the colors used by later output; already written cells keep theirs.
+     * @brief Sets the colors used by later output of the target terminal; already written cells keep theirs.
      * @param fg Foreground color.
      * @param bg Background color.
      */
@@ -160,6 +179,13 @@ private:
     /** @brief Copies the image of the terminal on the screen to the hardware. */
     static void redraw();
     /**
+     * @brief Turns the style chosen by the escape sequences into an attribute byte.
+     * @param style Style read by the parser of a terminal.
+     * @return Background in the high nibble, foreground in the low; the defaults where the style has none, and a bold
+     *         normal foreground shown bright.
+     */
+    static uint8_t attributeOf(const cock::abi::ansi::Style& style);
+    /**
      * @brief Builds a screen cell.
      * @param uc Character code.
      * @param color Attribute byte (background in the high nibble, foreground in the low).
@@ -173,8 +199,6 @@ private:
     static size_t target;
     /** Terminal on the hardware screen. */
     static size_t active;
-    /** Attribute byte used for new cells. */
-    static uint8_t current_color;
     /** Mapped text buffer, null before `init`. */
     static volatile uint16_t* buffer;
     /** True once the CRT controller ports were obtained. */

@@ -22,7 +22,7 @@ struct Slot {
 Slot slots[SLOT_COUNT];
 
 void emit(const char *text, size_t length, uint32_t terminal) {
-	serialWrite(text, length);
+	serialWrite(text, length, terminal);
 	screenWrite(text, length, terminal);
 }
 

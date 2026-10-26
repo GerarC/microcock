@@ -32,7 +32,7 @@ Message layout: `shared/include/cock/ipc/message.hpp`. Per key the driver reads 
 
 ## Terminal switch
 
-The decoder tracks the left Alt key. Alt+F1 to Alt+F4 give no character: `Decoder::takeSwitch` returns the terminal plus one and `sendSwitch` sends `tty` a `CONSOLE_KEY` with `arg1` set to it.
+The decoder tracks both Alt keys (the right one is the left one's scan code after the `0xE0` prefix). Alt+F1 to Alt+F4 give no character: `Decoder::takeSwitch` returns the terminal plus one and `sendSwitch` sends `tty` a `CONSOLE_KEY` with `arg1` set to it.
 
 ## Source layout
 

@@ -12,7 +12,7 @@ keyboard --> kbd --> console --read(0)--> sh --FS_*--> vfs --> ramfs, fat, ext
 
 - It is spawned last from the initrd (`sh path=bin/sh` in `initrd/manifest.conf`), after `vfs`, `ext` and `kbd`. It has no grants and no argument, so `rs` sends it nothing.
 - Terminal I/O uses the C library: descriptor 0 reads a line from `console` and descriptor 1 prints through it (`libc/unistd/console.cpp`). - The shell reaches the file server only through `chdir` (the C library). The programs of `/bin` do the file work.
-- The version comes from `VERSION_MAJOR`, `VERSION_MINOR` and `VERSION_PATCH` of the root `Makefile`, passed as `SH_VERSION_*`. At boot it prints `microcock v<major>.<minor>.<patch> shell, type help` and the prompt `cock> `.
+- The version comes from `VERSION_MAJOR`, `VERSION_MINOR` and `VERSION_PATCH` of the root `Makefile`, passed as `SH_VERSION_*`. At boot it prints `microcock v<major>.<minor>.<patch> shell, type help` and the prompt `cock:<directory>> ` (`sh/prompt.hpp`), with the name in bright green and the directory in bright cyan through ANSI color sequences.
 
 ## Protocol
 
@@ -25,7 +25,7 @@ The shell serves nothing. It uses the console protocol (`shared/include/cock/abi
 | `pwd` | Print the current directory |
 | `exit [status]` | End the shell with the status, or with the status of the last program |
 
-The other commands are programs of `/bin`, each in `userland/apps/<name>`: `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `mv`, `echo`, `ps`, `sleep`, `clear` and `uname` (the former `version`).
+The other commands are programs of `/bin`, each in `userland/apps/<name>`: `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `mv`, `echo`, `ps`, `sleep`, `clear` `uname`, `true`, `false` and `date`.
 
 A path may be relative to the current directory, with `.` and `..`. A word that is not a built-in names a program: without a `/` it is `/bin/<name>`, with one it is a path. The shell makes a copy of itself with `fork`, the copy does `exec` and the shell does `wait`. An unknown program prints `sh: <name>: command not found` (status 127), a file that is not a program `sh: <name>: cannot execute` (126), and a status other than 0 prints `sh: <name>: exit status <n>`. More than 16 words print `sh: too many words`. Single and double quotes and a backslash keep spaces inside a word (`echo 'a  b'`), and a quote never closed prints `sh: unterminated quote`. A program that fails prints its own message (`cat: /x: not found`) and ends with 1, so the shell adds `sh: cat: exit status 1`.
 

@@ -30,7 +30,7 @@ constexpr uint8_t LEFT_SHIFT = 0x2A;
 constexpr uint8_t RIGHT_SHIFT = 0x36;
 /** Scancode of the caps lock key. */
 constexpr uint8_t CAPS_LOCK = 0x3A;
-/** Scancode of the left alt key. */
+/** Scancode of the left alt key; the right alt key sends the same code after `EXTENDED_PREFIX`. */
 constexpr uint8_t LEFT_ALT = 0x38;
 /** Scancode of F1; the next ones are F2, F3 and F4. */
 constexpr uint8_t FIRST_FUNCTION_KEY = 0x3B;
@@ -85,6 +85,7 @@ class Decoder {
 			extendedNext = false;
 			if (scancode == UP_ARROW) return cock::abi::console::KEY_UP;
 			if (scancode == DOWN_ARROW) return cock::abi::console::KEY_DOWN;
+			if ((scancode & static_cast<uint8_t>(~RELEASE_BIT)) == LEFT_ALT) rightAltHeld = (scancode & RELEASE_BIT) == 0;
 			return NO_KEY;
 		}
 
@@ -99,7 +100,7 @@ class Decoder {
 			altHeld = !released;
 			return NO_KEY;
 		}
-		if (!released && altHeld && code >= FIRST_FUNCTION_KEY &&
+		if (!released && (altHeld || rightAltHeld) && code >= FIRST_FUNCTION_KEY &&
 			code < FIRST_FUNCTION_KEY + cock::abi::console::TERMINAL_COUNT) {
 			switchTo = static_cast<uint32_t>(code - FIRST_FUNCTION_KEY) + 1;
 			return NO_KEY;
@@ -129,6 +130,8 @@ class Decoder {
   private:
 	/** true while the left alt key is down. */
 	bool altHeld = false;
+	/** true while the right alt key (`EXTENDED_PREFIX` then `LEFT_ALT`) is down. */
+	bool rightAltHeld = false;
 	/** Terminal asked for by the last Alt plus function key, plus one; `NO_SWITCH` when none. */
 	uint32_t switchTo = NO_SWITCH;
 	/** true while a shift key is down. */

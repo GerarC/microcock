@@ -24,6 +24,7 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the `tty` server |
 | `sh` | The shell: prompt, a line read from `tty`, and the built-in commands `help`, `cd`, `pwd` and `exit`; every other command is a program of `/bin` that it runs with `fork`, `exec` and `wait`; see [shell](shell.md). Started last by the system manifest |
 | `uname` | Prints `microcock vMAJOR.MINOR.PATCH`. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
+| `true`, `false`, `date` | Exit status 0, exit status 1, and the date and time from the `rtc` server. Programs of `/bin` that the shell runs, with no manifest line and no capabilities (`date` uses the `rtc` right that the shell passes through `exec`); see [shell](shell.md) |
 | `echo` | Prints its arguments. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
 | `ls` | Lists a directory, through the `vfs` client. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
 | `cat` | Prints files. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |

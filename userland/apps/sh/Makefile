@@ -1,5 +1,5 @@
 NAME = sh
-SRCS = src/main.cpp src/input.cpp src/commands.cpp src/directory_commands.cpp src/exit_command.cpp src/paths.cpp src/manager.cpp src/program_commands.cpp src/variables.cpp tool.cpp
+SRCS = src/main.cpp src/prompt.cpp src/input.cpp src/commands.cpp src/directory_commands.cpp src/exit_command.cpp src/paths.cpp src/manager.cpp src/program_commands.cpp src/variables.cpp tool.cpp
 LIBC_SRCS = string/memcpy.cpp string/memset.cpp string/memcmp.cpp string/strlen.cpp stdio/printf.cpp stdio/putchar.cpp stdio/puts.cpp unistd/write.cpp unistd/_exit.cpp unistd/file.cpp unistd/cwd.cpp unistd/pipe.cpp sys/mman/munmap.cpp
 
 include ../../common.mk

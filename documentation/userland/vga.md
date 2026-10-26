@@ -35,6 +35,8 @@ bool VgaServer::init() {
 }
 ```
 
+The text may carry ANSI color sequences (`ESC [ ... m`, read by `cock::abi::ansi::SgrParser`): each terminal image has its own parser and attribute byte, so a color chosen on one terminal never leaks into another, and the sequence itself is never drawn. Bold makes a normal foreground bright, the bright backgrounds are shown as the normal ones (the high bit of the background blinks), and every sequence that is not a color is dropped.
+
 After that it loops on `sys_ipc_recv`. The kernel routes text data to it via IPC messages containing types like `OUTPUT_WRITE_CHAR` or `OUTPUT_WRITE_STR`, and so does any other program, such as the keyboard driver.
 
 ```cpp

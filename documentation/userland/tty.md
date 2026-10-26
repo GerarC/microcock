@@ -34,11 +34,11 @@ There are four terminals (`TERMINAL_COUNT` in `shared/include/cock/abi/console.h
 * **Switch.** `kbd` sees Alt and F1 to F4 and sends `tty` a `CONSOLE_KEY` with `arg1` set to the terminal plus one; `tty` makes it active and asks the driver to `SHOW` it.
 
 ## Manifest
-`tty path=servers/tty restart=3 ipc=console` comes right after `console`. `init` starts one shell for each terminal: `sh`, `sh2`, `sh3` and `sh4`, all of `bin/sh`. `kbd` lists `ipc=tty` and a program that reads input lists `tty` in its `ipc=` (the shell does: `ipc=console,tty,vfs,pm`). `tty` has no `caps=` and no grant: `rs` sends it nothing.
+`tty path=servers/tty restart=3 ipc=console` comes right after `console`. `init` starts one shell for each terminal: `sh`, `sh2`, `sh3` and `sh4`, all of `bin/sh`. `kbd` lists `ipc=tty` and a program that reads input lists `tty` in its `ipc=` (the shell does: `ipc=console,tty,vfs,pm,pipe,rtc`). `tty` has no `caps=` and no grant: `rs` sends it nothing.
 
 ## Limits
 * Input is line oriented; there is no raw mode and no Ctrl+C yet (W10): this server is where they go. There are no cursor keys inside the line (Left and Right), so a recalled line is edited from its end.
 * The history holds 16 lines of up to 128 characters per terminal and is lost when `tty` restarts.
 * A restarted `tty` loses the lines and the readers of every terminal, and forgets which terminal is active; the screen keeps showing the terminal that was on it.
-* There is no command to switch, only the keys. Only the left Alt is read.
+* There is no command to switch, only the keys. Both Alt keys work.
 * The echo goes to the screen only.

@@ -6,8 +6,9 @@
 `initrd/manifest.conf` starts `sh` last, after `vfs`, `ext` and `kbd`. At boot the screen shows the version and the prompt:
 ```
 microcock v0.2.0 shell, type help
-cock>
+cock:/>
 ```
+The prompt is the name `cock` in bright green, a colon and the current directory in bright cyan (`sh/prompt.hpp`). The colors are ANSI escape sequences (`shared/include/cock/abi/ansi.hpp`): `vga_driver` draws them, with a color kept for each terminal, and `console` drops them from the serial line, so the serial log stays plain text. Any program can print them: `ESC [ 0 m` resets, `1` is bold, `30` to `37` and `90` to `97` choose the foreground and `40` to `47` the background; every other sequence is read and ignored.
 Type on the keyboard of the QEMU window. Without a disk only `/` exists (the `initrd`, read only); `make disk` and `make run DISK=build/disk.img` attach a disk so `/fat` and `/ext` can be listed and written (see the README).
 
 ## Commands
@@ -22,6 +23,8 @@ The shell keeps four built-in commands, because the state they change belongs to
 
 | Program | What it does |
 |---------|--------------|
+| `true`, `false` | Do nothing and end with status 0 and 1; they are there to try `$?` |
+| `date` | Prints the date and time of the clock as `YYYY-MM-DD HH:MM:SS` (UTC). It asks the `rtc` server, so the shell lists `rtc` in its `ipc=` |
 | `uname` | Prints `microcock vMAJOR.MINOR.PATCH` (the numbers come from the `Makefile`) |
 | `echo text...` | Prints the words separated by single spaces |
 | `ls [path]` | Lists a directory (the current one by default); a name ending in `/` is a directory; a file prints its own path |

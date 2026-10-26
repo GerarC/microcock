@@ -41,7 +41,7 @@ Statuses: `OK`, `BAD_REQUEST` (length 0 or above 12, unknown operation, terminal
 |------|-------|
 | `src/main.cpp` | `main`: the grant, the serial port, and the `ipc_accept` loop with its timeout |
 | `src/grant.cpp`, `include/console/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED` |
-| `src/serial.cpp`, `include/console/serial.hpp` | `openSerial` and `serialWrite` for the first serial line |
+| `src/serial.cpp`, `include/console/serial.hpp` | `openSerial` and `serialWrite` for the first serial line; `serialWrite` reads and drops the color sequences (one reader for each terminal) |
 | `src/display.cpp`, `include/console/display.hpp` | The link to `vga_driver`: `connectDisplay`, `screenWrite` in chunks with retries, `screenClear`, `screenCharacter`, `screenShow`; each names the terminal |
 | `src/writers.cpp`, `include/console/writers.hpp` | The slots that hold each writer's text until its last chunk: `handleWrite`, `hasPartialText`, `sweepDeadWriters` |
 | `src/tty_link.cpp`, `include/console/tty_link.hpp` | `isTty`: whether a caller is the `tty` server |
