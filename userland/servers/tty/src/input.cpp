@@ -32,13 +32,13 @@ void handleMessage(const Message &message) {
 	uint32_t switchTo = message.payload.args.arg1;
 	if (switchTo != NO_SWITCH) return activate(switchTo - NO_SWITCH_OFFSET);
 
-	char character = static_cast<char>(message.payload.args.arg0);
+	uint32_t key = message.payload.args.arg0;
 	uint32_t terminal = activeTerminal();
 	cock::abi::console::LineDiscipline &discipline = terminals[terminal].discipline;
-	proto::Echo kind = discipline.feed(character);
+	proto::Echo kind = discipline.feed(key);
 	if (kind == proto::Echo::REPLACE)
 		return redraw(discipline.replacedLength(), discipline.currentLine(), discipline.currentLength(), terminal);
-	echo(kind, character, terminal);
+	echo(kind, static_cast<char>(key), terminal);
 }
 
 void drainMessages() {

@@ -38,10 +38,14 @@ constexpr uint32_t FIRST_TERMINAL = 0;
 /** Bit position of the terminal number in the header of a request. */
 constexpr uint32_t TERMINAL_SHIFT = 24;
 
-/** Key sent by the keyboard driver for the Up arrow: recall the previous line of the history (the code of Ctrl+P). */
-constexpr char KEY_HISTORY_PREVIOUS = '\x10';
-/** Key sent by the keyboard driver for the Down arrow: recall the next line of the history (the code of Ctrl+N). */
-constexpr char KEY_HISTORY_NEXT = '\x0E';
+/** Highest key code that is a character; the keyboard driver sends characters as their byte value. */
+constexpr uint32_t LAST_CHARACTER_KEY = 0xFF;
+/** First key code of the keys that are not characters. They never collide with a character or a Ctrl combination. */
+constexpr uint32_t SPECIAL_KEY_BASE = LAST_CHARACTER_KEY + 1;
+/** Key code of the Up arrow. */
+constexpr uint32_t KEY_UP = SPECIAL_KEY_BASE;
+/** Key code of the Down arrow. */
+constexpr uint32_t KEY_DOWN = SPECIAL_KEY_BASE + 1;
 
 /** Operation code in the low byte of word 0 of a request. */
 enum class Op : uint32_t {

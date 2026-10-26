@@ -36,8 +36,10 @@ constexpr uint8_t LEFT_ALT = 0x38;
 constexpr uint8_t FIRST_FUNCTION_KEY = 0x3B;
 /** Value of `takeSwitch` when no terminal was asked for. */
 constexpr uint32_t NO_SWITCH = 0;
-/** Value returned for scancodes that produce no character. */
+/** Value in the tables for scancodes that produce no character. */
 constexpr char NO_CHARACTER = '\0';
+/** Value returned by `Decoder::feed` when the byte produces no key. */
+constexpr uint32_t NO_KEY = 0;
 
 /** Characters without shift, indexed by scancode. */
 constexpr char LOWERCASE[KEYMAP_SIZE] = {
@@ -69,21 +71,21 @@ class Decoder {
 	 *
 	 * Shift and caps lock combine (shift XOR caps selects the upper table). Key releases,
 	 * extended keys other than the arrows (the byte after `EXTENDED_PREFIX`) and codes outside the table give no
-	 * character. The pressed Up and Down arrows give `KEY_HISTORY_PREVIOUS` and `KEY_HISTORY_NEXT`. Never blocks.
+	 * character. The pressed Up and Down arrows give `KEY_UP` and `KEY_DOWN`. Never blocks.
 	 * @param scancode Raw byte from the keyboard controller.
-	 * @return The ASCII character or history key, or `NO_CHARACTER` when the byte only changes state or
-	 *         has no character.
+	 * @return The key code: the ASCII character, or a special key from `cock/abi/console.hpp`; `NO_KEY` when the byte
+	 *         only changes state or has no key.
 	 */
-	char feed(uint8_t scancode) {
+	uint32_t feed(uint8_t scancode) {
 		if (scancode == EXTENDED_PREFIX) {
 			extendedNext = true;
-			return NO_CHARACTER;
+			return NO_KEY;
 		}
 		if (extendedNext) {
 			extendedNext = false;
-			if (scancode == UP_ARROW) return cock::abi::console::KEY_HISTORY_PREVIOUS;
-			if (scancode == DOWN_ARROW) return cock::abi::console::KEY_HISTORY_NEXT;
-			return NO_CHARACTER;
+			if (scancode == UP_ARROW) return cock::abi::console::KEY_UP;
+			if (scancode == DOWN_ARROW) return cock::abi::console::KEY_DOWN;
+			return NO_KEY;
 		}
 
 		bool released = (scancode & RELEASE_BIT) != 0;
@@ -91,24 +93,25 @@ class Decoder {
 
 		if (code == LEFT_SHIFT || code == RIGHT_SHIFT) {
 			shiftHeld = !released;
-			return NO_CHARACTER;
+			return NO_KEY;
 		}
 		if (code == LEFT_ALT) {
 			altHeld = !released;
-			return NO_CHARACTER;
+			return NO_KEY;
 		}
 		if (!released && altHeld && code >= FIRST_FUNCTION_KEY &&
 			code < FIRST_FUNCTION_KEY + cock::abi::console::TERMINAL_COUNT) {
 			switchTo = static_cast<uint32_t>(code - FIRST_FUNCTION_KEY) + 1;
-			return NO_CHARACTER;
+			return NO_KEY;
 		}
 		if (code == CAPS_LOCK) {
 			if (!released) capsLocked = !capsLocked;
-			return NO_CHARACTER;
+			return NO_KEY;
 		}
-		if (released || code >= KEYMAP_SIZE) return NO_CHARACTER;
+		if (released || code >= KEYMAP_SIZE) return NO_KEY;
 
-		return (shiftHeld != capsLocked) ? UPPERCASE[code] : LOWERCASE[code];
+		char character = (shiftHeld != capsLocked) ? UPPERCASE[code] : LOWERCASE[code];
+		return static_cast<uint8_t>(character);
 	}
 
 	/**

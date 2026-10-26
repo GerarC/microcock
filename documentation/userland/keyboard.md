@@ -58,7 +58,7 @@ The line stays masked while the driver works, so a burst of keys never piles up 
 * **Scan code set 1**, which is what the controller produces by default.
 * The high bit marks a key **release**; releases produce no character.
 * **Shift** (left and right) is tracked while held. **Caps Lock** toggles on press. The upper case table is used when exactly one of them is active, so Shift with Caps Lock gives lower case.
-* The `0xE0` prefix of the extended keys (arrows, right Control, the numeric keypad, and so on) is recognized. Of the key that follows only the pressed Up and Down arrows count: they give `KEY_HISTORY_PREVIOUS` and `KEY_HISTORY_NEXT`, which `tty` uses to recall lines (see [tty](tty.md)); every other extended key and every release is ignored.
+* The `0xE0` prefix of the extended keys (arrows, right Control, the numeric keypad, and so on) is recognized. Of the key that follows only the pressed Up and Down arrows count: they give `KEY_UP` and `KEY_DOWN`, which `tty` uses to recall lines (see [tty](tty.md)); every other extended key and every release is ignored.
 * Two tables of `0x3A` entries, one for each case, map the codes of a US layout: letters, digits, punctuation, Enter (`\n`), Backspace (`\b`), Tab (`\t`) and Space. Keys without a character give `NO_CHARACTER` and are dropped.
 
 ```cpp

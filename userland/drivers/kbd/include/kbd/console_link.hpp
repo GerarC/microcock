@@ -11,16 +11,17 @@ namespace cock::kbd {
 /**
  * @brief Sends one key to the tty server as `CONSOLE_KEY`.
  *
- * Does nothing when the key has no character. When there is no handle on the tty server or the send
+ * Does nothing when there is no key. A character travels as its byte value and a special key (arrow) as its code from
+ * `cock/abi/console.hpp`, in `arg0`. When there is no handle on the tty server or the send
  * fails, connects to the server again through the name server and sends once more, so a tty
  * that was started again receives the keys; `console` then holds the handle the name server gave.
  *
  * @param console Handle on the endpoint of the tty server, or `NO_CAPABILITY_NODE` before the first key; updated
  * when it is connected again.
- * @param character The decoded character, or `NO_CHARACTER`.
+ * @param key The decoded key from `Decoder::feed`, or `NO_KEY`.
  * @note A key is lost when no tty is running at that moment.
  */
-void sendKey(uint32_t &console, char character);
+void sendKey(uint32_t &console, uint32_t key);
 
 /**
  * @brief Asks the `tty` server to switch to another terminal, as a `CONSOLE_KEY` with `arg1` set.

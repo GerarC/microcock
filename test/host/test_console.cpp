@@ -35,6 +35,7 @@ constexpr char SECOND_COMMAND[] = "echo hi";
 constexpr char DRAFT_TEXT[] = "pw";
 constexpr size_t DRAFT_LENGTH = sizeof(DRAFT_TEXT) - 1;
 constexpr char FIRST_KEY_TEXT[] = "a";
+constexpr uint32_t UNKNOWN_SPECIAL_KEY = SPECIAL_KEY_BASE + 0x80;
 
 void typeLine(LineDiscipline &discipline, const char *text) {
 	for (size_t index = 0; text[index] != '\0'; index++)
@@ -118,25 +119,26 @@ bool currentLineIs(const LineDiscipline &discipline, const char *text) {
 
 void checkHistoryRecall() {
 	LineDiscipline discipline;
-	CHECK_TRUE(discipline.feed(KEY_HISTORY_PREVIOUS) == Echo::NONE);
+	CHECK_TRUE(discipline.feed(KEY_UP) == Echo::NONE);
+	CHECK_TRUE(discipline.feed(UNKNOWN_SPECIAL_KEY) == Echo::NONE);
 
 	runLine(discipline, FIRST_COMMAND);
 	runLine(discipline, SECOND_COMMAND);
 	typeLine(discipline, DRAFT_TEXT);
 
-	CHECK_TRUE(discipline.feed(KEY_HISTORY_PREVIOUS) == Echo::REPLACE);
+	CHECK_TRUE(discipline.feed(KEY_UP) == Echo::REPLACE);
 	CHECK_EQ(DRAFT_LENGTH, discipline.replacedLength());
 	CHECK_TRUE(currentLineIs(discipline, SECOND_COMMAND));
-	CHECK_TRUE(discipline.feed(KEY_HISTORY_PREVIOUS) == Echo::REPLACE);
+	CHECK_TRUE(discipline.feed(KEY_UP) == Echo::REPLACE);
 	CHECK_TRUE(currentLineIs(discipline, FIRST_COMMAND));
-	CHECK_TRUE(discipline.feed(KEY_HISTORY_PREVIOUS) == Echo::NONE);
+	CHECK_TRUE(discipline.feed(KEY_UP) == Echo::NONE);
 	CHECK_TRUE(currentLineIs(discipline, FIRST_COMMAND));
 
-	CHECK_TRUE(discipline.feed(KEY_HISTORY_NEXT) == Echo::REPLACE);
+	CHECK_TRUE(discipline.feed(KEY_DOWN) == Echo::REPLACE);
 	CHECK_TRUE(currentLineIs(discipline, SECOND_COMMAND));
-	CHECK_TRUE(discipline.feed(KEY_HISTORY_NEXT) == Echo::REPLACE);
+	CHECK_TRUE(discipline.feed(KEY_DOWN) == Echo::REPLACE);
 	CHECK_TRUE(currentLineIs(discipline, DRAFT_TEXT));
-	CHECK_TRUE(discipline.feed(KEY_HISTORY_NEXT) == Echo::NONE);
+	CHECK_TRUE(discipline.feed(KEY_DOWN) == Echo::NONE);
 }
 
 void checkRecalledLineRuns() {
@@ -145,7 +147,7 @@ void checkRecalledLineRuns() {
 	runLine(discipline, FIRST_KEY_TEXT);
 	discipline.take(out, TAKE_LIMIT);
 
-	discipline.feed(KEY_HISTORY_PREVIOUS);
+	discipline.feed(KEY_UP);
 	discipline.feed(CHAR_NEWLINE);
 	CHECK_EQ(TWO_KEYS_AND_NEWLINE - SPARE_BYTE, discipline.take(out, TAKE_LIMIT));
 	CHECK_EQ(FIRST_KEY, out[FIRST_INDEX]);

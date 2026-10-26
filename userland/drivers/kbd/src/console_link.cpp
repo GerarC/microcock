@@ -23,12 +23,12 @@ void deliver(uint32_t &console, const Message &message) {
 
 } // namespace
 
-void sendKey(uint32_t &console, char character) {
-	if (character == NO_CHARACTER) return;
+void sendKey(uint32_t &console, uint32_t key) {
+	if (key == NO_KEY) return;
 
 	Message message = {};
 	message.type = MessageType::CONSOLE_KEY;
-	message.payload.args.arg0 = static_cast<uint32_t>(character);
+	message.payload.args.arg0 = key;
 	deliver(console, message);
 }
 

@@ -12,6 +12,7 @@
 #include <cock/abi/console_history.hpp>
 #include <cock/data_structure/ring_buffer.hpp>
 #include <stddef.h>
+#include <stdint.h>
 
 namespace cock::abi::console {
 
@@ -48,14 +49,17 @@ class LineDiscipline {
   public:
 	/**
 	 * @brief Processes one typed character.
-	 * @param character Character from the keyboard driver; `KEY_HISTORY_PREVIOUS` and `KEY_HISTORY_NEXT` replace the
-	 * editing line with an older or newer line of the history (the line typed before the first recall comes back at the
-	 * end), and give `Echo::REPLACE`, or `Echo::NONE` when there is no such line.
+	 * @param key Key from the keyboard driver: a character, or a special key (`SPECIAL_KEY_BASE` and above). `KEY_UP`
+	 * and `KEY_DOWN` replace the editing line with an older or newer line of the history (the line typed before the first
+	 * recall comes back at the end), and give `Echo::REPLACE`, or `Echo::NONE` when there is no such line. Any other
+	 * special key is ignored.
 	 * @return The echo to show. Non printable characters, characters on a full line and backspace on an empty line give `Echo::NONE`.
 	 */
-	Echo feed(char character) {
-		if (character == KEY_HISTORY_PREVIOUS) return recallPrevious();
-		if (character == KEY_HISTORY_NEXT) return recallNext();
+	Echo feed(uint32_t key) {
+		if (key == KEY_UP) return recallPrevious();
+		if (key == KEY_DOWN) return recallNext();
+		if (key > LAST_CHARACTER_KEY) return Echo::NONE;
+		char character = static_cast<char>(key);
 
 		if (character == CHAR_BACKSPACE) {
 			if (length == 0) return Echo::NONE;
