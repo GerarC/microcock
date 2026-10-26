@@ -21,6 +21,7 @@ It needs the name server and `pm` (it lists `names` and `pm` in its manifest `ip
 | `src/main.cpp` | `main`: calls `run` |
 | `src/command.cpp`, `include/ps/command.hpp` | `run`: one `SNAPSHOT` request, then the header and one line per row |
 | `src/columns.cpp`, `include/ps/columns.hpp` | `printHeader` and `printRow`: the aligned columns |
+| `src/line.cpp`, `include/ps/line.hpp` | `Line`: a row built in memory and written with one `write` |
 | `include/ps/palette.hpp` | The escape sequences of the colors |
 | `src/manager.cpp`, `include/ps/manager.hpp` | `connectManager`: the connection to `pm` through the name server |
 | `src/state.cpp`, `include/ps/state.hpp` | `stateLetter` (`R`, `S`, `T`, `Z`, `X`, `D` or `?`) and `stateColor` |
