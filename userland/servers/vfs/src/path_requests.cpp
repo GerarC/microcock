@@ -21,7 +21,10 @@ void pathRequest(Session &session, const Message &message,
 	Status routed = route(session, START_OFFSET, message.payload.args.arg1, full, index, rest);
 	if (routed != Status::OK) return reply(token, id, routed);
 
-	if (!(mounts[index].client.*operation)(rest)) return reply(token, id, failure(index));
+	Client &client = mounts[index].client;
+	bool done = (client.*operation)(rest);
+	if (!done && releasedAfterBusy(index)) done = (client.*operation)(rest);
+	if (!done) return reply(token, id, failure(index));
 	reply(token, id, Status::OK);
 }
 
@@ -35,7 +38,10 @@ void unlinkFile(Session &session, const Message &message) {
 	Status routed = route(session, START_OFFSET, message.payload.args.arg1, full, index, rest);
 	if (routed != Status::OK) return reply(token, id, routed);
 
-	if (!mounts[index].client.unlink(rest)) return reply(token, id, failure(index));
+	Client &client = mounts[index].client;
+	bool done = client.unlink(rest);
+	if (!done && releasedAfterBusy(index)) done = client.unlink(rest);
+	if (!done) return reply(token, id, failure(index));
 	reply(token, id, Status::OK);
 }
 
@@ -57,8 +63,10 @@ void renameEntry(Session &session, const Message &message) {
 	if (routed != Status::OK) return reply(token, id, routed);
 	if (fromIndex != toIndex) return reply(token, id, Status::CROSS_DEVICE);
 
-	if (!mounts[fromIndex].client.rename(restFrom, restTo))
-		return reply(token, id, failure(fromIndex));
+	Client &client = mounts[fromIndex].client;
+	bool done = client.rename(restFrom, restTo);
+	if (!done && releasedAfterBusy(fromIndex)) done = client.rename(restFrom, restTo);
+	if (!done) return reply(token, id, failure(fromIndex));
 	reply(token, id, Status::OK);
 }
 
@@ -80,8 +88,10 @@ void linkEntry(Session &session, const Message &message) {
 	if (routed != Status::OK) return reply(token, id, routed);
 	if (fromIndex != toIndex) return reply(token, id, Status::CROSS_DEVICE);
 
-	if (!mounts[fromIndex].client.link(restFrom, restTo))
-		return reply(token, id, failure(fromIndex));
+	Client &client = mounts[fromIndex].client;
+	bool done = client.link(restFrom, restTo);
+	if (!done && releasedAfterBusy(fromIndex)) done = client.link(restFrom, restTo);
+	if (!done) return reply(token, id, failure(fromIndex));
 	reply(token, id, Status::OK);
 }
 

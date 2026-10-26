@@ -31,6 +31,20 @@ extern Session sessions[MAX_CLIENTS];
 void releaseDead();
 
 /**
+ * @brief Tells whether a refused call is worth repeating once.
+ *
+ * The files of a client that ended stay open at the server until `releaseDead` runs, and an open file is exclusive,
+ * so the next program to use a file that a short lived program wrote (`echo text > file`, then `cat file`) is answered
+ * `BUSY` by the file server. When the last call on the mount was refused with `BUSY`, this releases the files of dead
+ * clients, which may be what it found busy.
+ *
+ * @param index Index into `mounts` of the server that refused the call.
+ * @return True when the status was `BUSY` and the dead clients were released: the caller repeats the call once. False
+ * for any other status.
+ */
+bool releasedAfterBusy(size_t index);
+
+/**
  * @brief Answers `FS_CONNECT`: opens a session, or reuses the one a client already has.
  *
  * A client that connects again loses the files it had open, except one that asks to keep them (`keepFiles`) and a copy made by `fork` that connects for the

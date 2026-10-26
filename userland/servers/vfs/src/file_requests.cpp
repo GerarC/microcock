@@ -36,6 +36,7 @@ void openFile(Session &session, const Message &message) {
 
 	Client &client = mounts[index].client;
 	uint32_t backend = client.open(rest, flags);
+	if (backend == cock::abi::fs::NO_HANDLE && releasedAfterBusy(index)) backend = client.open(rest, flags);
 	if (backend == cock::abi::fs::NO_HANDLE) return reply(token, id, failure(index));
 
 	bool root = strcmp(full, cock::abi::mounts::ROOT_PREFIX) == 0;

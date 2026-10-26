@@ -2,6 +2,7 @@
 #include <cock/user/api.hpp>
 #include <cock/user/session.hpp>
 #include <vfs/clients.hpp>
+#include <vfs/mounts.hpp>
 #include <vfs/opens.hpp>
 #include <vfs/reply.hpp>
 
@@ -18,6 +19,12 @@ void releaseDead() {
 	for (Session &session : sessions)
 		if (session.used && !cock::user::process_alive(session.pid))
 			cock::user::releaseSession(session, cock::abi::fs::WINDOW_BYTES);
+}
+
+bool releasedAfterBusy(size_t index) {
+	if (mounts[index].client.lastStatus() != Status::BUSY) return false;
+	releaseDead();
+	return true;
 }
 
 void connect(uint32_t token, uint32_t client, uint32_t id, bool keepFiles) {
