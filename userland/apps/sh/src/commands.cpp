@@ -4,6 +4,7 @@
 #include <sh/directory_commands.hpp>
 #include <sh/exit_command.hpp>
 #include <sh/program_commands.hpp>
+#include <sh/variables.hpp>
 #include <stddef.h>
 #include <stdio.h>
 
@@ -28,6 +29,8 @@ constexpr Command COMMANDS[] = {
 	{"help", "list the commands", helpCommand},
 	{"cd", "cd [path]: change the directory", changeDirectoryCommand},
 	{"pwd", "print the directory", printDirectoryCommand},
+	{"set", "print the variables set with NAME=value", setCommand},
+	{"unset", "unset name...: remove variables", unsetCommand},
 	{"exit", "exit [status]: end the shell", exitCommand},
 };
 
@@ -54,8 +57,11 @@ void usage(const char *command, const char *arguments) {
 }
 
 void run(char *line) {
+	char expanded[cock::shell::MAX_LINE_BYTES] = {};
+	if (!expandLine(line, expanded)) return;
+
 	Words words = {};
-	cock::shell::SplitResult split = cock::shell::split(line, words);
+	cock::shell::SplitResult split = cock::shell::split(expanded, words);
 	if (split == cock::shell::SplitResult::TOO_MANY_WORDS) {
 		printf("sh: too many words\n");
 		return;
@@ -65,6 +71,7 @@ void run(char *line) {
 		return;
 	}
 	if (words.count == NO_WORDS) return;
+	if (assignVariables(words)) return;
 
 	for (size_t index = 0; index < COMMAND_COUNT; index++) {
 		if (streq(words.items[FIRST_WORD], COMMANDS[index].name)) {

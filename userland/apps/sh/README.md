@@ -29,6 +29,8 @@ The other commands are programs of `/bin`, each in `userland/apps/<name>`: `ls`,
 
 A path may be relative to the current directory, with `.` and `..`. A word that is not a built-in names a program: without a `/` it is `/bin/<name>`, with one it is a path. The shell makes a copy of itself with `fork`, the copy does `exec` and the shell does `wait`. An unknown program prints `sh: <name>: command not found` (status 127), a file that is not a program `sh: <name>: cannot execute` (126), and a status other than 0 prints `sh: <name>: exit status <n>`. More than 16 words print `sh: too many words`. Single and double quotes and a backslash keep spaces inside a word (`echo 'a  b'`), and a quote never closed prints `sh: unterminated quote`. A program that fails prints its own message (`cat: /x: not found`) and ends with 1, so the shell adds `sh: cat: exit status 1`.
 
+Variables: `$?` is the status of the last program, `$PWD` the current directory, and `NAME=value` sets a variable that `$NAME` gives back (`set` lists them, `unset NAME` removes one). They are expanded before the line is split and are not passed to programs; see `documentation/userland/shell.md`.
+
 ## Source layout
 
 | File | Holds |

@@ -15,11 +15,12 @@ namespace cock::sh {
 void usage(const char *command, const char *arguments);
 
 /**
- * @brief Splits a line into words and runs the built-in command that the first word names, or else the program of that
- * name (`runProgram`).
+ * @brief Expands the variables of a line (`expandLine`), splits it into words and runs the built-in command that the
+ * first word names, or else the program of that name (`runProgram`). A line of `NAME=value` words only sets variables.
  *
  * An empty line does nothing. A line with more words than a command line holds prints
- * `sh: too many words`, and a line with a quote that is never closed prints `sh: unterminated quote`; a program that ends with a status other than 0 and the three the shell reports itself prints
+ * `sh: too many words`, and a line with a quote that is never closed prints `sh: unterminated quote`;
+ * a program that ends with a status other than 0 and the three the shell reports itself prints
  * `sh: <name>: exit status <n>`.
  *
  * @param line Line of input, terminated by zero. The split writes terminators into it.

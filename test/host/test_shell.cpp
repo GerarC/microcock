@@ -1,3 +1,5 @@
+#include <cock/shell/expand.hpp>
+#include <cock/shell/variables.hpp>
 #include <cock/shell/words.hpp>
 #include <test/host/check.hpp>
 #include <stddef.h>
@@ -134,9 +136,102 @@ void checkJoinLimit() {
 	CHECK_FALSE(join(words, FIRST, buffer, sizeof(buffer), length));
 }
 
+constexpr char NAME_HOME[] = "HOME";
+constexpr char VALUE_HOME[] = "/my dir";
+constexpr char NAME_STATUS[] = "?";
+constexpr char VALUE_STATUS[] = "127";
+constexpr size_t TINY_BUFFER_BYTES = 6;
+constexpr size_t NAME_HOME_LENGTH = sizeof(NAME_HOME) - sizeof(char);
+constexpr size_t BIG_BUFFER_BYTES = 64;
+constexpr size_t ASSIGNMENT_NAME_LENGTH = 3;
+constexpr char FILLER = 'n';
+
+const char *testLookup(const char *name, size_t length) {
+	if (length == NAME_HOME_LENGTH && memcmp(name, NAME_HOME, length) == 0) return VALUE_HOME;
+	if (length == sizeof(NAME_STATUS) - sizeof(char) && memcmp(name, NAME_STATUS, length) == 0) return VALUE_STATUS;
+	return nullptr;
+}
+
+bool expandsTo(const char *line, const char *expected) {
+	char out[BIG_BUFFER_BYTES] = {};
+	return expand(line, out, sizeof(out), testLookup) == ExpandResult::OK && sameText(out, expected);
+}
+
+void checkExpand() {
+	CHECK_TRUE(expandsTo("echo $?", "echo 127"));
+	CHECK_TRUE(expandsTo("echo $HOME/x", "echo /my\\ dir/x"));
+	CHECK_TRUE(expandsTo("echo \"$HOME\"", "echo \"/my dir\""));
+	CHECK_TRUE(expandsTo("echo '$HOME'", "echo '$HOME'"));
+	CHECK_TRUE(expandsTo("echo \\$HOME", "echo \\$HOME"));
+	CHECK_TRUE(expandsTo("echo \"\\$HOME\"", "echo \"$HOME\""));
+	CHECK_TRUE(expandsTo("echo $UNSET|", "echo |"));
+	CHECK_TRUE(expandsTo("echo $ $1 a$", "echo $ $1 a$"));
+}
+
+void checkExpandThenSplit() {
+	char out[BIG_BUFFER_BYTES] = {};
+	Words words = {};
+
+	CHECK_TRUE(expand("echo $HOME a", out, sizeof(out), testLookup) == ExpandResult::OK);
+	CHECK_TRUE(split(out, words) == SplitResult::OK);
+	CHECK_EQ(THREE_WORDS, words.count);
+	CHECK_TRUE(sameText(words.items[SECOND], VALUE_HOME));
+}
+
+void checkExpandLimit() {
+	char out[TINY_BUFFER_BYTES] = {};
+
+	CHECK_TRUE(expand("ab", out, sizeof(out), testLookup) == ExpandResult::OK);
+	CHECK_TRUE(expand("$HOME", out, sizeof(out), testLookup) == ExpandResult::TOO_LONG);
+	CHECK_TRUE(expand("abcdef", out, sizeof(out), testLookup) == ExpandResult::TOO_LONG);
+}
+
+void checkVariables() {
+	Variables table;
+	size_t length = 0;
+
+	CHECK_TRUE(isAssignment("A_1=x", length));
+	CHECK_EQ(ASSIGNMENT_NAME_LENGTH, length);
+	CHECK_FALSE(isAssignment("1A=x", length));
+	CHECK_FALSE(isAssignment("=x", length));
+	CHECK_FALSE(isAssignment("abc", length));
+
+	CHECK_TRUE(table.set("ab", TWO_WORDS, "one") == SetResult::OK);
+	CHECK_TRUE(sameText(table.get("ab", TWO_WORDS), "one"));
+	CHECK_TRUE(table.set("ab", TWO_WORDS, "two") == SetResult::OK);
+	CHECK_TRUE(sameText(table.get("ab", TWO_WORDS), "two"));
+	CHECK_TRUE(table.get("a", ONE_WORD) == nullptr);
+	CHECK_TRUE(table.unset("ab", TWO_WORDS));
+	CHECK_FALSE(table.unset("ab", TWO_WORDS));
+	CHECK_TRUE(table.get("ab", TWO_WORDS) == nullptr);
+}
+
+void checkVariablesLimits() {
+	Variables table;
+	char name[NAME_BYTES + 1] = {};
+	char value[VALUE_BYTES + 1] = {};
+	memset(name, FILLER, NAME_BYTES);
+	memset(value, FILLER, VALUE_BYTES);
+
+	CHECK_TRUE(table.set(name, NAME_BYTES, "x") == SetResult::TOO_LONG);
+	CHECK_TRUE(table.set("a", ONE_WORD, value) == SetResult::TOO_LONG);
+
+	for (size_t index = 0; index < MAX_VARIABLES; index++) {
+		name[FIRST] = static_cast<char>(FIRST_LOWER + index);
+		CHECK_TRUE(table.set(name, ONE_WORD, "x") == SetResult::OK);
+	}
+	CHECK_TRUE(table.set("zz", TWO_WORDS, "x") == SetResult::TABLE_FULL);
+	CHECK_TRUE(table.set("a", ONE_WORD, "y") == SetResult::OK);
+}
+
 } // namespace
 
 void testShell() {
+	checkExpand();
+	checkExpandThenSplit();
+	checkExpandLimit();
+	checkVariables();
+	checkVariablesLimits();
 	checkSplit();
 	checkSplitEdges();
 	checkTooManyWords();
