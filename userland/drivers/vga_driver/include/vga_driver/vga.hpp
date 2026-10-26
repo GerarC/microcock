@@ -5,10 +5,15 @@
  * The driver maps the physical text buffer into its own address space with a physical
  * `mmap` (needs the matching capability) and writes cells directly. All state is static
  * and the class is not thread safe; only the VGA server uses it.
+ *
+ * There is one screen image for each terminal (`TERMINAL_COUNT`), so the text of one terminal never overwrites the
+ * text of another. Writes go to the image of the target terminal and are mirrored on the hardware only while that
+ * terminal is the one on the screen.
  */
 #ifndef VGA_SERVER_HPP
 #define VGA_SERVER_HPP
 
+#include <cock/abi/console.hpp>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -24,6 +29,8 @@ static constexpr size_t    VGA_WIDTH            = 80;
 static constexpr size_t    VGA_HEIGHT           = 25;
 /** Size of a page in bytes; the text buffer fits in one page. */
 static constexpr size_t    PAGE_SIZE            = 4096;
+static constexpr size_t    TERMINAL_COUNT       = cock::abi::console::TERMINAL_COUNT;
+static constexpr size_t    CELL_COUNT           = VGA_WIDTH * VGA_HEIGHT;
 
 /** Character that fills blank cells. */
 static constexpr char      CHAR_EMPTY           = ' ';
@@ -56,7 +63,17 @@ enum class VGAColor : uint8_t {
 	WHITE = 15
 };
 
-/** Text screen writer with a cursor, scrolling and a current color. */
+/** The cells and the cursor of the image of one terminal. */
+struct Screen {
+    /** The cells, row by row. */
+    uint16_t cells[CELL_COUNT];
+    /** Cursor row. */
+    size_t row;
+    /** Cursor column. */
+    size_t column;
+};
+
+/** Text screen writer with a cursor, scrolling and a current color, for each terminal. */
 class VgaServer {
 public:
     /**
@@ -65,6 +82,16 @@ public:
      *         memory), in which case no output call may be used.
      */
     static bool init();
+    /**
+     * @brief Chooses the terminal that the next `putChar`, `write` and `clear` are for.
+     * @param terminal Terminal number; one that is out of range is ignored.
+     */
+    static void selectTarget(size_t terminal);
+    /**
+     * @brief Puts a terminal on the hardware screen by copying its image.
+     * @param terminal Terminal number; one that is out of range is ignored. Requires a successful `init`.
+     */
+    static void show(size_t terminal);
     /**
      * @brief Writes one character at the cursor with the current color.
      *
@@ -93,8 +120,16 @@ public:
 private:
     /** @brief Moves the cursor to the start of the next line, scrolling at the bottom. */
     static void newline();
-    /** @brief Moves every line up by one and blanks the last line. */
+    /** @brief Moves every line of the target image up by one and blanks the last line. */
     static void scroll();
+    /**
+     * @brief Writes a cell of the target image, and on the hardware when the target is the terminal on the screen.
+     * @param index Cell position.
+     * @param entry Cell value.
+     */
+    static void store(size_t index, uint16_t entry);
+    /** @brief Copies the image of the terminal on the screen to the hardware. */
+    static void redraw();
     /**
      * @brief Builds a screen cell.
      * @param uc Character code.
@@ -103,10 +138,12 @@ private:
      */
     static uint16_t vga_entry(unsigned char uc, uint8_t color);
 
-    /** Cursor row. */
-    static size_t row;
-    /** Cursor column. */
-    static size_t column;
+    /** The image of each terminal. */
+    static Screen screens[TERMINAL_COUNT];
+    /** Terminal the output calls are for. */
+    static size_t target;
+    /** Terminal on the hardware screen. */
+    static size_t active;
     /** Attribute byte used for new cells. */
     static uint8_t current_color;
     /** Mapped text buffer, null before `init`. */

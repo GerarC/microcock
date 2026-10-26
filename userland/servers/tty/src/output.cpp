@@ -12,23 +12,27 @@ namespace {
 
 cock::user::console::Client driver;
 
-void draw(char character) {
-	if (driver.connect()) driver.echo(&character, sizeof(character));
+void draw(char character, uint32_t terminal) {
+	if (driver.connect()) driver.echo(&character, sizeof(character), terminal);
 }
 
 } // namespace
 
-void echo(Echo kind, char character) {
+void echo(Echo kind, char character, uint32_t terminal) {
 	switch (kind) {
 	case Echo::NONE:
 		return;
 	case Echo::CHARACTER:
-		return draw(character);
+		return draw(character, terminal);
 	case Echo::ERASE:
-		return draw(proto::CHAR_BACKSPACE);
+		return draw(proto::CHAR_BACKSPACE, terminal);
 	case Echo::NEWLINE:
-		return draw(proto::CHAR_NEWLINE);
+		return draw(proto::CHAR_NEWLINE, terminal);
 	}
+}
+
+void show(uint32_t terminal) {
+	if (driver.connect()) driver.show(terminal);
 }
 
 } // namespace cock::tty

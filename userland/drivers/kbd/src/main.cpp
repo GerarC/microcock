@@ -34,6 +34,8 @@ extern "C" int main() {
 		if (!cock::kbd::isInterrupt(message)) continue;
 
 		cock::kbd::sendKey(console, decoder.feed(cock::kbd::readScancode()));
+		uint32_t asked = decoder.takeSwitch();
+		if (asked != cock::kbd::NO_SWITCH) cock::kbd::sendSwitch(console, asked);
 		cock::kbd::acknowledge();
 	}
 }

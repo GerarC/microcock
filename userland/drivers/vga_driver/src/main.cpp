@@ -34,6 +34,12 @@ extern "C" int main() {
 				VgaServer::write(str_chunk, length);
 				break;
 			}
+			case MessageType::OUTPUT_SELECT_TERMINAL:
+				VgaServer::selectTarget(msg.payload.args.arg0);
+				break;
+			case MessageType::OUTPUT_SHOW_TERMINAL:
+				if (ready) VgaServer::show(msg.payload.args.arg0);
+				break;
 			case MessageType::NONE:
 				if (ready) VgaServer::clear();
 				break;

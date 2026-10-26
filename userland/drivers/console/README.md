@@ -23,8 +23,11 @@ Header: `shared/include/cock/abi/console.hpp`. Requests are synchronous calls (`
 | `WRITE` | 1 to 12 bytes, `LAST` on the final chunk of one `write` | `OK` and the bytes taken |
 | `CLEAR` | none | `OK`; the display server is told to clear the screen |
 | `ECHO` | 1 to 12 bytes of the typed line, a backspace erases | `OK` and the bytes drawn; `DENIED` unless the caller is `tty`; screen only |
+| `SHOW` | none | `OK`; the display server puts the terminal of the header on the screen; `DENIED` unless the caller is `tty` |
 
-Statuses: `OK`, `BAD_REQUEST` (length 0 or above 12, unknown operation, and `READ`, which `tty` serves), `DENIED`. Messages used toward other servers: `OUTPUT_WRITE_STR` (chunks of at most 20 bytes), `OUTPUT_WRITE_CHAR` (the echo and Backspace) and the `NONE` message that clears the screen.
+Bits 24 to 31 of the header name the terminal; a number out of range is `BAD_REQUEST`. The driver sends `OUTPUT_SELECT_TERMINAL` to `vga_driver` whenever the terminal of the text changes.
+
+Statuses: `OK`, `BAD_REQUEST` (length 0 or above 12, unknown operation, terminal out of range, and `READ` and `ATTACH`, which `tty` serves), `DENIED`. Messages used toward other servers: `OUTPUT_WRITE_STR` (chunks of at most 20 bytes), `OUTPUT_WRITE_CHAR` (the echo and Backspace) and the `NONE` message that clears the screen.
 
 ## Behaviour
 
@@ -39,7 +42,7 @@ Statuses: `OK`, `BAD_REQUEST` (length 0 or above 12, unknown operation, and `REA
 | `src/main.cpp` | `main`: the grant, the serial port, and the `ipc_accept` loop with its timeout |
 | `src/grant.cpp`, `include/console/grant.hpp` | `waitForCapabilities`: blocks until `CAPABILITY_GRANTED` |
 | `src/serial.cpp`, `include/console/serial.hpp` | `openSerial` and `serialWrite` for the first serial line |
-| `src/display.cpp`, `include/console/display.hpp` | The link to `vga_driver`: `connectDisplay`, `screenWrite` in chunks with retries, `screenClear`, `screenCharacter` |
+| `src/display.cpp`, `include/console/display.hpp` | The link to `vga_driver`: `connectDisplay`, `screenWrite` in chunks with retries, `screenClear`, `screenCharacter`, `screenShow`; each names the terminal |
 | `src/writers.cpp`, `include/console/writers.hpp` | The slots that hold each writer's text until its last chunk: `handleWrite`, `hasPartialText`, `sweepDeadWriters` |
 | `src/tty_link.cpp`, `include/console/tty_link.hpp` | `isTty`: whether a caller is the `tty` server |
 | `src/requests.cpp`, `include/console/requests.hpp` | `serve`: write, clear and echo calls |

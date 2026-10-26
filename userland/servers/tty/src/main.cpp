@@ -26,7 +26,7 @@ extern "C" int main() {
 		}
 
 		uint32_t reply[cock::tty::ANSWER_WORDS] = {};
-		if (cock::tty::serve(result.words, reply) == cock::tty::Served::DEFERRED) {
+		if (cock::tty::serve(result.peer, result.words, reply) == cock::tty::Served::DEFERRED) {
 			result = cock::user::ipc_accept(cock::user::CALL_NO_TIMEOUT);
 			continue;
 		}

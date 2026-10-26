@@ -14,9 +14,13 @@ sh --READ-------------+
 - It asks the name server for `kbd` and accepts `CONSOLE_KEY` only from that process.
 - It links the console client of the C library to print `tty: ready` and to draw the echo.
 
+## Terminals
+
+Four terminals; Alt+F1 to Alt+F4 switch (see [the tty page](../../../documentation/userland/tty.md#terminals)). `terminals[]` (`tty/terminal.hpp`) holds the line discipline, the readers, the bytes kept for a dead reader and the owner of each one; only the active terminal receives keys. `ATTACH` gives the lowest terminal with no living owner.
+
 ## Protocol
 
-The same four word calls as the driver (`shared/include/cock/abi/console.hpp`). Only `READ` is served: 1 to 12 bytes wanted, the reply carries the count and the bytes and is held until a line is ready (`SYS_IPC_DEFER`, answered later with `SYS_IPC_REPLY_TO`). `BAD_REQUEST` for any other operation or a bad length, `BUSY` when eight readers already wait.
+The same four word calls as the driver (`shared/include/cock/abi/console.hpp`; bits 24 to 31 of the header name the terminal). `READ` and `ATTACH` are served: 1 to 12 bytes wanted, the reply carries the count and the bytes and is held until a line is ready (`SYS_IPC_DEFER`, answered later with `SYS_IPC_REPLY_TO`). `BAD_REQUEST` for any other operation or a bad length, `BUSY` when eight readers already wait.
 
 ## Behaviour
 
@@ -29,10 +33,11 @@ The same four word calls as the driver (`shared/include/cock/abi/console.hpp`). 
 | File | Holds |
 |------|-------|
 | `src/main.cpp` | `main`: the `ipc_accept` loop |
-| `src/input.cpp`, `include/tty/input.hpp` | The line discipline, the keyboard check: `handleMessage`, `drainMessages` |
-| `src/output.cpp`, `include/tty/output.hpp` | `echo`: the echo of a key, through the console driver |
+| `src/terminal.cpp`, `include/tty/terminal.hpp` | The terminals, the active one (`activate`) and `attach` |
+| `src/input.cpp`, `include/tty/input.hpp` | The keyboard check, the keys and the switch notices: `handleMessage`, `drainMessages` |
+| `src/output.cpp`, `include/tty/output.hpp` | `echo` (the echo of a key) and `show` (the terminal on the screen), through the console driver |
 | `src/readers.cpp`, `include/tty/readers.hpp` | Readers held with a deferred reply: `inputReady`, `deferRead`, `fillRead`, `wakeReaders`, and the bytes kept for the next reader |
-| `src/requests.cpp`, `include/tty/requests.hpp` | `serve`: the read call |
+| `src/requests.cpp`, `include/tty/requests.hpp` | `serve`: the read and attach calls |
 | `src/reply.cpp`, `include/tty/reply.hpp` | `ANSWER_WORDS` and `answer` |
 | `Makefile` | `NAME = tty` and the `SRCS` |
 
@@ -48,6 +53,7 @@ Use `HOST_TOOLCHAIN=1` where there is no cross compiler. The userland script typ
 ## Limits and known gaps
 
 - Input is line oriented: no raw mode, no history, no Ctrl+C. They go here (stages W9 and W10).
+- Only the left Alt switches terminals, and there is no command for it.
 - A restarted `tty` loses the line being edited and the readers that waited.
 
 ## Documentation

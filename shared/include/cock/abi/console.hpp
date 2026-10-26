@@ -9,6 +9,10 @@
  * The reply uses the same layout with the `Status` in place of the operation and a count in place of the
  * length. The keyboard driver (`KEYBOARD_NAME`) feeds the `tty` server with `CONSOLE_KEY` messages, and the `tty`
  * server draws the echo of the typed line through `ECHO` calls on the driver.
+ *
+ * There are `TERMINAL_COUNT` terminals, like the virtual consoles of Linux. Bits 24 to 31 of the header of a request
+ * name the terminal the call is about; the one that is on the screen is the active one. A program is attached to a
+ * terminal by `ATTACH`, and the terminal is inherited by `fork` and kept by `exec`.
  */
 #ifndef COCK_ABI_CONSOLE_HPP
 #define COCK_ABI_CONSOLE_HPP
@@ -27,6 +31,13 @@ constexpr char DISPLAY_NAME[] = "vga_driver";
 /** Name of the only process allowed to send `CONSOLE_KEY` to the `tty` server. */
 constexpr char KEYBOARD_NAME[] = "kbd";
 
+/** Number of terminals; Alt plus a function key switches between them. */
+constexpr uint32_t TERMINAL_COUNT = 4;
+/** Terminal that a program uses until it is attached to another one, and the one on the screen at boot. */
+constexpr uint32_t FIRST_TERMINAL = 0;
+/** Bit position of the terminal number in the header of a request. */
+constexpr uint32_t TERMINAL_SHIFT = 24;
+
 /** Operation code in the low byte of word 0 of a request. */
 enum class Op : uint32_t {
 	/** Driver: send 1 to 12 bytes to the serial port and the display; `LAST` marks the final chunk of one `write` call. */
@@ -37,6 +48,10 @@ enum class Op : uint32_t {
 	CLEAR = 3,
 	/** Driver, only from the `tty` server: draw 1 to 12 bytes of the typed line on the screen, not on the serial port; a backspace erases. */
 	ECHO = 4,
+	/** `tty`: attach the caller to the lowest terminal that has no living owner; the reply count is the terminal number. */
+	ATTACH = 5,
+	/** Driver, only from the `tty` server: put a terminal on the screen; the terminal is the one in the header. */
+	SHOW = 6,
 };
 
 /** Status in the low byte of word 0 of a reply. */
@@ -79,11 +94,21 @@ constexpr uint32_t LAST_FLAG = FLAG_BIT << LAST_BIT_SHIFT;
  * @param code Operation (request) or status (reply); only the low 8 bits are kept.
  * @param length Byte count or reply count; only the low 8 bits are kept.
  * @param last True to set the `LAST` flag.
- * @return The header: code | length << 8 | LAST flag.
+ * @param terminal Terminal number for bits 24 to 31; only the low 8 bits are kept.
+ * @return The header: code | length << 8 | LAST flag | terminal << 24.
  */
-inline uint32_t pack(uint32_t code, size_t length, bool last = false) {
+inline uint32_t pack(uint32_t code, size_t length, bool last = false, uint32_t terminal = FIRST_TERMINAL) {
 	return (code & BYTE_MASK) | ((static_cast<uint32_t>(length) & BYTE_MASK) << BYTE_BITS) |
-		   (last ? LAST_FLAG : 0);
+		   (last ? LAST_FLAG : 0) | ((terminal & BYTE_MASK) << TERMINAL_SHIFT);
+}
+
+/**
+ * @brief Extracts the terminal number.
+ * @param header Header word.
+ * @return Bits 24 to 31 of the header. Not validated: the receiver must check it against `TERMINAL_COUNT`.
+ */
+inline uint32_t terminalOf(uint32_t header) {
+	return (header >> TERMINAL_SHIFT) & BYTE_MASK;
 }
 
 /**

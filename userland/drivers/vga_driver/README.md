@@ -18,9 +18,13 @@ Message layout: `shared/include/cock/ipc/message.hpp`. The server only receives;
 | `CAPABILITY_GRANTED` | none used | First one maps the buffer (`MAP_PHYS`, `MAP_FIXED`) and marks the server ready |
 | `OUTPUT_WRITE_CHAR` | `arg0` is the character | Draws it; `\n` goes to the next line, Backspace moves one column back and blanks the cell (nothing at column 0) |
 | `OUTPUT_WRITE_STR` | `arg0` length, the text starts at `arg1` | Draws up to 20 bytes, the length is clamped to what the message holds |
+| `OUTPUT_SELECT_TERMINAL` | `arg0` terminal | The next writes and clears are for that terminal; a number out of range is ignored |
+| `OUTPUT_SHOW_TERMINAL` | `arg0` terminal | Puts that terminal on the screen by copying its image |
 | `NONE` | none | Clears the screen and puts the cursor at the top left |
 
 Until the grant arrives every drawing message is ignored. The screen is 80 by 25 cells with a fixed colour pair; when the last row is full the contents scroll up one row.
+
+There is one 80x25 image with its cursor for each terminal (four); a write goes to the image of the selected terminal and is mirrored on the hardware only while that terminal is the one shown, so the text of one terminal never overwrites another.
 
 ## Source layout
 

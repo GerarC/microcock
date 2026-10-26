@@ -18,6 +18,24 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/**
+ * @brief Attaches the calling program to a terminal, for the shell to call at its start; the C library keeps the client.
+ *
+ * The terminal is then the one that descriptors 0 to 2 use, and `fork` and `exec` hand it on.
+ *
+ * @return true when a terminal was given; false when the `tty` server cannot be reached or every terminal has a living
+ * owner, and the program stays on the first terminal.
+ */
+/**
+ * @brief Attaches the calling program to a terminal, for the shell to call at its start; the C library keeps the client.
+ *
+ * The terminal is then the one that descriptors 0 to 2 use, and `fork` and `exec` hand it on.
+ *
+ * @return true when a terminal was given; false when the `tty` server cannot be reached or every terminal has a living
+ * owner, and the program stays on the first terminal.
+ */
+extern "C" bool __console_attach();
+
 namespace cock::user::console {
 
 /** Pause between polls of `read` while no input is available. */
@@ -25,9 +43,17 @@ constexpr uint32_t READ_POLL_MS = 10;
 /** Value returned by `write` and `read` on failure. */
 constexpr long FAILED = -1;
 
-/** Connection to the console driver and, once a program reads, to the `tty` server. Not thread safe. */
+/**
+ * Connection to the console driver and, once a program reads or attaches, to the `tty` server. Not thread safe.
+ *
+ * Every call carries `terminal`, the terminal the program belongs to. It is the first one until `attach` gives
+ * another, and `fork` and `exec` keep it.
+ */
 class Client {
   public:
+	/** Terminal that the calls are about, below `abi::console::TERMINAL_COUNT`. */
+	uint32_t terminal = abi::console::FIRST_TERMINAL;
+
 	/**
 	 * @brief Connects to the console server through the name server.
 	 *
@@ -62,7 +88,7 @@ class Client {
 			uint32_t words[CALL_WORDS] = {};
 			bool last = written + step == length;
 			words[abi::console::HEADER_WORD] =
-				abi::console::pack(static_cast<uint32_t>(abi::console::Op::WRITE), step, last);
+				abi::console::pack(static_cast<uint32_t>(abi::console::Op::WRITE), step, last, terminal);
 			abi::console::packBytes(words, text + written, step);
 
 			CallResult result = request(words);
@@ -79,7 +105,7 @@ class Client {
 	bool clear() {
 		uint32_t words[CALL_WORDS] = {};
 		words[abi::console::HEADER_WORD] =
-			abi::console::pack(static_cast<uint32_t>(abi::console::Op::CLEAR), 0);
+			abi::console::pack(static_cast<uint32_t>(abi::console::Op::CLEAR), 0, false, terminal);
 
 		CallResult result = request(words);
 		return result.ok && statusOf(result) == abi::console::Status::OK;
@@ -91,18 +117,56 @@ class Client {
 	 * Only the `tty` server may do it; the driver answers `DENIED` to anyone else.
 	 * @param text Bytes to draw; a backspace erases the character before the cursor.
 	 * @param length Number of bytes, at most `CHUNK_BYTES`.
+	 * @param target Terminal whose screen the bytes go to.
 	 * @return true when the driver drew them; false on any failure.
 	 */
-	bool echo(const char *text, size_t length) {
+	bool echo(const char *text, size_t length, uint32_t target) {
 		if (length == 0 || length > abi::console::CHUNK_BYTES) return false;
 
 		uint32_t words[CALL_WORDS] = {};
 		words[abi::console::HEADER_WORD] =
-			abi::console::pack(static_cast<uint32_t>(abi::console::Op::ECHO), length);
+			abi::console::pack(static_cast<uint32_t>(abi::console::Op::ECHO), length, false, target);
 		abi::console::packBytes(words, text, length);
 
 		CallResult result = request(handle, words);
 		return result.ok && accepted(result, length);
+	}
+
+	/**
+	 * @brief Puts a terminal on the screen. Blocks for the answer.
+	 *
+	 * Only the `tty` server may do it; the driver answers `DENIED` to anyone else.
+	 * @param target Terminal to show, below `TERMINAL_COUNT`.
+	 * @return true when the driver switched; false on any failure.
+	 */
+	bool show(uint32_t target) {
+		uint32_t words[CALL_WORDS] = {};
+		words[abi::console::HEADER_WORD] =
+			abi::console::pack(static_cast<uint32_t>(abi::console::Op::SHOW), 0, false, target);
+
+		CallResult result = request(handle, words);
+		return result.ok && statusOf(result) == abi::console::Status::OK;
+	}
+
+	/**
+	 * @brief Attaches the program to a terminal that has no living owner and makes it the terminal of the calls.
+	 *
+	 * A shell does it once at the start. The `tty` server gives the lowest terminal whose owner is dead or that has
+	 * none, so a shell that was started again gets back its own terminal.
+	 * @return true when a terminal was given; false when no `tty` server can be reached or every terminal has an owner.
+	 */
+	bool attach() {
+		if (!connectTty()) return false;
+
+		uint32_t words[CALL_WORDS] = {};
+		words[abi::console::HEADER_WORD] = abi::console::pack(static_cast<uint32_t>(abi::console::Op::ATTACH), 0);
+		CallResult result = request(ttyHandle, words);
+		if (!result.ok || statusOf(result) != abi::console::Status::OK) return false;
+
+		uint32_t given = static_cast<uint32_t>(abi::console::lengthOf(result.words[abi::console::HEADER_WORD]));
+		if (given >= abi::console::TERMINAL_COUNT) return false;
+		terminal = given;
+		return true;
 	}
 
 	/**
@@ -125,7 +189,7 @@ class Client {
 		for (;;) {
 			uint32_t words[CALL_WORDS] = {};
 			words[abi::console::HEADER_WORD] =
-				abi::console::pack(static_cast<uint32_t>(abi::console::Op::READ), length);
+				abi::console::pack(static_cast<uint32_t>(abi::console::Op::READ), length, false, terminal);
 
 			CallResult result = request(ttyHandle, words);
 			if (!result.ok) return FAILED;

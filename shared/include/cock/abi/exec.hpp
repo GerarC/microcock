@@ -12,6 +12,7 @@
 #ifndef SHARED_COCK_ABI_EXEC_HPP
 #define SHARED_COCK_ABI_EXEC_HPP
 
+#include <cock/abi/console.hpp>
 #include <cock/abi/executable.hpp>
 #include <cock/abi/fs.hpp>
 #include <cock/abi/process.hpp>
@@ -94,6 +95,8 @@ struct ArgsBlock {
 	uint8_t slots[DESCRIPTOR_COUNT];
 	/** The working directory of the replaced program: an absolute, normalized path, or an empty string when none is handed on (the new program starts in `/`). */
 	char cwd[fs::MAX_PATH_BYTES];
+	/** Terminal the program belongs to, below `console::TERMINAL_COUNT`. */
+	uint32_t terminal;
 };
 
 static_assert(sizeof(ArgsBlock) <= ARGS_PAGE_BYTES, "the arguments must fit in their page");

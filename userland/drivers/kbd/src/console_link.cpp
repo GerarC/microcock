@@ -12,16 +12,31 @@ using cock::abi::NO_CAPABILITY_NODE;
 
 namespace cock::kbd {
 
+namespace {
+
+void deliver(uint32_t &console, const Message &message) {
+	if (console != NO_CAPABILITY_NODE && cock::user::ep_send(console, message)) return;
+
+	console = cock::user::names::connect(cock::abi::console::TTY_NAME).handle;
+	if (console != NO_CAPABILITY_NODE) cock::user::ep_send(console, message);
+}
+
+} // namespace
+
 void sendKey(uint32_t &console, char character) {
 	if (character == NO_CHARACTER) return;
 
 	Message message = {};
 	message.type = MessageType::CONSOLE_KEY;
 	message.payload.args.arg0 = static_cast<uint32_t>(character);
-	if (console != NO_CAPABILITY_NODE && cock::user::ep_send(console, message)) return;
+	deliver(console, message);
+}
 
-	console = cock::user::names::connect(cock::abi::console::TTY_NAME).handle;
-	if (console != NO_CAPABILITY_NODE) cock::user::ep_send(console, message);
+void sendSwitch(uint32_t &console, uint32_t terminal) {
+	Message message = {};
+	message.type = MessageType::CONSOLE_KEY;
+	message.payload.args.arg1 = terminal;
+	deliver(console, message);
 }
 
 } // namespace cock::kbd

@@ -1,4 +1,5 @@
 #include <cock/shell/words.hpp>
+#include <cock/user/console.hpp>
 #include <sh/commands.hpp>
 #include <sh/input.hpp>
 #include <sh/version.hpp>
@@ -11,6 +12,7 @@ constexpr char PROMPT[] = "cock> ";
 } // namespace
 
 extern "C" int main() {
+	__console_attach();
 	printf("microcock v%u.%u.%u shell, type help\n", cock::sh::VERSION_MAJOR,
 		   cock::sh::VERSION_MINOR, cock::sh::VERSION_PATCH);
 

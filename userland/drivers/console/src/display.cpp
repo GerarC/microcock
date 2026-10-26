@@ -21,7 +21,10 @@ constexpr size_t DISPLAY_CHUNK_BYTES = 20;
 
 static_assert(proto::CHUNK_BYTES <= DISPLAY_CHUNK_BYTES);
 
+constexpr uint32_t NO_TERMINAL = 0xFFFFFFFF;
+
 uint32_t display = NO_CAPABILITY_NODE;
+uint32_t selected = NO_TERMINAL;
 
 void deliverToDisplay(const Message &message) {
 	if (display == NO_CAPABILITY_NODE) return;
@@ -31,6 +34,16 @@ void deliverToDisplay(const Message &message) {
 	}
 }
 
+void select(uint32_t terminal) {
+	if (terminal == selected) return;
+
+	Message message = {};
+	message.type = MessageType::OUTPUT_SELECT_TERMINAL;
+	message.payload.args.arg0 = terminal;
+	deliverToDisplay(message);
+	selected = terminal;
+}
+
 } // namespace
 
 bool connectDisplay() {
@@ -38,7 +51,8 @@ bool connectDisplay() {
 	return display != NO_CAPABILITY_NODE;
 }
 
-void screenWrite(const char *text, size_t length) {
+void screenWrite(const char *text, size_t length, uint32_t terminal) {
+	select(terminal);
 	for (size_t offset = 0; offset < length; offset += DISPLAY_CHUNK_BYTES) {
 		size_t piece = length - offset;
 		if (piece > DISPLAY_CHUNK_BYTES) piece = DISPLAY_CHUNK_BYTES;
@@ -53,16 +67,25 @@ void screenWrite(const char *text, size_t length) {
 	}
 }
 
-void screenClear() {
+void screenClear(uint32_t terminal) {
+	select(terminal);
 	Message message = {};
 	message.type = MessageType::NONE;
 	deliverToDisplay(message);
 }
 
-void screenCharacter(char character) {
+void screenCharacter(char character, uint32_t terminal) {
+	select(terminal);
 	Message message = {};
 	message.type = MessageType::OUTPUT_WRITE_CHAR;
 	message.payload.args.arg0 = static_cast<uint32_t>(character);
+	deliverToDisplay(message);
+}
+
+void screenShow(uint32_t terminal) {
+	Message message = {};
+	message.type = MessageType::OUTPUT_SHOW_TERMINAL;
+	message.payload.args.arg0 = terminal;
 	deliverToDisplay(message);
 }
 

@@ -9,6 +9,7 @@
 #define KBD_KEYMAP_HPP
 
 #include <stddef.h>
+#include <cock/abi/console.hpp>
 #include <stdint.h>
 
 namespace cock::kbd {
@@ -25,6 +26,12 @@ constexpr uint8_t LEFT_SHIFT = 0x2A;
 constexpr uint8_t RIGHT_SHIFT = 0x36;
 /** Scancode of the caps lock key. */
 constexpr uint8_t CAPS_LOCK = 0x3A;
+/** Scancode of the left alt key. */
+constexpr uint8_t LEFT_ALT = 0x38;
+/** Scancode of F1; the next ones are F2, F3 and F4. */
+constexpr uint8_t FIRST_FUNCTION_KEY = 0x3B;
+/** Value of `takeSwitch` when no terminal was asked for. */
+constexpr uint32_t NO_SWITCH = 0;
 /** Value returned for scancodes that produce no character. */
 constexpr char NO_CHARACTER = '\0';
 
@@ -80,6 +87,15 @@ class Decoder {
 			shiftHeld = !released;
 			return NO_CHARACTER;
 		}
+		if (code == LEFT_ALT) {
+			altHeld = !released;
+			return NO_CHARACTER;
+		}
+		if (!released && altHeld && code >= FIRST_FUNCTION_KEY &&
+			code < FIRST_FUNCTION_KEY + cock::abi::console::TERMINAL_COUNT) {
+			switchTo = static_cast<uint32_t>(code - FIRST_FUNCTION_KEY) + 1;
+			return NO_CHARACTER;
+		}
 		if (code == CAPS_LOCK) {
 			if (!released) capsLocked = !capsLocked;
 			return NO_CHARACTER;
@@ -89,7 +105,23 @@ class Decoder {
 		return (shiftHeld != capsLocked) ? UPPERCASE[code] : LOWERCASE[code];
 	}
 
+	/**
+	 * @brief Takes the terminal that an Alt plus function key combination asked for.
+	 *
+	 * Alt+F1 asks for the first terminal, Alt+F2 for the second, and so on up to `TERMINAL_COUNT`.
+	 * @return The terminal number plus one, or `NO_SWITCH` when nothing was asked since the last call.
+	 */
+	uint32_t takeSwitch() {
+		uint32_t asked = switchTo;
+		switchTo = NO_SWITCH;
+		return asked;
+	}
+
   private:
+	/** true while the left alt key is down. */
+	bool altHeld = false;
+	/** Terminal asked for by the last Alt plus function key, plus one; `NO_SWITCH` when none. */
+	uint32_t switchTo = NO_SWITCH;
 	/** true while a shift key is down. */
 	bool shiftHeld = false;
 	/** true while caps lock is on. */

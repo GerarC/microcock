@@ -4,8 +4,9 @@
 
 namespace cock::vga {
 
-size_t VgaServer::row = 0;
-size_t VgaServer::column = 0;
+Screen VgaServer::screens[TERMINAL_COUNT];
+size_t VgaServer::target = 0;
+size_t VgaServer::active = 0;
 uint8_t VgaServer::current_color = (DEFAULT_BG << 4) | (DEFAULT_FG & 0x0F);
 volatile uint16_t* VgaServer::buffer = nullptr;
 
@@ -19,7 +20,30 @@ bool VgaServer::init() {
         return false;
     }
     buffer = static_cast<volatile uint16_t*>(mapped);
+    for (size_t index = 0; index < CELL_COUNT; index++) screens[0].cells[index] = buffer[index];
+    for (size_t terminal = 1; terminal < TERMINAL_COUNT; terminal++)
+        for (size_t index = 0; index < CELL_COUNT; index++)
+            screens[terminal].cells[index] = vga_entry(CHAR_EMPTY, current_color);
     return true;
+}
+
+void VgaServer::selectTarget(size_t terminal) {
+    if (terminal < TERMINAL_COUNT) target = terminal;
+}
+
+void VgaServer::show(size_t terminal) {
+    if (terminal >= TERMINAL_COUNT) return;
+    active = terminal;
+    redraw();
+}
+
+void VgaServer::store(size_t index, uint16_t entry) {
+    screens[target].cells[index] = entry;
+    if (target == active) buffer[index] = entry;
+}
+
+void VgaServer::redraw() {
+    for (size_t index = 0; index < CELL_COUNT; index++) buffer[index] = screens[active].cells[index];
 }
 
 void VgaServer::setColor(VGAColor fg, VGAColor bg) {
@@ -27,21 +51,21 @@ void VgaServer::setColor(VGAColor fg, VGAColor bg) {
 }
 
 void VgaServer::putChar(char c) {
+    Screen& screen = screens[target];
     if (c == CHAR_NEWLINE) {
         newline();
         return;
     }
     if (c == CHAR_BACKSPACE) {
-        if (column == 0) return;
-        column--;
-        buffer[row * VGA_WIDTH + column] = vga_entry(CHAR_EMPTY, current_color);
+        if (screen.column == 0) return;
+        screen.column--;
+        store(screen.row * VGA_WIDTH + screen.column, vga_entry(CHAR_EMPTY, current_color));
         return;
     }
-    const size_t index = row * VGA_WIDTH + column;
-    buffer[index] = vga_entry(c, current_color);
+    store(screen.row * VGA_WIDTH + screen.column, vga_entry(c, current_color));
 
-    if (++column == VGA_WIDTH) {
-        column = 0;
+    if (++screen.column == VGA_WIDTH) {
+        screen.column = 0;
         newline();
     }
 }
@@ -51,29 +75,30 @@ void VgaServer::write(const char* data, size_t size) {
 }
 
 void VgaServer::clear() {
-    for (size_t i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++) {
-        buffer[i] = vga_entry(CHAR_EMPTY, current_color);
-    }
-    row = 0;
-    column = 0;
+    Screen& screen = screens[target];
+    for (size_t i = 0; i < CELL_COUNT; i++) store(i, vga_entry(CHAR_EMPTY, current_color));
+    screen.row = 0;
+    screen.column = 0;
 }
 
 void VgaServer::newline() {
-    column = 0;
-    if (++row == VGA_HEIGHT) {
+    Screen& screen = screens[target];
+    screen.column = 0;
+    if (++screen.row == VGA_HEIGHT) {
         scroll();
-        row = VGA_HEIGHT - 1;
+        screen.row = VGA_HEIGHT - 1;
     }
 }
 
 void VgaServer::scroll() {
+    Screen& screen = screens[target];
     for (size_t y = 1; y < VGA_HEIGHT; y++) {
-        memcpy((void*)&buffer[(y - 1) * VGA_WIDTH], 
-               (void*)&buffer[y * VGA_WIDTH], VGA_WIDTH * 2);
+        memcpy(&screen.cells[(y - 1) * VGA_WIDTH], &screen.cells[y * VGA_WIDTH], VGA_WIDTH * 2);
     }
     for (size_t x = 0; x < VGA_WIDTH; x++) {
-        buffer[(VGA_HEIGHT - 1) * VGA_WIDTH + x] = vga_entry(CHAR_EMPTY, current_color);
+        screen.cells[(VGA_HEIGHT - 1) * VGA_WIDTH + x] = vga_entry(CHAR_EMPTY, current_color);
     }
+    if (target == active) redraw();
 }
 
 uint16_t VgaServer::vga_entry(unsigned char uc, uint8_t color) {

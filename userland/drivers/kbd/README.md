@@ -30,6 +30,10 @@ Message layout: `shared/include/cock/ipc/message.hpp`. Per key the driver reads 
 
 `keymap.hpp` is a small state machine with no I/O: scan code set 1, the high bit is a release (no character), Shift and Caps Lock are tracked (`Shift` with `Caps Lock` gives lower case), the `0xE0` prefix is recognized and the key after it is ignored. Two tables of `KEYMAP_SIZE` entries map a US layout; keys without a character give `NO_CHARACTER` and are dropped.
 
+## Terminal switch
+
+The decoder tracks the left Alt key. Alt+F1 to Alt+F4 give no character: `Decoder::takeSwitch` returns the terminal plus one and `sendSwitch` sends `tty` a `CONSOLE_KEY` with `arg1` set to it.
+
 ## Source layout
 
 | File | Holds |

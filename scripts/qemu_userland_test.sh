@@ -11,13 +11,16 @@ SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
 SHELL_COMMANDS="echo hello shell|uname|ps|ls /|cat /mounts.conf|ls /ext|write /ext/scratch/sh.txt written by sh|cat /ext/scratch/sh.txt|mv /ext/scratch/sh.txt /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|rm /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|mkdir /ext/scratch/made|ls /ext/scratch|rmdir /ext/scratch/made|rmdir /ext/scratch/made|cd /ext/scratch|pwd|write rel.txt relative ok|cat rel.txt|cat ../scratch/./rel.txt|rm rel.txt|cd ..|pwd|cd /nowhere|cd /mounts.conf|cd|pwd|exitwith 7|nosuchprogram|/bin/exitwith 0|cd /bin|./exitwith 5|cd|sleep 1|clear|echo after clear"
 SHELL_OUTPUT_COPIES=2
+SECOND_COMMAND="echo on second"
+TERMINAL_MARK="=====SECOND TERMINAL====="
+SECOND_SCREEN_TEXT="cock> echo on second|on second"
 FILE_CLIENT_RUNS=10
 CLOCK_FALLBACK_YEAR=2001
 DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
 EXPECTED_SCREEN_TEXT="cock> echo after clear|after clear"
 PROJECT_VERSION="$(sed -n "s/^VERSION_MAJOR := //p" Makefile).$(sed -n "s/^VERSION_MINOR := //p" Makefile).$(sed -n "s/^VERSION_PATCH := //p" Makefile)"
-EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 64/64 checks passed|microcock v${PROJECT_VERSION} shell, type help|hello shell|PID PPID STAT|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|cat: /ext/scratch/moved.txt: not found|made/|rmdir: /ext/scratch/made: not found|cock> /ext/scratch|relative ok|sh: cd: /nowhere: not found|sh: cd: /mounts.conf: not a directory|exitwith: 2 arguments, first exitwith|sh: exitwith: exit status 7|sh: nosuchprogram: command not found|exitwith: 2 arguments, first /bin/exitwith|exitwith: 2 arguments, first ./exitwith|sh: ./exitwith: exit status 5|abort()|pipeclient: ok|modeprobe: ok|descprobe: ok|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|rs: initrd is boot module|Boot memory released|rs: manifest has 44 entries|rs: restarted phoenix 2 of 5|contruncated: cut|rs: configured vga_driver|rs: started console|console: ready|rs: started tty|tty: ready|rs: started kbd|pm: ready|rs: started pm|rs: started init|init: ready|rs: started sh for init|init: started sh|rs: started ata|rs: started rtc|rtc: ready|rs: started fat|rs: started vfs|vfs: 4 mounts|rs: fsclient exit notices 10/10|pmclient: ok|forkprobe: ok|sigprobe: ok|execprobe: bad exec refused, image intact|execchild: ok|rs: started probe|kbd: ready|Screen mapped by PID|reaped"
+EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 64/64 checks passed|microcock v${PROJECT_VERSION} shell, type help|hello shell|PID PPID STAT|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|cat: /ext/scratch/moved.txt: not found|made/|rmdir: /ext/scratch/made: not found|cock> /ext/scratch|relative ok|sh: cd: /nowhere: not found|sh: cd: /mounts.conf: not a directory|exitwith: 2 arguments, first exitwith|sh: exitwith: exit status 7|sh: nosuchprogram: command not found|exitwith: 2 arguments, first /bin/exitwith|exitwith: 2 arguments, first ./exitwith|sh: ./exitwith: exit status 5|abort()|pipeclient: ok|modeprobe: ok|descprobe: ok|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|rs: initrd is boot module|Boot memory released|rs: manifest has 47 entries|rs: restarted phoenix 2 of 5|contruncated: cut|rs: configured vga_driver|rs: started console|console: ready|rs: started tty|tty: ready|rs: started kbd|pm: ready|rs: started pm|rs: started init|init: ready|rs: started sh for init|init: started sh|rs: started ata|rs: started rtc|rtc: ready|rs: started fat|rs: started vfs|vfs: 4 mounts|rs: fsclient exit notices 10/10|pmclient: ok|forkprobe: ok|sigprobe: ok|execprobe: bad exec refused, image intact|execchild: ok|rs: started probe|kbd: ready|Screen mapped by PID|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"
 case "$DISK_SCHEME" in
@@ -49,13 +52,14 @@ while [ "$waited" -lt "$CLIENTS_TIMEOUT" ]; do
 	waited=$((waited + POLL_SECONDS))
 done
 
-screen=$(python3 - "$SOCKET_FILE" "$SHELL_COMMANDS" "$KEY_SECONDS" <<'PYTHON'
+screens=$(python3 - "$SOCKET_FILE" "$SHELL_COMMANDS" "$KEY_SECONDS" "$SECOND_COMMAND" "$TERMINAL_MARK" <<'PYTHON'
 import re
 import socket
 import sys
 import time
 
 socket_path, commands, key_seconds = sys.argv[1], sys.argv[2].split("|"), float(sys.argv[3])
+second_command, terminal_mark = sys.argv[4], sys.argv[5]
 KEY_NAMES = {" ": "spc", "/": "slash", ".": "dot", "-": "minus"}
 KEY_HOLD_MS = 20
 KEY_WAIT = 0.07
@@ -98,21 +102,42 @@ for line in commands:
     command("sendkey ret %d" % KEY_HOLD_MS, ENTER_WAIT)
 time.sleep(key_seconds)
 
-dump = command("xp/%dbx %s" % (SCREEN_BYTES, VIDEO_ADDRESS), 1.5)
-cells = []
-for line in dump.splitlines():
-    match = re.match(r"^[0-9a-f]{8,16}:(.*)$", line.strip())
-    if match:
-        cells += [int(value, 16) for value in re.findall(r"0x([0-9a-f]{2})", match.group(1))]
-characters = cells[0::CELL_BYTES]
-for row in range(ROWS):
-    text = "".join(chr(c) if 32 <= c < 127 else " " for c in characters[row * COLUMNS:(row + 1) * COLUMNS])
-    print(text.rstrip())
+
+def screen_text():
+    dump = command("xp/%dbx %s" % (SCREEN_BYTES, VIDEO_ADDRESS), 1.5)
+    cells = []
+    for line in dump.splitlines():
+        match = re.match(r"^[0-9a-f]{8,16}:(.*)$", line.strip())
+        if match:
+            cells += [int(value, 16) for value in re.findall(r"0x([0-9a-f]{2})", match.group(1))]
+    characters = cells[0::CELL_BYTES]
+    rows = []
+    for row in range(ROWS):
+        text = "".join(chr(c) if 32 <= c < 127 else " " for c in characters[row * COLUMNS:(row + 1) * COLUMNS])
+        rows.append(text.rstrip())
+    return "\n".join(rows)
+
+
+command("sendkey alt-f2 %d" % KEY_HOLD_MS, ENTER_WAIT)
+time.sleep(key_seconds)
+for character in second_command:
+    key = KEY_NAMES.get(character, character)
+    command("sendkey %s %d" % (key, KEY_HOLD_MS), KEY_WAIT)
+command("sendkey ret %d" % KEY_HOLD_MS, ENTER_WAIT)
+time.sleep(key_seconds)
+second = screen_text()
+command("sendkey alt-f1 %d" % KEY_HOLD_MS, ENTER_WAIT)
+time.sleep(key_seconds)
+print(screen_text())
+print(terminal_mark)
+print(second)
 command("quit", 0.2)
 PYTHON
 )
 kill "$qemu_pid" 2> /dev/null
 wait "$qemu_pid" 2> /dev/null
+screen=${screens%%"$TERMINAL_MARK"*}
+second_screen=${screens#*"$TERMINAL_MARK"}
 
 echo "---- screen"
 echo "$screen"
@@ -127,6 +152,21 @@ for expected in "${screen_checks[@]}"; do
 		status=1
 	fi
 done
+IFS='|' read -ra second_checks <<< "$SECOND_SCREEN_TEXT"
+for expected in "${second_checks[@]}"; do
+	if ! echo "$second_screen" | grep -qF "$expected"; then
+		echo "[qemu_userland_test] missing on the second terminal: $expected"
+		status=1
+	fi
+done
+if echo "$screen" | grep -qF "on second"; then
+	echo "[qemu_userland_test] the first terminal shows what was typed on the second"
+	status=1
+fi
+if echo "$second_screen" | grep -qF "after clear"; then
+	echo "[qemu_userland_test] the second terminal shows the text of the first"
+	status=1
+fi
 IFS='|' read -ra serial_checks <<< "$EXPECTED_SERIAL_TEXT"
 for expected in "${serial_checks[@]}"; do
 	if ! grep -qF "$expected" "$SERIAL_FILE"; then

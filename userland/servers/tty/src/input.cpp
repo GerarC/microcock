@@ -3,6 +3,7 @@
 #include <cock/user/names.hpp>
 #include <tty/input.hpp>
 #include <tty/output.hpp>
+#include <tty/terminal.hpp>
 
 using cock::ipc::Message;
 using cock::ipc::MessageType;
@@ -14,11 +15,12 @@ namespace cock::tty {
 
 namespace {
 
+constexpr uint32_t NO_SWITCH = 0;
+constexpr uint32_t NO_SWITCH_OFFSET = 1;
+
 uint32_t keyboard = NO_PROCESS;
 
 } // namespace
-
-cock::abi::console::LineDiscipline discipline;
 
 void handleMessage(const Message &message) {
 	if (message.type != MessageType::CONSOLE_KEY) return;
@@ -27,8 +29,12 @@ void handleMessage(const Message &message) {
 		keyboard = cock::user::names::server(proto::KEYBOARD_NAME);
 	if (message.badge != keyboard) return;
 
+	uint32_t switchTo = message.payload.args.arg1;
+	if (switchTo != NO_SWITCH) return activate(switchTo - NO_SWITCH_OFFSET);
+
 	char character = static_cast<char>(message.payload.args.arg0);
-	echo(discipline.feed(character), character);
+	uint32_t terminal = activeTerminal();
+	echo(terminals[terminal].discipline.feed(character), character, terminal);
 }
 
 void drainMessages() {

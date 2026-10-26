@@ -14,14 +14,15 @@ namespace cock::console {
  *
  * A writer that sends more than its slot holds has the text printed early. When every slot is
  * taken by live writers the chunk is printed at once, unbuffered. Output goes to the serial
- * line and to the screen.
+ * line and to the image of the terminal.
  *
  * @param sender Process id of the writer.
  * @param bytes The chunk.
  * @param length Number of bytes in the chunk.
  * @param last True when this chunk ends the write.
+ * @param terminal Terminal the text is for; the text of one sender goes to the terminal of its last chunk.
  */
-void handleWrite(uint32_t sender, const char *bytes, size_t length, bool last);
+void handleWrite(uint32_t sender, const char *bytes, size_t length, bool last, uint32_t terminal);
 
 /**
  * @brief Tells whether some writer has text waiting for its last chunk.

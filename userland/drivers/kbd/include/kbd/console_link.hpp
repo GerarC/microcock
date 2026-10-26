@@ -22,6 +22,16 @@ namespace cock::kbd {
  */
 void sendKey(uint32_t &console, char character);
 
+/**
+ * @brief Asks the `tty` server to switch to another terminal, as a `CONSOLE_KEY` with `arg1` set.
+ *
+ * Reconnects like `sendKey`.
+ *
+ * @param console Handle on the endpoint of the `tty` server, as in `sendKey`.
+ * @param terminal The terminal number plus one, from `Decoder::takeSwitch`.
+ */
+void sendSwitch(uint32_t &console, uint32_t terminal);
+
 } // namespace cock::kbd
 
 #endif // !KBD_CONSOLE_LINK_HPP

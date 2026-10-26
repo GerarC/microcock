@@ -24,25 +24,32 @@ void serve(uint32_t sender, const uint32_t (&request)[ANSWER_WORDS], uint32_t (&
 
 	uint32_t header = request[proto::HEADER_WORD];
 	size_t length = proto::lengthOf(header);
+	uint32_t terminal = proto::terminalOf(header);
 	char bytes[proto::CHUNK_BYTES] = {};
+	if (terminal >= proto::TERMINAL_COUNT) return answer(reply, Status::BAD_REQUEST, NO_LENGTH);
 
 	switch (static_cast<Op>(proto::codeOf(header))) {
 	case Op::WRITE:
 		if (length == NO_LENGTH || length > proto::CHUNK_BYTES) return answer(reply, Status::BAD_REQUEST, NO_LENGTH);
 		proto::unpackBytes(request, bytes, length);
-		handleWrite(sender, bytes, length, proto::isLast(header));
+		handleWrite(sender, bytes, length, proto::isLast(header), terminal);
 		return answer(reply, Status::OK, length);
 	case Op::CLEAR:
-		screenClear();
+		screenClear(terminal);
 		return answer(reply, Status::OK, NO_LENGTH);
 	case Op::ECHO:
 		if (length == NO_LENGTH || length > proto::CHUNK_BYTES) return answer(reply, Status::BAD_REQUEST, NO_LENGTH);
 		if (!isTty(sender)) return answer(reply, Status::DENIED, NO_LENGTH);
 		proto::unpackBytes(request, bytes, length);
 		for (size_t index = 0; index < length; index++)
-			screenCharacter(bytes[index]);
+			screenCharacter(bytes[index], terminal);
 		return answer(reply, Status::OK, length);
+	case Op::SHOW:
+		if (!isTty(sender)) return answer(reply, Status::DENIED, NO_LENGTH);
+		screenShow(terminal);
+		return answer(reply, Status::OK, NO_LENGTH);
 	case Op::READ:
+	case Op::ATTACH:
 		break;
 	}
 	answer(reply, Status::BAD_REQUEST, NO_LENGTH);

@@ -70,6 +70,6 @@ extern "C" int main() {
 ```
 
 ### When the server is not there
-`OUTPUT_WRITE_CHAR` also understands the backspace character: it moves the cursor one column back and blanks the cell (the console server uses it to echo an erased key); at column 0 it does nothing. The console server draws its output with `OUTPUT_WRITE_STR` too.
+`OUTPUT_WRITE_CHAR` also understands the backspace character: it moves the cursor one column back and blanks the cell (the console server uses it to echo an erased key); at column 0 it does nothing. The console server draws its output with `OUTPUT_WRITE_STR` too. The driver keeps one image of the screen for each of the four terminals: `OUTPUT_SELECT_TERMINAL` (`arg0` is the terminal) chooses which one the following messages write to, and `OUTPUT_SHOW_TERMINAL` copies one to the hardware; only the terminal on the screen is mirrored on the hardware while it is written. See [tty](tty.md#terminals).
 
 `sys_write` takes at most 128 bytes per call and sends the text to the server in chunks of 20 bytes. If the server has died, the kernel notices, takes the screen back and writes to it directly, so the system keeps printing. Its mapping of the video memory is not returned to the frame allocator when the server dies, because device pages are marked as not owned.

@@ -32,6 +32,7 @@
  */
 extern "C" void __descriptors_export(cock::abi::exec::ArgsBlock *block) __attribute__((weak));
 extern "C" void __cwd_export(cock::abi::exec::ArgsBlock *block) __attribute__((weak));
+extern "C" void __console_export(cock::abi::exec::ArgsBlock *block) __attribute__((weak));
 
 namespace cock::user::pm {
 
@@ -182,6 +183,7 @@ public:
 		}
 		if (__descriptors_export != nullptr) __descriptors_export(&request->args);
 		if (__cwd_export != nullptr) __cwd_export(&request->args);
+		if (__console_export != nullptr) __console_export(&request->args);
 
 		uint32_t words[abi::pm::CALL_WORDS] = {abi::pm::pack(abi::pm::Op::EXEC), object};
 		CallResult result = ep_call(handle, words);

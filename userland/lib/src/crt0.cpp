@@ -6,6 +6,7 @@
 
 extern "C" void __descriptors_import(const cock::abi::exec::ArgsBlock *block) __attribute__((weak));
 extern "C" void __cwd_import(const cock::abi::exec::ArgsBlock *block) __attribute__((weak));
+extern "C" void __console_import(const cock::abi::exec::ArgsBlock *block) __attribute__((weak));
 extern "C" int main(int argc, char **argv);
 
 namespace {
@@ -32,6 +33,7 @@ bool takeArguments(uint32_t value) {
 	fillVector(*block);
 	if (__descriptors_import != nullptr) __descriptors_import(block);
 	if (__cwd_import != nullptr) __cwd_import(block);
+	if (__console_import != nullptr) __console_import(block);
 	return true;
 }
 
