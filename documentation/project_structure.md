@@ -51,9 +51,12 @@ The codebase strictly separates the architecture-dependent code, the kernel core
 │   │   ├── pm/                     # Process manager: creates processes, parent in the kernel, table
 │   │   ├── init/                   # First process (id 1) without authority: starts the shell
 │   │   ├── names/                  # Name server (connect by name, `ipc=` policy)
-│   │   ├── vfs/, ramfs/, fat/, ext/, pipe/
+│   │   ├── tty/                    # Line discipline of the terminals (echo, history, readers that wait)
+│   │   └── vfs/, ramfs/, fat/, ext/, pipe/
 │   └── apps/                       # Programs a person may run (installed under `/bin`)
-│       └── sh/                     # The shell
+│       ├── sh/                     # The shell
+│       └── ls/, cat/, ps/, echo/, ...  # One program for each command
+├── initrd/                         # Files packed into the initial ramdisk: `etc/manifest.conf` and `etc/mounts.conf`
 ├── test/                           # Every test
 │   ├── cock/                       # In-kernel test suites
 │   ├── host/                       # Tests of shared/ and CapabilitySet, run on the host

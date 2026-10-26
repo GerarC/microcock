@@ -41,66 +41,22 @@ The codebase is strictly separated to maintain the microkernel philosophy. The C
 ├── libc/                   # Custom C Standard Library (freestanding)
 ├── libcxx/                 # Custom C++ ABI and memory management (cxa, new/delete)
 ├── shared/                 # Headers and data structures shared between Kernel and Userland
-│   └── include/cock/       # IPC messages, capability ABI, LinkedList, RingBuffer, IntrusiveQueue
+│   └── include/cock/       # `abi` (protocols and capability types), data structures, ELF, `exec` arguments, IPC messages, paths, the `pm` table and the shell parsers
 ├── userland/               # User Space Programs (Ring 3)
 │   ├── lib/                # `cock::user` API used by the programs
-│   ├── rs/                 # Root server: the only process born with authority
-│   ├── names/              # Name server: checks the `ipc=` policy when a program connects to another
-│   ├── vga_driver/         # VGA Server running in userland
-│   └── kbd/                # PS/2 keyboard driver running in userland
+│   ├── drivers/            # Programs that hold hardware capabilities: `ata`, `console`, `kbd`, `rtc`, `vga_driver`
+│   ├── servers/            # Servers that hold policy and no hardware: `rs` (the only process born with authority), `pm`, `init`, `names`, `ramfs`, `vfs`, `fat`, `ext`, `pipe`, `tty`
+│   └── apps/               # The programs of `/bin`: the shell `sh` and the commands (`ls`, `cat`, `ps`, `echo`, ...)
+├── initrd/                 # Files packed into the initial ramdisk (`etc/manifest.conf`, `etc/mounts.conf`)
 ├── test/                   # Every test
 │   ├── cock/               # In-kernel test suites
 │   ├── host/               # Tests of the shared structures, built and run on the host
-│   └── userland/           # Test programs run by rs: probe, hello, aborter and the file and block clients
+│   ├── initrd/             # Files and manifest lines added to the initrd of the test build
+│   └── userland/           # Test programs run by rs: probe, fuzz, the file, block and process clients
 ├── scripts/                # QEMU based and host test runners
 ├── documentation/          # Per-subsystem documentation
 └── Makefile                # Master build system
 ```
-
-### The Syscall Interface
-Userland processes communicate with the kernel through software interrupts (`int 0x80`). The number goes in `EAX`, the arguments in `EBX`, `ECX`, `EDX`, `ESI`, `EDI` and `EBP`, and the result comes back in `EAX`. Calls that match a Linux i386 call in name and purpose use its number; the microkernel calls start at `0x200`, grouped by purpose, and every other number fails (see [IPC](documentation/core/ipc.md#numbering)). The current system call table includes:
-* `SYS_EXIT` (0x01): Terminate current thread.
-* `SYS_READ` (0x03): Read from a file descriptor.
-* `SYS_WRITE` (0x04): Write to a file descriptor (routed to Serial or VGA Server). A call takes at most 128 bytes; the caller writes the rest with more calls.
-* `SYS_GETPID` (0x14): Retrieve current Process ID.
-* `SYS_MMAP` (0x5A): Allocate dynamic memory (anonymous, or physical device memory with a `PHYSICAL_MEMORY` capability).
-* `SYS_MUNMAP` (0x5B): Free dynamically allocated memory.
-* `SYS_SCHED_YIELD` (0x9E): Yield CPU to the next ready thread.
-* `SYS_GETTID` (0xE0): Retrieve the id of the calling thread.
-* `SYS_PROC_CREATE` (0x200): Create a process with an empty address space and no thread, and get a handle for it; needs a `SPAWN` capability. An optional argument gives the service label, the IPC capabilities for labels and one initial handle on an endpoint (badged with the new process id, its number left in `EAX`) that the process is born with. At most 2 pending processes per caller and 8 in the system.
-* `SYS_PROC_MAP` (0x201), `SYS_PROC_WRITE` (0x202), `SYS_PROC_PROTECT` (0x203): Map zeroed writable pages into a pending process, copy bytes into them, and make them read only. Only the creator may use the handle; at most 4 MiB, never the first page or the user stack.
-* `SYS_PROC_START` (0x204): Create the first thread of a pending process at an entry point and let it run; returns the process id. `SYS_PROC_DISCARD` (0x205): destroy a pending process. A pending process dies with its creator. The ELF parsing is not in the kernel path of these calls: `cock::user::spawn` (`userland/lib/include/cock/user/spawn.hpp`) reads the image and calls them.
-* `SYS_PROC_EXEC` (0x20A): Replace the program image of a process with a pending one, keeping its id, capabilities and endpoints; its other threads end. Only a holder of `SPAWN` (`pm`) may call it, and only for a process that waits for the reply of a call the caller serves. `pm` serves the `EXEC` request of a program and `cock::user::exec` (`userland/lib/include/cock/user/exec.hpp`) reads the file and asks for it.
-* `SYS_PROC_FORK` (0x20B): Make a copy of a process that waits for the reply of a call the caller serves: a new child of the caller whose memory is shared copy on write (the first write on either side gets a private frame), with one thread that resumes inside the same call with the answer the caller supplies, and the `IPC` and `ENDPOINT` capabilities of the original. Only a holder of `SPAWN` (`pm`) may call it. `pm` serves the `FORK` request of a program and `cock::user::pm::Client::fork` asks for it.
-* `SYS_PROC_ALIVE` (0x206): Tell whether a process id is alive.
-* `SYS_THREAD_CREATE` (0x207): Start another thread of the caller process at an entry point, on a stack the caller provides; returns the thread id.
-* `SYS_THREAD_PROCESS` (0x208): Give the process a thread belongs to; a server that serves a synchronous call sees the id of the calling thread and uses this to know whose it is.
-* `SYS_PROC_SIGNAL` (0x20C): Send a signal to another process: terminate and interrupt arrive as a `SIGNAL` message in the inbox of its main thread, kill ends every thread of the process (exit status 137), stop keeps its threads from running until continue (state `T` in `ps`). Only a holder of `SPAWN` (`pm`) may call it; `pm` decides who may signal whom.
-* `SYS_PROC_STATE` (0x209): Tell in which states the live threads of a process are, as a mask of bits (ready, running, blocked, waiting for a message, in accept or for a reply); `pm` turns it into the `R` or `S` of `ps`. Read only, open to every process.
-* `SYS_SLEEP` (0x210): Block the caller for at least the given milliseconds (10 ms resolution).
-* `SYS_FUTEX_WAIT` (0x211): Block while a 32 bit word still holds an expected value, with an optional timeout.
-* `SYS_FUTEX_WAKE` (0x212): Wake up to a given number of threads of the caller process waiting on a word.
-* `SYS_SCHED_METRICS` (0x213): Write the response, CPU and turnaround ticks of the calling thread. Registered only in a kernel built with `SCHED_METRICS=1`; otherwise it fails like any unknown call.
-* `SYS_IPC_SEND` (0x220): Send a message to a thread of the calling process. Another program is reached through a handle (`SYS_EP_SEND`).
-* `SYS_IPC_RECV` (0x221): Receive the next interrupt notification or message of the thread, blocking when there is none.
-* `SYS_IPC_TRY_RECV` (0x222): Like `SYS_IPC_RECV` but returns 1 at once when there is nothing to receive.
-* `SYS_IPC_RECV_TIMEOUT` (0x223): Like `SYS_IPC_RECV` but returns 1 when the given milliseconds pass with nothing to receive.
-* `SYS_IPC_CALL` (0x230), `SYS_IPC_ACCEPT` (0x231), `SYS_IPC_REPLY` (0x232), `SYS_IPC_REPLY_WAIT` (0x233), `SYS_IPC_DEFER` (0x234), `SYS_IPC_REPLY_TO` (0x235): Synchronous calls with four words in registers each way, a direct switch to the server and an optional timeout. `SYS_IPC_CALL` calls a thread of the calling process; another program is called through a handle (`SYS_EP_CALL`). `accept` also wakes for an asynchronous message or an interrupt. `defer` detaches the call being served and returns a ticket; `reply_to` answers it later.
-* `SYS_CAP_GRANT` (0x240): Delegate part of a capability to another process; returns the id of the node of the derivation tree that records it. A fifth argument lets the receiver pass the capability on (`GRANT_DELEGATE`), which is how the name server may give handles; for an endpoint handle a sixth argument is the badge, and `GRANT_MINT` lets the receiver choose badges.
-* `SYS_CAP_REVOKE` (0x241): Revoke a delegated capability and everything derived from it; the caller must hold an ancestor of the node. Closes the ports, unbinds the lines and unmaps the device memory that the holders opened with it.
-* `SYS_CAP_ACCEPT` (0x242): Choose which capability types a `CAPABILITY_TRANSFER` message may give the caller (a mask, one bit per type); a process accepts nothing until it calls it. `SYS_EP_SEND` of that message type gives the receiver a copy of part of a capability of the sender, recorded in the derivation tree, and returns the node id so the sender can revoke it.
-* `SYS_SERVICE_SET` (0x243): Give a running process its service label, once; needs grant authority. Used for the boot modules.
-* `SYS_EP_CREATE` (0x244), `SYS_EP_BIND` (0x245): Create an endpoint (grant authority) and bind it to the process that receives from it. `SYS_EP_SEND` (0x224) and `SYS_EP_CALL` (0x236) send and call through a handle: no message reaches another program by its process id; the kernel stamps the badge of the handle on the message, or hands it to the server as the peer of its accept. `SYS_EP_SEND` can ask for a reply token (`SYS_EP_REPLY` answers with it once, `SYS_EP_FORWARD` hands request and token to another endpoint (0x225, 0x226)), which is how a server answers asynchronously without a process id. What is sent or called through a handle waits in a queue that belongs to the endpoint, so a restarted server finds it. See `documentation/core/endpoints.md`, including what it does not solve.
-* `SYS_REQUEST_RESOURCE` (0x250): Enable I/O ports in the process permission bitmap. Requires an `IO_PORTS` capability.
-* `SYS_IRQ_BIND` (0x251): Route an interrupt line to the calling process. Requires an `IRQ` capability.
-* `SYS_IRQ_ACK` (0x252): Re-enable an interrupt line after handling it.
-* `SYS_SHM_CREATE` (0x260): Create a shared memory object of a number of pages, paid by the caller.
-* `SYS_SHM_SHARE` (0x261): Let another process map an object, read only or read and write; needs a handle on an endpoint of that process (or the other process a handle on one of the caller).
-* `SYS_SHM_MAP` (0x262): Map a whole object into the caller, read only or read and write.
-* `SYS_SHM_RELEASE` (0x263): Drop the right of the caller to an object.
-* `SYS_MODULE_PROCESS` (0x270): Find the process id of the program the kernel started from a boot module, by module name; needs grant authority. Programs find a server through the name server instead.
-* `SYS_MODULE_OPEN` (0x271): Open a data boot module by name as a read only shared memory object; needs a `BOOT_MODULE` capability.
-* `SYS_MODULE_INDEX` (0x272): Index of a data boot module by name; needs grant authority.
 
 ## Building and Running
 
@@ -291,7 +247,11 @@ What the kernel already does, and what is planned next. Planned items are listed
 
 - Keeping the kernel small is the next goal, in this order. First, capabilities as data (below): the kernel stops knowing program names, and IPC gets a capability of its own. Then a page that lists every concept the kernel holds and says why each one cannot live outside it (done: `documentation/core/kernel_concepts.md`), the ELF loader and `spawn` moved out of the kernel into a user library (done for programs started at run time; the kernel keeps a loader only for the Multiboot boot modules), the name lookup moved out of the kernel into the name server (done), and the debug channel (`SYS_WRITE`, `SYS_READ`, kernel console) moved out of the core, kept only behind a build option.
 - A route to Unix style IPC, where the capability plays the part of the file descriptor. Step by step: a stable service label with an IPC capability that decides who may send, call or share memory with whom (done); a name service in Ring 3 that replaces the lookup of the kernel, so permission is checked when a client connects (done); capability transfer in messages, so a process can give another a capability it holds and the receiver gets it only when it accepted that type (done); endpoints and handles, so messages are addressed by handle and not by process id (done: no message, call or capability message reaches another program by its id, and the message has no sender field); capabilities inherited by `fork` (done for `IPC` and endpoint handles, which the child keeps with the numbers they had, and the name server gives the child the rights of its parent) and kept by `exec` (done); and a descriptor layer in the C library, so the shell can join programs with pipes and redirection. The last one comes in four steps: a table of descriptors with `dup` and `dup2` (done); a `pipe` server and `pipe()` (done); inheritance by `fork` and `exec` of the descriptors that live in a server (done: `rs` tells the servers that keep state for each process about every copy, and `pm` holds the parent until they copied); and owner and mode permissions in the name service.
-- Page faults handled by a server, so memory policy can live outside the kernel. This is the largest item and needs a decision first.
+- Page faults handled by a server, so memory policy can live outside the kernel. This is the largest item and needs a decision first, and the round trip of a synchronous IPC call is measured before it starts: pages the kernel handles itself keep their speed, and only the faults a pager serves pay for the message.
+- Faults you can provoke from the shell: kill a server with `kill` and watch `rs` start it again, with a test and a page that explain it.
+- Users and groups: an identity (`uid`, `gid`) kept by `pm`, owner and mode in `stat` and in `ext2`, permission checks in the file servers, mount options for FAT32, `/etc/passwd` and `login`, and signals checked by owner. The model is to be decided first.
+- A network: a PCI bus server, a card driver (`rtl8139` or `e1000`, as QEMU emulates them) and a network stack server with ARP, IP, ICMP, UDP and TCP, all in Ring 3. It needs the DMA policy first.
+- A Linux personality, so static Linux binaries can run: calls the kernel does not serve become messages to a server. Last, after the shell, the accounts and the network.
 - A process model like Linux's, kept by the process manager `pm` outside the kernel, as in Minix 3 (`pm` exists and keeps the table, see Done; the rest of this item is not started); the kernel keeps only the primitives it must. It covers process states (running, sleeping, stopped, zombie) shown to `ps`; `wait` (a parent collects a child's exit status, and zombies until then), `exec` (a process replaces its program and keeps its pid), signals with `kill`, process groups so Ctrl+C reaches only the foreground job, a process table for `ps`, and `nice`.
 - Running programs from the shell with `fork` and `exec`, with the commands moved out of it into programs of `/bin` (the shell keeps `cd`, `pwd`, `exit` and `help`), drivers, servers and applications in separate folders, `argc` and `argv`, a current directory, quoting, variables, redirection and pipes (done up to here), history, and Ctrl+C. Ctrl+C comes with process groups and sessions and with the split of `console` into a driver that writes to the serial port and the screen and a `tty` server that holds the line discipline.
 - A `tmpfs`: a writable file server that keeps its files in memory and is mounted on `/tmp`, so the system has a place to write without a disk.
@@ -312,7 +272,8 @@ For more detailed information regarding specific subsystems, please check the `d
 * [Kernel Main](documentation/core/kernel_main.md): Initialization sequence.
 * [Memory Management](documentation/core/memory_management.md): PMM, paging, VMM, and Heap.
 * [Task Management](documentation/core/task_management.md): Processes, threads, scheduler and MLFQ.
-* [Inter-Process Communication](documentation/core/ipc.md): Syscalls and messaging.
+* [System calls](documentation/core/syscalls.md): Every call with its number, purpose, arguments, return value and the authority it needs.
+* [Inter-Process Communication](documentation/core/ipc.md): Asynchronous messages and synchronous calls.
 * [Capabilities](documentation/core/capabilities.md): Authority over ports, IRQs and physical memory.
 * [Kernel concepts](documentation/core/kernel_concepts.md): Every concept the kernel holds, why it cannot live outside, and what is planned to move.
 * [Userland](documentation/userland/userland.md): Boot modules, the system call ABI and the drivers.
