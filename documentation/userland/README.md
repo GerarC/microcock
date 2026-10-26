@@ -11,7 +11,8 @@ Programs that run in Ring 3 under `userland/` and `test/userland/`. Only `rs` is
 | [pipe.md](pipe.md) | The pipe server: pipes between processes, with readers and writers held while a pipe is empty or full | [pipe](../../userland/servers/pipe/README.md) |
 | [keyboard.md](keyboard.md) | The PS/2 driver and how an interrupt reaches it | [kbd](../../userland/drivers/kbd/README.md) |
 | [vga.md](vga.md) | The kernel console and the display server | [vga_driver](../../userland/drivers/vga_driver/README.md) |
-| [console.md](console.md) | The console server: input line, serial and screen output | [console](../../userland/drivers/console/README.md) |
+| [console.md](console.md) | The console driver: serial and screen output | [console](../../userland/drivers/console/README.md) |
+| [tty.md](tty.md) | The tty server: the typed line and the readers | [tty](../../userland/servers/tty/README.md) |
 | [shell.md](shell.md) | The shell and its built-in commands | [sh](../../userland/apps/sh/README.md) |
 | [block_storage.md](block_storage.md) | The ATA driver, partitions, the block protocol | [ata](../../userland/drivers/ata/README.md) |
 | [filesystem.md](filesystem.md) | The file protocol, `ramfs`, the `vfs` server | [ramfs](../../userland/servers/ramfs/README.md), [vfs](../../userland/servers/vfs/README.md) |

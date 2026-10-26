@@ -1,14 +1,13 @@
-# Console server
+# Console driver
 
-`console` is a Ring 3 program that owns text input and output for the programs that use it. It needs nothing from the kernel that a program cannot have: the serial port is a capability (`io:0x3F8+8` in `initrd/manifest.conf`), the screen belongs to `vga_driver` and the keyboard to `kbd`. The kernel keeps `SYS_WRITE` as the debug and fallback channel (early boot, the programs that start before the server, and the kernel logger).
+`console` is a Ring 3 driver that owns the output of the programs that use it: the serial port and, through `vga_driver`, the screen. It needs nothing from the kernel that a program cannot have: the serial port is a capability (`io:0x3F8+8` in `initrd/manifest.conf`) and the screen belongs to `vga_driver`. The kernel keeps `SYS_WRITE` as the debug and fallback channel (early boot, the programs that start before the driver, and the kernel logger). Typed input is not here: it belongs to the [tty server](tty.md), which draws its echo through this driver.
 
 ## Pieces
 | Piece | File |
 |-------|------|
-| Server | `userland/drivers/console/src/` and `userland/drivers/console/include/console/` |
-| Protocol and packing | `shared/include/cock/abi/console.hpp` |
-| Line editor (no I/O, tested on the host) | `shared/include/cock/abi/console_line.hpp`, `test/host/test_console.cpp` |
-| Client | `userland/lib/include/cock/user/console.hpp` |
+| Driver | `userland/drivers/console/src/` and `userland/drivers/console/include/console/` |
+| Protocol and packing | `shared/include/cock/abi/console.hpp` (shared with the `tty` server) |
+| Client | `userland/lib/include/cock/user/console.hpp` (writes go here, reads go to `tty`) |
 | C library hooks | `libc/unistd/console.cpp` (`__console_write`, `__console_read`), called by the console description of `libc/unistd/descriptor.cpp` |
 | First client | `userland/apps/sh` (the shell) |
 
@@ -18,19 +17,18 @@ Requests are synchronous calls (see [ipc](../core/ipc.md)) with four words. Word
 | Operation | Request | Reply |
 |-----------|---------|-------|
 | `WRITE` | length 1 to 12, the bytes, and `LAST` on the final chunk of one `write` call | `OK` and the number of bytes taken |
-| `READ` | the most bytes wanted, 1 to 12 | `OK`, the count and the bytes; the reply is held until a line is ready |
-| `CLEAR` | nothing | `OK`; the server sends the display server the message that clears the screen and puts the cursor at the top |
+| `CLEAR` | nothing | `OK`; the driver sends the display server the message that clears the screen and puts the cursor at the top |
+| `ECHO` | length 1 to 12, the bytes of the typed line (a backspace erases) | `OK` and the number of bytes drawn; `DENIED` unless the caller is the `tty` server. Screen only, not the serial port |
 
-A length of 0 or more than 12 is `BAD_REQUEST`. `BUSY` answers a `READ` when the server already holds eight waiting readers; the client sleeps one tick and asks again. The client splits longer texts into chunks of 12 bytes.
+A length of 0 or more than 12 is `BAD_REQUEST`, and so is `READ`, which the `tty` server serves. The client splits longer texts into chunks of 12 bytes.
 
-## What the server does
-* **Output.** A `write` of a program arrives as several chunks. The server keeps the chunks of each caller in a slot (8 slots of 256 bytes) and emits them when the chunk marked `LAST` arrives, so the text of one `write` is never split by the output of another program. The text goes to the serial port (waiting for the transmitter to be empty) and to `vga_driver` as `OUTPUT_WRITE_STR` messages of at most 20 bytes. A caller that finds no free slot is written at once; a slot of a dead caller is flushed and reused. While any slot holds text, the server waits for work with a 50 ms limit; when the limit runs out it checks the callers of the slots with `process_alive` and flushes the text of those that died, so a program killed in the middle of a `write` still shows what it had sent. The display server is the `peer` of the manifest line.
-* **Input.** `kbd` sends `CONSOLE_KEY` with a character. The key travels through a handle on the console endpoint that the name server gave `kbd`, and the server accepts it only when the badge of the handle is the process the name server returns for `kbd`, so a program cannot type for the user. The line discipline echoes printable characters, handles Backspace and, on Enter, moves the whole line plus the newline to a 512 byte ready queue. A line holds at most 128 characters; more are ignored. Nothing is readable before Enter.
-* **Blocked readers.** When `READ` finds no input, the server calls `SYS_IPC_DEFER`, which detaches the call from the server thread and returns a ticket, and keeps the ticket and the length wanted. The server goes back to `ipc_accept`. When Enter makes a line ready, it answers the oldest readers with `SYS_IPC_REPLY_TO`. The reader is blocked in the kernel meanwhile and uses no CPU.
-* **One loop.** `ipc_accept` returns a call, or `MESSAGE_PENDING` when a key arrived, and then the server empties its inbox with `ipc_try_recv` and wakes the readers.
+## What the driver does
+* **Output.** A `write` of a program arrives as several chunks. The driver keeps the chunks of each caller in a slot (8 slots of 256 bytes) and emits them when the chunk marked `LAST` arrives, so the text of one `write` is never split by the output of another program. The text goes to the serial port (waiting for the transmitter to be empty) and to `vga_driver` as `OUTPUT_WRITE_STR` messages of at most 20 bytes. A caller that finds no free slot is written at once; a slot of a dead caller is flushed and reused. While any slot holds text, the driver waits for work with a 50 ms limit; when the limit runs out it checks the callers of the slots with `process_alive` and flushes the text of those that died, so a program killed in the middle of a `write` still shows what it had sent. The display server is the `peer` of the manifest line.
+* **Echo.** `ECHO` draws characters on the screen with `OUTPUT_WRITE_CHAR`. The driver asks the name server who `tty` is and refuses anyone else, so a program cannot draw as if it were typing. There is no line logic in the driver.
+* **One loop.** `ipc_accept` returns a call, or `MESSAGE_PENDING` when a message arrived; the driver drops those messages, since nothing sends it any.
 
 ## The client and the C library
-`cock::user::console::Client` connects to the server through the name server (again if it died; the manifest of the program must list `console` in `ipc=`), and offers `write` and `read`. `libc/unistd/console.cpp` exports `__console_write` for output and `__console_read` for input. The table of descriptors (`libc/unistd/descriptor.cpp`, see [descriptors](../libs/descriptors.md)) starts with descriptors 0, 1 and 2 as console descriptions that call them, and falls back to `SYS_WRITE` and `SYS_READ` when the server is not found; a program that opts out of the console client has no table and `write` and `read` call the system calls directly. Because the console is a description like any other, `dup2` can point descriptor 1 at a file. `printf` and `putchar` need no change.
+`cock::user::console::Client` connects to the driver through the name server (again if it died; the manifest of the program must list `console` in `ipc=`), and offers `write`, `clear` and `echo`. `read` connects to the `tty` server the first time (the manifest must list `tty` too). `libc/unistd/console.cpp` exports `__console_write` for output and `__console_read` for input. The table of descriptors (`libc/unistd/descriptor.cpp`, see [descriptors](../libs/descriptors.md)) starts with descriptors 0, 1 and 2 as console descriptions that call them, and falls back to `SYS_WRITE` and `SYS_READ` when the server is not found; a program that opts out of the console client has no table and `write` and `read` call the system calls directly. Because the console is a description like any other, `dup2` can point descriptor 1 at a file. `printf` and `putchar` need no change.
 
 `userland/common.mk` links the client into every program (`unistd/read.cpp` and `unistd/console.cpp` are added to `LIBC_SRCS`). A program opts out with `CONSOLE_CLIENT = no` before the include. These do, and for a reason:
 
@@ -39,16 +37,14 @@ A length of 0 or more than 12 is `BAD_REQUEST`. `BUSY` answers a `READ` when the
 | `console` | It would call itself |
 | `vga_driver` | The server draws on it |
 | `kbd` | The input path does not depend on the server it feeds |
-| `rs` | It prints before the server has its capabilities, and a call to a server that waits for its grant would block both |
-| `ramfs` | It starts before the server |
+| `rs` | It prints before the driver has its capabilities, and a call to a server that waits for its grant would block both |
+| `ramfs` | It starts before the driver |
 
 ## Limits
-* Only a process that holds a handle on the endpoint of `console` (which the name server gives when the manifest allows it) can call it; the shipped manifest gives it to `sh`, `vfs`, `fat`, `ext`, `ata` and `rtc`. A holder can read the keyboard and write the screen. `CONSOLE_KEY` is still checked by the name `kbd`, which waits for the name service of a later step.
-* Input is line oriented; there is no raw mode and no Ctrl+C.
+* Only a process that holds a handle on the endpoint of `console` (which the name server gives when the manifest allows it) can call it; the shipped manifest gives it to `sh`, `tty`, `vfs`, `fat`, `ext`, `ata`, `rtc`, `init` and `pipe`.
 * The echo goes to the screen only, not to the serial port.
 * A program that does not link the client still prints through `SYS_WRITE`, and its lines can interleave with those of `console` on the screen.
-* A reader whose line was taken and whose `REPLY_TO` failed (its thread died) loses that line. Putting the line back in the queue would fix it; it waits for a consumer that needs it.
 * Text of a dead program shows up up to 50 ms late, and a program that stays alive but never sends the `LAST` chunk keeps its text in the slot.
 
 ## Testing
-`scripts/qemu_userland_test.sh` types commands for the shell, which prints through the server and blocks in `read(0)`; the script requires their output on the serial log and the last lines on the screen. `contruncated` sends two chunks without `LAST` and exits; the script requires `contruncated: cut` on the serial log. The host test covers the line editor and the packing; the `Synchronous IPC` kernel suite and a `probe` check cover `defer` and `reply_to`.
+`scripts/qemu_userland_test.sh` types commands for the shell, which prints through the driver and reads through `tty`; the script requires `console: ready` and `tty: ready`, their output on the serial log and the last lines on the screen. `contruncated` sends two chunks without `LAST` and exits; the script requires `contruncated: cut` on the serial log.

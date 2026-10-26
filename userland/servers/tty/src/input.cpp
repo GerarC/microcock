@@ -1,39 +1,24 @@
 #include <cock/abi/console.hpp>
 #include <cock/user/api.hpp>
 #include <cock/user/names.hpp>
-#include <console/display.hpp>
-#include <console/input.hpp>
+#include <tty/input.hpp>
+#include <tty/output.hpp>
 
-using cock::abi::console::Echo;
-using cock::abi::console::LineDiscipline;
 using cock::ipc::Message;
 using cock::ipc::MessageType;
 using cock::user::NO_PROCESS;
 
 namespace proto = cock::abi::console;
 
-namespace cock::console {
+namespace cock::tty {
 
 namespace {
 
 uint32_t keyboard = NO_PROCESS;
 
-void echo(Echo kind, char character) {
-	switch (kind) {
-	case Echo::NONE:
-		return;
-	case Echo::CHARACTER:
-		return screenCharacter(character);
-	case Echo::ERASE:
-		return screenCharacter(proto::CHAR_BACKSPACE);
-	case Echo::NEWLINE:
-		return screenCharacter(proto::CHAR_NEWLINE);
-	}
-}
-
 } // namespace
 
-LineDiscipline discipline;
+cock::abi::console::LineDiscipline discipline;
 
 void handleMessage(const Message &message) {
 	if (message.type != MessageType::CONSOLE_KEY) return;
@@ -52,4 +37,4 @@ void drainMessages() {
 		handleMessage(message);
 }
 
-} // namespace cock::console
+} // namespace cock::tty

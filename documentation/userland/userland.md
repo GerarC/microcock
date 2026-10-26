@@ -17,11 +17,12 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `names` | Name server, the second boot module. `rs` describes the system to it; a program asks it, through the handle it was born with, for a handle on a server; see [names](names.md) |
 | `vga_driver` | Display server. Maps the video memory and draws what it receives by IPC |
 | `ramfs` | File server for the `initrd`; see [file system](filesystem.md) (a boot module, so `rs` can read the manifest) |
-| `console` | Console server: owns the serial port `0x3F8+8` and the input line; serves `CON_WRITE` and `CON_READ` as synchronous calls, echoes typed keys on the display server; see [console](console.md) |
+| `console` | Console driver: owns the serial port `0x3F8+8`; serves `WRITE`, `CLEAR` and `ECHO` as synchronous calls and draws on the display server; no line logic; see [console](console.md) |
+| `tty` | Terminal server: the typed line, its editing, the finished lines and the readers that wait for them; no capabilities; the echo goes through `console`; see [tty](tty.md) |
 | `fuzz` | Syscall fuzzer, only started with `FUZZ=user` (from the manifest) or `FUZZ=root` (as the module `rs`); see [fuzzer](fuzzer.md) |
 | `contruncated` | Test program: sends a text to `console` without the closing chunk and exits, to check that the server shows what a dead program had sent |
-| `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the console server |
-| `sh` | The shell: prompt, a line read from `console`, and the built-in commands `help`, `cd`, `pwd` and `exit`; every other command is a program of `/bin` that it runs with `fork`, `exec` and `wait`; see [shell](shell.md). Started last by the system manifest |
+| `kbd` | PS/2 keyboard driver. Binds IRQ 1, reads port `0x60`, decodes the scan codes and sends characters to the `tty` server |
+| `sh` | The shell: prompt, a line read from `tty`, and the built-in commands `help`, `cd`, `pwd` and `exit`; every other command is a program of `/bin` that it runs with `fork`, `exec` and `wait`; see [shell](shell.md). Started last by the system manifest |
 | `uname` | Prints `microcock vMAJOR.MINOR.PATCH`. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
 | `echo` | Prints its arguments. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
 | `ls` | Lists a directory, through the `vfs` client. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
@@ -60,7 +61,7 @@ The processes see each other through the name server: a program calls `cock::use
 2. It packs the files of the `initrd/` folder and every program of those folders that is not a boot module (under `drivers/` and `servers/` those of `userland/drivers/` and `userland/servers/`, under `bin/` the applications and the test programs, each without the `.elf` suffix) into `build/initrd.tar` (ustar). With `TEST_INITRD=1` the files of `test/initrd/` are added, and the `manifest.conf` and `mounts.conf` of the two folders are joined (system lines first), so a normal `make iso` boots the system with no test program and `make iso TEST_INITRD=1` boots the same system plus the tests. It writes a `grub.cfg` with one `module` line for each program of `USERLAND_BOOT_ORDER` (`rs`, `names`, `ramfs`, `vga_driver`), and a last line for the archive, named `initrd`. The archive is a data module (see [memory management](../core/memory_management.md)), so it never becomes a process.
 3. The kernel loads each module as a process (`rs`, `names`, `ramfs`, `vga_driver`) and gives the root capabilities to the first one, `rs`. `rs` creates the process manager `pm` itself and every other program through it; `init` starts the programs marked `parent=init` (see [pm](pm.md)).
 4. `rs` labels `names` and gives it the right to pass on `IPC` capabilities, registers `ramfs`, grants `ramfs` the `initrd` and sends it `CAPABILITY_GRANTED`; this is the only policy written in its code. It then reads `manifest.conf` through `ramfs`, parses it, sends the programs and the `ipc=` policy to the name server, and runs each line in order (see below). A spawned process is born with no capabilities, so the grants of its line are what it gets. `vga_driver` maps the screen, and `kbd` enables the port and binds the interrupt.
-5. A key press travels: keyboard controller, IRQ 1, kernel (`IRQ_NOTIFICATION`), `kbd` reads the scan code and acknowledges the line, `kbd` sends `CONSOLE_KEY` to `console`, `console` edits the line and sends the echo to `vga_driver`, which draws it.
+5. A key press travels: keyboard controller, IRQ 1, kernel (`IRQ_NOTIFICATION`), `kbd` reads the scan code and acknowledges the line, `kbd` sends `CONSOLE_KEY` to `tty`, `tty` edits the line and asks `console` for the echo, and `console` sends it to `vga_driver`, which draws it.
 
 A driver that needs a new capability needs a new `cap_grant` in `userland/servers/rs/src/main.cpp`; see [capabilities](../core/capabilities.md). The display server is described in [VGA](vga.md) and the keyboard driver in [keyboard](keyboard.md).
 
@@ -70,7 +71,7 @@ A driver that needs a new capability needs a new `cap_grant` in `userland/server
 ```
 vga_driver caps=mem:0xA0000+0x20000
 fsclient path=bin/fsclient repeat=10
-kbd path=drivers/kbd caps=io:0x60+1,irq:1 ipc=console
+kbd path=drivers/kbd caps=io:0x60+1,irq:1 ipc=tty
 ```
 
 | Part | Meaning |

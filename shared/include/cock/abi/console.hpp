@@ -1,12 +1,14 @@
 /**
  * @file console.hpp
- * @brief Wire protocol of the console server and the packing helpers for its messages.
+ * @brief Wire protocol of the console driver and of the `tty` server, and the packing helpers for their messages.
  *
- * Clients call the server named `SERVER_NAME` with a synchronous call of four words. Word 0 is the header
+ * The console driver (`SERVER_NAME`) writes to the serial port and the screen; the `tty` server (`TTY_NAME`) holds the
+ * typed line and answers `READ`. Clients call either server with a synchronous call of four words. Word 0 is the header
  * (see `pack`): operation or status in bits 0 to 7, byte count in bits 8 to 15 and the `LAST` flag in bit 16.
  * Words 1 to 3 carry up to `CHUNK_BYTES` bytes, the first byte in the low bits of word 1 (little endian).
  * The reply uses the same layout with the `Status` in place of the operation and a count in place of the
- * length. The keyboard driver (`KEYBOARD_NAME`) feeds the server with `CONSOLE_KEY` messages.
+ * length. The keyboard driver (`KEYBOARD_NAME`) feeds the `tty` server with `CONSOLE_KEY` messages, and the `tty`
+ * server draws the echo of the typed line through `ECHO` calls on the driver.
  */
 #ifndef COCK_ABI_CONSOLE_HPP
 #define COCK_ABI_CONSOLE_HPP
@@ -16,31 +18,37 @@
 
 namespace cock::abi::console {
 
-/** Name of the console server for the name server. */
+/** Name of the console driver (output) for the name server. */
 constexpr char SERVER_NAME[] = "console";
+/** Name of the `tty` server (line discipline and input) for the name server. */
+constexpr char TTY_NAME[] = "tty";
 /** Name of the display server the console draws on, for the name server. */
 constexpr char DISPLAY_NAME[] = "vga_driver";
-/** Name of the only process allowed to send `CONSOLE_KEY` to the console server. */
+/** Name of the only process allowed to send `CONSOLE_KEY` to the `tty` server. */
 constexpr char KEYBOARD_NAME[] = "kbd";
 
 /** Operation code in the low byte of word 0 of a request. */
 enum class Op : uint32_t {
-	/** Send 1 to 12 bytes to the display; `LAST` marks the final chunk of one `write` call. */
+	/** Driver: send 1 to 12 bytes to the serial port and the display; `LAST` marks the final chunk of one `write` call. */
 	WRITE = 1,
-	/** Ask for at most 1 to 12 bytes of input; the reply is held until a full line is ready. */
+	/** `tty`: ask for at most 1 to 12 bytes of input; the reply is held until a full line is ready. */
 	READ = 2,
-	/** Clear the screen and put the cursor at the top; no data. */
+	/** Driver: clear the screen and put the cursor at the top; no data. */
 	CLEAR = 3,
+	/** Driver, only from the `tty` server: draw 1 to 12 bytes of the typed line on the screen, not on the serial port; a backspace erases. */
+	ECHO = 4,
 };
 
 /** Status in the low byte of word 0 of a reply. */
 enum class Status : uint32_t {
 	/** The operation succeeded; the count is valid. */
 	OK = 0,
-	/** Unknown operation, or a length of 0 or above `CHUNK_BYTES`. */
+	/** Unknown operation, an operation the server does not offer, or a length of 0 or above `CHUNK_BYTES`. */
 	BAD_REQUEST = 1,
 	/** A READ found the table of waiting readers full; the client sleeps a tick and retries. */
 	BUSY = 2,
+	/** The caller may not use the operation (`ECHO` from anyone but the `tty` server). */
+	DENIED = 3,
 };
 
 /** Index of the header word in the four word payload. */

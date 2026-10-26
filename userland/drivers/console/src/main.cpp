@@ -2,8 +2,6 @@
 #include <cock/user/call.hpp>
 #include <console/display.hpp>
 #include <console/grant.hpp>
-#include <console/input.hpp>
-#include <console/readers.hpp>
 #include <console/requests.hpp>
 #include <console/serial.hpp>
 #include <console/writers.hpp>
@@ -18,6 +16,12 @@ namespace {
 constexpr uintptr_t FAILED_STATUS = 1;
 constexpr uint32_t SWEEP_MS = 50;
 constexpr const char NO_DISPLAY_MESSAGE[] = "console: no display server";
+
+void dropMessages() {
+	cock::ipc::Message message = {};
+	while (cock::user::ipc_try_recv(message) == cock::user::Received::MESSAGE) {
+	}
+}
 
 uint32_t waitTime() {
 	return cock::console::hasPartialText() ? SWEEP_MS : cock::user::CALL_NO_TIMEOUT;
@@ -38,8 +42,7 @@ extern "C" int main() {
 	CallResult result = cock::user::ipc_accept(waitTime());
 	for (;;) {
 		if (result.status == CallStatus::MESSAGE_PENDING) {
-			cock::console::drainMessages();
-			cock::console::wakeReaders();
+			dropMessages();
 			result = cock::user::ipc_accept(waitTime());
 			continue;
 		}
@@ -50,11 +53,7 @@ extern "C" int main() {
 		}
 
 		uint32_t reply[cock::console::ANSWER_WORDS] = {};
-		if (cock::console::serve(result.peer, result.words, reply) ==
-			cock::console::Served::DEFERRED) {
-			result = cock::user::ipc_accept(waitTime());
-			continue;
-		}
+		cock::console::serve(result.peer, result.words, reply);
 		result = cock::user::ipc_reply_wait(reply, waitTime());
 	}
 }

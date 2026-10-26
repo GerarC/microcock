@@ -42,7 +42,7 @@ The codebase strictly separates the architecture-dependent code, the kernel core
 │   ├── lib/include/cock/user/      # `cock::user` API
 │   ├── drivers/                    # Programs that hold hardware capabilities (installed under `/drivers`)
 │   │   ├── ata/                    # Block driver
-│   │   ├── console/                # Console server (input line, serial and screen output)
+│   │   ├── console/                # Console driver (serial and screen output); the input line is in servers/tty
 │   │   ├── kbd/                    # Keyboard driver
 │   │   ├── rtc/                    # Clock driver
 │   │   └── vga_driver/             # Display server

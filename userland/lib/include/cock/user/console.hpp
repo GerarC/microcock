@@ -1,11 +1,12 @@
 /**
  * @file console.hpp
- * @brief Client of the console server, over synchronous IPC calls.
+ * @brief Client of the console driver (output) and of the `tty` server (input), over synchronous IPC calls.
  *
  * Each request is one `ipc_call` of four words: a header (operation, length, flag) plus
  * packed bytes. The server is found through the name server, which gives the caller a handle
  * on the endpoint of the server; every call goes through that handle, and the server tells its
- * clients apart by the badge of the handle. All calls block until the server answers.
+ * clients apart by the badge of the handle. Writing and clearing go to the console driver; reading goes to the `tty`
+ * server, which the client finds the first time a program reads. All calls block until the server answers.
  */
 #ifndef COCK_USER_CONSOLE_HPP
 #define COCK_USER_CONSOLE_HPP
@@ -24,7 +25,7 @@ constexpr uint32_t READ_POLL_MS = 10;
 /** Value returned by `write` and `read` on failure. */
 constexpr long FAILED = -1;
 
-/** Connection to the console server. Not thread safe. */
+/** Connection to the console driver and, once a program reads, to the `tty` server. Not thread safe. */
 class Client {
   public:
 	/**
@@ -85,18 +86,40 @@ class Client {
 	}
 
 	/**
-	 * @brief Reads input from the keyboard through the console. Blocks until bytes exist.
+	 * @brief Draws bytes of the typed line on the screen only. Blocks for the answer.
+	 *
+	 * Only the `tty` server may do it; the driver answers `DENIED` to anyone else.
+	 * @param text Bytes to draw; a backspace erases the character before the cursor.
+	 * @param length Number of bytes, at most `CHUNK_BYTES`.
+	 * @return true when the driver drew them; false on any failure.
+	 */
+	bool echo(const char *text, size_t length) {
+		if (length == 0 || length > abi::console::CHUNK_BYTES) return false;
+
+		uint32_t words[CALL_WORDS] = {};
+		words[abi::console::HEADER_WORD] =
+			abi::console::pack(static_cast<uint32_t>(abi::console::Op::ECHO), length);
+		abi::console::packBytes(words, text, length);
+
+		CallResult result = request(handle, words);
+		return result.ok && accepted(result, length);
+	}
+
+	/**
+	 * @brief Reads input from the keyboard through the `tty` server. Blocks until bytes exist.
 	 *
 	 * Asks for up to `length` bytes (capped at `CHUNK_BYTES`). While the server has no
 	 * input, or says it is busy with another reader, the call sleeps `READ_POLL_MS` and
 	 * asks again, so it never returns zero.
 	 * @param buffer Destination.
 	 * @param length Capacity of the buffer; `0` returns `0` at once.
-	 * @return The number of bytes read (at least 1), or `FAILED` when the call failed, the
-	 *         server returned an error or it reported more bytes than requested.
+	 * @return The number of bytes read (at least 1), or `FAILED` when no `tty` server can be reached (the manifest
+	 *         has to list `tty` in `ipc=`), the call failed, the server returned an error or it reported more bytes
+	 *         than requested.
 	 */
 	long read(char *buffer, size_t length) {
 		if (length == 0) return 0;
+		if (!connectTty()) return FAILED;
 		if (length > abi::console::CHUNK_BYTES) length = abi::console::CHUNK_BYTES;
 
 		for (;;) {
@@ -104,7 +127,7 @@ class Client {
 			words[abi::console::HEADER_WORD] =
 				abi::console::pack(static_cast<uint32_t>(abi::console::Op::READ), length);
 
-			CallResult result = request(words);
+			CallResult result = request(ttyHandle, words);
 			if (!result.ok) return FAILED;
 			if (statusOf(result) == abi::console::Status::BUSY) {
 				sleep_ms(READ_POLL_MS);
@@ -124,18 +147,33 @@ class Client {
 
   private:
 	/**
-	 * @brief Sends one request through the handle on the console endpoint that the name server gave.
+	 * @brief Connects to the `tty` server the first time and again after it died.
+	 * @return true when a `tty` server is known.
+	 */
+	bool connectTty() {
+		if (ttyServer != NO_PROCESS && process_alive(ttyServer)) return true;
+		names::Connection connection = names::connect(abi::console::TTY_NAME);
+		ttyServer = connection.pid;
+		ttyHandle = connection.handle;
+		return ttyServer != NO_PROCESS;
+	}
+
+	/**
+	 * @brief Sends one request through a handle on a server endpoint that the name server gave.
+	 * @param target The handle: `handle` for the driver, `ttyHandle` for the `tty` server.
 	 * @param words The four request words.
 	 * @return The call result; `FAILED` when not connected.
 	 */
-	CallResult request(const uint32_t (&words)[CALL_WORDS]) {
-		if (handle == abi::NO_CAPABILITY_NODE) {
+	CallResult request(uint32_t target, const uint32_t (&words)[CALL_WORDS]) {
+		if (target == abi::NO_CAPABILITY_NODE) {
 			CallResult failed = {};
 			failed.status = CallStatus::FAILED;
 			return failed;
 		}
-		return ep_call(handle, words);
+		return ep_call(target, words);
 	}
+
+	CallResult request(const uint32_t (&words)[CALL_WORDS]) { return request(handle, words); }
 
 	/**
 	 * @brief Extracts the status code from the header word of an answer.
@@ -158,10 +196,14 @@ class Client {
 			   abi::console::lengthOf(result.words[abi::console::HEADER_WORD]) == expected;
 	}
 
-	/** Process id of the console server, `NO_PROCESS` before `connect`. */
+	/** Process id of the console driver, `NO_PROCESS` before `connect`. */
 	uint32_t server = NO_PROCESS;
-	/** Handle on the endpoint of the console server, `NO_CAPABILITY_NODE` when there is none. */
+	/** Handle on the endpoint of the console driver, `NO_CAPABILITY_NODE` when there is none. */
 	uint32_t handle = abi::NO_CAPABILITY_NODE;
+	/** Process id of the `tty` server, `NO_PROCESS` before the first read. */
+	uint32_t ttyServer = NO_PROCESS;
+	/** Handle on the endpoint of the `tty` server, `NO_CAPABILITY_NODE` when there is none. */
+	uint32_t ttyHandle = abi::NO_CAPABILITY_NODE;
 };
 
 } // namespace cock::user::console

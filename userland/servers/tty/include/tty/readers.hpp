@@ -1,17 +1,26 @@
 /** @file
  * @brief Readers that wait for a finished line, answered later with a deferred reply.
  */
-#ifndef CONSOLE_READERS_HPP
-#define CONSOLE_READERS_HPP
+#ifndef TTY_READERS_HPP
+#define TTY_READERS_HPP
 
-#include <console/reply.hpp>
 #include <stddef.h>
 #include <stdint.h>
+#include <tty/reply.hpp>
 
-namespace cock::console {
+namespace cock::tty {
+
+/**
+ * @brief Tells whether a read could be answered now.
+ *
+ * @return True when finished input waits, or bytes taken for a reader that died wait to be given again.
+ */
+bool inputReady();
 
 /**
  * @brief Fills an answer with bytes taken from the finished lines.
+ *
+ * The bytes that a dead reader did not receive (see `wakeReaders`) come first.
  *
  * @param reply The answer words, header included.
  * @param wanted Most bytes the reader asked for.
@@ -31,9 +40,12 @@ bool deferRead(size_t length);
 
 /**
  * @brief Answers the held readers, oldest first, while there are finished lines.
+ *
+ * When the reply cannot be delivered because the reader died, the bytes are kept and the next reader gets them first,
+ * so a finished line is not lost.
  */
 void wakeReaders();
 
-} // namespace cock::console
+} // namespace cock::tty
 
-#endif // !CONSOLE_READERS_HPP
+#endif // !TTY_READERS_HPP

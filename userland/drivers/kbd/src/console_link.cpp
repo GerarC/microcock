@@ -20,7 +20,7 @@ void sendKey(uint32_t &console, char character) {
 	message.payload.args.arg0 = static_cast<uint32_t>(character);
 	if (console != NO_CAPABILITY_NODE && cock::user::ep_send(console, message)) return;
 
-	console = cock::user::names::connect(cock::abi::console::SERVER_NAME).handle;
+	console = cock::user::names::connect(cock::abi::console::TTY_NAME).handle;
 	if (console != NO_CAPABILITY_NODE) cock::user::ep_send(console, message);
 }
 
