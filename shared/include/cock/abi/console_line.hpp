@@ -8,6 +8,8 @@
 #ifndef COCK_ABI_CONSOLE_LINE_HPP
 #define COCK_ABI_CONSOLE_LINE_HPP
 
+#include <cock/abi/console.hpp>
+#include <cock/abi/console_history.hpp>
 #include <cock/data_structure/ring_buffer.hpp>
 #include <stddef.h>
 
@@ -15,6 +17,7 @@ namespace cock::abi::console {
 
 /** Most characters of one line being edited; more are ignored. */
 constexpr size_t LINE_CAPACITY = 128;
+static_assert(LINE_CAPACITY == HISTORY_LINE_CAPACITY, "a line of the history must fit the editing line");
 /** Capacity of the queue of finished lines in characters; overflow drops characters. */
 constexpr size_t READY_CAPACITY = 512;
 /** Character that erases the previous character of the line. */
@@ -36,6 +39,8 @@ enum class Echo {
 	ERASE,
 	/** Print a newline; the line was committed. */
 	NEWLINE,
+	/** The editing line was replaced by a line of the history: erase `replacedLength` characters and print the line. */
+	REPLACE,
 };
 
 /** Line editing state: the line being typed and the queue of committed input. Not thread safe. */
@@ -43,10 +48,15 @@ class LineDiscipline {
   public:
 	/**
 	 * @brief Processes one typed character.
-	 * @param character Character from the keyboard driver.
+	 * @param character Character from the keyboard driver; `KEY_HISTORY_PREVIOUS` and `KEY_HISTORY_NEXT` replace the
+	 * editing line with an older or newer line of the history (the line typed before the first recall comes back at the
+	 * end), and give `Echo::REPLACE`, or `Echo::NONE` when there is no such line.
 	 * @return The echo to show. Non printable characters, characters on a full line and backspace on an empty line give `Echo::NONE`.
 	 */
 	Echo feed(char character) {
+		if (character == KEY_HISTORY_PREVIOUS) return recallPrevious();
+		if (character == KEY_HISTORY_NEXT) return recallNext();
+
 		if (character == CHAR_BACKSPACE) {
 			if (length == 0) return Echo::NONE;
 			length--;
@@ -83,17 +93,70 @@ class LineDiscipline {
 	 */
 	bool hasInput() const { return !ready.isEmpty(); }
 
+	/**
+	 * @brief Gives the line being edited.
+	 * @return The characters, not null terminated; `currentLength` tells how many.
+	 */
+	const char *currentLine() const { return line; }
+
+	/**
+	 * @brief Gives the length of the line being edited.
+	 * @return Number of characters.
+	 */
+	size_t currentLength() const { return length; }
+
+	/**
+	 * @brief Gives how many characters the screen shows of the line that the last `Echo::REPLACE` replaced.
+	 * @return Number of characters to erase before printing `currentLine`; meaningful only after `Echo::REPLACE`.
+	 */
+	size_t replacedLength() const { return replaced; }
+
   private:
 	void commit() {
 		for (size_t index = 0; index < length; index++) {
 			if (!ready.push(line[index])) break;
 		}
 		ready.push(CHAR_NEWLINE);
+		history.add(line, length);
+		browsing = history.count();
 		length = 0;
+	}
+
+	Echo recallPrevious() {
+		if (browsing == 0) return Echo::NONE;
+		if (browsing == history.count()) saveDraft();
+		browsing--;
+		return load(history.line(browsing), history.length(browsing));
+	}
+
+	Echo recallNext() {
+		if (browsing >= history.count()) return Echo::NONE;
+		browsing++;
+		if (browsing == history.count()) return load(draft, draftLength);
+		return load(history.line(browsing), history.length(browsing));
+	}
+
+	void saveDraft() {
+		for (size_t index = 0; index < length; index++)
+			draft[index] = line[index];
+		draftLength = length;
+	}
+
+	Echo load(const char *text, size_t count) {
+		replaced = length;
+		for (size_t index = 0; index < count; index++)
+			line[index] = text[index];
+		length = count;
+		return Echo::REPLACE;
 	}
 
 	char line[LINE_CAPACITY] = {};
 	size_t length = 0;
+	size_t replaced = 0;
+	char draft[LINE_CAPACITY] = {};
+	size_t draftLength = 0;
+	size_t browsing = 0;
+	History history;
 	data_structure::RingBuffer<char, READY_CAPACITY> ready;
 };
 

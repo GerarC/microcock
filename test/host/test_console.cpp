@@ -1,4 +1,5 @@
 #include <cock/abi/console.hpp>
+#include <cock/abi/console_history.hpp>
 #include <cock/abi/console_line.hpp>
 #include <test/host/check.hpp>
 #include <stddef.h>
@@ -28,6 +29,12 @@ constexpr char SAMPLE_BYTES[] = "hello console";
 constexpr size_t SAMPLE_LENGTH = sizeof(SAMPLE_BYTES) - 1;
 constexpr size_t SPARE_BYTE = 1;
 constexpr uint32_t WRITE_CODE = static_cast<uint32_t>(Op::WRITE);
+constexpr char FIRST_COMMAND[] = "ls";
+constexpr size_t FIRST_COMMAND_LENGTH = sizeof(FIRST_COMMAND) - 1;
+constexpr char SECOND_COMMAND[] = "echo hi";
+constexpr char DRAFT_TEXT[] = "pw";
+constexpr size_t DRAFT_LENGTH = sizeof(DRAFT_TEXT) - 1;
+constexpr char FIRST_KEY_TEXT[] = "a";
 
 void typeLine(LineDiscipline &discipline, const char *text) {
 	for (size_t index = 0; text[index] != '\0'; index++)
@@ -93,6 +100,74 @@ void checkLineLimit() {
 	CHECK_EQ(LINE_CAPACITY, echoed);
 }
 
+void runLine(LineDiscipline &discipline, const char *text) {
+	typeLine(discipline, text);
+	discipline.feed(CHAR_NEWLINE);
+}
+
+bool currentLineIs(const LineDiscipline &discipline, const char *text) {
+	size_t length = 0;
+	while (text[length] != '\0')
+		length++;
+	if (discipline.currentLength() != length) return false;
+	for (size_t index = 0; index < length; index++) {
+		if (discipline.currentLine()[index] != text[index]) return false;
+	}
+	return true;
+}
+
+void checkHistoryRecall() {
+	LineDiscipline discipline;
+	CHECK_TRUE(discipline.feed(KEY_HISTORY_PREVIOUS) == Echo::NONE);
+
+	runLine(discipline, FIRST_COMMAND);
+	runLine(discipline, SECOND_COMMAND);
+	typeLine(discipline, DRAFT_TEXT);
+
+	CHECK_TRUE(discipline.feed(KEY_HISTORY_PREVIOUS) == Echo::REPLACE);
+	CHECK_EQ(DRAFT_LENGTH, discipline.replacedLength());
+	CHECK_TRUE(currentLineIs(discipline, SECOND_COMMAND));
+	CHECK_TRUE(discipline.feed(KEY_HISTORY_PREVIOUS) == Echo::REPLACE);
+	CHECK_TRUE(currentLineIs(discipline, FIRST_COMMAND));
+	CHECK_TRUE(discipline.feed(KEY_HISTORY_PREVIOUS) == Echo::NONE);
+	CHECK_TRUE(currentLineIs(discipline, FIRST_COMMAND));
+
+	CHECK_TRUE(discipline.feed(KEY_HISTORY_NEXT) == Echo::REPLACE);
+	CHECK_TRUE(currentLineIs(discipline, SECOND_COMMAND));
+	CHECK_TRUE(discipline.feed(KEY_HISTORY_NEXT) == Echo::REPLACE);
+	CHECK_TRUE(currentLineIs(discipline, DRAFT_TEXT));
+	CHECK_TRUE(discipline.feed(KEY_HISTORY_NEXT) == Echo::NONE);
+}
+
+void checkRecalledLineRuns() {
+	LineDiscipline discipline;
+	char out[TAKE_LIMIT] = {};
+	runLine(discipline, FIRST_KEY_TEXT);
+	discipline.take(out, TAKE_LIMIT);
+
+	discipline.feed(KEY_HISTORY_PREVIOUS);
+	discipline.feed(CHAR_NEWLINE);
+	CHECK_EQ(TWO_KEYS_AND_NEWLINE - SPARE_BYTE, discipline.take(out, TAKE_LIMIT));
+	CHECK_EQ(FIRST_KEY, out[FIRST_INDEX]);
+	CHECK_EQ(CHAR_NEWLINE, out[SECOND_INDEX]);
+}
+
+void checkHistoryKeepsDistinctLines() {
+	History history;
+	history.add(FIRST_COMMAND, FIRST_COMMAND_LENGTH);
+	history.add(FIRST_COMMAND, FIRST_COMMAND_LENGTH);
+	history.add(FIRST_COMMAND, NOTHING);
+	CHECK_EQ(SPARE_BYTE, history.count());
+
+	for (size_t index = 0; index < HISTORY_CAPACITY + SMALL_STEP; index++) {
+		char text[SMALL_STEP] = {static_cast<char>(FIRST_KEY + static_cast<char>(index)), '\0'};
+		history.add(text, SPARE_BYTE);
+	}
+	CHECK_EQ(HISTORY_CAPACITY, history.count());
+	CHECK_EQ(static_cast<char>(FIRST_KEY + static_cast<char>(SMALL_STEP)), history.line(FIRST_INDEX)[FIRST_INDEX]);
+	CHECK_TRUE(history.line(HISTORY_CAPACITY) == nullptr);
+}
+
 void checkPacking() {
 	uint32_t words[FIRST_DATA_WORD + DATA_WORDS] = {};
 	words[HEADER_WORD] = pack(WRITE_CODE, CHUNK_BYTES);
@@ -123,6 +198,9 @@ void testConsole() {
 	checkBackspaceEditsTheLine();
 	checkTakeInSteps();
 	checkLineLimit();
+	checkHistoryRecall();
+	checkRecalledLineRuns();
+	checkHistoryKeepsDistinctLines();
 	checkPacking();
 }
 

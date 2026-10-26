@@ -5,6 +5,7 @@
 #define TTY_OUTPUT_HPP
 
 #include <cock/abi/console_line.hpp>
+#include <stddef.h>
 #include <stdint.h>
 
 namespace cock::tty {
@@ -20,6 +21,18 @@ namespace cock::tty {
  * @param terminal Terminal whose image receives the echo.
  */
 void echo(cock::abi::console::Echo kind, char character, uint32_t terminal);
+
+/**
+ * @brief Replaces the typed line on the screen: erases the characters shown and draws the new line.
+ *
+ * Sent in chunks of `CHUNK_BYTES`; a driver that does not answer leaves the screen as it was, never the input.
+ *
+ * @param erased Characters of the old line that are on the screen.
+ * @param text The new line, not null terminated.
+ * @param length Number of characters of `text`.
+ * @param terminal Terminal whose image receives the echo.
+ */
+void redraw(size_t erased, const char *text, size_t length, uint32_t terminal);
 
 /**
  * @brief Asks the console driver to put a terminal on the screen.

@@ -65,7 +65,7 @@ The console server edits the line (echo and Backspace) and delivers it whole, wi
 
 ## Limits
 * Only `help`, `cd`, `pwd` and `exit` are built in. There is no `PATH`, no variable `$?` yet, and a program cannot be run in the background.
-* No history, tab completion or Ctrl+C. No `2>` and no `&>`: only descriptors 0 and 1 are redirected.
+* Up and Down recall the last 16 lines (the history belongs to the `tty` terminal, see [tty](tty.md)). No tab completion or Ctrl+C. No `2>` and no `&>`: only descriptors 0 and 1 are redirected.
 * Links are not looked at when `..` is resolved: `cd link/..` goes to the parent of the link's name, not of its target.
 * `/` is the `initrd` and is read only, so `>`, `mkdir`, `rm` and `mv` only work under `/fat` and `/ext` and need a disk. A writable `/tmp` in memory is noted in the roadmap (`tmpfs`).
 * A line has at most 16 words (the arguments `exec` accepts) and 128 bytes. Quoting: single quotes keep their content literally; double quotes keep it too, except that `\"` and `\\` stand for `"` and `\`; outside quotes `\` makes the next character literal. Quotes join with the text next to them (`a"b c"d` is one word) and `''` is an empty word. A quote that is never closed prints `sh: unterminated quote` and runs nothing. The splitting is `cock::shell::split` (`shared/include/cock/shell/words.hpp`, host tested), done in place.

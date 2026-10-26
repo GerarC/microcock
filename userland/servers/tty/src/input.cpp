@@ -34,7 +34,11 @@ void handleMessage(const Message &message) {
 
 	char character = static_cast<char>(message.payload.args.arg0);
 	uint32_t terminal = activeTerminal();
-	echo(terminals[terminal].discipline.feed(character), character, terminal);
+	cock::abi::console::LineDiscipline &discipline = terminals[terminal].discipline;
+	proto::Echo kind = discipline.feed(character);
+	if (kind == proto::Echo::REPLACE)
+		return redraw(discipline.replacedLength(), discipline.currentLine(), discipline.currentLength(), terminal);
+	echo(kind, character, terminal);
 }
 
 void drainMessages() {

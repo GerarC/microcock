@@ -38,6 +38,11 @@ constexpr uint32_t FIRST_TERMINAL = 0;
 /** Bit position of the terminal number in the header of a request. */
 constexpr uint32_t TERMINAL_SHIFT = 24;
 
+/** Key sent by the keyboard driver for the Up arrow: recall the previous line of the history (the code of Ctrl+P). */
+constexpr char KEY_HISTORY_PREVIOUS = '\x10';
+/** Key sent by the keyboard driver for the Down arrow: recall the next line of the history (the code of Ctrl+N). */
+constexpr char KEY_HISTORY_NEXT = '\x0E';
+
 /** Operation code in the low byte of word 0 of a request. */
 enum class Op : uint32_t {
 	/** Driver: send 1 to 12 bytes to the serial port and the display; `LAST` marks the final chunk of one `write` call. */

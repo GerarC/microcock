@@ -17,7 +17,9 @@ STAGES_MARKER="three stages"
 REDIRECT_FILE_NAME="redir.txt"
 REDIRECT_COPY_NAME="copy.txt"
 REDIRECT_TEXT="first line"$'\n'"second line"
-SECOND_COMMAND="echo wiped away;clear;echo on second"
+SECOND_COMMAND="echo wiped away;clear;echo on second;echo recalled;<up>"
+RECALLED_TEXT="recalled"
+RECALLED_COPIES=2
 TERMINAL_MARK="=====SECOND TERMINAL====="
 SECOND_SCREEN_TEXT="cock> echo on second|on second"
 FILE_CLIENT_RUNS=10
@@ -69,6 +71,7 @@ socket_path, commands, key_seconds = sys.argv[1], sys.argv[2].split(COMMAND_SEPA
 second_commands, terminal_mark = sys.argv[4].split(COMMAND_SEPARATOR), sys.argv[5]
 KEY_NAMES = {" ": "spc", "/": "slash", ".": "dot", "-": "minus", "'": "apostrophe", "\"": "shift-apostrophe", "$": "shift-4", "?": "shift-slash", "=": "equal", ":": "shift-semicolon", ">": "shift-dot", "<": "shift-comma", "|": "shift-backslash"}
 KEY_HOLD_MS = 20
+RECALL_LINE = "<up>"
 KEY_WAIT = 0.07
 ENTER_WAIT = 0.8
 SCREEN_BYTES = 4000
@@ -128,6 +131,9 @@ def screen_text():
 command("sendkey alt-f2 %d" % KEY_HOLD_MS, ENTER_WAIT)
 time.sleep(key_seconds)
 for second_command in second_commands:
+    if second_command == RECALL_LINE:
+        command("sendkey up %d" % KEY_HOLD_MS, KEY_WAIT)
+        second_command = ""
     for character in second_command:
         key = KEY_NAMES.get(character, "shift-" + character.lower() if character.isupper() else character)
         command("sendkey %s %d" % (key, KEY_HOLD_MS), KEY_WAIT)
@@ -167,6 +173,11 @@ for expected in "${second_checks[@]}"; do
 		status=1
 	fi
 done
+recalled_copies=$(echo "$second_screen" | grep -c "^$RECALLED_TEXT")
+if [ "$recalled_copies" -ne "$RECALLED_COPIES" ]; then
+	echo "[qemu_userland_test] Up and Enter printed \"$RECALLED_TEXT\" $recalled_copies times on the second terminal, expected $RECALLED_COPIES"
+	status=1
+fi
 if echo "$screen" | grep -qF "on second"; then
 	echo "[qemu_userland_test] the first terminal shows what was typed on the second"
 	status=1

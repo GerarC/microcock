@@ -20,6 +20,7 @@ sh --READ-------------+
 * **Keys.** `kbd` sends `CONSOLE_KEY` with a character through a handle on the `tty` endpoint that the name server gave it. The server accepts the key only when the badge of the handle is the process the name server returns for `kbd`, so a program cannot type for the user.
 * **Line discipline.** Printable characters are echoed, Backspace erases, and on Enter the whole line plus the newline moves to a 512 byte ready queue. A line holds at most 128 characters; more are ignored. Nothing is readable before Enter.
 * **Echo.** Each key gives one `ECHO` call on the console driver (`tty/output.hpp`). A driver that does not answer loses the echo and never the input.
+* **History.** Each terminal keeps the last 16 lines that were run (`History` in `shared/include/cock/abi/console_history.hpp`; an empty line and a repeat of the newest line are not kept). `kbd` turns the Up and Down arrows into `KEY_HISTORY_PREVIOUS` and `KEY_HISTORY_NEXT`; the line discipline replaces the line being edited with an older or newer one and returns `Echo::REPLACE`, and `tty` erases the old line on the screen with backspaces and draws the new one (`redraw`, in chunks of 12 bytes). Down past the newest line brings back what was typed before the first Up. A recalled line can be edited with Backspace and new characters, and runs on Enter like any other line. The history belongs to the terminal, so it is shared by every program that reads a line there.
 * **Blocked readers.** `READ` with no input detaches the call with `SYS_IPC_DEFER` and keeps the ticket and the length wanted (eight at most; a ninth gets `BUSY` and the client asks again later). When Enter makes a line ready the server answers the oldest readers with `SYS_IPC_REPLY_TO`. If a reply cannot be delivered because the reader died, the bytes are kept and the next reader gets them first, so a finished line is not lost.
 * **Other operations.** `WRITE`, `CLEAR` and `ECHO` belong to the driver; `tty` answers `BAD_REQUEST`.
 
@@ -36,7 +37,8 @@ There are four terminals (`TERMINAL_COUNT` in `shared/include/cock/abi/console.h
 `tty path=servers/tty restart=3 ipc=console` comes right after `console`. `init` starts one shell for each terminal: `sh`, `sh2`, `sh3` and `sh4`, all of `bin/sh`. `kbd` lists `ipc=tty` and a program that reads input lists `tty` in its `ipc=` (the shell does: `ipc=console,tty,vfs,pm`). `tty` has no `caps=` and no grant: `rs` sends it nothing.
 
 ## Limits
-* Input is line oriented; there is no raw mode, no history and no Ctrl+C yet. They are the next stage (W9, W10): this server is where they go.
+* Input is line oriented; there is no raw mode and no Ctrl+C yet (W10): this server is where they go. There are no cursor keys inside the line (Left and Right), so a recalled line is edited from its end.
+* The history holds 16 lines of up to 128 characters per terminal and is lost when `tty` restarts.
 * A restarted `tty` loses the lines and the readers of every terminal, and forgets which terminal is active; the screen keeps showing the terminal that was on it.
 * There is no command to switch, only the keys. Only the left Alt is read.
 * The echo goes to the screen only.

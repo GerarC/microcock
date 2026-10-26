@@ -18,8 +18,12 @@ namespace cock::kbd {
 constexpr size_t KEYMAP_SIZE = 0x3A;
 /** Bit set in a scancode when the key is released. */
 constexpr uint8_t RELEASE_BIT = 0x80;
-/** Prefix byte of extended keys; the key that follows is ignored. */
+/** Prefix byte of extended keys; of the key that follows only the arrows count. */
 constexpr uint8_t EXTENDED_PREFIX = 0xE0;
+/** Scancode of the Up arrow after `EXTENDED_PREFIX` (pressed; the release has `RELEASE_BIT`). */
+constexpr uint8_t UP_ARROW = 0x48;
+/** Scancode of the Down arrow after `EXTENDED_PREFIX` (pressed; the release has `RELEASE_BIT`). */
+constexpr uint8_t DOWN_ARROW = 0x50;
 /** Scancode of the left shift key. */
 constexpr uint8_t LEFT_SHIFT = 0x2A;
 /** Scancode of the right shift key. */
@@ -64,19 +68,21 @@ class Decoder {
 	 * @brief Processes one scancode byte.
 	 *
 	 * Shift and caps lock combine (shift XOR caps selects the upper table). Key releases,
-	 * extended keys (the byte after `EXTENDED_PREFIX`) and codes outside the table give no
-	 * character. Never blocks.
+	 * extended keys other than the arrows (the byte after `EXTENDED_PREFIX`) and codes outside the table give no
+	 * character. The pressed Up and Down arrows give `KEY_HISTORY_PREVIOUS` and `KEY_HISTORY_NEXT`. Never blocks.
 	 * @param scancode Raw byte from the keyboard controller.
-	 * @return The ASCII character, or `NO_CHARACTER` when the byte only changes state or
+	 * @return The ASCII character or history key, or `NO_CHARACTER` when the byte only changes state or
 	 *         has no character.
 	 */
 	char feed(uint8_t scancode) {
 		if (scancode == EXTENDED_PREFIX) {
-			skipNext = true;
+			extendedNext = true;
 			return NO_CHARACTER;
 		}
-		if (skipNext) {
-			skipNext = false;
+		if (extendedNext) {
+			extendedNext = false;
+			if (scancode == UP_ARROW) return cock::abi::console::KEY_HISTORY_PREVIOUS;
+			if (scancode == DOWN_ARROW) return cock::abi::console::KEY_HISTORY_NEXT;
 			return NO_CHARACTER;
 		}
 
@@ -126,8 +132,8 @@ class Decoder {
 	bool shiftHeld = false;
 	/** true while caps lock is on. */
 	bool capsLocked = false;
-	/** true when the next byte belongs to an extended key and must be ignored. */
-	bool skipNext = false;
+	/** true when the next byte belongs to an extended key. */
+	bool extendedNext = false;
 };
 
 } // namespace cock::kbd

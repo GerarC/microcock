@@ -16,6 +16,18 @@ void draw(char character, uint32_t terminal) {
 	if (driver.connect()) driver.echo(&character, sizeof(character), terminal);
 }
 
+void drawRepeated(char character, size_t count, uint32_t terminal) {
+	char chunk[proto::CHUNK_BYTES];
+	for (size_t index = 0; index < proto::CHUNK_BYTES; index++)
+		chunk[index] = character;
+
+	while (count > 0) {
+		size_t length = count < proto::CHUNK_BYTES ? count : proto::CHUNK_BYTES;
+		if (!driver.connect() || !driver.echo(chunk, length, terminal)) return;
+		count -= length;
+	}
+}
+
 } // namespace
 
 void echo(Echo kind, char character, uint32_t terminal) {
@@ -28,6 +40,18 @@ void echo(Echo kind, char character, uint32_t terminal) {
 		return draw(proto::CHAR_BACKSPACE, terminal);
 	case Echo::NEWLINE:
 		return draw(proto::CHAR_NEWLINE, terminal);
+	case Echo::REPLACE:
+		return;
+	}
+}
+
+void redraw(size_t erased, const char *text, size_t length, uint32_t terminal) {
+	drawRepeated(proto::CHAR_BACKSPACE, erased, terminal);
+
+	for (size_t offset = 0; offset < length; offset += proto::CHUNK_BYTES) {
+		size_t left = length - offset;
+		size_t count = left < proto::CHUNK_BYTES ? left : proto::CHUNK_BYTES;
+		if (!driver.connect() || !driver.echo(text + offset, count, terminal)) return;
 	}
 }
 
