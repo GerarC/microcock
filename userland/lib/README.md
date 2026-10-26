@@ -11,7 +11,7 @@ programs (init, sh, ata, fat, ext, vfs, ...) --> cock::user --> system call wrap
 
 - Message layouts and protocol constants are not here: they live in `shared/include/cock/ipc/message.hpp` and `shared/include/cock/abi/*.hpp`, so the kernel, the host tests and the programs agree on them.
 - The library needs no capability. What a call may do depends on the capabilities the caller holds (see the manifests in `initrd/manifest.conf` and `test/initrd/manifest.conf`).
-- It sits above the freestanding C library (`libc/`), which a program lists file by file in `LIBC_SRCS`; `common.mk` adds the console client files unless the program sets `CONSOLE_CLIENT = no`.
+- It sits above the freestanding C library (`libc/`), which a program lists file by file in `LIBC_SRCS`; `common.mk` adds the console client files unless the program sets `CONSOLE_CLIENT = no`, and the file, working directory and pipe clients (`unistd/file.cpp`, `cwd.cpp`, `pipe.cpp` and `sys/mman/munmap.cpp`) when it sets `STREAM_CLIENT = yes`.
 
 ## Headers
 

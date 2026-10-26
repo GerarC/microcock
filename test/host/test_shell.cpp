@@ -1,4 +1,5 @@
 #include <cock/shell/expand.hpp>
+#include <cock/shell/pipeline.hpp>
 #include <cock/shell/variables.hpp>
 #include <cock/shell/words.hpp>
 #include <test/host/check.hpp>
@@ -23,6 +24,16 @@ constexpr size_t THIRD = 2;
 constexpr size_t FOURTH = 3;
 constexpr size_t FIFTH = 4;
 constexpr size_t FIVE_WORDS = 5;
+constexpr size_t SIXTH = 5;
+constexpr size_t SEVENTH = 6;
+constexpr size_t EIGHTH = 7;
+constexpr size_t NINTH = 8;
+constexpr size_t TENTH = 9;
+constexpr size_t ELEVENTH = 10;
+constexpr size_t ELEVEN_TOKENS = 11;
+constexpr size_t BIG_BUFFER_BYTES = 64;
+constexpr char NAME_OPERATORS[] = "OPS";
+constexpr char VALUE_OPERATORS[] = "a>b|c<d";
 constexpr size_t FROM_SECOND = 1;
 constexpr uint32_t BIGGEST = 4294967295u;
 constexpr uint32_t SAMPLE_NUMBER = 120;
@@ -96,6 +107,137 @@ void checkUnterminatedQuote() {
 	CHECK_TRUE(split(twice, words) == SplitResult::UNTERMINATED_QUOTE);
 }
 
+void checkOperators() {
+	char line[] = "a>b >> c<d|e | f";
+	Words words = {};
+
+	CHECK_TRUE(split(line, words) == SplitResult::OK);
+	CHECK_EQ(ELEVEN_TOKENS, words.count);
+	CHECK_TRUE(sameText(words.items[FIRST], "a"));
+	CHECK_TRUE(words.kinds[SECOND] == TokenKind::REDIRECT_OUTPUT);
+	CHECK_TRUE(sameText(words.items[THIRD], "b"));
+	CHECK_TRUE(words.kinds[FOURTH] == TokenKind::REDIRECT_APPEND);
+	CHECK_TRUE(sameText(words.items[FOURTH], ">>"));
+	CHECK_TRUE(sameText(words.items[FIFTH], "c"));
+	CHECK_TRUE(words.kinds[SIXTH] == TokenKind::REDIRECT_INPUT);
+	CHECK_TRUE(sameText(words.items[SEVENTH], "d"));
+	CHECK_TRUE(words.kinds[EIGHTH] == TokenKind::PIPE);
+	CHECK_TRUE(sameText(words.items[NINTH], "e"));
+	CHECK_TRUE(words.kinds[TENTH] == TokenKind::PIPE);
+	CHECK_TRUE(sameText(words.items[ELEVENTH], "f"));
+	CHECK_TRUE(words.kinds[FIRST] == TokenKind::WORD);
+}
+
+void checkOperatorsAtEdges() {
+	char first[] = ">out";
+	char last[] = "cat <";
+	char glued[] = "a|b";
+	Words words = {};
+
+	CHECK_TRUE(split(first, words) == SplitResult::OK);
+	CHECK_EQ(TWO_WORDS, words.count);
+	CHECK_TRUE(words.kinds[FIRST] == TokenKind::REDIRECT_OUTPUT);
+	CHECK_TRUE(sameText(words.items[SECOND], "out"));
+
+	CHECK_TRUE(split(last, words) == SplitResult::OK);
+	CHECK_EQ(TWO_WORDS, words.count);
+	CHECK_TRUE(words.kinds[SECOND] == TokenKind::REDIRECT_INPUT);
+
+	CHECK_TRUE(split(glued, words) == SplitResult::OK);
+	CHECK_EQ(THREE_WORDS, words.count);
+	CHECK_TRUE(sameText(words.items[FIRST], "a"));
+	CHECK_TRUE(sameText(words.items[THIRD], "b"));
+}
+
+void checkQuotedOperators() {
+	char line[] = "echo '>' \"a|b\" \\< x\\>y";
+	Words words = {};
+
+	CHECK_TRUE(split(line, words) == SplitResult::OK);
+	CHECK_EQ(FIVE_WORDS, words.count);
+	for (size_t index = 0; index < words.count; index++)
+		CHECK_TRUE(words.kinds[index] == TokenKind::WORD);
+	CHECK_TRUE(sameText(words.items[SECOND], ">"));
+	CHECK_TRUE(sameText(words.items[THIRD], "a|b"));
+	CHECK_TRUE(sameText(words.items[FOURTH], "<"));
+	CHECK_TRUE(sameText(words.items[FIFTH], "x>y"));
+}
+
+void checkOperatorLimit() {
+	char line[] = "a|b|c|d|e|f|g|h|i";
+	Words words = {};
+
+	CHECK_TRUE(split(line, words) == SplitResult::TOO_MANY_WORDS);
+}
+
+bool parses(const char *text, PipelineResult expected, Pipeline &pipeline) {
+	char line[BIG_BUFFER_BYTES] = {};
+	Words words = {};
+	strcpy(line, text);
+	return split(line, words) == SplitResult::OK && parsePipeline(words, pipeline) == expected;
+}
+
+void checkPipeline() {
+	Pipeline pipeline = {};
+
+	CHECK_TRUE(parses("echo hi", PipelineResult::OK, pipeline));
+	CHECK_EQ(SINGLE_STAGE, pipeline.count);
+	CHECK_EQ(TWO_WORDS, pipeline.stages[FIRST].argc);
+	CHECK_FALSE(isRedirected(pipeline.stages[FIRST]));
+
+	CHECK_TRUE(parses("cat < in | wc | head > out", PipelineResult::OK, pipeline));
+	CHECK_EQ(THREE_WORDS, pipeline.count);
+	CHECK_TRUE(sameText(pipeline.stages[FIRST].input, "in"));
+	CHECK_TRUE(pipeline.stages[SECOND].input == nullptr);
+	CHECK_TRUE(pipeline.stages[SECOND].output == nullptr);
+	CHECK_TRUE(sameText(pipeline.stages[THIRD].output, "out"));
+	CHECK_FALSE(pipeline.stages[THIRD].append);
+	CHECK_TRUE(sameText(pipeline.stages[SECOND].argv[FIRST], "wc"));
+
+	CHECK_TRUE(parses("echo a >> f b", PipelineResult::OK, pipeline));
+	CHECK_EQ(THREE_WORDS, pipeline.stages[FIRST].argc);
+	CHECK_TRUE(sameText(pipeline.stages[FIRST].argv[THIRD], "b"));
+	CHECK_TRUE(pipeline.stages[FIRST].append);
+	CHECK_TRUE(sameText(pipeline.stages[FIRST].output, "f"));
+
+	CHECK_TRUE(parses("cat > one > two", PipelineResult::OK, pipeline));
+	CHECK_TRUE(sameText(pipeline.stages[FIRST].output, "two"));
+}
+
+void checkPipelineErrors() {
+	Pipeline pipeline = {};
+
+	CHECK_TRUE(parses("| cat", PipelineResult::MISSING_COMMAND, pipeline));
+	CHECK_TRUE(parses("cat |", PipelineResult::MISSING_COMMAND, pipeline));
+	CHECK_TRUE(parses("cat | | cat", PipelineResult::MISSING_COMMAND, pipeline));
+	CHECK_TRUE(parses("> file", PipelineResult::MISSING_COMMAND, pipeline));
+	CHECK_TRUE(parses("cat >", PipelineResult::MISSING_FILE, pipeline));
+	CHECK_TRUE(parses("cat > | wc", PipelineResult::MISSING_FILE, pipeline));
+	CHECK_TRUE(parses("cat < >", PipelineResult::MISSING_FILE, pipeline));
+	CHECK_TRUE(parses("a | b | c | d | e", PipelineResult::TOO_MANY_STAGES, pipeline));
+	CHECK_TRUE(parses("a | b < in", PipelineResult::MISPLACED_REDIRECTION, pipeline));
+	CHECK_TRUE(parses("a > out | b", PipelineResult::MISPLACED_REDIRECTION, pipeline));
+	CHECK_TRUE(parses("a | b | c | d", PipelineResult::OK, pipeline));
+	CHECK_EQ(MAX_STAGES, pipeline.count);
+}
+
+const char *operatorLookup(const char *name, size_t length) {
+	if (length == sizeof(NAME_OPERATORS) - sizeof(char) && memcmp(name, NAME_OPERATORS, length) == 0)
+		return VALUE_OPERATORS;
+	return nullptr;
+}
+
+void checkExpandedOperators() {
+	char out[BIG_BUFFER_BYTES] = {};
+	Words words = {};
+
+	CHECK_TRUE(expand("echo $OPS", out, sizeof(out), operatorLookup) == ExpandResult::OK);
+	CHECK_TRUE(split(out, words) == SplitResult::OK);
+	CHECK_EQ(TWO_WORDS, words.count);
+	CHECK_TRUE(words.kinds[SECOND] == TokenKind::WORD);
+	CHECK_TRUE(sameText(words.items[SECOND], "a>b|c<d"));
+}
+
 void checkParseNumber() {
 	uint32_t value = 0;
 	CHECK_TRUE(parseNumber("120", value));
@@ -142,7 +284,6 @@ constexpr char NAME_STATUS[] = "?";
 constexpr char VALUE_STATUS[] = "127";
 constexpr size_t TINY_BUFFER_BYTES = 6;
 constexpr size_t NAME_HOME_LENGTH = sizeof(NAME_HOME) - sizeof(char);
-constexpr size_t BIG_BUFFER_BYTES = 64;
 constexpr size_t ASSIGNMENT_NAME_LENGTH = 3;
 constexpr char FILLER = 'n';
 
@@ -238,6 +379,13 @@ void testShell() {
 	checkQuotes();
 	checkEscapes();
 	checkUnterminatedQuote();
+	checkOperators();
+	checkOperatorsAtEdges();
+	checkQuotedOperators();
+	checkOperatorLimit();
+	checkPipeline();
+	checkPipelineErrors();
+	checkExpandedOperators();
 	checkParseNumber();
 	checkJoin();
 	checkJoinLimit();

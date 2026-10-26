@@ -21,6 +21,7 @@ Descriptors 0, 1 and 2 are born as console descriptions (0 readable, 1 and 2 wri
 * `open` asks `vfs` for a handle and, if the table is full, closes the handle again and fails with `EMFILE`.
 * When `vfs` stops answering (`NOT_CONNECTED`), every file description is dropped without a call to the server, because its handles mean nothing any more.
 * `pipe` asks the pipe server for a pipe and gives the lowest two free descriptors to a read description and a write description; a pipe description closes its end at the server when the last descriptor goes. When the server stops answering, every pipe description is dropped like the file ones.
+* A description of a kind whose client a program did not link is dropped when `exec` hands the table on. A program that may be started with its input or output redirected (every program of `/bin`) sets `STREAM_CLIENT = yes` in its `Makefile`, so `common.mk` links the file, working directory and pipe clients; without them `echo hi > file` would find descriptor 1 closed.
 * A program that opts out of the console client (`CONSOLE_CLIENT = no`) has no table: `read` and `write` call `SYS_READ` and `SYS_WRITE` with the number they were given.
 
 ## Fork and exec

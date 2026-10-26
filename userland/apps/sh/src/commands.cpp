@@ -1,3 +1,4 @@
+#include <cock/shell/pipeline.hpp>
 #include <cock/shell/words.hpp>
 #include <sh/arguments.hpp>
 #include <sh/commands.hpp>
@@ -8,6 +9,9 @@
 #include <stddef.h>
 #include <stdio.h>
 
+using cock::shell::FIRST_STAGE;
+using cock::shell::Pipeline;
+using cock::shell::PipelineResult;
 using cock::shell::Words;
 
 namespace cock::sh {
@@ -15,7 +19,7 @@ namespace cock::sh {
 namespace {
 
 constexpr size_t NO_WORDS = 0;
-constexpr char PROGRAM_NAMES[] = "ls cat write mkdir rmdir rm mv echo ps sleep clear uname";
+constexpr char PROGRAM_NAMES[] = "ls cat mkdir rmdir rm mv echo ps sleep clear uname";
 
 void helpCommand(const Words &);
 
@@ -41,6 +45,7 @@ void helpCommand(const Words &) {
 		printf("  %s: %s\n", COMMANDS[index].name, COMMANDS[index].summary);
 	printf("programs of /bin: %s\n", PROGRAM_NAMES);
 	printf("paths are absolute or relative to the directory of cd, for example /fat or /ext\n");
+	printf("cmd > file, cmd >> file, cmd < file and cmd | cmd redirect the programs\n");
 }
 
 bool streq(const char *left, const char *right) {
@@ -48,6 +53,28 @@ bool streq(const char *left, const char *right) {
 	while (left[index] != cock::shell::TERMINATOR && left[index] == right[index])
 		index++;
 	return left[index] == right[index];
+}
+
+const Command *findCommand(const char *name) {
+	for (size_t index = 0; index < COMMAND_COUNT; index++)
+		if (streq(name, COMMANDS[index].name)) return &COMMANDS[index];
+	return nullptr;
+}
+
+const char *describe(PipelineResult result) {
+	switch (result) {
+	case PipelineResult::MISSING_COMMAND:
+		return "missing command";
+	case PipelineResult::MISSING_FILE:
+		return "missing file name after a redirection";
+	case PipelineResult::TOO_MANY_STAGES:
+		return "too many commands in a pipeline";
+	case PipelineResult::MISPLACED_REDIRECTION:
+		return "input can only be redirected on the first command and output on the last";
+	case PipelineResult::OK:
+		break;
+	}
+	return "bad command line";
 }
 
 } // namespace
@@ -73,16 +100,29 @@ void run(char *line) {
 	if (words.count == NO_WORDS) return;
 	if (assignVariables(words)) return;
 
-	for (size_t index = 0; index < COMMAND_COUNT; index++) {
-		if (streq(words.items[FIRST_WORD], COMMANDS[index].name)) {
-			COMMANDS[index].run(words);
-			return;
-		}
+	Pipeline pipeline = {};
+	PipelineResult parsed = cock::shell::parsePipeline(words, pipeline);
+	if (parsed != PipelineResult::OK) {
+		printf("sh: %s\n", describe(parsed));
+		return;
 	}
-	int status = runProgram(words);
+
+	bool plain = pipeline.count == cock::shell::SINGLE_STAGE && !cock::shell::isRedirected(pipeline.stages[FIRST_STAGE]);
+	for (size_t stage = 0; stage < pipeline.count; stage++) {
+		const Command *command = findCommand(pipeline.stages[stage].argv[FIRST_WORD]);
+		if (command == nullptr) continue;
+		if (plain)
+			command->run(words);
+		else
+			printf("sh: %s: a built-in command cannot be piped or redirected\n", command->name);
+		return;
+	}
+
+	int status = runPipeline(pipeline);
 	if (status != STATUS_OK && status != STATUS_NOT_FOUND && status != STATUS_NOT_EXECUTABLE &&
 		status != STATUS_NOT_STARTED)
-		printf("sh: %s: exit status %d\n", words.items[FIRST_WORD], status);
+		printf("sh: %s: exit status %d\n", pipeline.stages[pipeline.count - cock::shell::SINGLE_STAGE].argv[FIRST_WORD],
+			   status);
 }
 
 } // namespace cock::sh

@@ -43,8 +43,8 @@ inline bool put(char *out, size_t size, size_t &length, char character) {
  * A reference is `$` followed by `?` or by a name (letters, digits and underscore, not starting with a digit).
  * A `$` followed by anything else stays as it is. Nothing is expanded between single quotes, and `\$` is a literal
  * `$` (inside double quotes too). The value is inserted so that `split` reads it back as the same text: outside quotes
- * it is one piece of the word, with spaces, tabs, quotes and backslashes escaped (so it is never split nor re-read as a
- * quote), and inside double quotes only `"` and `\` are escaped. A variable that is not set gives an empty text, which
+ * it is one piece of the word, with spaces, tabs, quotes, backslashes and the operators `|`, `<` and `>` escaped (so it is
+ * never split, nor re-read as a quote or a redirection), and inside double quotes only `"` and `\` are escaped. A variable that is not set gives an empty text, which
  * outside quotes makes the word vanish when it is alone. Quotes and escapes of the line itself are copied untouched
  * for `split` to remove.
  *
@@ -95,7 +95,7 @@ inline ExpandResult expand(const char *line, char *out, size_t size, Lookup &&lo
 				for (size_t index = 0; value != nullptr && value[index] != TERMINATOR; index++) {
 					char byte = value[index];
 					bool special = byte == DOUBLE_QUOTE || byte == BACKSLASH ||
-								   (quote == NO_QUOTE && (byte == SINGLE_QUOTE || isSeparator(byte)));
+								   (quote == NO_QUOTE && (byte == SINGLE_QUOTE || isSeparator(byte) || isOperator(byte)));
 					if (special && !detail::put(out, size, length, BACKSLASH)) return ExpandResult::TOO_LONG;
 					if (!detail::put(out, size, length, byte)) return ExpandResult::TOO_LONG;
 				}

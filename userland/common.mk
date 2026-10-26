@@ -20,6 +20,12 @@ ifeq ($(CONSOLE_CLIENT),yes)
 LIBC_SRCS := $(LIBC_SRCS) $(filter-out $(LIBC_SRCS),$(CONSOLE_SRCS))
 endif
 
+STREAM_CLIENT ?= no
+STREAM_SRCS = unistd/file.cpp unistd/cwd.cpp unistd/pipe.cpp sys/mman/munmap.cpp
+ifeq ($(STREAM_CLIENT),yes)
+LIBC_SRCS := $(LIBC_SRCS) $(filter-out $(LIBC_SRCS),$(STREAM_SRCS))
+endif
+
 CRT0_SRCS = crt0.cpp constructors.cpp
 
 TARGET = $(OUT_DIR)/$(NAME).elf

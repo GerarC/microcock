@@ -27,7 +27,6 @@ The test initrd is `test/initrd/` (manifest lines, the `/mute` mount and the fix
 | `echo` | Prints its arguments. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
 | `ls` | Lists a directory, through the `vfs` client. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
 | `cat` | Prints files. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
-| `write` | Temporary: replaces a file with a line of text. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
 | `mkdir` | Makes directories. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
 | `rmdir` | Removes empty directories. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |
 | `rm` | Deletes files. A program of `/bin` that the shell runs, with no manifest line and no capabilities; see [shell](shell.md) |

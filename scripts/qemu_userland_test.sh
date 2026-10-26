@@ -9,9 +9,15 @@ CLIENTS_DONE_TEXT=("fatclient: ok" "extclient: ok" "cfile: ok" "pipeclient: ok" 
 SERIAL_FILE="${SERIAL_FILE:-build/userland_serial.txt}"
 SOCKET_FILE="${SOCKET_FILE:-build/userland_monitor.sock}"
 QEMU_BIN="${QEMU:-qemu-system-i386}"
-SHELL_COMMANDS="echo hello shell|uname|ps|ls /|cat /mounts.conf|ls /ext|write /ext/scratch/sh.txt written by sh|cat /ext/scratch/sh.txt|mv /ext/scratch/sh.txt /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|rm /ext/scratch/moved.txt|cat /ext/scratch/moved.txt|mkdir /ext/scratch/made|ls /ext/scratch|rmdir /ext/scratch/made|rmdir /ext/scratch/made|cd /ext/scratch|pwd|write rel.txt relative ok|cat rel.txt|cat ../scratch/./rel.txt|rm rel.txt|cd ..|pwd|cd /nowhere|cd /mounts.conf|cd|pwd|echo 'single   quoted'|echo \"double   quoted\" end|echo 'open|exitwith 7|nosuchprogram|/bin/exitwith 0|cd /bin|./exitwith 5|echo st=\$?|echo in \$PWD|cd|NAME=\"a  b\"|echo var:\$NAME|unset NAME|echo gone:\$NAME:|sleep 1|clear|echo after clear"
+SHELL_COMMANDS="echo hello shell;uname;ps;ls /;cat /mounts.conf;ls /ext;echo written by sh > /ext/scratch/sh.txt;cat /ext/scratch/sh.txt;mv /ext/scratch/sh.txt /ext/scratch/moved.txt;cat /ext/scratch/moved.txt;rm /ext/scratch/moved.txt;cat /ext/scratch/moved.txt;mkdir /ext/scratch/made;ls /ext/scratch;rmdir /ext/scratch/made;rmdir /ext/scratch/made;cd /ext/scratch;pwd;echo relative ok > rel.txt;cat rel.txt;cat ../scratch/./rel.txt;rm rel.txt;cd ..;pwd;cd /nowhere;cd /mounts.conf;cd;pwd;echo 'single   quoted';echo \"double   quoted\" end;echo 'open;exitwith 7;nosuchprogram;/bin/exitwith 0;cd /bin;./exitwith 5;echo st=\$?;echo in \$PWD;cd;NAME=\"a  b\";echo var:\$NAME;unset NAME;echo gone:\$NAME:;echo first line > /ext/scratch/redir.txt;echo second line >> /ext/scratch/redir.txt;cat < /ext/scratch/redir.txt;cat < /ext/scratch/redir.txt | cat > /ext/scratch/copy.txt;echo piped marker | cat;echo three stages | cat | cat;cat < /nowhere;echo dangling |;sleep 1;clear;echo after clear"
 SHELL_OUTPUT_COPIES=2
-SECOND_COMMAND="echo wiped away|clear|echo on second"
+PIPE_OUTPUT_COPIES=1
+PIPED_MARKER="piped marker"
+STAGES_MARKER="three stages"
+REDIRECT_FILE_NAME="redir.txt"
+REDIRECT_COPY_NAME="copy.txt"
+REDIRECT_TEXT="first line"$'\n'"second line"
+SECOND_COMMAND="echo wiped away;clear;echo on second"
 TERMINAL_MARK="=====SECOND TERMINAL====="
 SECOND_SCREEN_TEXT="cock> echo on second|on second"
 FILE_CLIENT_RUNS=10
@@ -20,7 +26,7 @@ DISK_SCHEME="${DISK_SCHEME:-mbr}"
 DISK_FILE="${DISK_FILE:-build/test_disk_$DISK_SCHEME.img}"
 EXPECTED_SCREEN_TEXT="cock> echo after clear|after clear"
 PROJECT_VERSION="$(sed -n "s/^VERSION_MAJOR := //p" Makefile).$(sed -n "s/^VERSION_MINOR := //p" Makefile).$(sed -n "s/^VERSION_PATCH := //p" Makefile)"
-EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 64/64 checks passed|microcock v${PROJECT_VERSION} shell, type help|hello shell|PID PPID STAT|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|cat: /ext/scratch/moved.txt: not found|made/|rmdir: /ext/scratch/made: not found|cock> /ext/scratch|relative ok|sh: cd: /nowhere: not found|sh: cd: /mounts.conf: not a directory|single   quoted|double   quoted end|sh: unterminated quote|exitwith: 2 arguments, first exitwith|sh: exitwith: exit status 7|sh: nosuchprogram: command not found|exitwith: 2 arguments, first /bin/exitwith|exitwith: 2 arguments, first ./exitwith|sh: ./exitwith: exit status 5|st=5|in /bin|var:a  b|gone::|abort()|pipeclient: ok|modeprobe: ok|descprobe: ok|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|rs: initrd is boot module|Boot memory released|rs: manifest has 47 entries|rs: restarted phoenix 2 of 5|contruncated: cut|rs: configured vga_driver|rs: started console|console: ready|rs: started tty|tty: ready|rs: started kbd|pm: ready|rs: started pm|rs: started init|init: ready|rs: started sh for init|init: started sh|rs: started ata|rs: started rtc|rtc: ready|rs: started fat|rs: started vfs|vfs: 4 mounts|rs: fsclient exit notices 10/10|pmclient: ok|forkprobe: ok|sigprobe: ok|execprobe: bad exec refused, image intact|execchild: ok|rs: started probe|kbd: ready|Screen mapped by PID|reaped"
+EXPECTED_SERIAL_TEXT="Hello from cock ring 3!!!|probe: 64/64 checks passed|microcock v${PROJECT_VERSION} shell, type help|hello shell|PID PPID STAT|manifest.conf|mounts.conf|/ext ext|subdir/|written by sh|cat: /ext/scratch/moved.txt: not found|made/|rmdir: /ext/scratch/made: not found|cock> /ext/scratch|relative ok|sh: cd: /nowhere: not found|sh: cd: /mounts.conf: not a directory|single   quoted|double   quoted end|sh: unterminated quote|exitwith: 2 arguments, first exitwith|sh: exitwith: exit status 7|sh: nosuchprogram: command not found|exitwith: 2 arguments, first /bin/exitwith|exitwith: 2 arguments, first ./exitwith|sh: ./exitwith: exit status 5|st=5|in /bin|var:a  b|gone::|first line|second line|sh: /nowhere: not found|sh: missing command|abort()|pipeclient: ok|modeprobe: ok|descprobe: ok|probe: printf -42 4294967295 FF hi Z 0xBEEF|probe: initrd says Hello from the cock initrd!!!|rs: initrd is boot module|Boot memory released|rs: manifest has 47 entries|rs: restarted phoenix 2 of 5|contruncated: cut|rs: configured vga_driver|rs: started console|console: ready|rs: started tty|tty: ready|rs: started kbd|pm: ready|rs: started pm|rs: started init|init: ready|rs: started sh for init|init: started sh|rs: started ata|rs: started rtc|rtc: ready|rs: started fat|rs: started vfs|vfs: 4 mounts|rs: fsclient exit notices 10/10|pmclient: ok|forkprobe: ok|sigprobe: ok|execprobe: bad exec refused, image intact|execchild: ok|rs: started probe|kbd: ready|Screen mapped by PID|reaped"
 
 . "$(dirname "$0")/test_disk_layout.sh"
 case "$DISK_SCHEME" in
@@ -58,9 +64,10 @@ import socket
 import sys
 import time
 
-socket_path, commands, key_seconds = sys.argv[1], sys.argv[2].split("|"), float(sys.argv[3])
-second_commands, terminal_mark = sys.argv[4].split("|"), sys.argv[5]
-KEY_NAMES = {" ": "spc", "/": "slash", ".": "dot", "-": "minus", "'": "apostrophe", "\"": "shift-apostrophe", "$": "shift-4", "?": "shift-slash", "=": "equal", ":": "shift-semicolon"}
+COMMAND_SEPARATOR = ";"
+socket_path, commands, key_seconds = sys.argv[1], sys.argv[2].split(COMMAND_SEPARATOR), float(sys.argv[3])
+second_commands, terminal_mark = sys.argv[4].split(COMMAND_SEPARATOR), sys.argv[5]
+KEY_NAMES = {" ": "spc", "/": "slash", ".": "dot", "-": "minus", "'": "apostrophe", "\"": "shift-apostrophe", "$": "shift-4", "?": "shift-slash", "=": "equal", ":": "shift-semicolon", ">": "shift-dot", "<": "shift-comma", "|": "shift-backslash"}
 KEY_HOLD_MS = 20
 KEY_WAIT = 0.07
 ENTER_WAIT = 0.8
@@ -188,6 +195,13 @@ if [ "$shell_copies" -ne "$SHELL_OUTPUT_COPIES" ]; then
 	echo "[qemu_userland_test] the shell printed the written file $shell_copies times, expected $SHELL_OUTPUT_COPIES"
 	status=1
 fi
+for marker in "$PIPED_MARKER" "$STAGES_MARKER"; do
+	marker_copies=$(grep -c "$marker" "$SERIAL_FILE")
+	if [ "$marker_copies" -ne "$PIPE_OUTPUT_COPIES" ]; then
+		echo "[qemu_userland_test] a pipeline printed \"$marker\" $marker_copies times, expected $PIPE_OUTPUT_COPIES"
+		status=1
+	fi
+done
 served=$(grep -c "fsclient: ok" "$SERIAL_FILE")
 if [ "$served" -ne "$FILE_CLIENT_RUNS" ]; then
 	echo "[qemu_userland_test] file clients served: $served of $FILE_CLIENT_RUNS"
@@ -237,6 +251,13 @@ if debugfs -R "stat /$EXT_SCRATCH/$WRITE_GONE_NAME" "$EXT_PART" 2>&1 | grep -q "
 	echo "[qemu_userland_test] ext2 file deleted by the guest is still there"
 	status=1
 fi
+for redirect_name in "$REDIRECT_FILE_NAME" "$REDIRECT_COPY_NAME"; do
+	redirect_read=$(debugfs -R "cat /$EXT_SCRATCH/$redirect_name" "$EXT_PART" 2> /dev/null)
+	if [ "$redirect_read" != "$REDIRECT_TEXT" ]; then
+		echo "[qemu_userland_test] the file $redirect_name written by a redirection reads back as: $redirect_read"
+		status=1
+	fi
+done
 c_fat=$(mtype -i "$FAT_PART" "::/$FAT_SCRATCH/$C_FILE_NAME" 2>&1)
 c_ext=$(debugfs -R "cat /$EXT_SCRATCH/$C_FILE_NAME" "$EXT_PART" 2> /dev/null)
 if [ "$c_fat" != "$C_FILE_TEXT" ] || [ "$c_ext" != "$C_FILE_TEXT" ]; then

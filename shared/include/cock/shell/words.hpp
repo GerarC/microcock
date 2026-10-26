@@ -36,6 +36,20 @@ constexpr char NO_QUOTE = TERMINATOR;
 constexpr uint32_t DECIMAL_BASE = 10;
 /** Largest value that `parseNumber` accepts. */
 constexpr uint32_t MAX_UINT32 = 0xFFFFFFFF;
+/** Unquoted character that ends a command and sends its output to the next one. */
+constexpr char PIPE_CHARACTER = '|';
+/** Unquoted character that reads the input of a command from a file. */
+constexpr char INPUT_CHARACTER = '<';
+/** Unquoted character that writes the output of a command to a file (twice: appends to it). */
+constexpr char OUTPUT_CHARACTER = '>';
+/** Text of the token `|`. */
+inline constexpr char PIPE_TEXT[] = "|";
+/** Text of the token `<`. */
+inline constexpr char INPUT_TEXT[] = "<";
+/** Text of the token `>`. */
+inline constexpr char OUTPUT_TEXT[] = ">";
+/** Text of the token `>>`. */
+inline constexpr char APPEND_TEXT[] = ">>";
 
 /** Outcome of `split`. */
 enum class SplitResult {
@@ -47,11 +61,27 @@ enum class SplitResult {
 	UNTERMINATED_QUOTE,
 };
 
-/** Result of `split`: pointers into the original line. */
+/** What a token of a line is. */
+enum class TokenKind : uint8_t {
+	/** An ordinary word, quotes and escapes already removed. */
+	WORD,
+	/** `|`. */
+	PIPE,
+	/** `<`. */
+	REDIRECT_INPUT,
+	/** `>`. */
+	REDIRECT_OUTPUT,
+	/** `>>`. */
+	REDIRECT_APPEND,
+};
+
+/** Result of `split`: pointers into the original line, or to the text of an operator. */
 struct Words {
-	/** Start of each word; each word is null terminated in place. */
-	char *items[MAX_WORDS];
-	/** Number of words found, at most `MAX_WORDS`. */
+	/** Start of each token; each word is null terminated in place, an operator points to its own text. */
+	const char *items[MAX_WORDS];
+	/** What each token is; a quoted or escaped `|`, `<` or `>` is a `WORD`. */
+	TokenKind kinds[MAX_WORDS];
+	/** Number of tokens found, at most `MAX_WORDS`. */
 	size_t count;
 };
 
@@ -65,16 +95,55 @@ inline bool isSeparator(char character) {
 }
 
 /**
- * @brief Splits a line into words in place.
+ * @brief Tells whether an unquoted character is an operator of the shell.
+ * @param character Character to test.
+ * @return True for `|`, `<` and `>`.
+ */
+inline bool isOperator(char character) {
+	return character == PIPE_CHARACTER || character == INPUT_CHARACTER || character == OUTPUT_CHARACTER;
+}
+
+/**
+ * @brief Adds the operator token that starts at `read` and moves `read` past it.
+ *
+ * The first character is passed because the cell it was in may already hold the terminator of the word before it.
+ * @param first The operator character, already read.
+ * @param line The line; the character after `read` is looked at to tell `>` from `>>`.
+ * @param read Index of the operator character; moves past the operator.
+ * @param words Receives the token; its count must be below `MAX_WORDS`.
+ */
+inline void addOperator(char first, const char *line, size_t &read, Words &words) {
+	read++;
+	const char *text = PIPE_TEXT;
+	TokenKind kind = TokenKind::PIPE;
+	if (first == INPUT_CHARACTER) {
+		text = INPUT_TEXT;
+		kind = TokenKind::REDIRECT_INPUT;
+	} else if (first == OUTPUT_CHARACTER) {
+		text = OUTPUT_TEXT;
+		kind = TokenKind::REDIRECT_OUTPUT;
+		if (line[read] == OUTPUT_CHARACTER) {
+			read++;
+			text = APPEND_TEXT;
+			kind = TokenKind::REDIRECT_APPEND;
+		}
+	}
+	words.items[words.count] = text;
+	words.kinds[words.count++] = kind;
+}
+
+/**
+ * @brief Splits a line into words and operators in place.
  *
  * Words are separated by spaces and tabs. Single quotes keep everything between them literally; double quotes keep
  * it too except that `\"` and `\\` stand for `"` and `\`; outside quotes a backslash makes the next character literal
  * (a backslash at the end of the line stays). Quotes join with the text next to them (`a"b c"d` is one word) and
  * `""` is an empty word. Quotes and escapes are removed in place: the result is never longer than the line, so the
- * words point into `line`, which must outlive them.
+ * words point into `line`, which must outlive them. An unquoted `|`, `<`, `>` or `>>` is a token of its own, with or
+ * without spaces around it (`a>b` is `a`, `>`, `b`); quoted or escaped it is part of a word.
  * @param line Writable null terminated line.
- * @param words Receives the words; `count` is reset to 0 first.
- * @return `OK`, or `TOO_MANY_WORDS` when the line has more than `MAX_WORDS` words (the first words are still
+ * @param words Receives the tokens; `count` is reset to 0 first.
+ * @return `OK`, or `TOO_MANY_WORDS` when the line has more than `MAX_WORDS` tokens (the first ones are still
  *         filled in), or `UNTERMINATED_QUOTE` when a quote is never closed (`words` is then unusable).
  */
 inline SplitResult split(char *line, Words &words) {
@@ -87,10 +156,15 @@ inline SplitResult split(char *line, Words &words) {
 			read++;
 		if (line[read] == TERMINATOR) return SplitResult::OK;
 		if (words.count == MAX_WORDS) return SplitResult::TOO_MANY_WORDS;
+		if (isOperator(line[read])) {
+			addOperator(line[read], line, read, words);
+			continue;
+		}
+		words.kinds[words.count] = TokenKind::WORD;
 		words.items[words.count++] = &line[write];
 
 		char quote = NO_QUOTE;
-		while (line[read] != TERMINATOR && (quote != NO_QUOTE || !isSeparator(line[read]))) {
+		while (line[read] != TERMINATOR && (quote != NO_QUOTE || (!isSeparator(line[read]) && !isOperator(line[read])))) {
 			char character = line[read++];
 			if (quote == NO_QUOTE) {
 				if (character == SINGLE_QUOTE || character == DOUBLE_QUOTE) {
@@ -109,10 +183,15 @@ inline SplitResult split(char *line, Words &words) {
 		}
 		if (quote != NO_QUOTE) return SplitResult::UNTERMINATED_QUOTE;
 
-		bool atEnd = line[read] == TERMINATOR;
+		char next = line[read];
 		line[write++] = TERMINATOR;
-		if (atEnd) return SplitResult::OK;
-		read++;
+		if (next == TERMINATOR) return SplitResult::OK;
+		if (!isOperator(next)) {
+			read++;
+			continue;
+		}
+		if (words.count == MAX_WORDS) return SplitResult::TOO_MANY_WORDS;
+		addOperator(next, line, read, words);
 	}
 }
 

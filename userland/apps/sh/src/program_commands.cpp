@@ -3,6 +3,8 @@
 #include <cock/abi/pm.hpp>
 #include <cock/user/exec.hpp>
 #include <cock/user/fs.hpp>
+#include <cock/user/tool.hpp>
+#include <fcntl.h>
 #include <sh/arguments.hpp>
 #include <sh/manager.hpp>
 #include <sh/paths.hpp>
@@ -14,7 +16,9 @@
 #include <unistd.h>
 
 using cock::abi::pm::Status;
-using cock::shell::Words;
+using cock::shell::MAX_STAGES;
+using cock::shell::Pipeline;
+using cock::shell::Stage;
 using cock::user::pm::Client;
 using cock::user::pm::Forked;
 using cock::user::pm::Waited;
@@ -27,10 +31,27 @@ constexpr char PROGRAM_DIRECTORY[] = "/bin/";
 constexpr size_t PROGRAM_DIRECTORY_BYTES = sizeof(PROGRAM_DIRECTORY) - sizeof(char);
 constexpr char PATH_SEPARATOR = '/';
 constexpr char RUN_LABEL[] = "run";
+constexpr char SHELL_NAME[] = "sh";
+constexpr char PIPE_SUBJECT[] = "pipe";
+constexpr int NO_DESCRIPTOR = -1;
+constexpr int PIPE_READ_END = 0;
+constexpr int PIPE_WRITE_END = 1;
+constexpr int PIPE_END_COUNT = 2;
+constexpr int PIPE_CREATED = 0;
+constexpr int STANDARD_INPUT = 0;
+constexpr int STANDARD_OUTPUT = 1;
+constexpr int INPUT_FLAGS = O_RDONLY;
+constexpr int OUTPUT_FLAGS = O_WRONLY | O_CREAT;
 
 static_assert(cock::shell::MAX_WORDS <= cock::abi::exec::MAX_ARGS, "every word of a line must fit the arguments of exec");
 
 int lastExitStatus = STATUS_OK;
+
+struct Wiring {
+	int input;
+	int output;
+	int unused;
+};
 
 bool namesPath(const char *name) {
 	for (size_t index = 0; name[index] != cock::shell::TERMINATOR; index++)
@@ -51,21 +72,50 @@ bool programPath(const char *name, char (&out)[PATH_BYTES]) {
 	return true;
 }
 
-[[noreturn]] void becomeProgram(Client &manager, const char *path, const Words &words) {
-	const char *argv[cock::shell::MAX_WORDS] = {};
-	for (size_t index = 0; index < words.count; index++)
-		argv[index] = words.items[index];
+void closeDescriptor(int descriptor) {
+	if (descriptor != NO_DESCRIPTOR) close(descriptor);
+}
+
+bool plug(int from, int target) {
+	if (from == target) return true;
+	bool done = dup2(from, target) == target;
+	close(from);
+	return done;
+}
+
+bool redirect(int target, const char *path, int flags) {
+	int descriptor = open(path, flags);
+	if (descriptor < 0) {
+		cock::user::tool::fail(SHELL_NAME, path);
+		return false;
+	}
+	return plug(descriptor, target);
+}
+
+bool wire(const Stage &stage, const Wiring &wiring) {
+	bool ready = true;
+	if (wiring.input != NO_DESCRIPTOR) ready = plug(wiring.input, STANDARD_INPUT);
+	if (ready && wiring.output != NO_DESCRIPTOR) ready = plug(wiring.output, STANDARD_OUTPUT);
+	closeDescriptor(wiring.unused);
+	if (ready && stage.input != nullptr) ready = redirect(STANDARD_INPUT, stage.input, INPUT_FLAGS);
+	if (ready && stage.output != nullptr)
+		ready = redirect(STANDARD_OUTPUT, stage.output, OUTPUT_FLAGS | (stage.append ? O_APPEND : O_TRUNC));
+	return ready;
+}
+
+[[noreturn]] void becomeProgram(Client &manager, const char *path, const Stage &stage, const Wiring &wiring) {
+	if (!wire(stage, wiring)) _exit(cock::user::tool::STATUS_FAILURE);
 
 	int status = STATUS_NOT_EXECUTABLE;
 	cock::user::fs::Client files;
 	if (files.connect(cock::abi::fs::SERVER_NAME, true)) {
 		cock::user::ExecFailure failure =
-			cock::user::exec(manager, files, path, argv, static_cast<uint32_t>(words.count));
+			cock::user::exec(manager, files, path, stage.argv, static_cast<uint32_t>(stage.argc));
 		if (failure == cock::user::ExecFailure::NO_FILE) {
-			printf("sh: %s: command not found\n", words.items[FIRST_WORD]);
+			printf("sh: %s: command not found\n", stage.argv[FIRST_WORD]);
 			status = STATUS_NOT_FOUND;
 		} else {
-			printf("sh: %s: cannot execute\n", words.items[FIRST_WORD]);
+			printf("sh: %s: cannot execute\n", stage.argv[FIRST_WORD]);
 		}
 	}
 	_exit(status);
@@ -76,33 +126,62 @@ int notStarted(const char *name) {
 	return STATUS_NOT_STARTED;
 }
 
-int start(const Words &words) {
-	const char *name = words.items[FIRST_WORD];
-	char path[PATH_BYTES] = {};
-	if (!programPath(name, path)) return STATUS_NOT_STARTED;
+int start(const Pipeline &pipeline) {
+	char paths[MAX_STAGES][PATH_BYTES] = {};
+	for (size_t index = 0; index < pipeline.count; index++)
+		if (!programPath(pipeline.stages[index].argv[FIRST_WORD], paths[index])) return STATUS_NOT_STARTED;
 
 	Client *manager = processManager();
-	if (manager == nullptr) return notStarted(name);
+	if (manager == nullptr) return notStarted(pipeline.stages[cock::shell::FIRST_STAGE].argv[FIRST_WORD]);
 
-	Forked forked = manager->fork();
-	if (forked.isChild()) becomeProgram(*manager, path, words);
-	if (forked.status != Status::OK) {
-		if (forked.status == Status::BAD_REQUEST) forgetProcessManager();
-		return notStarted(name);
-	}
+	uint32_t pids[MAX_STAGES] = {};
+	size_t started = 0;
+	int input = NO_DESCRIPTOR;
+	bool failed = false;
+	for (size_t index = 0; index < pipeline.count; index++) {
+		const Stage &stage = pipeline.stages[index];
+		bool last = index + cock::shell::SINGLE_STAGE == pipeline.count;
+		int ends[PIPE_END_COUNT] = {NO_DESCRIPTOR, NO_DESCRIPTOR};
+		if (!last && pipe(ends) != PIPE_CREATED) {
+			cock::user::tool::fail(SHELL_NAME, PIPE_SUBJECT);
+			failed = true;
+			break;
+		}
 
-	Waited waited = manager->wait(forked.pid);
-	if (waited.status != Status::OK) {
-		forgetProcessManager();
-		return notStarted(name);
+		Wiring wiring = {input, ends[PIPE_WRITE_END], ends[PIPE_READ_END]};
+		Forked forked = manager->fork();
+		if (forked.isChild()) becomeProgram(*manager, paths[index], stage, wiring);
+
+		closeDescriptor(input);
+		closeDescriptor(ends[PIPE_WRITE_END]);
+		input = ends[PIPE_READ_END];
+		if (forked.status != Status::OK) {
+			if (forked.status == Status::BAD_REQUEST) forgetProcessManager();
+			notStarted(stage.argv[FIRST_WORD]);
+			failed = true;
+			break;
+		}
+		pids[started++] = forked.pid;
 	}
-	return static_cast<int>(waited.exitStatus);
+	closeDescriptor(input);
+
+	int status = STATUS_NOT_STARTED;
+	for (size_t index = 0; index < started; index++) {
+		Waited waited = manager->wait(pids[index]);
+		if (waited.status != Status::OK) {
+			forgetProcessManager();
+			failed = true;
+			break;
+		}
+		status = static_cast<int>(waited.exitStatus);
+	}
+	return failed ? STATUS_NOT_STARTED : status;
 }
 
 } // namespace
 
-int runProgram(const Words &words) {
-	lastExitStatus = start(words);
+int runPipeline(const Pipeline &pipeline) {
+	lastExitStatus = start(pipeline);
 	return lastExitStatus;
 }
 

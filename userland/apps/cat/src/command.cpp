@@ -7,7 +7,7 @@ using namespace cock::user::tool;
 namespace cock::cat {
 
 int run(int argc, char **argv) {
-	if (argumentCount(argc) < ONE_ARGUMENT) return usage(argv[0], "path...");
+	if (argumentCount(argc) == NO_ARGUMENTS) return copyStandardInput(argv[0]);
 
 	int status = STATUS_OK;
 	for (int index = FIRST_ARGUMENT; index < argc; index++)

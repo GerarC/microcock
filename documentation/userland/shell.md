@@ -25,8 +25,7 @@ The shell keeps four built-in commands, because the state they change belongs to
 | `uname` | Prints `microcock vMAJOR.MINOR.PATCH` (the numbers come from the `Makefile`) |
 | `echo text...` | Prints the words separated by single spaces |
 | `ls [path]` | Lists a directory (the current one by default); a name ending in `/` is a directory; a file prints its own path |
-| `cat path...` | Prints files, one after the other |
-| `write path text...` | Creates or replaces a file with the text and a newline. Temporary: the redirection of W8 replaces it |
+| `cat [path...]` | Prints files, one after the other; with no path it copies its standard input (the console, a file with `<` or the end of a pipe) |
 | `mkdir path...`, `rmdir path...` | Makes directories, removes empty ones |
 | `rm path...` | Deletes files |
 | `mv from to` | Renames or moves; both paths must be on the same volume |
@@ -49,17 +48,29 @@ A word that is not a built-in names a program. A name with no `/` is looked for 
 
 While the program runs the shell waits in `wait`, so it reads no line.
 
+## Redirection and pipes
+An unquoted `|`, `<`, `>` or `>>` is an operator, with or without spaces around it; quoted or after a backslash it is part of a word, and a variable value never makes one (`expand` escapes them). `cock::shell::split` marks each token as a word or an operator (`TokenKind`) and `cock::shell::parsePipeline` (`shared/include/cock/shell/pipeline.hpp`, host tested) groups them into at most four commands, each with its words, its input file and its output file. A redirection takes the word after it as the file name and can sit anywhere in the command (`echo a > f b` is `echo a b` into `f`); a second one of the same kind replaces the first. Input can be redirected only on the first command and output only on the last, because the middle of a pipeline is already connected. The errors are `sh: missing command`, `sh: missing file name after a redirection`, `sh: too many commands in a pipeline` and `sh: input can only be redirected on the first command and output on the last`.
+
+| Operator | Effect on the command |
+|----------|-----------------------|
+| `< path` | `open(path, O_RDONLY)` becomes descriptor 0 |
+| `> path` | `open(path, O_WRONLY \| O_CREAT \| O_TRUNC)` becomes descriptor 1 |
+| `>> path` | `open(path, O_WRONLY \| O_CREAT \| O_APPEND)` becomes descriptor 1 |
+| `a \| b` | A pipe: descriptor 1 of `a` is its write end, descriptor 0 of `b` its read end |
+
+The work is `runPipeline` in `sh/program_commands.cpp`. For each command the shell creates the pipe to the next one (`pipe`), asks `pm` for a copy of itself (`fork`) and, in the copy, puts the pipe ends and the files on descriptors 0 and 1 with `dup2` and closes the original numbers, then `exec`s the program, which keeps the descriptors (the table travels in the argument block, see [descriptors](../libs/descriptors.md)). The shell closes its own copy of each end as soon as the copy exists, so the reader of a pipe sees the end of the data when the writer ends; then it waits for every copy, in order, and the status of the line is the one of the last command. A file that cannot be opened is reported by the copy (`sh: path: reason`, status 1), and the shell then prints `sh: name: exit status 1`. The built-in commands act on the shell itself, so they are refused in a pipeline or with a redirection (`sh: cd: a built-in command cannot be piped or redirected`). The shell reaches the pipe server through the name server, so its line in `initrd/manifest.conf` lists `pipe` in `ipc=`, and its copies inherit that right. A program only keeps a redirected descriptor if it links the file and pipe clients of the C library, which every program of `/bin` does through `STREAM_CLIENT = yes`.
+
 ## How a line is read
 The console server edits the line (echo and Backspace) and delivers it whole, with its newline, when Enter is pressed. `sh` calls `read(0)` in a loop, 12 bytes at a time, until it sees the newline. The call blocks in the kernel until a line is ready (see [console](console.md#what-the-server-does)). A line holds at most 127 characters and 8 words (`cock/shell/words.hpp`, tested on the host in `test/host/test_shell.cpp`).
 
 ## Limits
 * Only `help`, `cd`, `pwd` and `exit` are built in. There is no `PATH`, no variable `$?` yet, and a program cannot be run in the background.
-* No pipes, redirection, history, tab completion or Ctrl+C.
+* No history, tab completion or Ctrl+C. No `2>` and no `&>`: only descriptors 0 and 1 are redirected.
 * Links are not looked at when `..` is resolved: `cd link/..` goes to the parent of the link's name, not of its target.
-* `/` is the `initrd` and is read only, so `write`, `mkdir`, `rm` and `mv` only work under `/fat` and `/ext` and need a disk. A writable `/tmp` in memory is noted in the roadmap (`tmpfs`).
+* `/` is the `initrd` and is read only, so `>`, `mkdir`, `rm` and `mv` only work under `/fat` and `/ext` and need a disk. A writable `/tmp` in memory is noted in the roadmap (`tmpfs`).
 * A line has at most 16 words (the arguments `exec` accepts) and 128 bytes. Quoting: single quotes keep their content literally; double quotes keep it too, except that `\"` and `\\` stand for `"` and `\`; outside quotes `\` makes the next character literal. Quotes join with the text next to them (`a"b c"d` is one word) and `''` is an empty word. A quote that is never closed prints `sh: unterminated quote` and runs nothing. The splitting is `cock::shell::split` (`shared/include/cock/shell/words.hpp`, host tested), done in place.
 * Variables (`$?`, `$PWD` and the ones the user sets). Before the split, `cock::shell::expand` (`shared/include/cock/shell/expand.hpp`, host tested) replaces `$?` (status of the last program), `$PWD` (current directory) and `$NAME` (letters, digits and underscore, not starting with a digit) with their values; an unset name gives an empty text, a `$` followed by anything else stays. Nothing is expanded between single quotes and `\$` is a literal `$`. The value is inserted escaped, so it stays one piece of the word and is never split or read as a quote again (`echo "$X"` and `echo $X` print the same). A line made only of `NAME=value` words sets variables (`cock::shell::Variables`, 16 variables, names up to 31 bytes, values up to 63); `set` prints them and `unset name...` removes them. Variables belong to the shell: programs do not receive them (there is no `export`), and there is no `PATH` because programs are only looked for in `/bin`. An expanded line longer than 128 bytes prints `sh: line too long`. `$?` is changed by programs, not by built-ins.
 * `cat` writes the bytes as they are, so a binary file prints garbage on the screen.
 
 ## Testing
-`scripts/qemu_userland_test.sh` types its commands through the QEMU monitor: `echo`, `uname`, `ps`, `ls /`, `cat /mounts.conf`, `ls /ext`, `write` to `/ext/scratch/sh.txt`, `cat`, `mv`, `cat`, `rm`, a `cat` that fails, `mkdir` and `ls` of a new directory, `rmdir` twice (the second fails), `cd` and `pwd`, four runs of the test program `exitwith` (`test/userland/exitwith`, which prints its arguments and ends with the number it is given: `exitwith 7`, `/bin/exitwith 0`, `./exitwith 5` from `/bin`) and `nosuchprogram`, `sleep 1`, `clear` and a last `echo`. It requires the output of each on the serial log (the file written appears twice, and the failure messages once), the last prompt and output on the screen after `clear`, and the usual `e2fsck` of the ext2 volume at the end.
+`scripts/qemu_userland_test.sh` types its commands through the QEMU monitor: `echo`, `uname`, `ps`, `ls /`, `cat /mounts.conf`, `ls /ext`, `echo` redirected to `/ext/scratch/sh.txt`, `cat`, `mv`, `cat`, `rm`, a `cat` that fails, `mkdir` and `ls` of a new directory, `rmdir` twice (the second fails), `cd` and `pwd`, four runs of the test program `exitwith` (`test/userland/exitwith`, which prints its arguments and ends with the number it is given: `exitwith 7`, `/bin/exitwith 0`, `./exitwith 5` from `/bin`) and `nosuchprogram`, `echo` and `cat` joined by one and by two pipes, `>`, `>>` and `<` into and out of `/ext/scratch/redir.txt` and `copy.txt` (the script reads them back from the ext2 image), `cat < /nowhere` and a line ending in `|`, `sleep 1`, `clear` and a last `echo`. It requires the output of each on the serial log (the file written appears twice, and the failure messages once), the last prompt and output on the screen after `clear`, and the usual `e2fsck` of the ext2 volume at the end.
