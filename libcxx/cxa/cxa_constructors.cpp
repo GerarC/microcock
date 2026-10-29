@@ -1,5 +1,6 @@
 #include <cock/utils/logger.hpp>
 #include <cxa/cxa_constructors.hpp>
+#include <hal/address_space.hpp>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -16,11 +17,12 @@ extern "C" void (*__init_array_start[])();
 extern "C" void (*__init_array_end[])();
 extern "C" void (*__ctors_start[])();
 extern "C" void (*__ctors_end[])();
+extern "C" char _kernel_end[];
 
 static inline int is_valid_text_address(void *p) {
-	uintptr_t addr = (uintptr_t)p;
-	if (addr >= 0x00100000 && addr < 0x01000000) return 1;
-	return 0;
+    uintptr_t addr = (uintptr_t)p;
+    return (addr >= cock::core::hal::KERNEL_SPACE_BASE &&
+            addr < (uintptr_t)_kernel_end);
 }
 
 extern "C" void call_global_constructors() {

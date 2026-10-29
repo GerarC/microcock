@@ -3,16 +3,6 @@
 
 namespace cock::arch::x86::utils {
 
-void out_port_b(uint16_t port, uint8_t value) {
-	asm volatile("outb %0, %1" : : "a"(value), "Nd"(port));
-}
-
-uint8_t in_port_b(uint16_t port) {
-	uint8_t read_value;
-	asm volatile("inb %1, %0" : "=a"(read_value) : "dN"(port));
-	return read_value;
-}
-
 void print_interrupt_registers(const InterruptRegisters *r) {
 	printf("\n==== INTERRUPT REGISTERS ====\n");
 	printf("INT: %u  ERR: 0x%x\n", r->int_no, r->err_code);
@@ -30,7 +20,5 @@ void print_interrupt_registers(const InterruptRegisters *r) {
 	printf("EI: 0x%x\n", r->eip);
 	printf("=============================\n");
 }
-
-uint32_t ceil_div(uint32_t a, uint32_t b) { return ((a + b - 1) / b); }
 
 } // namespace cock::arch::x86::utils

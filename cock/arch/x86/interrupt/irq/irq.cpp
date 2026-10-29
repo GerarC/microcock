@@ -1,56 +1,79 @@
-#include <cock/core/task/scheduler.hpp>
 #include <cock/arch/x86/interrupt/irq/irq.hpp>
 #include <cock/arch/x86/interrupt/pic/pic.hpp>
-#include <cock/utils/panic.hpp>
+#include <cock/core/events.hpp>
+#include <cock/utils/logger.hpp>
+#include <hal/interrupt.hpp>
 namespace cock::arch::x86 {
 
 using utils::InterruptRegisters;
 
 constexpr int BASE_ROUTINE_INDEX = 0x20;
-constexpr uint32_t TIMER_NO = 0x20;
-constexpr int MAX_ROUTINE_INDEX = BASE_ROUTINE_INDEX + IRQ_NUM;
-constexpr const char *INVALID_INTERRUPT_MESSAGE =
-	"Invalid Interrupt Number %u.";
+constexpr uint32_t SPURIOUS_MASTER_IRQ = 7;
+constexpr uint32_t SPURIOUS_SLAVE_IRQ = 15;
+constexpr uint8_t SPURIOUS_BIT = 0x80;
 
-volatile uint64_t irq_counter = 0;
+using cock::utils::Logger;
 
-using cock::utils::panic;
-using utils::out_port_b;
+IrqRoutine irq_routines[IRQ_NUM] = {};
 
-IrqRoutine irq_routines[IRQ_NUM] = {
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-};
-
-void validate_irq(int irq) {
-	if (irq < BASE_ROUTINE_INDEX || irq > MAX_ROUTINE_INDEX)
-		panic(INVALID_INTERRUPT_MESSAGE, irq);
+static bool validate_irq(int irq) {
+	return irq >= BASE_ROUTINE_INDEX &&
+		   irq < BASE_ROUTINE_INDEX + static_cast<int>(IRQ_NUM);
 }
 
 void irq_install_handler(int irq, IrqRoutine handler) {
+	if (!validate_irq(irq)) {
+		Logger::error("Invalid Interrupt Number %d.", irq);
+		return;
+	}
 	irq_routines[irq - BASE_ROUTINE_INDEX] = handler;
+	PIC_unmask(static_cast<uint8_t>(irq - BASE_ROUTINE_INDEX));
 }
 
 void irq_uninstall_handler(int irq) {
-	irq_routines[irq - BASE_ROUTINE_INDEX] = 0;
+	if (!validate_irq(irq)) {
+		Logger::error("Invalid Interrupt Number %d.", irq);
+		return;
+	}
+	PIC_mask(static_cast<uint8_t>(irq - BASE_ROUTINE_INDEX));
+	irq_routines[irq - BASE_ROUTINE_INDEX] = nullptr;
+}
+
+static bool is_spurious(uint32_t irq) {
+	if (irq == SPURIOUS_MASTER_IRQ)
+		return !(PIC_read_isr(false) & SPURIOUS_BIT);
+
+	if (irq == SPURIOUS_SLAVE_IRQ) {
+		if (PIC_read_isr(true) & SPURIOUS_BIT) return false;
+		PIC_end_of_interrupt(static_cast<uint8_t>(CASCADE_IRQ));
+		return true;
+	}
+	return false;
 }
 
 extern "C" uintptr_t irq_handler(uintptr_t current_esp) {
 	InterruptRegisters *regs =
 		reinterpret_cast<InterruptRegisters *>(current_esp);
 
-	size_t handler_index = regs->int_no - BASE_ROUTINE_INDEX;
+	uint32_t line = regs->int_no - BASE_ROUTINE_INDEX;
+	if (line >= IRQ_NUM) return current_esp;
+	if (is_spurious(line)) return current_esp;
 
-	if (handler_index < IRQ_NUM) {
-		IrqRoutine handler = irq_routines[handler_index];
+	IrqRoutine handler = irq_routines[line];
+	if (handler) handler(regs);
+	PIC_end_of_interrupt(static_cast<uint8_t>(line));
 
-		if (handler) handler(regs);
-		if (regs->int_no >= 40) out_port_b((uint16_t)PIC2::COMMAND, 0x20);
-		out_port_b((uint16_t)PIC1::COMMAND, 0x20);
-	}
-
-	if (regs->int_no == TIMER_NO)
-		return cock::core::task::Scheduler::schedule(current_esp);
-	return current_esp;
+	return core::events::on_irq(line, current_esp);
 }
 
 } // namespace cock::arch::x86
+
+namespace cock::core::hal {
+
+void irq_mask(uint32_t line) { arch::x86::PIC_mask(static_cast<uint8_t>(line)); }
+
+void irq_unmask(uint32_t line) {
+	arch::x86::PIC_unmask(static_cast<uint8_t>(line));
+}
+
+} // namespace cock::core::hal

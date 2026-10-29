@@ -1,3 +1,4 @@
+#include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/core/memory/heap.hpp>
 #include <cock/core/memory/vmm.hpp>
 #include <stddef.h>
@@ -8,7 +9,7 @@ namespace cock::core::memory {
 Heap kernel_heap;
 
 void Heap::insertFreeBlock(MemoryBlock *block) {
-	block->is_free = true;
+	block->setFree(true);
 	if (head == nullptr || head > block) {
 		block->next = head;
 		head = block;
@@ -27,7 +28,7 @@ void Heap::insertFreeBlock(MemoryBlock *block) {
 void Heap::removeFreeBlock(MemoryBlock *block, MemoryBlock *prev) {
 	if (prev == nullptr) head = block->next;
 	else prev->next = block->next;
-	block->is_free = false;
+	block->setFree(false);
 }
 
 MemoryBlock *Heap::findFirstAvailable(size_t size, MemoryBlock **out_prev) {
@@ -35,7 +36,7 @@ MemoryBlock *Heap::findFirstAvailable(size_t size, MemoryBlock **out_prev) {
 	MemoryBlock *prev = nullptr;
 
 	while (current != nullptr) {
-		if (current->size >= size) {
+		if (current->size() >= size) {
 			if (out_prev) *out_prev = prev;
 			return current;
 		}
@@ -50,47 +51,52 @@ void Heap::coalesce() {
 	MemoryBlock *current = head;
 	while (current != nullptr && current->next != nullptr) {
 		uintptr_t current_end = reinterpret_cast<uintptr_t>(current) +
-								sizeof(MemoryBlock) + current->size;
+								sizeof(MemoryBlock) + current->size();
 		if (current_end == reinterpret_cast<uintptr_t>(current->next)) {
-			current->size += sizeof(MemoryBlock) + current->next->size;
+			current->setSize(current->size() + sizeof(MemoryBlock) +
+							 current->next->size());
 			current->next = current->next->next;
 		} else current = current->next;
 	}
 }
 
 void Heap::split(MemoryBlock *block, size_t needed_size) {
-	if (block->size > needed_size + sizeof(MemoryBlock) + ALIGNMENT) {
+	if (block->size() > needed_size + sizeof(MemoryBlock) + ALIGNMENT) {
 		MemoryBlock *new_block =
 			reinterpret_cast<MemoryBlock *>(reinterpret_cast<uint8_t *>(block) +
 											sizeof(MemoryBlock) + needed_size);
-		new_block->size = block->size - needed_size - sizeof(MemoryBlock);
-		new_block->is_free = true;
+		new_block->set(block->size() - needed_size - sizeof(MemoryBlock), true);
 
 		new_block->next = block->next;
 		block->next = new_block;
-		block->size = needed_size;
+		block->setSize(needed_size);
 	}
 }
 
 void *Heap::allocate(size_t size) {
 	if (size == 0) return nullptr;
+	if (size > SIZE_MAX - sizeof(MemoryBlock) - ALIGNMENT - hal::PAGE_SIZE)
+		return nullptr;
+
+	hal::InterruptGuard guard;
 	size_t aligned_size = alignUp(size);
 	MemoryBlock *prev = nullptr;
 	MemoryBlock *block = findFirstAvailable(aligned_size, &prev);
 
 	if (block == nullptr) {
 		size_t total_needed = sizeof(MemoryBlock) + aligned_size;
-		size_t pages = (total_needed + PAGE_SIZE - 1) / PAGE_SIZE;
+		size_t pages = (total_needed + hal::PAGE_MASK) >> hal::PAGE_SHIFT;
 
 		void *new_pages = VirtualMemoryManager::allocPages(pages);
 		if (!new_pages) return nullptr;
 
 		block = reinterpret_cast<MemoryBlock *>(new_pages);
-		block->size = (pages * PAGE_SIZE) - sizeof(MemoryBlock);
+		block->set((pages << hal::PAGE_SHIFT) - sizeof(MemoryBlock), true);
 
 		insertFreeBlock(block);
 
 		block = findFirstAvailable(aligned_size, &prev);
+		if (block == nullptr) return nullptr;
 	}
 	split(block, aligned_size);
 	removeFreeBlock(block, prev);
@@ -101,14 +107,18 @@ void *Heap::allocate(size_t size) {
 
 void Heap::free(void *ptr) {
 	if (ptr == nullptr) return;
+
+	hal::InterruptGuard guard;
 	MemoryBlock *block = reinterpret_cast<MemoryBlock *>(
 		reinterpret_cast<uint8_t *>(ptr) - sizeof(MemoryBlock));
-	if (block->is_free) return;
+	if (block->isFree()) return;
 	insertFreeBlock(block);
 	coalesce();
 }
 
 void *Heap::callocate(size_t num, size_t size) {
+	if (size != 0 && num > SIZE_MAX / size) return nullptr;
+
 	size_t total_size = num * size;
 	void *ptr = allocate(total_size);
 	if (ptr != nullptr) memset(ptr, 0, total_size);
@@ -125,11 +135,11 @@ void *Heap::reallocate(void *ptr, size_t size) {
 
 	MemoryBlock *block = reinterpret_cast<MemoryBlock *>(
 		reinterpret_cast<uint8_t *>(ptr) - sizeof(MemoryBlock));
-	if (block->size >= size) return ptr;
+	if (block->size() >= size) return ptr;
 
 	void *new_ptr = allocate(size);
 	if (new_ptr != nullptr) {
-		memcpy(new_ptr, ptr, block->size);
+		memcpy(new_ptr, ptr, block->size());
 		free(ptr);
 	}
 

@@ -1,166 +1,275 @@
-#include <cock/arch/x86/memory/paging.hpp>
+#include <cock/arch/x86/boot/boot_memory.hpp>
+#include <cock/arch/x86/memory/layout.hpp>
 #include <cock/arch/x86/memory/pmm.hpp>
-#include <cock/arch/x86/utils/helpers.hpp>
+#include <cock/core/hal/interrupt_guard.hpp>
 #include <cock/utils/logger.hpp>
 #include <cock/utils/panic.hpp>
 #include <stdint.h>
 #include <string.h>
 
-extern "C" void flush_tlb();
-extern "C" void invalpg(void *addr);
+extern "C" char _kernel_end[];
 
 namespace cock::arch::x86 {
+
+using core::hal::InterruptGuard;
+using core::memory::PhysAddr;
 using cock::utils::Logger;
 using cock::utils::panic;
 
-extern "C" uint32_t page_directory[PAGE_DIR_SIZE];
+namespace {
 
-// Initialization
-MBInfo *PhysicalMemoryManager::bootInfo = nullptr;
-uint32_t PhysicalMemoryManager::pageFrameMin;
-uint32_t PhysicalMemoryManager::pageFrameMax;
-uint32_t PhysicalMemoryManager::totalAlloc;
-uint32_t PhysicalMemoryManager::physicalMemoryBitMap[NUM_PAGE_FRAMES / 32];
-PageDirectory *PhysicalMemoryManager::currentDirectory = nullptr;
+constexpr uint32_t BITS_PER_WORD = 32;
+constexpr uint32_t BITMAP_WORDS = MAX_PHYSICAL_FRAMES / BITS_PER_WORD;
+constexpr uint32_t NO_FRAME = 0xFFFFFFFF;
+constexpr uint32_t FULL_WORD = 0xFFFFFFFF;
+constexpr uint32_t REAL_MODE_AREA_END = 0x100000;
+constexpr uint32_t BOOT_STRING_SIZE = 0x100;
+constexpr uint32_t MMAP_SIZE_FIELD = 4;
+constexpr uint32_t MMAP_MIN_ENTRY_SIZE = 20;
+constexpr uint32_t KIBIBYTE = 0x400;
+constexpr unsigned HIGH_WORD_SHIFT = 32;
+constexpr uint8_t NO_REFERENCES = 0;
+constexpr uint8_t FIRST_REFERENCE = 1;
 
-void PhysicalMemoryManager::init(MBInfo *boot_info) {
-	bootInfo = boot_info;
-	uint32_t physical_alloc_start = 0;
+uint32_t frameBitmap[BITMAP_WORDS];
+uint32_t ramBitmap[BITMAP_WORDS];
+uint32_t allocatedBitmap[BITMAP_WORDS];
+uint8_t referenceCounts[MAX_PHYSICAL_FRAMES];
+uint32_t frameLimit = 0;
+uint32_t searchHint = 0;
+uint32_t usedFrames = 0;
+uint32_t freeFrames = 0;
 
-	if ((bootInfo->flags & (1 << 3)) && bootInfo->mods_count > 0) {
+inline bool testFrame(uint32_t frame) {
+	return frameBitmap[frame / BITS_PER_WORD] & (1u << (frame % BITS_PER_WORD));
+}
 
-		uint32_t mods_virt = bootInfo->mods_address + KERNEL_START;
+inline void setFrame(uint32_t frame) {
+	frameBitmap[frame / BITS_PER_WORD] |= (1u << (frame % BITS_PER_WORD));
+}
 
-		uint32_t mod1 = *reinterpret_cast<uint32_t *>(mods_virt + 4);
-		physical_alloc_start = (mod1 + TABLE_MASK) & ~TABLE_MASK;
+inline void markRam(uint32_t frame) {
+	ramBitmap[frame / BITS_PER_WORD] |= (1u << (frame % BITS_PER_WORD));
+}
 
-	} else {
-		physical_alloc_start = 0x400000;
+inline bool testAllocated(uint32_t frame) {
+	return allocatedBitmap[frame / BITS_PER_WORD] &
+		   (1u << (frame % BITS_PER_WORD));
+}
+
+inline void setAllocated(uint32_t frame) {
+	allocatedBitmap[frame / BITS_PER_WORD] |= (1u << (frame % BITS_PER_WORD));
+}
+
+inline void clearAllocated(uint32_t frame) {
+	allocatedBitmap[frame / BITS_PER_WORD] &= ~(1u << (frame % BITS_PER_WORD));
+}
+
+inline void clearFrame(uint32_t frame) {
+	frameBitmap[frame / BITS_PER_WORD] &= ~(1u << (frame % BITS_PER_WORD));
+}
+
+void releaseRange(uint64_t start, uint64_t end) {
+	uint64_t first = (start + PAGE_MASK) >> PAGE_SHIFT;
+	uint64_t last = end >> PAGE_SHIFT;
+	if (last > MAX_PHYSICAL_FRAMES) last = MAX_PHYSICAL_FRAMES;
+
+	for (uint64_t frame = first; frame < last; frame++) {
+		clearFrame(static_cast<uint32_t>(frame));
+		markRam(static_cast<uint32_t>(frame));
 	}
-
-	initMemory(physical_alloc_start);
-	Logger::debug("Physical Memory Manager initializated");
+	if (last > frameLimit) frameLimit = static_cast<uint32_t>(last);
 }
 
-void PhysicalMemoryManager::initMemory(uint32_t physicalAllocStart) {
-	uint32_t mem_high = bootInfo->mem_upper * PAGE_DIR_SIZE;
+void reserveRange(uint32_t start, uint32_t end) {
+	if (end <= start) return;
 
-	currentDirectory = reinterpret_cast<PageDirectory *>(&page_directory);
+	uint64_t first = start >> PAGE_SHIFT;
+	uint64_t last = (static_cast<uint64_t>(end) + PAGE_MASK) >> PAGE_SHIFT;
+	if (last > MAX_PHYSICAL_FRAMES) last = MAX_PHYSICAL_FRAMES;
 
-	pmmInit(physicalAllocStart, mem_high);
+	for (uint64_t frame = first; frame < last; frame++)
+		setFrame(static_cast<uint32_t>(frame));
 }
 
-void PhysicalMemoryManager::invalidatePage(uint32_t virtual_address) {
-	asm volatile("invlpg (%0)" ::"r"(virtual_address) : "memory");
-}
+void loadMemoryMap(const MBInfo *info) {
+	if (info->flags & MULTIBOOT_FLAG_MMAP) {
+		const uint8_t *cursor = static_cast<const uint8_t *>(BootMemory::map(
+			PhysAddr(info->mmap_address), info->mmap_length));
+		if (!cursor) panic("PMM: memory map is unreachable");
+		const uint8_t *end = cursor + info->mmap_length;
 
-void PhysicalMemoryManager::pmmInit(uint32_t mem_low, uint32_t mem_high) {
-	pageFrameMin = utils::ceil_div(mem_low, PAGE_SIZE);
-	pageFrameMax = mem_high / PAGE_SIZE;
-	totalAlloc = 0;
+		while (cursor < end) {
+			const MBMemoryMapEntry *entry =
+				reinterpret_cast<const MBMemoryMapEntry *>(cursor);
+			if (entry->size < MMAP_MIN_ENTRY_SIZE) break;
 
-	memset(physicalMemoryBitMap, 0, sizeof(physicalMemoryBitMap));
-	for (uint32_t frame_idx = 0; frame_idx < pageFrameMin; frame_idx++)
-		setBit(frame_idx);
-}
-
-void PhysicalMemoryManager::setBit(uint32_t frame_idx) {
-	physicalMemoryBitMap[frame_idx / FRAME_SIZE] |=
-		(1 << (frame_idx % FRAME_SIZE));
-}
-
-void PhysicalMemoryManager::unsetBit(uint32_t frame_idx) {
-	physicalMemoryBitMap[frame_idx / FRAME_SIZE] &=
-		~(1 << (frame_idx % FRAME_SIZE));
-}
-
-bool PhysicalMemoryManager::testBit(uint32_t frame_idx) {
-	return physicalMemoryBitMap[frame_idx / FRAME_SIZE] &
-		   (1 << (frame_idx % FRAME_SIZE));
-}
-
-uint32_t PhysicalMemoryManager::firstFreeFrame() {
-	for (uint32_t page_frame_idx = 0;
-		 page_frame_idx < (NUM_PAGE_FRAMES / FRAME_SIZE); page_frame_idx++) {
-		if (physicalMemoryBitMap[page_frame_idx] != LAST_ADDRESS)
-			for (uint32_t offset = 0; offset < FRAME_SIZE; offset++) {
-				uint32_t bit = 1 << offset;
-				if (!(physicalMemoryBitMap[page_frame_idx] & bit))
-					return page_frame_idx * FRAME_SIZE + offset;
+			if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
+				uint64_t base =
+					(static_cast<uint64_t>(entry->address_high) << HIGH_WORD_SHIFT) |
+					entry->address_low;
+				uint64_t length =
+					(static_cast<uint64_t>(entry->lenght_high) << HIGH_WORD_SHIFT) |
+					entry->lenght_low;
+				releaseRange(base, base + length);
 			}
-	}
-	return LAST_ADDRESS; // Out of Memory
-}
-
-uint32_t PhysicalMemoryManager::allocFrame() {
-	uint32_t frame = firstFreeFrame();
-	if (frame == LAST_ADDRESS) { panic("PH OUT OF MEMORY"); }
-	setBit(frame);
-	totalAlloc++;
-
-	return frame * PAGE_SIZE;
-}
-
-void PhysicalMemoryManager::freeFrame(uint32_t phys_addr) {
-	uint32_t frame = phys_addr / PAGE_SIZE;
-	unsetBit(frame);
-	totalAlloc--;
-}
-
-void PhysicalMemoryManager::mapPage(uint32_t phys, uint32_t virt,
-									uint32_t flags) {
-	uint32_t pd_idx = virt >> PAGE_DIRECTORY_IDX_OFFSET;
-	uint32_t pt_idx = (virt >> PAGE_TABLE_IDX_OFFSET) & DIRECTORY_MASK;
-
-	PageDirectory *virtual_pd =
-		reinterpret_cast<PageDirectory *>(LAST_ADDRESS - TABLE_MASK);
-
-	if (!(virtual_pd->entries[pd_idx] & PRESENT)) {
-		uint32_t pt_phys = allocFrame();
-		virtual_pd->entries[pd_idx] =
-			pt_phys | PRESENT | WRITEABLE | (flags & USER);
-
-		uint32_t pt_virt = 0xFFC00000 + (pd_idx * PAGE_SIZE);
-
-		invalidatePage(pt_virt);
-
-		memset(reinterpret_cast<void *>(pt_virt), 0, PAGE_SIZE);
+			cursor += entry->size + MMAP_SIZE_FIELD;
+		}
+		return;
 	}
 
-	uint32_t pt_virt = 0xFFC00000 + (pd_idx * PAGE_SIZE);
-	PageTable *table = reinterpret_cast<PageTable *>(pt_virt);
-	table->entries[pt_idx] = (phys & ~TABLE_MASK) | flags;
-	invalidatePage(virt);
+	if (info->flags & MULTIBOOT_FLAG_MEMORY) {
+		uint64_t upper = static_cast<uint64_t>(info->mem_upper) * KIBIBYTE;
+		releaseRange(REAL_MODE_AREA_END, REAL_MODE_AREA_END + upper);
+		return;
+	}
+
+	panic("PMM: bootloader did not provide memory information");
 }
 
-void PhysicalMemoryManager::unmapPage(uint32_t virt) {
-	uint32_t pd_idx = virt >> PAGE_DIRECTORY_IDX_OFFSET;
-	uint32_t pt_idx = (virt >> PAGE_TABLE_IDX_OFFSET) & DIRECTORY_MASK;
-	PageDirectory *virtual_pd =
-		reinterpret_cast<PageDirectory *>(LAST_ADDRESS - TABLE_MASK);
+void reserveBootStructures(const MBInfo *info, PhysAddr info_phys) {
+	reserveRange(info_phys.raw(), info_phys.raw() + sizeof(MBInfo));
 
-	if (!(virtual_pd->entries[pd_idx] & PRESENT)) return;
+	if (info->flags & MULTIBOOT_FLAG_MMAP)
+		reserveRange(info->mmap_address,
+					 info->mmap_address + info->mmap_length);
 
-	uint32_t pt_virt = 0xFFC00000 + (pd_idx * PAGE_SIZE);
-	PageTable *table = reinterpret_cast<PageTable *>(pt_virt);
-	table->entries[pt_idx] = 0;
+	if ((info->flags & MULTIBOOT_FLAG_CMDLINE) && info->cmdline)
+		reserveRange(info->cmdline, info->cmdline + BOOT_STRING_SIZE);
 
-	invalidatePage(virt);
+	if (!(info->flags & MULTIBOOT_FLAG_MODULES) || info->mods_count == 0)
+		return;
+
+	uint32_t list_size = info->mods_count * sizeof(MBModuleList);
+	reserveRange(info->mods_address, info->mods_address + list_size);
+
+	const MBModuleList *modules = static_cast<const MBModuleList *>(
+		BootMemory::map(PhysAddr(info->mods_address), list_size));
+	if (!modules) panic("PMM: module list is unreachable");
+
+	for (uint32_t idx = 0; idx < info->mods_count; idx++) {
+		reserveRange(modules[idx].mod_start, modules[idx].mod_end);
+		if (modules[idx].cmdline)
+			reserveRange(modules[idx].cmdline,
+						 modules[idx].cmdline + BOOT_STRING_SIZE);
+	}
 }
 
-uint32_t PhysicalMemoryManager::getPhysicalAddress(uint32_t virt) {
-	uint32_t pd_idx = virt >> PAGE_DIRECTORY_IDX_OFFSET;
-	uint32_t pt_idx = (virt >> PAGE_TABLE_IDX_OFFSET) & DIRECTORY_MASK;
-	PageDirectory *virtual_pd =
-		reinterpret_cast<PageDirectory *>(LAST_ADDRESS - TABLE_MASK);
+uint32_t findFreeFrame() {
+	uint32_t words = (frameLimit + BITS_PER_WORD - 1) / BITS_PER_WORD;
+	if (words == 0) return NO_FRAME;
 
-	if (!(virtual_pd->entries[pd_idx] & PRESENT)) return NULL_PTR;
+	for (uint32_t step = 0; step < words; step++) {
+		uint32_t word = (searchHint + step) % words;
+		uint32_t value = frameBitmap[word];
+		if (value == FULL_WORD) continue;
 
-	uint32_t pt_virt = 0xFFC00000 + (pd_idx * PAGE_SIZE);
-	PageTable *table = reinterpret_cast<PageTable *>(pt_virt);
-	if (!(table->entries[pt_idx] & PRESENT)) return NULL_PTR;
+		uint32_t frame = word * BITS_PER_WORD + __builtin_ctz(~value);
+		if (frame >= frameLimit) continue;
 
-	return (table->entries[pt_idx] & ~TABLE_MASK) + (virt & TABLE_MASK);
+		searchHint = word;
+		return frame;
+	}
+	return NO_FRAME;
+}
+
+} // namespace
+
+void PhysicalMemoryManager::init(const MBInfo *boot_info, PhysAddr boot_info_phys) {
+	memset(frameBitmap, 0xFF, sizeof(frameBitmap));
+	memset(ramBitmap, 0, sizeof(ramBitmap));
+	memset(allocatedBitmap, 0, sizeof(allocatedBitmap));
+	memset(referenceCounts, NO_REFERENCES, sizeof(referenceCounts));
+	frameLimit = 0;
+	searchHint = 0;
+	usedFrames = 0;
+
+	loadMemoryMap(boot_info);
+
+	uint32_t kernel_end_phys =
+		reinterpret_cast<uint32_t>(_kernel_end) - KERNEL_BASE;
+	reserveRange(0, REAL_MODE_AREA_END);
+	reserveRange(0, kernel_end_phys);
+	reserveBootStructures(boot_info, boot_info_phys);
+
+	freeFrames = 0;
+	for (uint32_t frame = 0; frame < frameLimit; frame++) {
+		if (!testFrame(frame)) freeFrames++;
+	}
+
+	Logger::debug("Physical Memory Manager initializated (%u KiB addressable)",
+				  frameLimit * (PAGE_SIZE / KIBIBYTE));
+}
+
+bool PhysicalMemoryManager::isRam(PhysAddr address) {
+	size_t frame = address.frameNumber();
+	if (frame >= MAX_PHYSICAL_FRAMES) return false;
+	return ramBitmap[frame / BITS_PER_WORD] & (1u << (frame % BITS_PER_WORD));
+}
+
+size_t PhysicalMemoryManager::freeFrameCount() { return freeFrames; }
+
+PhysAddr PhysicalMemoryManager::allocFrame() {
+	InterruptGuard guard;
+
+	uint32_t frame = findFreeFrame();
+	if (frame == NO_FRAME) return PhysAddr();
+
+	setFrame(frame);
+	setAllocated(frame);
+	referenceCounts[frame] = FIRST_REFERENCE;
+	usedFrames++;
+	freeFrames--;
+	return PhysAddr(frame * PAGE_SIZE);
+}
+
+bool PhysicalMemoryManager::shareFrame(PhysAddr address) {
+	InterruptGuard guard;
+
+	uint32_t frame = static_cast<uint32_t>(address.frameNumber());
+	if (frame >= frameLimit || !testAllocated(frame)) return false;
+	if (referenceCounts[frame] >= MAX_FRAME_REFERENCES) return false;
+
+	referenceCounts[frame]++;
+	return true;
+}
+
+uint32_t PhysicalMemoryManager::frameReferences(PhysAddr address) {
+	InterruptGuard guard;
+
+	uint32_t frame = static_cast<uint32_t>(address.frameNumber());
+	if (frame >= frameLimit || !testAllocated(frame)) return NO_REFERENCES;
+	return referenceCounts[frame];
+}
+
+void PhysicalMemoryManager::freeFrame(PhysAddr address) {
+	InterruptGuard guard;
+
+	uint32_t frame = static_cast<uint32_t>(address.frameNumber());
+	if (frame >= frameLimit || !testAllocated(frame)) return;
+	if (referenceCounts[frame] > FIRST_REFERENCE) {
+		referenceCounts[frame]--;
+		return;
+	}
+
+	referenceCounts[frame] = NO_REFERENCES;
+	clearAllocated(frame);
+	clearFrame(frame);
+	freeFrames++;
+	if (usedFrames > 0) usedFrames--;
+	if (frame / BITS_PER_WORD < searchHint) searchHint = frame / BITS_PER_WORD;
+}
+
+void PhysicalMemoryManager::releaseBootFrame(PhysAddr address) {
+	InterruptGuard guard;
+
+	uint32_t frame = static_cast<uint32_t>(address.frameNumber());
+	if (frame >= frameLimit || !isRam(address) || !testFrame(frame) || testAllocated(frame))
+		return;
+
+	clearFrame(frame);
+	freeFrames++;
+	if (frame / BITS_PER_WORD < searchHint) searchHint = frame / BITS_PER_WORD;
 }
 
 } // namespace cock::arch::x86

@@ -1,6 +1,10 @@
-#include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#if !defined(__is_libk)
+#include "../unistd/stdout.hpp"
+#include <unistd.h>
+#endif
 
 // Max int32
 constexpr size_t MAX_NUMBER_SIZE = 64;
@@ -8,6 +12,7 @@ constexpr size_t MAX_STRING_SIZE = 1024;
 
 constexpr const char *DIGIT_DICTIONARY = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 constexpr const char *NULL_STRING_MESSAGE = "(null)";
+constexpr const char *POINTER_PREFIX = "0x";
 constexpr char NEGATIVE_PREFIX = '-';
 constexpr char SPEC_DELIMITER = '%';
 constexpr char END_OF_STRING = '\0';
@@ -19,6 +24,7 @@ constexpr int DEFAULT_INDEX = 0;
 constexpr int SUCCESS = 0;
 constexpr int ERROR = -1;
 constexpr int EMPTY = 0;
+constexpr int STDOUT_DESCRIPTOR = 1;
 
 // TYPES
 typedef int (*StreamWriteBufferFunction)(const char *);
@@ -38,6 +44,8 @@ typedef struct _stream_t {
 	size_t index;
 	char *buffer;
 	StreamWriteBufferFunction write_all;
+	size_t total;
+	int status;
 } Stream;
 
 // Auxiliar functions
@@ -47,11 +55,22 @@ typedef struct _stream_t {
  * */
 static int print(const char *data) {
 	size_t length = strlen(data);
+#if defined(__is_libk)
 	const unsigned char *bytes = (const unsigned char *)data;
 	for (size_t i = 0; i < length; i++) {
 		if (putchar(bytes[i]) == EOF) return i;
 	}
 	return (length);
+#else
+	if (__stdout_put != nullptr) return (int)__stdout_put(data, length);
+	size_t written = 0;
+	while (written < length) {
+		ssize_t count = write(STDOUT_DESCRIPTOR, data + written, length - written);
+		if (count <= 0) return written;
+		written += (size_t)count;
+	}
+	return (length);
+#endif
 }
 
 /**
@@ -65,11 +84,16 @@ static int print_stream_buffer(Stream &stream) {
 	stream.buffer[stream.index] = END_OF_STRING;
 	// writes the buffer and return 1 on failure
 	size_t written = (size_t)stream.write_all(stream.buffer);
-	if (written != stream.index) return ERROR;
+	size_t pending = stream.index;
 
 	// Clears the buffer
 	memset(stream.buffer, EMPTY, stream.capacity);
 	stream.index = DEFAULT_INDEX;
+	stream.total += written;
+	if (written != pending) {
+		stream.status = ERROR;
+		return ERROR;
+	}
 	return SUCCESS;
 }
 
@@ -106,7 +130,7 @@ static int push_all_to_buffer(Stream &stream, const char *str) {
  * */
 static void push_int_to_buffer(Stream &stream, unsigned int val,
 							   unsigned int base, int is_signed) {
-	static char buffer[MAX_NUMBER_SIZE] = {EMPTY};
+	char buffer[MAX_NUMBER_SIZE] = {EMPTY};
 	int i = MAX_NUMBER_SIZE - 1;
 	buffer[i] = END_OF_STRING;
 
@@ -114,9 +138,7 @@ static void push_int_to_buffer(Stream &stream, unsigned int val,
 		int sval = (int)val;
 		if (sval < INT_ZERO) {
 			push_to_buffer(stream, NEGATIVE_PREFIX);
-			val = (unsigned int)(-sval);
-		} else {
-			val = sval;
+			val = 0u - val;
 		}
 	}
 
@@ -152,7 +174,9 @@ int vprintf(const char *format, va_list args) {
 	Stream stream = {.capacity = sizeof(buffer),
 					 .index = DEFAULT_INDEX,
 					 .buffer = buffer,
-					 .write_all = print};
+					 .write_all = print,
+					 .total = EMPTY,
+					 .status = SUCCESS};
 	for (size_t i = 0; format[i] != END_OF_STRING; i++) {
 		char current = format[i];
 
@@ -169,6 +193,11 @@ int vprintf(const char *format, va_list args) {
 			continue;
 		}
 
+		if (format[i + STEP] == END_OF_STRING) {
+			push_to_buffer(stream, SPEC_DELIMITER);
+			break;
+		}
+
 		SpecType spec = (SpecType)format[++i];
 		int is_signed = 0;
 
@@ -180,9 +209,15 @@ int vprintf(const char *format, va_list args) {
 								   is_signed);
 				break;
 			}
+			case SPEC_POINTER: {
+				unsigned int val =
+					(unsigned int)(uintptr_t)va_arg(args, void *);
+				push_all_to_buffer(stream, POINTER_PREFIX);
+				push_int_to_buffer(stream, val, 16, is_signed);
+				break;
+			}
 			case SPEC_UNSIGNED:
 			case SPEC_HEX:
-			case SPEC_POINTER:
 			case SPEC_OCTAL: {
 				unsigned int val = va_arg(args, unsigned int);
 				push_int_to_buffer(stream, val, int_flag_to_base(spec),
@@ -205,8 +240,9 @@ int vprintf(const char *format, va_list args) {
 				break;
 		}
 	}
-	int r = print_stream_buffer(stream);
-	return r;
+	print_stream_buffer(stream);
+	if (stream.status != SUCCESS) return ERROR;
+	return (int)stream.total;
 }
 
 int printf(const char *__restrict format, ...) {
