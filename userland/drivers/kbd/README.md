@@ -64,7 +64,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler. The userland test sends keys 
 
 ## Documentation
 
-- [Keyboard driver](../../../documentation/userland/keyboard.md)
-- [Console server](../../../documentation/userland/console.md)
+- [Keyboard driver](../../../documentation/userland/drivers/keyboard.md)
+- [Console server](../../../documentation/userland/drivers/console.md)
 - [Capabilities](../../../documentation/core/capabilities.md)
 - [IPC and interrupts as messages](../../../documentation/core/ipc.md)

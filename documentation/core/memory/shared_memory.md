@@ -1,0 +1,11 @@
+# Shared memory
+
+A **shared memory object** is a list of frames kept by the kernel (`SharedMemory`, `cock/core/memory/shared_memory.*`). The table is fixed: 32 objects (`MAX_OBJECTS`) of at most 1024 pages (4 MiB) each (`MAX_OBJECT_PAGES`), with at most 8 holders per object (`MAX_HOLDERS`). Nothing comes from the kernel [heap](heap.md). The `initrd` is one such object (see [boot modules](boot_modules.md)), so the archive can be at most 4 MiB; the test initrd, with every test program, is about 530 KiB.
+
+* `SYS_SHM_CREATE(pages)` takes zeroed frames, all or none and leaving the kernel reserve free (`VirtualMemoryManager::allocFrames`), charges the pages to the creator against `Process::MAX_OWNED_PAGES` (see [process limits](process_limits.md)), and returns the object id. The creator is the first holder, with write access.
+* `SYS_SHM_SHARE(id, pid, writable)` makes a live process a holder. Only a holder can share, nobody can give more access than it has, and the two processes need a handle between them: one holds a handle on an endpoint the other receives on (`mayShare`, see [capabilities](../capabilities.md#the-ipc-capability)). Sharing again with a holder only raises its access.
+* `SYS_SHM_MAP(id, writable)` maps the whole object at a free range, found as for anonymous `mmap`, and returns the address. The caller must hold the object, and a writable mapping needs write access. The pages are mapped with the `SHARED` permission, which marks them as not owned, so `munmap` and the death of the process never return the frames; a read only mapping has no write bit. The mapping uses a slot of the region table, records the object id, and does not count as owned pages.
+* `SYS_SHM_RELEASE(id)` drops the right of the caller. Mappings it already made stay until they are unmapped.
+* An object is freed when it has no holders and no mappings left: its frames go back to the [PMM](pmm.md) and the pages are returned to the quota of the creator if it is still alive. When a process dies the kernel drops its mappings and its rights (`SharedMemory::dropProcess`), and an object whose creator died stays until the last user lets go.
+
+A [fork](copy_on_write.md) keeps shared mappings shared and writable: the child becomes a holder of every object the parent maps, with the parent's access.

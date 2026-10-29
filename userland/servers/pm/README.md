@@ -75,6 +75,6 @@ The table itself is in `shared/include/cock/pm/table.hpp` (host tests in `test/h
 
 ## Documentation
 
-- [pm](../../../documentation/userland/pm.md)
-- [rs](../../rs/README.md)
-- [init](../../init/README.md)
+- [pm](../../../documentation/userland/servers/pm.md)
+- [rs](../rs/README.md)
+- [init](../init/README.md)

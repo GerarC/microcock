@@ -16,7 +16,7 @@ rs      --DEFINE, ALLOW, BIND--> names
 
 ## Protocol
 
-Header `shared/include/cock/abi/names.hpp`; the page [names](../../../documentation/userland/names.md) has the tables. A request is a synchronous call of four words: the operation, the part number, a flag and a label in word 0, 12 bytes of a name in words 1 to 3. A name of up to 60 bytes comes in up to five parts and the server answers `MORE` until the last. A short name is the same as the path `/run/<name>`. `CONNECT` comes from any registered program. `DEFINE`, `ALLOW` and `BIND` are accepted only from `ROOT_PID`; anyone else gets `NOT_ROOT`.
+Header `shared/include/cock/abi/names.hpp`; the page [names](../../../documentation/userland/servers/names.md) has the tables. A request is a synchronous call of four words: the operation, the part number, a flag and a label in word 0, 12 bytes of a name in words 1 to 3. A name of up to 60 bytes comes in up to five parts and the server answers `MORE` until the last. A short name is the same as the path `/run/<name>`. `CONNECT` comes from any registered program. `DEFINE`, `ALLOW` and `BIND` are accepted only from `ROOT_PID`; anyone else gets `NOT_ROOT`.
 
 The client side is `cock::user::names::connect` (`userland/lib/include/cock/user/names.hpp`).
 
@@ -59,6 +59,6 @@ Use `HOST_TOOLCHAIN=1` without the cross compiler. The end to end script runs `p
 
 ## Documentation
 
-- [The name server](../../../documentation/userland/names.md)
+- [The name server](../../../documentation/userland/servers/names.md)
 - [Capabilities](../../../documentation/core/capabilities.md)
-- [rs](../../rs/README.md)
+- [rs](../rs/README.md)

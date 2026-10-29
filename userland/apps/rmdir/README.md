@@ -38,5 +38,5 @@ The userland script types `rmdir` at the prompt of the shell and checks the seri
 
 ## Documentation
 
-- [The shell](../../../documentation/userland/shell.md)
-- [Userland programs and the manifest](../../../documentation/userland/userland.md)
+- [The shell](../../../documentation/userland/apps/shell.md)
+- [Userland programs and the manifest](../../../documentation/userland/system/programs.md)

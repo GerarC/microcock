@@ -40,5 +40,5 @@ The userland script searches two files, a text that is not there, and the end of
 
 ## Documentation
 
-- [The shell](../../../documentation/userland/shell.md)
-- [Userland programs and the manifest](../../../documentation/userland/userland.md)
+- [The shell](../../../documentation/userland/apps/shell.md)
+- [Userland programs and the manifest](../../../documentation/userland/system/programs.md)

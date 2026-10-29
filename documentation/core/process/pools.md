@@ -1,0 +1,3 @@
+# Pools
+
+`Thread` and `Process` have their own `operator new` and `operator delete` over a `SlabPool` (`cock/core/memory/slab_pool.hpp`): chunks of four pages come from `VirtualMemoryManager::allocPages`, are cut into slots and kept in a free list, and a released slot is the next one handed out. Neither class touches the first-fit heap, a thread that dies leaves its slot to the next one, and the kernel virtual range stays flat while threads and processes come and go. Chunks are never returned. The I/O permission bitmap (8 KiB) is allocated from the heap when a process asks for its first port, and freed with the process; a request that cannot get the memory is denied.

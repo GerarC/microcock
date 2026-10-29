@@ -25,7 +25,7 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 
 ## Stage 1: from power on to C++
 
-**Read:** [bootloader](arch/bootloader.md).
+**Read:** [bootloader](arch/boot/bootloader.md).
 
 **Open:**
 1. `arch/boot/entry.s`: the Multiboot header, the boot page tables and the jump to the higher half.
@@ -39,7 +39,7 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 
 ## Stage 2: the CPU tables and interrupts
 
-**Read:** [GDT](arch/gdt.md) and [IDT](arch/idt.md).
+**Read:** [GDT](arch/cpu/gdt.md) and [IDT](arch/interrupts/idt.md).
 
 **Open:**
 1. `arch/gdt/gdt.cpp` and `segments.hpp`: segments, the TSS and the I/O permission bitmap.
@@ -53,7 +53,7 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 
 ## Stage 3: memory
 
-**Read:** [memory management](core/memory_management.md).
+**Read:** [memory management](core/memory/README.md).
 
 **Open, in this order:**
 1. `core/memory/address.hpp`: `PhysAddr` and `VirtAddr` as distinct types.
@@ -69,7 +69,7 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 
 ## Stage 4: processes, threads and scheduling
 
-**Read:** [task management](core/task_management.md).
+**Read:** [processes](core/process/README.md), [scheduler](core/scheduler/README.md) and [threads](core/threads/README.md).
 
 **Open:**
 1. `core/task/process.hpp` and `thread.hpp`: what a process owns and what a thread owns.
@@ -113,7 +113,7 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 
 ## Stage 7: loading and starting programs
 
-**Read:** the boot modules and spawn parts of [userland](userland/userland.md) and [filesystem](userland/filesystem.md).
+**Read:** the boot modules and spawn parts of [boot](userland/system/boot.md) and [programs](userland/system/programs.md) and [filesystem](userland/servers/fs/filesystem.md).
 
 **Open:**
 1. `core/loader/elf.cpp`, `elf_loader.hpp` and `elf32.hpp`: the loader.
@@ -125,7 +125,7 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 
 ## Stage 8: your first program
 
-**Read:** [userland](userland/userland.md), then the README of the [user library](../userland/lib/README.md) and of [rs](../userland/servers/rs/README.md).
+**Read:** [boot](userland/system/boot.md) and [programs](userland/system/programs.md), then the README of the [user library](../userland/lib/README.md) and of [rs](../userland/servers/rs/README.md).
 
 **Open:**
 1. `userland/linker.ld` and `userland/common.mk`: how every program is linked.
@@ -141,17 +141,17 @@ Paths with `cock/arch/x86` are written as `arch/` and `cock/core` as `core/`.
 
 Take them in this order, because each builds on the one before. For each, read the page and the program README, then `main.cpp`.
 
-1. **Display and keyboard:** [VGA](userland/vga.md), [keyboard](userland/keyboard.md). The smallest drivers; the keyboard shows an interrupt becoming a message.
-2. **Console:** [console](userland/console.md). A server with clients, an input line and deferred replies.
-3. **Block storage:** [block storage](userland/block_storage.md). A port I/O driver with partition parsing.
-4. **Files:** [filesystem](userland/filesystem.md), then [FAT32](userland/fat32.md) and [ext2](userland/ext2.md). The `vfs` joins the servers behind one tree.
-5. **The shell:** [shell](userland/shell.md). It uses the console and the `vfs` through the C library, so it exercises the whole path from a keystroke to a disk.
+1. **Display and keyboard:** [VGA](userland/drivers/vga.md), [keyboard](userland/drivers/keyboard.md). The smallest drivers; the keyboard shows an interrupt becoming a message.
+2. **Console:** [console](userland/drivers/console.md). A server with clients, an input line and deferred replies.
+3. **Block storage:** [block storage](userland/drivers/block_storage.md). A port I/O driver with partition parsing.
+4. **Files:** [filesystem](userland/servers/fs/filesystem.md), then [FAT32](userland/servers/fs/fat32.md) and [ext2](userland/servers/fs/ext2.md). The `vfs` joins the servers behind one tree.
+5. **The shell:** [shell](userland/apps/shell.md). It uses the console and the `vfs` through the C library, so it exercises the whole path from a keystroke to a disk.
 
 **Exercise:** follow one command in the shell, such as `cat /ext/small.txt`, through every process it touches, and write down each message.
 
 ## Stage 10: the tests, which are also the best examples
 
-**Read:** the README of [test/userland](../test/userland/README.md) and the [fuzzer](userland/fuzzer.md).
+**Read:** the README of [test/userland](../test/userland/README.md) and the [fuzzer](userland/testing/fuzzer.md).
 
 **Open:**
 1. `test/initializer.cpp` and one suite under `test/cock/`: tests that run inside the kernel.

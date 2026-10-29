@@ -55,7 +55,7 @@ Use `HOST_TOOLCHAIN=1` without the cross compiler. `make run` shows the window; 
 
 ## Documentation
 
-- [VGA display server](../../../documentation/userland/vga.md)
-- [Console server](../../../documentation/userland/console.md)
-- [Fuzzer findings](../../../documentation/userland/fuzzer.md)
+- [VGA display server](../../../documentation/userland/drivers/vga.md)
+- [Console server](../../../documentation/userland/drivers/console.md)
+- [Fuzzer findings](../../../documentation/userland/testing/fuzzer.md)
 - [Capabilities](../../../documentation/core/capabilities.md)

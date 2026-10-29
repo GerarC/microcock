@@ -69,7 +69,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler. `make disk` needs `mke2fs` 1.
 
 ## Documentation
 
-- [ext2 server](../../../documentation/userland/ext2.md)
-- [File system protocol](../../../documentation/userland/filesystem.md)
-- [Block storage](../../../documentation/userland/block_storage.md)
+- [ext2 server](../../../documentation/userland/servers/fs/ext2.md)
+- [File system protocol](../../../documentation/userland/servers/fs/filesystem.md)
+- [Block storage](../../../documentation/userland/drivers/block_storage.md)
 - [Capabilities](../../../documentation/core/capabilities.md)

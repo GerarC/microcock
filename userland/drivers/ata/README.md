@@ -72,7 +72,7 @@ Use `HOST_TOOLCHAIN=1` without the cross compiler. `make disk` takes `DISK_SCHEM
 
 ## Documentation
 
-- [Block storage](../../../documentation/userland/block_storage.md)
-- [FAT32 server](../../../documentation/userland/fat32.md)
-- [ext2 server](../../../documentation/userland/ext2.md)
+- [Block storage](../../../documentation/userland/drivers/block_storage.md)
+- [FAT32 server](../../../documentation/userland/servers/fs/fat32.md)
+- [ext2 server](../../../documentation/userland/servers/fs/ext2.md)
 - [Capabilities](../../../documentation/core/capabilities.md)

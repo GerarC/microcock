@@ -41,6 +41,6 @@ Every 250 ms `init` looks at each program with `process_alive` and starts it aga
 
 ## Documentation
 
-- [pm](../../pm/README.md)
-- [rs](../../rs/README.md)
-- [pm and init](../../../documentation/userland/pm.md)
+- [pm](../pm/README.md)
+- [rs](../rs/README.md)
+- [pm and init](../../../documentation/userland/servers/pm.md)

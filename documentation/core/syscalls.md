@@ -131,7 +131,7 @@ See [capabilities](capabilities.md) and [endpoints](endpoints.md) for the model:
 
 ## Debug input and output
 
-The kernel has no input queue and no terminal: these two calls exist for the processes that started before the console server, and the C library uses them only when the console client is missing or fails. Programs read and write through the [console server](../userland/console.md).
+The kernel has no input queue and no terminal: these two calls exist for the processes that started before the console server, and the C library uses them only when the console client is missing or fails. Programs read and write through the [console server](../userland/drivers/console.md).
 
 | Call | Number | What it does | Arguments | Returns | Needs |
 |------|--------|--------------|-----------|---------|-------|

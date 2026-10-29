@@ -7,7 +7,7 @@ A program sees input and output as descriptors, small numbers that `read`, `writ
 | The table, `dup`, `dup2`, `close`, `lseek`, the dispatch of `read` and `write` | `libc/unistd/descriptor.hpp` and `descriptor.cpp` |
 | Console descriptions | `descriptor.cpp`, over `console.cpp` |
 | File descriptions | `libc/unistd/file.cpp`, over the `vfs` client |
-| Pipe descriptions and `pipe()` | `libc/unistd/pipe.cpp`, over the client of the [pipe server](../userland/pipe.md) |
+| Pipe descriptions and `pipe()` | `libc/unistd/pipe.cpp`, over the client of the [pipe server](../userland/servers/pipe.md) |
 | Test | `test/userland/cfile` (`cfile: descriptors ok`) and `test/userland/pipeclient` |
 
 ## Descriptors and descriptions

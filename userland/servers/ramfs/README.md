@@ -70,7 +70,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler. The archive is made by the `M
 
 ## Documentation
 
-- [File system](../../../documentation/userland/filesystem.md)
-- [Userland programs and the manifest](../../../documentation/userland/userland.md)
-- [Memory management and boot modules](../../../documentation/core/memory_management.md)
+- [File system](../../../documentation/userland/servers/fs/filesystem.md)
+- [Userland programs and the manifest](../../../documentation/userland/system/programs.md)
+- [Boot modules](../../../documentation/core/memory/boot_modules.md)
 - [Capabilities](../../../documentation/core/capabilities.md)

@@ -61,9 +61,9 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler, and `USER_EXTRA_FLAGS=-fno-om
 
 ## Documentation
 
-- [Userland programs, API and ABI](../../documentation/userland/userland.md)
-- [File system client library](../../documentation/userland/filesystem.md)
-- [Console client](../../documentation/userland/console.md)
-- [Block storage client](../../documentation/userland/block_storage.md)
+- [The user API](../../documentation/libs/user_api.md) and [the system call ABI](../../documentation/libs/syscall_abi.md)
+- [File system client library](../../documentation/userland/servers/fs/filesystem.md)
+- [Console client](../../documentation/userland/drivers/console.md)
+- [Block storage client](../../documentation/userland/drivers/block_storage.md)
 - [IPC](../../documentation/core/ipc.md)
-- [Task management and threads](../../documentation/core/task_management.md)
+- [Threads and futex](../../documentation/core/threads/README.md)

@@ -102,7 +102,7 @@ make run DISK=build/disk.img
 ```
 `DISK_SCHEME=gpt` builds the GPT variant. The guest writes into the image file, so run `make disk` again to get the original contents back.
 
-The system ends in a shell (`cock>`): type `help` for the commands (`ls`, `cat`, `echo`, `mkdir`, `rm`, `mv`, `ps`, `sleep`, `clear`, ...); `echo text > file` and `cat file | cat` work. See [the shell](documentation/userland/shell.md).
+The system ends in a shell (`cock>`): type `help` for the commands (`ls`, `cat`, `echo`, `mkdir`, `rm`, `mv`, `ps`, `sleep`, `clear`, ...); `echo text > file` and `cat file | cat` work. See [the shell](documentation/userland/apps/shell.md).
 
 Clean the build directory:
 ```bash
@@ -172,7 +172,7 @@ The test attaches a disk with an MBR partition table; `DISK_SCHEME=gpt` uses a G
 DISK_SCHEME=gpt bash scripts/qemu_userland_test.sh HOST_TOOLCHAIN=1
 ```
 
-`scripts/qemu_fuzz_test.sh` boots the fuzzer, which calls the system calls with plausible and hostile arguments and fails on a kernel panic, a triple fault or a hang (see [the fuzzer](documentation/userland/fuzzer.md)); `FUZZ=root` gives it every capability:
+`scripts/qemu_fuzz_test.sh` boots the fuzzer, which calls the system calls with plausible and hostile arguments and fails on a kernel panic, a triple fault or a hang (see [the fuzzer](documentation/userland/testing/fuzzer.md)); `FUZZ=root` gives it every capability:
 ```bash
 FUZZ=user SEED=1 ROUNDS=3000 bash scripts/qemu_fuzz_test.sh HOST_TOOLCHAIN=1
 ```
@@ -217,11 +217,11 @@ What the kernel already does, and what is planned next. Planned items are listed
 **Drivers and servers in Ring 3**
 - VGA and a PS/2 keyboard, with capabilities, and interrupts delivered as notifications.
 - A console server: `printf` and `read(0)` go through it, readers block through deferred replies, and the client is linked by default.
-- A pipe server (`pipe`) and `pipe()` in the C library, over a table of descriptors with `dup` and `dup2`: readers and writers wait while a pipe is empty or full, and standard output can be redirected into a pipe or a file (see [the pipe server](documentation/userland/pipe.md)).
-- A minimal shell with built-in commands (version 0.2.0, see [the shell](documentation/userland/shell.md)).
+- A pipe server (`pipe`) and `pipe()` in the C library, over a table of descriptors with `dup` and `dup2`: readers and writers wait while a pipe is empty or full, and standard output can be redirected into a pipe or a file (see [the pipe server](documentation/userland/servers/pipe.md)).
+- A minimal shell with built-in commands (version 0.2.0, see [the shell](documentation/userland/apps/shell.md)).
 - A syscall fuzzer that runs in Ring 3 and fails on any kernel panic, in unprivileged and root modes, with structured phases that send hostile requests to the file servers and corrupt ELF images to `spawn` and `exec`.
 - A name server in Ring 3 (`names`, the second boot module): a program connects to a server by name or path (`/run/console`, up to 60 bytes) through the handle it was born with, the `ipc=` policy of the manifest is checked then, and a handle on the server is given then. The kernel no longer looks processes up by name; it only finds the boot modules for `rs`.
-- The process model starts to move out of the kernel, as in Minix 3: `rs` (the root server) decides what each program may do and restarts servers, `pm` creates every process after boot, is its parent in the kernel and keeps the table, and `init` (id 1, no authority) starts the shell. `pm` holds the right to create processes and the program labels, never a port or device memory; see [pm](documentation/userland/pm.md). `wait`, `exec` and `fork` (copy on write) are requests to `pm`; signals come next.
+- The process model starts to move out of the kernel, as in Minix 3: `rs` (the root server) decides what each program may do and restarts servers, `pm` creates every process after boot, is its parent in the kernel and keeps the table, and `init` (id 1, no authority) starts the shell. `pm` holds the right to create processes and the program labels, never a port or device memory; see [pm](documentation/userland/servers/pm.md). `wait`, `exec` and `fork` (copy on write) are requests to `pm`; signals come next.
 
 **Hardening**
 - Authenticated reserved messages, per-process memory limits, a reaper thread, a write-protected kernel image, and the FPU disabled for programs.
@@ -268,18 +268,18 @@ Symbolic links are postponed until a program needs them.
 For more detailed information regarding specific subsystems, please check the `documentation/` folder, split by layer: [core](documentation/core/README.md), [arch](documentation/arch/README.md), [userland](documentation/userland/README.md), [shared](documentation/shared/README.md) and [libs](documentation/libs/README.md). Every program in `userland/` has its own `README.md`. The pages:
 * [Learning path](documentation/learning_path.md): Where to start reading, from boot to the userland.
 * [Project Structure](documentation/project_structure.md): Directory layout and the HAL.
-* [Bootloader](documentation/arch/bootloader.md): Multiboot and early entry process.
+* [Bootloader](documentation/arch/boot/bootloader.md): Multiboot and early entry process.
 * [Kernel Main](documentation/core/kernel_main.md): Initialization sequence.
-* [Memory Management](documentation/core/memory_management.md): PMM, paging, VMM, and Heap.
-* [Task Management](documentation/core/task_management.md): Processes, threads, scheduler and MLFQ.
+* [Memory Management](documentation/core/memory/README.md): PMM, paging, VMM, and Heap.
+* [Scheduler](documentation/core/scheduler/README.md): MLFQ, switching, timeouts and metrics. See also [processes](documentation/core/process/README.md) and [threads](documentation/core/threads/README.md).
 * [System calls](documentation/core/syscalls.md): Every call with its number, purpose, arguments, return value and the authority it needs.
 * [Inter-Process Communication](documentation/core/ipc.md): Asynchronous messages and synchronous calls.
 * [Capabilities](documentation/core/capabilities.md): Authority over ports, IRQs and physical memory.
 * [Kernel concepts](documentation/core/kernel_concepts.md): Every concept the kernel holds, why it cannot live outside, and what is planned to move.
-* [Userland](documentation/userland/userland.md): Boot modules, the system call ABI and the drivers.
-* [GDT](documentation/arch/gdt.md) & [IDT](documentation/arch/idt.md): CPU descriptor tables and interrupt handling.
-* [VGA](documentation/userland/vga.md): Kernel console and the userland display server.
-* [Keyboard](documentation/userland/keyboard.md): The PS/2 driver in userland and how an interrupt reaches it.
-* [Block storage](documentation/userland/block_storage.md): The ATA driver, partition tables and the block protocol.
-* [FAT32](documentation/userland/fat32.md): The FAT32 server and how the `vfs` joins it to the initrd.
-* [ext2](documentation/userland/ext2.md): The ext2 server, its feature policy and symbolic links.
+* [Userland](documentation/userland/README.md): programs, boot, manifest, drivers, servers and tests. See also [the system call ABI](documentation/libs/syscall_abi.md).
+* [GDT](documentation/arch/cpu/gdt.md) & [IDT](documentation/arch/interrupts/idt.md): CPU descriptor tables and interrupt handling.
+* [VGA](documentation/userland/drivers/vga.md): Kernel console and the userland display server.
+* [Keyboard](documentation/userland/drivers/keyboard.md): The PS/2 driver in userland and how an interrupt reaches it.
+* [Block storage](documentation/userland/drivers/block_storage.md): The ATA driver, partition tables and the block protocol.
+* [FAT32](documentation/userland/servers/fs/fat32.md): The FAT32 server and how the `vfs` joins it to the initrd.
+* [ext2](documentation/userland/servers/fs/ext2.md): The ext2 server, its feature policy and symbolic links.

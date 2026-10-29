@@ -69,8 +69,8 @@ Use `HOST_TOOLCHAIN=1` where there is no cross compiler. The userland script typ
 
 ## Documentation
 
-- [Console driver](../../../documentation/userland/console.md)
-- [The tty server](../../../documentation/userland/tty.md)
-- [Keyboard driver](../../../documentation/userland/keyboard.md)
-- [VGA display server](../../../documentation/userland/vga.md)
+- [Console driver](../../../documentation/userland/drivers/console.md)
+- [The tty server](../../../documentation/userland/servers/tty.md)
+- [Keyboard driver](../../../documentation/userland/drivers/keyboard.md)
+- [VGA display server](../../../documentation/userland/drivers/vga.md)
 - [IPC and synchronous calls](../../../documentation/core/ipc.md)

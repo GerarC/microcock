@@ -1,6 +1,6 @@
 # pipe
 
-The pipe server. It holds the pipes of all processes: a ring of bytes for each pipe, and the read and write ends each process holds. A reader waits while a pipe is empty, a writer while it is full, and both are answered later with a deferred reply. The design, the protocol and the limits are in [the pipe page](../../../documentation/userland/pipe.md).
+The pipe server. It holds the pipes of all processes: a ring of bytes for each pipe, and the read and write ends each process holds. A reader waits while a pipe is empty, a writer while it is full, and both are answered later with a deferred reply. The design, the protocol and the limits are in [the pipe page](../../../documentation/userland/servers/pipe.md).
 
 ## Where it sits
 
