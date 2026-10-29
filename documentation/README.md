@@ -4,9 +4,9 @@ The pages are split by layer. Each folder has an index.
 
 | Folder | What it covers |
 |--------|----------------|
-| [core/](core/README.md) | The architecture agnostic kernel: boot sequence, memory, tasks, IPC, capabilities |
-| [arch/](arch/README.md) | The x86 implementation under `cock/arch/x86`: boot, descriptor tables, interrupts |
-| [userland/](userland/README.md) | Ring 3 programs: the root server, drivers, file servers, console, shell, fuzzer |
+| [core/](core/README.md) | The architecture agnostic kernel: boot sequence, `memory/`, `process/`, `scheduler/`, `threads/`, IPC, capabilities, `diagnostics/` |
+| [arch/](arch/README.md) | The x86 implementation under `cock/arch/x86`: `boot/`, `cpu/`, `interrupts/`, `devices/` |
+| [userland/](userland/README.md) | Ring 3 programs: `system/` (manifest, boot, build), `drivers/`, `servers/`, `apps/`, `testing/` |
 | [shared/](shared/README.md) | Headers included by both the kernel and the programs: ABI, message format, data structures |
 | [libs/](libs/README.md) | The freestanding C and C++ libraries and the `cock::user` library |
 

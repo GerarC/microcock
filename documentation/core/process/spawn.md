@@ -1,0 +1,16 @@
+# Spawn
+
+The kernel does not read program files. Starting a program takes six calls that build a process piece by piece, and the loader that knows the ELF format is the library function `cock::user::spawn` (`userland/lib/include/cock/user/spawn.hpp`, with the reader in `shared/include/cock/elf/image.hpp`). Only a process that holds a `SPAWN` capability may call `SYS_PROC_CREATE` (see [capabilities](../capabilities.md#the-spawn-capability)).
+
+| Call | What the kernel does |
+|------|----------------------|
+| `SYS_PROC_CREATE(name, length, flags, rights, limit)` | Makes a process with an empty address space and no thread. It names it and records the parent. The process is not reachable by a process id yet, because a process takes its id from its first thread; the caller gets a **handle**, the index of an entry in the table of pending processes (`PendingProcesses`). The call checks the capability, the rights and the exit notice limit, and fails when the caller already holds 2 pending processes or the system holds 8 |
+| `SYS_PROC_MAP(handle, address, pages)` | Maps zeroed writable pages in the pending process. The range must be page aligned, not touch the first page nor the user stack, be unmapped, and stay inside 4 MiB for the whole process |
+| `SYS_PROC_WRITE(handle, address, source, length)` | Copies from the caller into pages that are mapped and writable, one page at a time through a kernel page that each call allocates and frees (no shared buffer), switching address space for each page |
+| `SYS_PROC_PROTECT(handle, address, pages)` | Makes mapped pages read only, so the code of the new program cannot be changed by itself |
+| `SYS_PROC_START(handle, entry)` | Checks that the entry point is mapped, checks the rights again, reserves the exit notice, creates the first thread (and its stack) and lets it run. The handle stops being valid and the call returns the process id |
+| `SYS_PROC_DISCARD(handle)` | Destroys a pending process and its memory |
+| `SYS_PROC_EXEC(handle, entry, pid, initial)` | Replaces the image of the process `pid` with the pending process of `handle`, which must have no rights and no exit notice. See [exec](exec.md) |
+| `SYS_PROC_FORK(pid, reply)` | Makes a child of the caller that is a copy of the process `pid`, whose memory is shared copy on write. See [fork](fork.md) |
+
+Only the process that created the handle may use it. A pending process dies with its creator (`Process::~Process` calls `PendingProcesses::discardOwnedBy`), so a loader that crashes in the middle leaves nothing behind. A mistake in the loader can at worst give a broken program, or make a call fail; the kernel validates every range again. The new process has an **empty capability set**, except for the rights it was created with; whoever started it grants what it needs with `SYS_CAP_GRANT` and `CAPABILITY_GRANTED`. The calls fail, without panicking, when there are no free process ids or when frames run out; `SYS_PROC_START` maps the user stack and the kernel stack before it creates the thread, so running out of frames there is a failure and the process stays pending; the kernel can still panic only if the pool of thread objects cannot grow, as for any thread. `SYS_PROC_ALIVE(pid)` tells whether a process id names a living process.

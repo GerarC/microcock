@@ -63,8 +63,8 @@ The script needs QEMU, GRUB tools, Python 3, `sfdisk`, mtools, `dosfstools` and 
 
 ## Documentation
 
-- [Userland programs and testing](../../documentation/userland/userland.md)
-- [File system tests](../../documentation/userland/filesystem.md)
-- [Syscall fuzzer](../../documentation/userland/fuzzer.md)
-- [Block storage tests](../../documentation/userland/block_storage.md)
-- [Console tests](../../documentation/userland/console.md)
+- [Userland programs](../../documentation/userland/system/programs.md) and [testing](../../documentation/userland/testing/README.md)
+- [File system tests](../../documentation/userland/servers/fs/filesystem.md)
+- [Syscall fuzzer](../../documentation/userland/testing/fuzzer.md)
+- [Block storage tests](../../documentation/userland/drivers/block_storage.md)
+- [Console tests](../../documentation/userland/drivers/console.md)

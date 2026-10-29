@@ -14,11 +14,11 @@ The root server of MicroCOCK, the `rs` (reincarnation server) of Minix 3. It is 
 | Direction | Message | Use |
 |-----------|---------|-----|
 | `rs` to `names` | `CAPABILITY_GRANTED` (after the label and a `SYS_CAP_GRANT` of `ENDPOINT` with `GRANT_DELEGATE` and `GRANT_MINT`) | Lets the name server serve |
-| `rs` to `names` | Synchronous calls `DEFINE`, `ALLOW`, `OWNER` and `BIND`, through a handle `rs` made for itself | Describe the programs, the `ipc=` policy, the owner and mode, and the process that runs each program (see [names](../../../documentation/userland/names.md)) |
+| `rs` to `names` | Synchronous calls `DEFINE`, `ALLOW`, `OWNER` and `BIND`, through a handle `rs` made for itself | Describe the programs, the `ipc=` policy, the owner and mode, and the process that runs each program (see [names](../../../documentation/userland/servers/names.md)) |
 | `rs` to `ramfs` | `CAPABILITY_GRANTED` (after `SYS_CAP_GRANT` of `BOOT_MODULE`) | Lets `ramfs` open the `initrd` |
 | `rs` to `ramfs` | `FS_CONNECT`, `FS_OPEN`, `FS_STAT`, `FS_READ`, `FS_CLOSE` | Reads `manifest.conf` and each program image, through `cock::user::fs::Client` |
 | `rs` to each started process | `CAPABILITY_GRANTED`, `arg0` is the `arg=` value | Sent after the grants, only when the entry has grants or an argument, through a handle on the endpoint of the program that lives only for the send (`sendTo`) |
-| `rs` to `pm` | Synchronous calls `ALLOCATE`, `SPAWN`, `REGISTER`, `PERMIT` | `rs` creates `pm` itself (`spawnDirect`) and every other program through it; see [pm](../../pm/README.md) |
+| `rs` to `pm` | Synchronous calls `ALLOCATE`, `SPAWN`, `REGISTER`, `PERMIT` | `rs` creates `pm` itself (`spawnDirect`) and every other program through it; see [pm](../pm/README.md) |
 | `rs` to `pm` | `CAPABILITY_GRANTED`, `arg0` a handle on the endpoint of `rs`, `arg1` the endpoint of the name server | Sent after `pm` got the right to create processes, the program labels and the endpoint of the name server |
 | `pm` to `rs` | `PM_EXITED` (`arg0` kernel process id, `arg1` status) | For the entries with `repeat=` and `restart=`, which `rs` spawns with the notice requested; the badge is the process id of `pm` |
 | `pm` to `rs` | `PM_SPAWNED` (`arg0` kernel process id, `arg1` label) | A process that `init` asked for exists: `rs` registers it with the name server and equips it |
@@ -114,7 +114,7 @@ On a machine without the cross compiler add `HOST_TOOLCHAIN=1`. The end to end s
 
 ## Documentation
 
-- [Userland programs, manifest and API](../../../documentation/userland/userland.md)
-- [File system boot sequence](../../../documentation/userland/filesystem.md)
+- [The manifest](../../../documentation/userland/system/manifest.md) and [the user API](../../../documentation/libs/user_api.md)
+- [File system boot sequence](../../../documentation/userland/servers/fs/filesystem.md)
 - [Capabilities](../../../documentation/core/capabilities.md)
-- [Task management and spawn](../../../documentation/core/task_management.md)
+- [Task management and spawn](../../../documentation/core/process/spawn.md)

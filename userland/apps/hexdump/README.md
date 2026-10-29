@@ -39,5 +39,5 @@ The userland script dumps a 23 byte file and checks the row, the ASCII part and 
 
 ## Documentation
 
-- [The shell](../../../documentation/userland/shell.md)
-- [Userland programs and the manifest](../../../documentation/userland/userland.md)
+- [The shell](../../../documentation/userland/apps/shell.md)
+- [Userland programs and the manifest](../../../documentation/userland/system/programs.md)

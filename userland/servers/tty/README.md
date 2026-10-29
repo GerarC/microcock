@@ -16,7 +16,7 @@ sh --READ-------------+
 
 ## Terminals
 
-Four terminals; Alt+F1 to Alt+F4 switch (see [the tty page](../../../documentation/userland/tty.md#terminals)). `terminals[]` (`tty/terminal.hpp`) holds the line discipline, the readers, the bytes kept for a dead reader and the owner of each one; only the active terminal receives keys. `ATTACH` gives the lowest terminal with no living owner.
+Four terminals; Alt+F1 to Alt+F4 switch (see [the tty page](../../../documentation/userland/servers/tty.md#terminals)). `terminals[]` (`tty/terminal.hpp`) holds the line discipline, the readers, the bytes kept for a dead reader and the owner of each one; only the active terminal receives keys. `ATTACH` gives the lowest terminal with no living owner.
 
 ## Protocol
 
@@ -58,5 +58,5 @@ Use `HOST_TOOLCHAIN=1` where there is no cross compiler. The userland script typ
 
 ## Documentation
 
-- [The tty server](../../../documentation/userland/tty.md)
-- [Console driver](../../../documentation/userland/console.md)
+- [The tty server](../../../documentation/userland/servers/tty.md)
+- [Console driver](../../../documentation/userland/drivers/console.md)

@@ -65,7 +65,7 @@ The rule comes from Liedtke: a concept belongs in the kernel only if moving it o
 | Idle thread and reaper thread | The kernel frees its own objects | primitive |
 | Port bitmap per process, built on the first grant | The CPU reads it | primitive |
 | Pending processes (`PendingProcesses`) | A process has no id until it has a thread, so a process under construction needs a name that only its creator can use, and it must die with the creator | primitive |
-| ELF loader for boot modules (`core/loader`, ELF32 and ELF64) | Reads a file format, but only for the Multiboot modules `rs`, `names`, `ramfs` and `vga_driver`, which start before any program that could load them. It is reachable from no system call | boot only (M1: the loader that served `spawn` is gone) |
+| ELF loader for boot modules (`core/loader`, ELF32 and ELF64; see [elf_loader](elf_loader.md)) | Reads a file format, but only for the Multiboot modules `rs`, `names`, `ramfs` and `vga_driver`, which start before any program that could load them. It is reachable from no system call | boot only (M1: the loader that served `spawn` is gone) |
 | Process names | Only the name of a boot module, which `SYS_MODULE_PROCESS` reads (the names `rs` and `vga_driver` went on 2026-10-23: the first program module is the root task, and the screen goes to whoever maps it). The registry of names for programs is the `names` server (E1, done); the kernel must not know programs by name | boot only |
 | Kernel console and `Logger` output | Debug output and the early boot | debug (M2a, skipped for now) |
 

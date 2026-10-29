@@ -70,7 +70,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler. `make disk` builds a disk wit
 
 ## Documentation
 
-- [FAT32 server](../../../documentation/userland/fat32.md)
-- [File system protocol](../../../documentation/userland/filesystem.md)
-- [Block storage](../../../documentation/userland/block_storage.md)
+- [FAT32 server](../../../documentation/userland/servers/fs/fat32.md)
+- [File system protocol](../../../documentation/userland/servers/fs/filesystem.md)
+- [Block storage](../../../documentation/userland/drivers/block_storage.md)
 - [Capabilities](../../../documentation/core/capabilities.md)

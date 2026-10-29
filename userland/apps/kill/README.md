@@ -42,6 +42,6 @@ The userland script signals a process that does not exist and sends two malforme
 
 ## Documentation
 
-- [The shell](../../../documentation/userland/shell.md)
-- [Process manager](../../../documentation/userland/pm.md)
-- [Userland programs and the manifest](../../../documentation/userland/userland.md)
+- [The shell](../../../documentation/userland/apps/shell.md)
+- [Process manager](../../../documentation/userland/servers/pm.md)
+- [Userland programs and the manifest](../../../documentation/userland/system/programs.md)

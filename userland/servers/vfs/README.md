@@ -67,7 +67,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler. The end to end script require
 
 ## Documentation
 
-- [File system](../../../documentation/userland/filesystem.md)
-- [FAT32 server](../../../documentation/userland/fat32.md)
-- [ext2 server](../../../documentation/userland/ext2.md)
-- [Userland programs and the manifest](../../../documentation/userland/userland.md)
+- [File system](../../../documentation/userland/servers/fs/filesystem.md)
+- [FAT32 server](../../../documentation/userland/servers/fs/fat32.md)
+- [ext2 server](../../../documentation/userland/servers/fs/ext2.md)
+- [Userland programs and the manifest](../../../documentation/userland/system/programs.md)

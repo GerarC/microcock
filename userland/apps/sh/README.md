@@ -74,7 +74,7 @@ Add `HOST_TOOLCHAIN=1` without the cross compiler. Type in the QEMU window; with
 
 ## Documentation
 
-- [The shell](../../../documentation/userland/shell.md)
-- [Console server](../../../documentation/userland/console.md)
-- [File system](../../../documentation/userland/filesystem.md)
-- [Userland programs and the manifest](../../../documentation/userland/userland.md)
+- [The shell](../../../documentation/userland/apps/shell.md)
+- [Console server](../../../documentation/userland/drivers/console.md)
+- [File system](../../../documentation/userland/servers/fs/filesystem.md)
+- [Userland programs and the manifest](../../../documentation/userland/system/programs.md)

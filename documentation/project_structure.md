@@ -69,18 +69,4 @@ The codebase strictly separates the architecture-dependent code, the kernel core
 
 ## The HAL
 
-The core never includes anything from `cock/arch/`. It includes `<hal/...>` headers, and the Makefile adds `-Icock/arch/$(ARCH)/include` to the compiler flags, so the architecture chosen at build time decides which headers answer.
-
-| Header | Provides |
-|--------|----------|
-| `hal/page.hpp` | `PAGE_SIZE`, `PAGE_SHIFT`, `PAGE_MASK` |
-| `hal/address_space.hpp` | Raw address types, the user-space limit of each ELF class, where the kernel half starts, where `mmap` starts |
-| `hal/cpu.hpp` | Inline primitives: port I/O, interrupt flag save and restore, `invlpg`, page-table root, `cpuid`, global pages, emulator exit |
-| `hal/interrupt.hpp` | Number of IRQ lines and which ones are reserved for the kernel |
-| `hal/serial.hpp`, `hal/console.hpp` | Serial port and the kernel text console |
-| `hal/process_context.hpp` | The `ArchProcessContext` stored by value in each `Process` |
-| `hal/executable.hpp` | Which ELF classes and machine numbers the architecture runs |
-
-Everything in these headers is `constexpr` or `inline`, so a call from the core compiles to the instruction itself. Porting to another architecture means providing the same set of headers, plus the implementations that cannot be inline (`cock/arch/<name>/...`).
-
-The pieces that the core declares and the architecture implements (switching the stack of a new thread, the I/O permission bitmap, the page-table root) live in `cock/core/hal/tasking.hpp`.
+The core never includes anything from `cock/arch/`: it includes `<hal/...>` headers, and the architecture chosen at build time decides which ones answer. The headers and the contract are described in [the HAL](core/hal.md).

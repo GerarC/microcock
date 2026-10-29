@@ -1,0 +1,3 @@
+# Process ids
+
+An id is `generation << 12 | slot`: the low 12 bits index the registry (4096 slots) and the high 19 bits count how many times that slot has been reused, so every id stays below 2^31. The first user of a slot has generation 0, which is why the first ids are small numbers. When the [reaper](reaper.md) recycles a slot it increments the generation, so an id kept by `rs`, a driver or the kernel (`debug_output_pid`) stops matching: `TaskManager::getThreadByPID` compares the whole id, and a message to a dead process fails instead of reaching the thread that took its slot. After 2^19 reuses of one slot the generation wraps.

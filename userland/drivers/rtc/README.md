@@ -62,7 +62,7 @@ Use `HOST_TOOLCHAIN=1` without the cross compiler. The userland script requires 
 
 ## Documentation
 
-- [FAT32 server, dates](../../../documentation/userland/fat32.md)
-- [ext2 server, times](../../../documentation/userland/ext2.md)
-- [File system protocol](../../../documentation/userland/filesystem.md)
+- [FAT32 server, dates](../../../documentation/userland/servers/fs/fat32.md)
+- [ext2 server, times](../../../documentation/userland/servers/fs/ext2.md)
+- [File system protocol](../../../documentation/userland/servers/fs/filesystem.md)
 - [Capabilities](../../../documentation/core/capabilities.md)
