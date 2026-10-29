@@ -19,3 +19,4 @@ Each header carries the reference of its functions as Doxygen comments; [userlan
 | [user_api.md](user_api.md) | The `cock::user` wrappers of the system calls and the helpers built on them |
 | [syscall_abi.md](syscall_abi.md) | Registers of `int 0x80` as a program sees them, the wrapper and blocking calls |
 | [descriptors.md](descriptors.md) | Descriptors in the C library: `dup`, `dup2`, `fork`, `exec`, buffered output |
+| [user_elf_loader.md](user_elf_loader.md) | The ELF parser and the loader in Ring 3 that build a process with the `SYS_PROC_*` calls |

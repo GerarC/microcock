@@ -1,6 +1,6 @@
 # Spawn
 
-The kernel does not read program files. Starting a program takes six calls that build a process piece by piece, and the loader that knows the ELF format is the library function `cock::user::spawn` (`userland/lib/include/cock/user/spawn.hpp`, with the reader in `shared/include/cock/elf/image.hpp`). Only a process that holds a `SPAWN` capability may call `SYS_PROC_CREATE` (see [capabilities](../capabilities.md#the-spawn-capability)).
+The kernel does not read program files. Starting a program takes six calls that build a process piece by piece, and the loader that knows the ELF format is the library function `cock::user::spawn` (see [the ELF loader in Ring 3](../../libs/user_elf_loader.md)). Only a process that holds a `SPAWN` capability may call `SYS_PROC_CREATE` (see [capabilities](../capabilities.md#the-spawn-capability)).
 
 | Call | What the kernel does |
 |------|----------------------|

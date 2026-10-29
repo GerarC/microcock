@@ -1,6 +1,6 @@
 # ELF loader
 
-`cock/core/loader` loads an ELF executable into a user address space. It exists only for the Multiboot boot modules (`rs`, `names`, `ramfs`, `vga_driver`), which start before any program that could load them. No system call reaches it: a program started at run time is loaded in Ring 3 by `cock::user::spawn` through the `SYS_PROC_*` calls (see [spawn](process/spawn.md)). Its place in the list of kernel concepts is in [kernel concepts](kernel_concepts.md).
+`cock/core/loader` loads an ELF executable into a user address space. It exists only for the Multiboot boot modules (`rs`, `names`, `ramfs`, `vga_driver`), which start before any program that could load them. No system call reaches it: a program started at run time is loaded in Ring 3 by `cock::user::spawn` through the `SYS_PROC_*` calls (see [spawn](process/spawn.md) and [the ELF loader in Ring 3](../libs/user_elf_loader.md)). Its place in the list of kernel concepts is in [kernel concepts](kernel_concepts.md).
 
 ## Interface
 
