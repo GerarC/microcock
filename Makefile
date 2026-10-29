@@ -15,7 +15,6 @@ CPP_FLAGS   = -std=gnu++20 -ffreestanding -O2 -Wall -Wextra -Werror -fno-excepti
               -Ilibc/include -Ilibcxx/include -Ishared/include -I. \
               -Icock/arch/$(ARCH)/include \
               -fstack-protector-all -fno-use-cxa-atexit \
-              -fno-tree-loop-distribute-patterns \
               -mno-sse -mno-sse2 -mno-mmx -mno-80387 \
               -MMD -MP
 TEST_FLAGS  = -DCOCK_TEST_MODE
