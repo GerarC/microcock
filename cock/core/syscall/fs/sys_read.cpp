@@ -1,3 +1,4 @@
+#include <cock/core/memory/vmm.hpp>
 #include <cock/core/syscall/syscalls.hpp>
 #include <cock/core/task/scheduler.hpp>
 #include <cock/core/task/thread.hpp>
@@ -8,22 +9,27 @@ namespace cock::core::syscall {
 
 using core::task::Scheduler;
 using core::task::Thread;
-using core::task::ThreadResult;
+using memory::VirtAddr;
+using memory::VirtualMemoryManager;
 using utils::Logger;
 
-// TODO: FINISH SYS_READ
+constexpr uintptr_t STDIN_FD = 0;
+
 uintptr_t sys_read(uintptr_t fd, uintptr_t buf, uintptr_t count, uintptr_t,
 				   uintptr_t, uintptr_t) {
+	if (fd != STDIN_FD) return (uintptr_t)-1;
 
-	if (fd == 0) {
-		char *user_buf = reinterpret_cast<char *>(buf);
-		Logger::warn("sys_read: PID %d tried to read STDIN, but micrococks "
-					 "lacks of TTY server!",
-					 task::Scheduler::getCurrentThread()->getId());
+	Thread *current = Scheduler::getCurrentThread();
+	if (!current) return (uintptr_t)-1;
+	if (!VirtualMemoryManager::isUserRangeValid(VirtAddr(buf), count, true,
+												current->getUserSpaceLimit()))
+		return (uintptr_t)-1;
 
-		return 0;
-	}
-	return 1;
+	Logger::trace("sys_read: PID %d read STDIN; input is served by the console "
+				 "server, so the kernel reports end of input",
+				 current->getId());
+
+	return 0;
 }
 
 } // namespace cock::core::syscall

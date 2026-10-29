@@ -1,50 +1,126 @@
 #include <cock/core/hal/utils.hpp>
+#include <cock/core/task/endpoint_table.hpp>
 #include <cock/core/task/ipc.hpp>
 #include <cock/core/task/scheduler.hpp>
+#include <cock/core/task/sync_ipc.hpp>
 #include <cock/core/task/task_manager.hpp>
 #include <cock/core/task/thread.hpp>
 
 namespace cock::core::task {
 
-void IPC::send(uint32_t to_pid, Message message) {
-	hal::block_interruptions();
+bool IPC::deliver(uint32_t to_pid, Message message) {
+	uintptr_t flags = hal::save_and_block_interruptions();
 	Thread *target = TaskManager::getThreadByPID(to_pid);
-	Thread *sender = Scheduler::getCurrentThread();
 
 	if (!target || target->getState() == ThreadState::DEAD) {
-		hal::unblock_interruptions();
-		return;
+		hal::restore_interruptions(flags);
+		return false;
 	}
-	message.sender_pid = sender->getId();
 	message.target_pid = target->getId();
 
-	target->receiveMessage(message);
+	if (!target->receiveMessage(message)) {
+		hal::restore_interruptions(flags);
+		return false;
+	}
+
+	wake(*target);
+	hal::restore_interruptions(flags);
+	return true;
+}
+
+void IPC::wake(Thread &target) {
+	if (target.getState() == ThreadState::WAITING_MSG) {
+		target.setState(ThreadState::READY);
+		Scheduler::addThread(&target);
+	} else if (target.getState() == ThreadState::WAITING_CALL) {
+		SyncIpc::wakeForMessage(target);
+	}
+}
+
+bool IPC::post(uint32_t endpoint, Message message) {
+	uintptr_t flags = hal::save_and_block_interruptions();
+	if (!endpoint_table.enqueue(endpoint, message)) {
+		hal::restore_interruptions(flags);
+		return false;
+	}
+
+	Thread *owner = TaskManager::getThreadByPID(endpoint_table.ownerOf(endpoint));
+	if (owner != nullptr && owner->isMainThread() && owner->getState() != ThreadState::DEAD)
+		wake(*owner);
+	hal::restore_interruptions(flags);
+	return true;
+}
+
+void IPC::announce(Thread &owner) {
+	uintptr_t flags = hal::save_and_block_interruptions();
+	if (owner.getState() == ThreadState::WAITING_CALL && SyncIpc::hasCallers(owner)) {
+		SyncIpc::resume(owner);
+	} else if (owner.hasMessages()) {
+		wake(owner);
+	}
+	hal::restore_interruptions(flags);
+}
+
+bool IPC::notifyExit(uint32_t parent_pid, uint32_t child_pid, uint32_t status) {
+	uintptr_t flags = hal::save_and_block_interruptions();
+	Thread *target = TaskManager::getThreadByPID(parent_pid);
+
+	if (!target || target->getProcess()->getId() != parent_pid ||
+		!target->getProcess()->recordExitNotice(child_pid, status)) {
+		hal::restore_interruptions(flags);
+		return false;
+	}
 
 	if (target->getState() == ThreadState::WAITING_MSG) {
 		target->setState(ThreadState::READY);
 		Scheduler::addThread(target);
-		hal::unblock_interruptions();
-		Thread::yield();
-	} else hal::unblock_interruptions();
+	} else if (target->getState() == ThreadState::WAITING_CALL) {
+		SyncIpc::wakeForMessage(*target);
+	}
+	hal::restore_interruptions(flags);
+	return true;
+}
+
+bool IPC::notify(uint32_t to_pid, uint32_t line) {
+	uintptr_t flags = hal::save_and_block_interruptions();
+	Thread *target = TaskManager::getThreadByPID(to_pid);
+
+	if (!target || target->getState() == ThreadState::DEAD) {
+		hal::restore_interruptions(flags);
+		return false;
+	}
+
+	target->raiseNotification(line);
+	if (target->getState() == ThreadState::WAITING_MSG) {
+		target->setState(ThreadState::READY);
+		Scheduler::addThread(target);
+	} else if (target->getState() == ThreadState::WAITING_CALL) {
+		SyncIpc::wakeForMessage(*target);
+	}
+	hal::restore_interruptions(flags);
+	return true;
+}
+
+void IPC::send(uint32_t to_pid, Message message) {
+	if (deliver(to_pid, message)) Thread::yield();
 }
 
 void IPC::receive(Message *message) {
-	hal::block_interruptions();
 	Thread *target = Scheduler::getCurrentThread();
+	if (!target || !message) return;
 
-	if (target->hasMessages()) {
-		target->getNextMessage(*message);
-		hal::unblock_interruptions();
-		return;
+	for (;;) {
+		uintptr_t flags = hal::save_and_block_interruptions();
+
+		if (target->getNextMessage(*message)) {
+			hal::restore_interruptions(flags);
+			return;
+		}
+
+		target->setState(ThreadState::WAITING_MSG);
+		hal::restore_interruptions(flags);
+		Thread::yield();
 	}
-
-	target->setState(ThreadState::WAITING_MSG);
-	hal::unblock_interruptions();
-	Thread::yield();
-
-	hal::block_interruptions();
-	target->getNextMessage(*message);
-	hal::unblock_interruptions();
 }
 
 } // namespace cock::core::task

@@ -36,52 +36,10 @@ void Logger::vlog(LogLevel level, const char *fmt, va_list args) {
 	printf("\n");
 }
 
-void Logger::log(LogLevel level, const char *fmt, ...) {
+void Logger::write(LogLevel level, const char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	vlog(level, fmt, args);
-	va_end(args);
-}
-
-void Logger::trace(const char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	vlog(LogLevel::TRACE, fmt, args);
-	va_end(args);
-}
-
-void Logger::debug(const char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	vlog(LogLevel::DEBUG, fmt, args);
-	va_end(args);
-}
-
-void Logger::info(const char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	vlog(LogLevel::INFO, fmt, args);
-	va_end(args);
-}
-
-void Logger::warn(const char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	vlog(LogLevel::WARN, fmt, args);
-	va_end(args);
-}
-
-void Logger::error(const char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	vlog(LogLevel::ERROR, fmt, args);
-	va_end(args);
-}
-
-void Logger::fatal(const char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	vlog(LogLevel::FATAL, fmt, args);
 	va_end(args);
 }
 

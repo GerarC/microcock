@@ -1,12 +1,10 @@
+/** @file
+ * @brief Pulls in the CPU primitives of the active architecture (interrupt
+ * flag handling, page table root access) through the HAL.
+ */
 #ifndef CORE_HAL_UTILS_HPP
 #define CORE_HAL_UTILS_HPP
 
-namespace cock::core::hal {
-
-void halt();
-void block_interruptions();
-void unblock_interruptions();
-void manual_timer();
-}
+#include <hal/cpu.hpp>
 
 #endif // !CORE_HAL_UTILS_HPP

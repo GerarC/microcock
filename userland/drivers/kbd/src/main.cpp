@@ -1,0 +1,41 @@
+#include <cock/abi/capability.hpp>
+#include <cock/ipc/message.hpp>
+#include <cock/user/api.hpp>
+#include <kbd/console_link.hpp>
+#include <kbd/controller.hpp>
+#include <kbd/grant.hpp>
+#include <kbd/keymap.hpp>
+#include <stdio.h>
+
+using cock::ipc::Message;
+
+namespace {
+
+constexpr uintptr_t FAILED_STATUS = 1;
+constexpr const char READY_MESSAGE[] = "kbd: ready\n";
+constexpr const char FAILED_MESSAGE[] = "kbd: cannot bind the keyboard\n";
+
+} // namespace
+
+extern "C" int main() {
+	cock::kbd::waitForCapabilities();
+	uint32_t console = cock::abi::NO_CAPABILITY_NODE;
+
+	if (!cock::kbd::openController()) {
+		puts(FAILED_MESSAGE);
+		cock::user::exit_process(FAILED_STATUS);
+	}
+	puts(READY_MESSAGE);
+
+	cock::kbd::Decoder decoder;
+	Message message = {};
+	for (;;) {
+		cock::user::ipc_recv(message);
+		if (!cock::kbd::isInterrupt(message)) continue;
+
+		cock::kbd::sendKey(console, decoder.feed(cock::kbd::readScancode()));
+		uint32_t asked = decoder.takeSwitch();
+		if (asked != cock::kbd::NO_SWITCH) cock::kbd::sendSwitch(console, asked);
+		cock::kbd::acknowledge();
+	}
+}

@@ -1,10 +1,13 @@
+%define STACK_ALIGNMENT_MASK -16
+%define ARGUMENT_PADDING 12
+%define KERNEL_DATA_SELECTOR 0x10
+
 section .text
 
 extern irq_handler
 
 %macro irq 2
 irq_stub_%1:
-    cli
     push dword 0
     push dword %2
     jmp irq_common_stub
@@ -12,22 +15,25 @@ irq_stub_%1:
 
 irq_common_stub:
     pusha
-    mov eax, ds 
-    push eax
-    mov eax, cr2
-    push eax
+    cld
 
-    mov ax, 0x10
+    mov eax, ds
+    push eax
+    push dword 0
+
+    mov ax, KERNEL_DATA_SELECTOR
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
-    push esp
+    mov ebp, esp
+    and esp, STACK_ALIGNMENT_MASK
+    sub esp, ARGUMENT_PADDING
+    push ebp
 
     call irq_handler
-    
-    ;; Change of context
+
     mov esp, eax
 
     add esp, 4
@@ -39,7 +45,6 @@ irq_common_stub:
 
     popa
     add esp, 8
-    sti 
     iret
 
 irq 0, 32
